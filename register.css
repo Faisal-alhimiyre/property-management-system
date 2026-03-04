@@ -5,7 +5,7 @@ body{
   font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
   direction: rtl;
   height: 100vh;
-  overflow: hidden;
+  overflow: auto;
 }
 
 /* Split background like Walajna */
