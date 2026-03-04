@@ -1,13 +1,10 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@700;900&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=DIN+Next+Arabic:wght@700;800&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@700&display=swap" rel="stylesheet">
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ولجنا - المالك</title>
-  <link rel="stylesheet" href="style.css" />
+  <title>Walajna navbar</title>
+  <link rel="stylesheet" href="navstyle.css" />
 </head>
 
 <body>
@@ -22,26 +19,22 @@
         <a href="owner_buildings.html">العماير/الشقق</a>
         <a href="owner_services.html">الخدمات</a>
         <a href="owner_messages.html">الرسائل</a>
-        <a href="owner_help.html">المساعدة</a>
       </nav>
 
-      <!-- الشعار -->
-      <div class="walajna-topbar__brand">
-        <a href="owner_home.html" class="brand-text">وَلَجْنا</a>
-      </div>
+      <!-- logo -->
+<div class="walajna-topbar__brand">
+  <a href="owner_home.html" class="brand-logo-link" aria-label="الشعار">
+    <img src="logo.png" alt="ALAJNA" class="brand-logo">
+  </a>
+</div>
 
-      <!-- أيقونات -->
-      <div class="walajna-topbar__icons">
-        <a class="icon-btn" href="owner_settings.html" aria-label="الإعدادات" title="الإعدادات">⚙️</a>
-      </div>
-
-    </div>
+   <!-- Icons for settings and support -->
+<div class="walajna-topbar__icons">
+  <a class="icon-btn" href="owner_help.html" aria-label="الدعم الفني" title="الدعم الفني">🎧</a>
+  <a class="icon-btn" href="owner_settings.html" aria-label="الإعدادات" title="الإعدادات">⚙️</a>
+</div>
+    
   </header>
-
-  <main style="padding: 30px; font-family: system-ui;">
-    <h1>صفحة المالك</h1>
-    <p>هذا مجرد مثال. سنربط كل الصفحات لاحقاً.</p>
-  </main>
 
 </body>
 </html>

@@ -54,24 +54,12 @@
   background: rgba(255,255,255,.22);
 }
 
-/* الشعار بالوسط */
-.walajna-topbar__brand{
-  display: flex;
-  align-items: center;
-}
-
-.brand-text{
-  font-family: 'IBM Plex Sans Arabic', sans-serif;
-  font-weight: 700;
-  font-size: 34px;
-}
-
 /* الأيقونات (يسار) */
 .walajna-topbar__icons{
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 2px;
 }
 
 .icon-btn{
@@ -91,6 +79,17 @@
 .icon-btn:hover{
   transform: translateY(-1px);
   background: rgba(255,255,255,.30);
+}
+.brand-logo-link{
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.brand-logo{
+  height: 70px;   /* تتحكم بالحجم هنا */
+  width: auto;
+  display: block;
 }
 
 /* موبايل */
