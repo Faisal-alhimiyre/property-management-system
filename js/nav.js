@@ -2,7 +2,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const el = document.getElementById("navbar-container");
   if (!el) return;
 
-  fetch("navigation.html")
+  fetch("../main/navigation.html")
     .then((res) => {
       if (!res.ok) throw new Error("Navbar file not found: " + res.status);
       return res.text();

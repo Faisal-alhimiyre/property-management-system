@@ -42,7 +42,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (!isValidSaudiId(nationalId)) {
-      showError("رقم الهوية الوطنية غير صحيح. تأكد من إدخال 10 أرقام صحيحة.");
+      showError("رقم الهوية الوطنية غير صحيح.  ");
       return;
     }
 

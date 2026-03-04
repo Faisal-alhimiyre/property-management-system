@@ -54,19 +54,19 @@ document.addEventListener("DOMContentLoaded", () => {
     // Redirect logic
     if (roles.length > 1){
       // user has both roles -> choose page
-      window.location.href = "role.html";
+      window.location.href = "./role.html";
       return;
     }
 
     if (roles[0] === "owner"){
       localStorage.setItem("activeRole", "owner");
-      window.location.href = "owner_home.html"; // change if needed
+      window.location.href = "../owner/owner_home.html"; // change if needed
       return;
     }
 
     if (roles[0] === "tenant"){
       localStorage.setItem("activeRole", "tenant");
-      window.location.href = "tenant_home.html"; // change if needed
+      window.location.href = "../tenants/tenant_home.html"; // change if needed
       return;
     }
 
