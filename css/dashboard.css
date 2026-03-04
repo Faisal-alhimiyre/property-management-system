@@ -1,0 +1,81 @@
+/* dashboard.css */
+
+/* عنوان الصفحة */
+.page-title{
+  width: 100%;
+  padding: 18px 0 6px;
+  text-align: center;
+}
+
+.page-title h2{
+  margin: 0;
+  font-size: 28px;
+  font-weight: 900;
+  color: #0b0f14;
+}
+
+.buildings-grid{
+  max-width: 1200px;   /* increased container width */
+  margin: 60px auto;
+
+  display: grid;
+  grid-template-columns: repeat(3, 320px); /* card width */
+  justify-content: center;
+  gap: 40px; /* space between cards */
+}
+
+
+.building-card:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 10px 18px rgba(0,0,0,.12);
+}
+
+.building-card{
+  width: 320px;
+  height: 180px;
+
+  border: 3px solid #0b0f14;
+  border-radius: 18px;
+  overflow: hidden;
+
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.building-card img{
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  top: 0;
+  left: 0;
+}
+.building-card p{
+  position: relative;
+  z-index: 2;
+
+  font-size: 18px;
+  font-weight: 800;
+  color: white;
+
+  text-align: center;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.6);
+}
+
+/* Responsive */
+@media (max-width: 900px){
+  .buildings-grid{
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 560px){
+  .buildings-grid{
+    grid-template-columns: 1fr;
+  }
+
+  .building-card{
+    height: 170px;
+  }
+}
