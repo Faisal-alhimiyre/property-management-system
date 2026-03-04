@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>اختيار الواجهة - ولجنا</title>
+
+  <!-- reuse Walajna auth styling -->
+  <link rel="stylesheet" href="register.css">
+  <!-- small overrides just for this page -->
+  <link rel="stylesheet" href="choose_role.css">
+</head>
+
+<body>
+  <div class="register-bg"></div>
+
+<a href="login.html" class="logo logo-center" aria-label="الشعار">
+    <img src="logo.png" alt="Walajna" class="choose-logo">
+</a>
+
+  <main class="choose-wrap">
+   
+      <div class="choose-actions">
+        <button class="choose-btn owner" type="button" onclick="go('owner')">مالك</button>
+        <button class="choose-btn tenant" type="button" onclick="go('tenant')">مستأجر</button>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    function go(role){
+      localStorage.setItem("activeRole", role);
+      if(role === "owner") window.location.href = "owner_home.html";
+      else window.location.href = "tenant_home.html";
+    }
+  </script>
+</body>
+</html>

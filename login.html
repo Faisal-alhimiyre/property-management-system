@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Walajna login</title>
+  <title>تسجيل دخول - ولجنا</title>
 
   <!-- CSS -->
   <link rel="stylesheet" href="login.css" />
@@ -19,22 +19,32 @@
   </a>
 
   <!-- Login form -->
-  <main class="login-wrap">
-    <form class="login-form" onsubmit="return false;">
-      <div class="row">
-        <label for="username">اسم المستخدم</label>
-        <input id="username" type="text" required />
-      </div>
+ <!-- داخل <main class="login-wrap"> -->
+<main class="login-wrap">
+  <form class="login-form" id="loginForm">
+    <div class="row">
+      <label for="username">اسم المستخدم</label>
+      <input id="username" type="text" required />
+    </div>
 
-      <div class="row">
-        <label for="password">كلمة المرور</label>
-        <input id="password" type="password" required />
-      </div>
-       
-      <button class="login-btn" type="submit">تسجيل الدخول</button>
-    </form>
-  </main>
- <script src="login.js"></script>
+    <div class="row">
+      <label for="password">كلمة المرور</label>
+      <input id="password" type="password" required />
+    </div>
+
+    <p class="error" id="loginError" aria-live="polite"></p>
+
+    <button class="login-btn" type="submit">تسجيل الدخول</button>
+
+    <a class="forgot-link" href="forgot_password.html">نسيت كلمة المرور؟</a>
+
+    <p class="footer">
+      ليس لديك حساب؟ <a href="register.html">إنشاء حساب</a>
+    </p>
+  </form>
+</main>
+
+<script src="login.js"></script>
  </div>
 </body>
 </html>

@@ -1,1 +1,75 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>إنشاء حساب - ولجنا</title>
+  <link rel="stylesheet" href="register.css" />
+  
+</head>
 
+<body>
+  <div class="register-bg"></div>
+
+  <!-- Logo (top-right) -->
+  <a href="login.html" class="logo" aria-label="الشعار">
+    <img src="logo.png" alt="ALAJNA" class="brand-logo">
+  </a>
+
+  <main class="register-wrap">
+    <form class="register-form" id="registerForm">
+      <h2 class="title">إنشاء حساب</h2>
+
+      <div class="row">
+        <label for="fullName">الاسم الكامل</label>
+        <input id="fullName" name="fullName" type="text" required />
+      </div>
+
+      <div class="row">
+        <label for="username">اسم المستخدم</label>
+        <input id="username" name="username" type="text" required />
+      </div>
+
+      <div class="row">
+        <label for="email">البريد الإلكتروني</label>
+        <input id="email" name="email" type="email" required />
+      </div>
+
+      <div class="row">
+        <label for="nationalId">رقم الهوية الوطنية</label>
+        <input id="nationalId" name="nationalId" type="text" inputmode="numeric" maxlength="10" placeholder="10 أرقام" required />
+        <small class="hint">يجب إدخال 10 أرقام صحيحة.</small>
+      </div>
+
+      <div class="row">
+        <label for="role">نوع الحساب</label>
+        <select id="role" name="role" required>
+          <option value="" selected disabled>اختر</option>
+          <option value="owner">مالك</option>
+          <option value="tenant">مستأجر</option>
+        </select>
+      </div>
+
+      <div class="row">
+        <label for="password">كلمة المرور</label>
+        <input id="password" name="password" type="password" minlength="4" required />
+      </div>
+
+      <div class="row">
+        <label for="confirmPassword">تأكيد كلمة المرور</label>
+        <input id="confirmPassword" name="confirmPassword" type="password" minlength="4" required />
+      </div>
+
+      <p class="error" id="errorBox" aria-live="polite"></p>
+
+      <button class="register-btn" type="submit">إنشاء الحساب</button>
+
+      <p class="footer">
+        لديك حساب؟ <a href="login.html">تسجيل الدخول</a>
+      </p>
+    </form>
+  </main>
+
+  <script src="register.js"></script>
+</body>
+</html>

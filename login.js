@@ -1,46 +1,75 @@
-// login.js
 document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("loginForm");
-  const userEl = document.getElementById("username");
-  const passEl = document.getElementById("password");
+  const errorBox = document.getElementById("loginError");
 
-  if (!form || !userEl || !passEl) {
-    console.error("تأكد من وجود loginForm و username و password في HTML");
-    return;
+  function showError(msg){
+    if (!errorBox) return alert(msg);
+    errorBox.textContent = msg;
+  }
+
+  function normalizeRole(user){
+    // Supports either: user.role = "owner"/"tenant"/"both"
+    // OR: user.roles = ["owner","tenant"]
+    if (Array.isArray(user.roles)) return user.roles;
+    if (user.role === "both") return ["owner","tenant"];
+    if (user.role) return [user.role];
+    return [];
   }
 
   form.addEventListener("submit", (e) => {
     e.preventDefault();
+    showError("");
 
-    const username = userEl.value.trim();
-    const password = passEl.value;
+    const username = document.getElementById("username").value.trim();
+    const password = document.getElementById("password").value;
 
-    if (!username || !password) {
-      alert("الرجاء تعبئة اسم المستخدم وكلمة المرور");
+    if (!username || !password){
+      showError("الرجاء تعبئة اسم المستخدم وكلمة المرور.");
       return;
     }
 
-    // ✅ تسجيل دخول تجريبي (بدون Backend)
-    // غيّر القيم حسب ما تبغى
-    const OWNER_USER = "owner";
-    const OWNER_PASS = "1234";
+    // Frontend-only users list (from register.js)
+    const users = JSON.parse(localStorage.getItem("walajna_users") || "[]");
 
-    const TENANT_USER = "tenant";
-    const TENANT_PASS = "1234";
+    const user = users.find(u =>
+      (u.username?.toLowerCase() === username.toLowerCase() || u.email?.toLowerCase() === username.toLowerCase()) &&
+      u.password === password
+    );
 
-    if (username === OWNER_USER && password === OWNER_PASS) {
-      // خزّن نوع المستخدم (يفيدنا لاحقًا)
-      localStorage.setItem("role", "owner");
-      window.location.href = "owner_home.html";
+    if (!user){
+      showError("بيانات الدخول غير صحيحة.");
       return;
     }
 
-    if (username === TENANT_USER && password === TENANT_PASS) {
-      localStorage.setItem("role", "tenant");
-      window.location.href = "tenant_home.html";
+    const roles = normalizeRole(user);
+
+    // Save current user (demo only)
+    localStorage.setItem("walajna_current_user", JSON.stringify({
+      username: user.username,
+      email: user.email,
+      nationalId: user.nationalId,
+      roles
+    }));
+
+    // Redirect logic
+    if (roles.length > 1){
+      // user has both roles -> choose page
+      window.location.href = "role.html";
       return;
     }
 
-    alert("بيانات الدخول غير صحيحة");
+    if (roles[0] === "owner"){
+      localStorage.setItem("activeRole", "owner");
+      window.location.href = "owner_home.html"; // change if needed
+      return;
+    }
+
+    if (roles[0] === "tenant"){
+      localStorage.setItem("activeRole", "tenant");
+      window.location.href = "tenant_home.html"; // change if needed
+      return;
+    }
+
+    showError("لا يوجد دور صالح لهذا المستخدم.");
   });
 });

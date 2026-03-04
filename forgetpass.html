@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>استعادة كلمة المرور - ولجنا</title>
+
+<link rel="stylesheet" href="register.css">
+
+</head>
+
+<body>
+
+<div class="register-bg"></div>
+
+<a href="login.html" class="logo">
+<img src="alajna_logo_transparent.png" class="brand-logo">
+</a>
+
+<main class="register-wrap">
+
+<form class="register-form" id="forgotForm">
+
+<h2 class="title">استعادة كلمة المرور</h2>
+
+<div class="row">
+<label for="email">البريد الإلكتروني</label>
+<input id="email" type="email" required>
+</div>
+
+<button class="register-btn" type="submit">
+إرسال
+</button>
+
+<p class="footer">
+<a href="login.html">رجوع لتسجيل الدخول</a>
+</p>
+
+</form>
+
+</main>
+
+<script>
+
+document.getElementById("forgotForm").addEventListener("submit", function(e){
+
+e.preventDefault();
+
+const email = document.getElementById("email").value;
+
+alert("تم إرسال رابط استعادة كلمة المرور إلى: " + email);
+
+});
+
+</script>
+
+</body>
+</html>
