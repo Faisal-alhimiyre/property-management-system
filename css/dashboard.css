@@ -21,7 +21,7 @@
   display: grid;
   grid-template-columns: repeat(3, 320px); /* card width */
   justify-content: center;
-  gap: 40px; /* space between cards */
+  gap: 85px; /* space between cards */
 }
 
 
