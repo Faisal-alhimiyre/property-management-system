@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Walajna | الرئيسية</title>
+  <link rel="stylesheet" href="homepage.css" />
+</head>
+
+<body>
+
+  <!-- NAVBAR -->
+  <div id="navbar-container"></div>
+
+  <!-- HERO -->
+  <main id="home" class="hero">
+    <div class="hero__content">
+      <div class="badge">منصة ذكية لإدارة العقارات</div>
+
+      <h1 class="hero__title">
+        إدارة عقاراتك <br />
+        <span class="accent">بشكل احترافي وذكي</span>
+      </h1>
+
+      <p class="hero__subtitle">
+        ولاجنا يساعد الملاك على إدارة المباني والشقق والمستأجرين.
+        كما يتيح للمستأجرين متابعة الإيجار، طلب الخدمات، والتواصل بسهولة — في مكان واحد.
+      </p>
+
+      <div class="hero__buttons">
+        <a href="login.html" class="btn btn--primary btn--lg">ابدأ الآن</a>
+        <a href="#features" class="btn btn--ghost btn--lg">اعرف أكثر</a>
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="stat__value">50K+</div>
+          <div class="stat__label">مستخدم</div>
+        </div>
+        <div class="stat">
+          <div class="stat__value">4.9★</div>
+          <div class="stat__label">تقييم</div>
+        </div>
+        <div class="stat">
+          <div class="stat__value">99%</div>
+          <div class="stat__label">دقة</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero__visual">
+      <!-- Replace with your phone mockup image -->
+      <img src="bulding-removebg-preview (1).png" alt="واجهة التطبيق" class="hero__image" />
+    </div>
+
+    <!-- WAVE -->
+    <div class="wave" aria-hidden="true">
+      <svg viewBox="0 0 1440 120" preserveAspectRatio="none">
+        <path d="M0,64 C240,128 480,0 720,48 C960,96 1200,64 1440,16 L1440,120 L0,120 Z"></path>
+      </svg>
+    </div>
+  </main>
+
+  <!-- FEATURES -->
+  <section id="features" class="section">
+    <h2 class="section__title">المميزات</h2>
+
+    <div class="cards">
+      <div class="card">
+        <h3>إدارة المباني والشقق</h3>
+        <p>أضف مبانيك وشققك، ونظّم الوحدات وأرقامها بسهولة.</p>
+      </div>
+
+      <div class="card">
+        <h3>ربط المستأجر بالهوية</h3>
+        <p>تعيين المستأجر للوحدة عبر رقم الهوية الوطنية السعودي بشكل آمن.</p>
+      </div>
+
+      <div class="card">
+        <h3>الخدمات والرسائل</h3>
+        <p>طلبات صيانة، بلاغات، ورسائل بين المالك والمستأجر في واجهة واحدة.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section id="how" class="section">
+    <h2 class="section__title">كيف يعمل</h2>
+
+    <div class="cards">
+      <div class="card">
+        <h3>1) إنشاء حساب</h3>
+        <p>سجّل كملاك أو مستأجر (أو الاثنين) حسب احتياجك.</p>
+      </div>
+
+      <div class="card">
+        <h3>2) إضافة العقارات</h3>
+        <p>أضف المباني والشقق وحدد أرقام الوحدات.</p>
+      </div>
+
+      <div class="card">
+        <h3>3) ربط العقود</h3>
+        <p>اربط المستأجر بالوحدة عبر الهوية، وتُدار العقود تلقائيًا.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONTACT -->
+  <section id="contact" class="section">
+    <h2 class="section__title">تواصل معنا</h2>
+    <p class="muted">قريبًا — سيتم إضافة نموذج تواصل.</p>
+  </section>
+
+  <footer class="footer">
+    <p>© <span id="year"></span> ولاجنا. جميع الحقوق محفوظة.</p>
+    <a class="to-top" href="#top">العودة للأعلى</a>
+  </footer>
+
+  <script>
+    document.getElementById("year").textContent = new Date().getFullYear();
+  </script>
+  <script src="nav.js"></script>
+</body>
+</html>
