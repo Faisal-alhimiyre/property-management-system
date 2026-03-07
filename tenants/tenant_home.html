@@ -8,11 +8,11 @@
 <title>صفحتي - ولجنا</title>
 
 <link rel="stylesheet" href="../css/navstyle.css">
-<link rel="stylesheet" href="../css/dashboard.css">
+<link rel="stylesheet" href="../css/tenant-home.css">
 
 </head>
 
-<body>
+<body data-nav="user">
 
 <!-- NAVBAR -->
 <div id="navbar-container"></div>
@@ -28,26 +28,27 @@
 <!-- UNIT -->
 <div class="buildings-grid">
 
-  <div class="building-card">
-    <img src="../pics/logo.png">
-    <p>شقة السلامة 1</p>
-  </div>
+  <div class="building-card clickable-card" data-target="tenant_apartment.html" data-id="A101">
+  <img src="../pics/logo.png">
+  <p>شقة السلامة 3</p>
+</div>
 
-  <div class="building-card">
-    <img src="../pics/logo.png">
-    <p>شقة الروضة 3</p>
-  </div>
-
-  <div class="building-card">
-    <img src="/pics/logo.png">
-    <p>شقة الفيصلية 2</p>
-  </div>
+  <div class="building-card clickable-card" data-target="tenant_apartment.html" data-id="A103">
+  <img src="../pics/logo.png">
+  <p>شقة الروضة 3</p>
+</div>
+<div class="building-card clickable-card" data-target="tenant_apartment.html" data-id="A102">
+  <img src="../pics/logo.png">
+  <p>شقة الفيصلية 2</p>
+</div>
 
 </div>
 
 </section>
 
 <script src="../js/nav.js"></script>
+<script src="../js/apartment-details.js"></script>
+
 
 </body>
 

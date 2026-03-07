@@ -1,0 +1,184 @@
+:root{
+  --bg:#f4f6f8;
+  --card:#ffffff;
+  --text:#101828;
+  --muted:#667085;
+  --border:#e5e7eb;
+
+  --brand:#18c7c3;
+  --brand-dark:#0ea5a2;
+
+  --none:#d9dee5;
+  --complaint:#ef4444;
+  --maintenance:#f59e0b;
+  --suggestion:#3b82f6;
+  --request:#22c55e;
+}
+
+/* page */
+
+body{
+  margin:0;
+  background:var(--bg);
+  font-family:Arial, sans-serif;
+}
+
+.owner-dashboard{
+  max-width:640px;
+  margin:20px auto 60px;
+  padding:0 16px;
+}
+
+/* header */
+
+.page-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:18px;
+}
+
+.page-title{
+  margin:0;
+  font-size:24px;
+  font-weight:900;
+}
+
+.page-subtitle{
+  margin:4px 0 0;
+  font-size:13px;
+  color:var(--muted);
+  font-weight:700;
+}
+
+/* ADD BUILDING BUTTON */
+
+.add-building-btn{
+  background:linear-gradient(135deg,var(--brand),var(--brand-dark));
+  color:#042a2a;
+  font-weight:900;
+  padding:10px 16px;
+  border-radius:999px;
+  text-decoration:none;
+  font-size:14px;
+
+  box-shadow:0 8px 18px rgba(24,199,195,0.28);
+  transition:all .15s ease;
+}
+
+.add-building-btn:hover{
+  transform:translateY(-1px);
+  box-shadow:0 12px 24px rgba(24,199,195,0.35);
+}
+
+/* BUILDINGS FEED */
+
+.buildings-container{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+/* BUILDING CARD (SMALL) */
+
+.building-card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:10px 12px;
+  cursor:pointer;
+  transition:background .15s ease;
+}
+
+.building-card:hover{
+  background:#fafafa;
+}
+
+/* building header */
+
+.building-card__head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:6px;
+}
+
+.building-title{
+  font-size:14px;
+  font-weight:900;
+  margin:0;
+}
+
+.building-count{
+  font-size:11px;
+  font-weight:800;
+  color:var(--muted);
+}
+
+/* APARTMENT GRID */
+
+.apartments-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,12px);
+  gap:0;
+}
+
+/* SMALL COLOR SQUARES */
+
+.apartment-square{
+  width:12px;
+  height:12px;
+  border:1px solid #ffffff;
+}
+
+/* COLORS */
+
+.apartment-square.none{
+  background:var(--none);
+}
+
+.apartment-square.complaint{
+  background:var(--complaint);
+}
+
+.apartment-square.maintenance{
+  background:var(--maintenance);
+}
+
+.apartment-square.suggestion{
+  background:var(--suggestion);
+}
+
+.apartment-square.request{
+  background:var(--request);
+}
+
+/* legend */
+
+.legend{
+  margin-top:18px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
+}
+
+.legend-item{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  font-size:12px;
+  font-weight:800;
+  color:var(--muted);
+}
+
+.legend-color{
+  width:12px;
+  height:12px;
+  border-radius:3px;
+}
+
+.legend-color.none{background:var(--none);}
+.legend-color.complaint{background:var(--complaint);}
+.legend-color.maintenance{background:var(--maintenance);}
+.legend-color.suggestion{background:var(--suggestion);}
+.legend-color.request{background:var(--request);}

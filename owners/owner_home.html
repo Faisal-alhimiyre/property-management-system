@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>عمائري - ولجنا</title>
+
+  <link rel="stylesheet" href="../css/navstyle.css">
+  <link rel="stylesheet" href="../css/owner.css">
+</head>
+<body data-nav="user">
+
+  <div id="navbar-container"></div>
+
+  <main class="owner-dashboard">
+    <div class="page-head">
+      <div>
+        <h2 class="page-title">عمائري</h2>
+      </div>
+
+      <a class="add-building-btn" href="owner_edit.html">+ إضافة عمارة</a>
+    </div>
+
+    <section id="buildingsContainer" class="buildings-container">
+      <!-- buildings injected by JS -->
+    </section>
+
+    <p id="emptyState" class="empty-state" style="display:none;">
+      لا توجد عمائر مضافة حتى الآن
+    </p>
+
+    <section class="legend">
+      <div class="legend-item">
+        <span class="legend-color none"></span>
+        بدون رسائل
+      </div>
+      <div class="legend-item">
+        <span class="legend-color complaint"></span>
+        شكوى
+      </div>
+      <div class="legend-item">
+        <span class="legend-color maintenance"></span>
+        صيانة
+      </div>
+      <div class="legend-item">
+        <span class="legend-color suggestion"></span>
+        اقتراح
+      </div>
+      <div class="legend-item">
+        <span class="legend-color request"></span>
+        طلب
+      </div>
+    </section>
+  </main>
+
+  <script src="../js/nav.js"></script>
+  <script src="../js/owner.js"></script>
+</body>
+</html>
