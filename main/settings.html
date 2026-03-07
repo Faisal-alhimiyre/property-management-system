@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>ولاجنا | الإعدادات</title>
+
+<link rel="stylesheet" href="../css/settings.css">
+
+</head>
+
+<body>
+
+<header class="topbar">
+
+<a href="../main/homepage.html" class="back">
+العودة للرئيسية
+</a>
+
+<h1>الإعدادات</h1>
+
+</header>
+
+
+<div class="container">
+
+<!-- SIDEBAR -->
+
+<aside class="sidebar">
+
+<button onclick="showSection('profile')">
+الملف الشخصي
+</button>
+
+<button onclick="showSection('security')">
+الأمان
+</button>
+
+<button onclick="showSection('appearance')">
+تفضيلات الواجهة
+</button>
+
+<button onclick="showSection('support')">
+الدعم
+</button>
+
+<button onclick="showSection('privacy')">
+الخصوصية
+</button>
+
+</aside>
+
+
+
+<!-- CONTENT -->
+
+<main class="content">
+
+
+<!-- PROFILE -->
+
+<section id="profile" class="section">
+
+<h2>الملف الشخصي</h2>
+
+<label>الاسم الكامل</label>
+<input type="text" id="name">
+
+<label>اسم المستخدم</label>
+<input type="text" id="username">
+
+<label>البريد الإلكتروني</label>
+<input type="email" id="email">
+
+<button onclick="saveProfile()" class="save">
+حفظ التغييرات
+</button>
+
+</section>
+
+
+
+<!-- SECURITY -->
+
+<section id="security" class="section">
+
+<h2>تغيير كلمة المرور</h2>
+
+<label>كلمة المرور الحالية</label>
+<input type="password">
+
+<label>كلمة المرور الجديدة</label>
+<input type="password">
+
+<label>تأكيد كلمة المرور</label>
+<input type="password">
+
+<button class="save">
+تحديث كلمة المرور
+</button>
+
+</section>
+
+
+
+<!-- APPEARANCE -->
+
+<section id="appearance" class="section">
+
+<h2>تفضيلات الواجهة</h2>
+
+<div class="toggle">
+
+<span>الوضع الداكن</span>
+
+<label class="switch">
+<input type="checkbox" id="themeToggle">
+<span class="slider"></span>
+</label>
+
+</div>
+
+</section>
+
+
+
+<!-- SUPPORT -->
+
+<section id="support" class="section">
+
+<h2>الدعم</h2>
+
+<p>
+إذا واجهت مشكلة يمكنك التواصل مع الدعم الفني.
+</p>
+
+<a href="../main/support.html" class="support-btn">
+فتح الدعم الفني
+</a>
+
+</section>
+
+
+
+<!-- PRIVACY -->
+
+<section id="privacy" class="section">
+
+<h2>الخصوصية</h2>
+
+<button class="danger">
+حذف الحساب
+</button>
+
+</section>
+
+
+</main>
+
+</div>
+
+
+<script src="../js/settings.js"></script>
+
+</body>
+
+</html>
