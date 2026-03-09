@@ -41,7 +41,7 @@ function setupNavbar() {
   // =========================
   if (navType === "guest") {
     homeLink.textContent = "الرئيسية";
-    homeLink.href = "../index.html";
+    homeLink.href = "../main/homepage.html";
 
     link2.textContent = "كيف يعمل؟";
     link2.href = "../main/how-it-works.html";
