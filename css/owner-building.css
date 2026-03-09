@@ -1,0 +1,72 @@
+body{
+  background:#f3f4f6;
+  margin:0;
+  font-family:Arial,sans-serif;
+}
+
+.owner-building-wrap{
+  max-width:1000px;
+  margin:30px auto;
+  padding:20px;
+}
+
+#buildingTitle{
+  font-size:28px;
+  font-weight:900;
+  margin-bottom:25px;
+}
+
+.apartments-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
+  gap:18px;
+}
+
+.apartment-card{
+  border:2px solid #222;
+  border-radius:16px;
+  padding:16px;
+  background:#fff;
+  cursor:pointer;
+  transition:transform .15s ease;
+}
+
+.apartment-card:hover{
+  transform:translateY(-3px);
+}
+
+.apartment-number{
+  font-size:22px;
+  font-weight:900;
+  margin-bottom:8px;
+}
+
+.apartment-tenant{
+  font-size:14px;
+  font-weight:700;
+  color:#444;
+}
+
+.apartment-card.none{
+  background:#e5e5e5;
+}
+
+.apartment-card.complaint{
+  background:#ef4444;
+  color:#fff;
+}
+
+.apartment-card.maintenance{
+  background:#f59e0b;
+  color:#fff;
+}
+
+.apartment-card.suggestion{
+  background:#3b82f6;
+  color:#fff;
+}
+
+.apartment-card.request{
+  background:#22c55e;
+  color:#fff;
+}

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>تفاصيل الشقة - ولجنا</title>
+
+  <link rel="stylesheet" href="../css/navstyle.css">
+  <link rel="stylesheet" href="../css/apartment-info.css">
+</head>
+
+<body data-nav="user">
+
+  <div id="navbar-container"></div>
+
+  <main class="apartment-details-wrap">
+    <div class="header">
+      <h2 id="aptTitle">تفاصيل الشقة</h2>
+      <p id="pageRoleLabel" class="page-role-label">—</p>
+    </div>
+
+    <section class="details-card">
+      <h3 class="section-title">معلومات الشقة</h3>
+      <div class="details-grid">
+        <div class="item">
+          <span class="label">رقم الشقة</span>
+          <span class="value" id="aptNumber">—</span>
+        </div>
+        <div class="item">
+          <span class="label">اسم العمارة</span>
+          <span class="value" id="buildingName">—</span>
+        </div>
+        <div class="item">
+          <span class="label">الحالة</span>
+          <span class="value" id="leaseStatus">—</span>
+        </div>
+        <div class="item">
+          <span class="label">الإيجار الشهري</span>
+          <span class="value" id="rentAmount">—</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="details-card">
+      <h3 class="section-title">معلومات المستأجر</h3>
+      <div class="details-grid">
+        <div class="item">
+          <span class="label">الجنسية</span>
+          <span class="value" id="tenantNationality">—</span>
+        </div>
+        <div class="item">
+          <span class="label">أفراد أو عوائل</span>
+          <span class="value" id="tenantType">—</span>
+        </div>
+        <div class="item">
+          <span class="label">التأمين المدفوع</span>
+          <span class="value" id="insurancePaid">—</span>
+        </div>
+        <div class="item">
+          <span class="label">رقم الجوال</span>
+          <span class="value" id="phoneNumber">—</span>
+        </div>
+        <div class="item">
+          <span class="label">رقم الهوية / الإقامة</span>
+          <span class="value" id="identityNumber">—</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="details-card">
+      <h3 class="section-title">معلومات إضافية</h3>
+      <div class="details-grid">
+        <div class="item">
+          <span class="label">تاريخ بداية العقد</span>
+          <span class="value" id="startDate">—</span>
+        </div>
+        <div class="item">
+          <span class="label">تاريخ نهاية العقد</span>
+          <span class="value" id="endDate">—</span>
+        </div>
+        <div class="item">
+          <span class="label">رقم العداد</span>
+          <span class="value" id="meterNumber">—</span>
+        </div>
+        <div class="item">
+          <span class="label">ملاحظات</span>
+          <span class="value" id="notes">—</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="actions">
+      <button id="mainActionBtn" class="action-btn">طلب صيانة</button>
+      <button id="paymentsBtn" class="action-btn">عرض المدفوعات</button>
+      <button id="documentsBtn" class="action-btn">عرض الوثائق</button>
+      <button id="viewRequestsBtn" class="action-btn"> عرض الطلبات </button>
+    </section>
+  </main>
+
+  <!-- Request Type Modal -->
+  <div id="requestModal" class="wl-modal" aria-hidden="true">
+    <div class="wl-modal__backdrop" data-close="true"></div>
+
+    <div class="wl-modal__panel" role="dialog" aria-modal="true" aria-labelledby="requestModalTitle">
+      <div class="wl-modal__header">
+        <div>
+          <h3 id="requestModalTitle" class="wl-modal__title">اختر نوع التواصل</h3>
+          <p class="wl-modal__subtitle">سيتم إرسال الطلب للمالك مع لون يوضح نوعه</p>
+        </div>
+
+        <button id="closeRequestModal" class="wl-icon-btn" type="button" aria-label="إغلاق">✕</button>
+      </div>
+
+      <div class="wl-modal__body">
+        <div id="requestTypeList" class="wl-list" role="listbox" aria-label="أنواع الطلبات">
+          <!-- Items injected by JS -->
+        </div>
+
+        <div id="requestMessageBox" class="wl-message-box" style="display:none;">
+          <label class="wl-label" for="requestMessage">اكتب تفاصيل الطلب</label>
+
+          <textarea
+            id="requestMessage"
+            maxlength="150"
+            placeholder="اكتب وصف المشكلة أو الطلب (حد أقصى 150 حرف)"
+          ></textarea>
+
+          <div class="wl-char-counter">
+            <span id="charCount">0</span>/150
+          </div>
+
+          <button id="submitRequestBtn" class="wl-btn wl-btn--primary" type="button">
+            إرسال الطلب
+          </button>
+        </div>
+      </div>
+
+      <div class="wl-modal__footer">
+        <button id="cancelRequestModal" class="wl-btn wl-btn--ghost" type="button">إلغاء</button>
+      </div>
+    </div>
+  </div>
+  <!-- Owner View Request Modal -->
+<div id="viewRequestsModal" class="wl-modal" aria-hidden="true">
+  <div class="wl-modal__backdrop" data-view-close="true"></div>
+
+  <div class="wl-modal__panel" role="dialog" aria-modal="true" aria-labelledby="viewRequestsModalTitle">
+    <div class="wl-modal__header">
+      <div>
+        <h3 id="viewRequestsModalTitle" class="wl-modal__title">الطلبات</h3>
+        <p class="wl-modal__subtitle" id="viewRequestsSubtitle">عرض الطلبات الخاصة بالشقة</p>
+      </div>
+
+      <button id="closeViewRequestsModal" class="wl-icon-btn" type="button" aria-label="إغلاق">✕</button>
+    </div>
+
+    <div class="wl-modal__body">
+      <div id="viewRequestsList" class="wl-list"></div>
+
+      <div id="ownerReplyBox" class="wl-message-box" style="display:none;">
+        <label class="wl-label" for="ownerReplyMessage">اكتب الرد</label>
+
+        <textarea
+          id="ownerReplyMessage"
+          maxlength="200"
+          placeholder="اكتب ردك على طلب المستأجر"
+        ></textarea>
+
+        <div class="wl-char-counter">
+          <span id="ownerReplyCharCount">0</span>/200
+        </div>
+
+        <button id="submitOwnerReplyBtn" class="wl-btn wl-btn--primary" type="button">
+          إرسال الرد
+        </button>
+      </div>
+    </div>
+
+    <div class="wl-modal__footer">
+      <button id="cancelViewRequestsModal" class="wl-btn wl-btn--ghost" type="button">إغلاق</button>
+    </div>
+  </div>
+</div>
+  <script src="../js/nav.js"></script>
+  <script src="../js/apartment-details.js"></script>
+</body>
+</html>

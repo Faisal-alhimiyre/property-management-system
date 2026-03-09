@@ -47,7 +47,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll(".building-card").forEach(card => {
     card.addEventListener("click", () => {
       const buildingId = card.dataset.buildingId;
-      window.location.href = `owner_apartment.html?buildingId=${encodeURIComponent(buildingId)}`;
+      window.location.href = `owner_building.html?buildingId=${encodeURIComponent(buildingId)}`;
     });
   });
 

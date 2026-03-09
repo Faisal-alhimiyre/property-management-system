@@ -29,7 +29,18 @@
         <label for="username">اسم المستخدم</label>
         <input id="username" name="username" type="text" required />
       </div>
-
+      <div class="row">
+        <label for="phoneNumber">رقم الجوال</label>
+        <input
+          id="phoneNumber"
+          name="phoneNumber"
+          type="tel"
+          inputmode="numeric"
+          maxlength="10"
+          placeholder="05XXXXXXXX"
+          required
+          />
+          </div>
       <div class="row">
         <label for="email">البريد الإلكتروني</label>
         <input id="email" name="email" type="email" required />
@@ -41,14 +52,6 @@
         <small class="hint">يجب إدخال 10 أرقام صحيحة.</small>
       </div>
 
-      <div class="row">
-        <label for="role">نوع الحساب</label>
-        <select id="role" name="role" required>
-          <option value="" selected disabled>اختر</option>
-          <option value="owner">مالك</option>
-          <option value="tenant">مستأجر</option>
-        </select>
-      </div>
 
       <div class="row">
         <label for="password">كلمة المرور</label>

@@ -2,13 +2,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("registerForm");
   const errorBox = document.getElementById("errorBox");
 
-  function showError(msg){
+  function showError(msg) {
     errorBox.textContent = msg;
   }
 
   function isValidSaudiId(id) {
     if (!/^\d{10}$/.test(id)) return false;
     const first = id[0];
+
     if (first !== "1" && first !== "2") return false;
 
     let sum = 0;
@@ -16,12 +17,16 @@ document.addEventListener("DOMContentLoaded", () => {
       const digit = Number(id[i]);
       if ((i + 1) % 2 === 1) {
         const doubled = digit * 2;
-        sum += (doubled > 9) ? (doubled - 9) : doubled;
+        sum += doubled > 9 ? doubled - 9 : doubled;
       } else {
         sum += digit;
       }
     }
     return sum % 10 === 0;
+  }
+
+  function generateUserId() {
+    return "U" + Date.now();
   }
 
   form.addEventListener("submit", (e) => {
@@ -31,18 +36,23 @@ document.addEventListener("DOMContentLoaded", () => {
     const fullName = form.fullName.value.trim();
     const username = form.username.value.trim();
     const email = form.email.value.trim();
+    const phoneNumber = form.phoneNumber.value.trim();
     const nationalId = form.nationalId.value.trim();
-    const role = form.role.value;
     const password = form.password.value;
     const confirmPassword = form.confirmPassword.value;
 
-    if (!fullName || !username || !email || !nationalId || !role || !password || !confirmPassword) {
+    if (!fullName || !username || !email || !nationalId || !phoneNumber || !password || !confirmPassword) {
       showError("الرجاء تعبئة جميع الحقول.");
       return;
     }
 
     if (!isValidSaudiId(nationalId)) {
-      showError("رقم الهوية الوطنية غير صحيح.  ");
+      showError("رقم الهوية الوطنية غير صحيح.");
+      return;
+    }
+
+    if (!/^05\d{8}$/.test(phoneNumber)) {
+      showError("رقم الجوال غير صحيح.");
       return;
     }
 
@@ -51,13 +61,13 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // Temporary storage (for frontend testing only)
     const users = JSON.parse(localStorage.getItem("walajna_users") || "[]");
 
-    const exists = users.some(u =>
-      u.username?.toLowerCase() === username.toLowerCase() ||
-      u.email?.toLowerCase() === email.toLowerCase() ||
-      u.nationalId === nationalId
+    const exists = users.some(
+      (u) =>
+        u.username?.toLowerCase() === username.toLowerCase() ||
+        u.email?.toLowerCase() === email.toLowerCase() ||
+        u.nationalId === nationalId
     );
 
     if (exists) {
@@ -65,7 +75,18 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    users.push({ fullName, username, email, nationalId, role, password });
+    const newUser = {
+      id: generateUserId(),
+      fullName,
+      username,
+      email,
+      phoneNumber,
+      nationalId,
+      password,
+      roles: []
+    };
+
+    users.push(newUser);
     localStorage.setItem("walajna_users", JSON.stringify(users));
 
     alert("تم إنشاء الحساب بنجاح");

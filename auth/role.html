@@ -5,34 +5,85 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>اختيار الواجهة - ولجنا</title>
 
-  <!-- reuse Walajna auth styling -->
   <link rel="stylesheet" href="../css/register.css">
-  <!-- small overrides just for this page -->
-  <link rel="stylesheet" href="choose_role.css">
+  <link rel="stylesheet" href="../css/choose_role.css">
 </head>
 
 <body>
-  <div class="register-bg"></div>
+
+<div class="register-bg"></div>
+
 <a href="../auth/login.html" class="logo logo-center" aria-label="الشعار">
-    <img src="../pics/logo.png" alt="Walajna" class="choose-logo">
+  <img src="../pics/logo.png" alt="Walajna" class="choose-logo">
 </a>
 
-  <main class="choose-wrap">
-   
-      <div class="choose-actions">
-        <button class="choose-btn owner" type="button" onclick="go('owner')">مالك</button>
-        <button class="choose-btn tenant" type="button" onclick="go('tenant')">مستأجر</button>
-      </div>
-    </div>
-  </main>
+<main class="choose-wrap">
+  <div class="choose-actions">
 
-  <script>
-    function go(role){
-      localStorage.setItem("activeRole", role);
-      if(role === "owner") window.location.href = "owner_home.html";
-      else window.location.href = "tenant_home.html";
+    <button class="choose-btn owner" onclick="chooseRole('owner')">
+      مالك
+    </button>
+
+    <button class="choose-btn tenant" onclick="chooseRole('tenant')">
+      مستأجر
+    </button>
+
+  </div>
+</main>
+
+<script>
+
+const currentUser = JSON.parse(localStorage.getItem("walajna_current_user"));
+let users = JSON.parse(localStorage.getItem("walajna_users") || "[]");
+
+if(!currentUser){
+  window.location.href = "../auth/login.html";
+}
+
+function saveUser(updatedUser){
+
+  users = users.map(user => {
+    if(user.nationalId === updatedUser.nationalId){
+      return updatedUser;
     }
-  </script>
-  
+    return user;
+  });
+
+  localStorage.setItem("walajna_users", JSON.stringify(users));
+  localStorage.setItem("walajna_current_user", JSON.stringify(updatedUser));
+}
+
+function chooseRole(role){
+
+  let roles = currentUser.roles || [];
+
+  // إذا المستخدم لا يملك الدور يتم إضافته
+  if(!roles.includes(role)){
+    roles.push(role);
+  }
+
+  const updatedUser = {
+    ...currentUser,
+    roles
+  };
+
+  saveUser(updatedUser);
+
+  // حفظ الدور النشط
+  localStorage.setItem("activeRole", role);
+
+  // التوجيه حسب الدور
+  if(role === "owner"){
+    window.location.href = "../owners/owner_home.html";
+  }
+
+  if(role === "tenant"){
+    window.location.href = "../tenants/tenant_home.html";
+  }
+
+}
+
+</script>
+
 </body>
 </html>
