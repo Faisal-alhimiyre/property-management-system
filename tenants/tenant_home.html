@@ -2,54 +2,28 @@
 <html lang="ar" dir="rtl">
 
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>صفحتي - ولجنا</title>
 
-<title>صفحتي - ولجنا</title>
-
-<link rel="stylesheet" href="../css/navstyle.css">
-<link rel="stylesheet" href="../css/tenant-home.css">
-
+  <link rel="stylesheet" href="../css/navstyle.css">
+  <link rel="stylesheet" href="../css/tenant-home.css">
 </head>
 
 <body data-nav="user">
 
-<!-- NAVBAR -->
-<div id="navbar-container"></div>
+  <div id="navbar-container"></div>
 
-<!-- PAGE TITLE -->
-<section class="page-title">
-<h2>وحداتي السكنية</h2>
-</section>
+  <section class="page-title">
+    <h2>وحداتي السكنية</h2>
+  </section>
 
-<!-- APARTMENTS GRID -->
-<section class="buildings-grid">
+  <section class="buildings-grid">
+    <div class="buildings-grid" id="tenantApartments"></div>
+  </section>
 
-<!-- UNIT -->
-<div class="buildings-grid">
-
-  <div class="building-card clickable-card" data-target="../main/apartment_info.html" data-id="A101">
-  <img src="../pics/logo.png">
-  <p>شقة السلامة 3</p>
-</div>
-
-  <div class="building-card clickable-card" data-target="../main/apartment_info.html" data-id="A103">
-  <img src="../pics/logo.png">
-  <p>شقة الروضة 3</p>
-</div>
-<div class="building-card clickable-card" data-target="../main/apartment_info.html" data-id="A102">
-  <img src="../pics/logo.png">
-  <p>شقة الفيصلية 2</p>
-</div>
-
-</div>
-
-</section>
-
-<script src="../js/nav.js"></script>
-<script src="../js/apartment-details.js"></script>
-
-
+  <script src="../js/nav.js"></script>
+  <script src="../js/tenant-home.js"></script>
 </body>
 
 </html>

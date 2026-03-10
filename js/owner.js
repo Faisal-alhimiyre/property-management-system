@@ -4,12 +4,50 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (!container) return;
 
-  const buildings = getLocalArray("walajna_buildings");
+  function getLocalArray(key) {
+    try {
+      return JSON.parse(localStorage.getItem(key) || "[]");
+    } catch {
+      return [];
+    }
+  }
+
+  function getCurrentUser() {
+    try {
+      return JSON.parse(localStorage.getItem("walajna_current_user") || "null");
+    } catch {
+      return null;
+    }
+  }
+
+  function getLatestRequestForApartment(apartmentId, allRequests) {
+    const apartmentRequests = allRequests
+      .filter(request => request.apartmentId === apartmentId)
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    return apartmentRequests[0] || null;
+  }
+
+  const currentUser = getCurrentUser();
+  const allBuildings = getLocalArray("walajna_buildings");
   const apartments = getLocalArray("walajna_apartments");
   const requests = getLocalArray("walajna_requests");
 
+  if (!currentUser) {
+    if (emptyState) {
+      emptyState.style.display = "block";
+      emptyState.textContent = "لم يتم العثور على المستخدم الحالي";
+    }
+    return;
+  }
+
+  const buildings = allBuildings.filter(building => building.ownerId === currentUser.id);
+
   if (!buildings.length) {
-    emptyState.style.display = "block";
+    if (emptyState) {
+      emptyState.style.display = "block";
+      emptyState.textContent = "لا توجد عمائر مرتبطة بهذا المالك";
+    }
     return;
   }
 
@@ -50,20 +88,4 @@ document.addEventListener("DOMContentLoaded", () => {
       window.location.href = `owner_building.html?buildingId=${encodeURIComponent(buildingId)}`;
     });
   });
-
-  function getLatestRequestForApartment(apartmentId, allRequests) {
-    const apartmentRequests = allRequests
-      .filter(request => request.apartmentId === apartmentId)
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-    return apartmentRequests[0] || null;
-  }
-
-  function getLocalArray(key) {
-    try {
-      return JSON.parse(localStorage.getItem(key) || "[]");
-    } catch {
-      return [];
-    }
-  }
 });

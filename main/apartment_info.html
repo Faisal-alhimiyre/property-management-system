@@ -181,6 +181,105 @@
     </div>
   </div>
 </div>
+<!-- Link Tenant Modal -->
+<div id="linkTenantModal" class="wl-modal" aria-hidden="true">
+  <div class="wl-modal__backdrop" data-link-close="true"></div>
+
+  <div class="wl-modal__panel" role="dialog" aria-modal="true" aria-labelledby="linkTenantModalTitle">
+    <div class="wl-modal__header">
+      <div>
+        <h3 id="linkTenantModalTitle" class="wl-modal__title">ربط مستأجر بالشقة</h3>
+        <p class="wl-modal__subtitle">أدخل بيانات المستأجر والعقد</p>
+      </div>
+
+      <button id="closeLinkTenantModal" class="wl-icon-btn" type="button" aria-label="إغلاق">✕</button>
+    </div>
+
+    <div class="wl-modal__body">
+      <div class="details-grid">
+       
+      <div class="item">
+  <label class="label" for="linkFullName">الاسم الكامل</label>
+  <input id="linkFullName" type="text" />
+</div>
+
+<div class="item">
+  <label class="label" for="linkNationalId">رقم الهوية / الإقامة</label>
+  <input id="linkNationalId" type="text" maxlength="10" />
+</div>
+
+<div class="item">
+  <label class="label" for="linkNationality">الجنسية</label>
+  <input id="linkNationality" type="text" />
+</div>
+
+<div class="item">
+  <label class="label" for="linkTenantType">أفراد أو عوائل</label>
+  <select id="linkTenantType">
+    <option value="">اختر</option>
+    <option value="أفراد">أفراد</option>
+    <option value="عوائل">عوائل</option>
+  </select>
+</div>
+
+<div class="item">
+  <label class="label" for="linkPhoneNumber">رقم الجوال</label>
+  <input id="linkPhoneNumber" type="text" maxlength="10" />
+</div>
+
+<div class="item">
+  <label class="label" for="linkRent">الإيجار الشهري</label>
+  <input id="linkRent" type="text" />
+</div>
+
+<div class="item">
+  <label class="label" for="linkInsurancePaid">التأمين المدفوع</label>
+  <input id="linkInsurancePaid" type="text" />
+</div>
+
+<div class="item">
+  <label class="label" for="linkStartDate">تاريخ بداية العقد</label>
+  <input id="linkStartDate" type="date" />
+</div>
+
+<div class="item">
+  <label class="label" for="linkEndDate">تاريخ نهاية العقد</label>
+  <input id="linkEndDate" type="date" />
+</div>
+
+<div class="item">
+  <label class="label" for="linkMeterNumber">رقم العداد</label>
+  <input id="linkMeterNumber" type="text" />
+</div>
+
+<div class="item">
+  <label class="label" for="linkNotes">ملاحظات</label>
+  <input id="linkNotes" type="text" />
+</div>
+
+<div class="item">
+  <label class="label" for="contractFile">ملف عقد الإيجار</label>
+  <input id="contractFile" type="file" accept=".docx,.pdf,.txt,.jpg,.png" />
+</div>
+
+<div class="item">
+  <button id="extractContractBtn" class="wl-btn wl-btn--ghost" type="button">
+    استخراج البيانات من العقد
+  </button>
+</div>
+
+<p id="linkTenantError" class="error"></p>
+
+<div class="wl-modal__footer">
+  <button id="saveLinkedTenantBtn" class="wl-btn wl-btn--primary" type="button">
+    حفظ وربط المستأجر
+  </button>
+  <button id="cancelLinkTenantModal" class="wl-btn wl-btn--ghost" type="button">
+    إلغاء
+  </button>
+</div>
+  </div>
+</div>
   <script src="../js/nav.js"></script>
   <script src="../js/apartment-details.js"></script>
 </body>

@@ -1,8 +1,47 @@
 document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("buildingForm");
   const message = document.getElementById("formMessage");
+  const buildingCodeInput = document.getElementById("buildingCode");
 
   if (!form) return;
+
+  function getLocalArray(key) {
+    try {
+      return JSON.parse(localStorage.getItem(key) || "[]");
+    } catch {
+      return [];
+    }
+  }
+
+  function saveLocalArray(key, value) {
+    localStorage.setItem(key, JSON.stringify(value));
+  }
+
+  function generateBuildingCode() {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let code = "BLD-";
+
+    for (let i = 0; i < 5; i++) {
+      code += chars[Math.floor(Math.random() * chars.length)];
+    }
+
+    return code;
+  }
+
+  function generateUniqueBuildingCode(buildings) {
+    let code;
+    do {
+      code = generateBuildingCode();
+    } while (buildings.some(b => b.id === code));
+    return code;
+  }
+
+  const existingBuildings = getLocalArray("walajna_buildings");
+
+  if (buildingCodeInput) {
+    buildingCodeInput.value = generateUniqueBuildingCode(existingBuildings);
+    buildingCodeInput.readOnly = true;
+  }
 
   form.addEventListener("submit", (e) => {
     e.preventDefault();
@@ -12,7 +51,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const buildingCity = document.getElementById("buildingCity").value.trim();
     const apartmentCount = parseInt(document.getElementById("apartmentCount").value, 10);
 
-    if (!buildingName || !buildingCode || !apartmentCount || apartmentCount < 1) {
+    if (!buildingName || !buildingCode || !buildingCity || !apartmentCount || apartmentCount < 1) {
       message.textContent = "يرجى تعبئة البيانات بشكل صحيح";
       message.style.color = "#dc2626";
       return;
@@ -31,11 +70,15 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    const currentUser = JSON.parse(localStorage.getItem("walajna_current_user") || "null");
+
     const newBuilding = {
       id: buildingCode,
       name: buildingName,
       city: buildingCity,
-      apartmentCount: apartmentCount
+      apartmentCount: apartmentCount,
+      ownerId: currentUser?.id || null,
+      createdAt: new Date().toISOString()
     };
 
     buildings.push(newBuilding);
@@ -46,31 +89,40 @@ document.addEventListener("DOMContentLoaded", () => {
       apartments.push({
         id: `${buildingCode}-A${aptNumber}`,
         buildingId: buildingCode,
+        buildingName: buildingName,
         number: aptNumber,
+
+        leaseStatus: "vacant", // vacant | active | ending_soon | ended
         status: "فارغة",
+
         rent: "",
-        tenantId: null
+        tenantUserId: null,
+        tenantNationalId: null,
+
+        tenantInfo: null,
+
+        contract: null,
+
+        tenantHistory: [],
+
+        createdAt: new Date().toISOString()
       });
     }
 
-    localStorage.setItem("walajna_buildings", JSON.stringify(buildings));
-    localStorage.setItem("walajna_apartments", JSON.stringify(apartments));
+    saveLocalArray("walajna_buildings", buildings);
+    saveLocalArray("walajna_apartments", apartments);
 
     message.textContent = "تم حفظ العمارة بنجاح";
     message.style.color = "#16a34a";
 
     form.reset();
 
+    if (buildingCodeInput) {
+      buildingCodeInput.value = generateUniqueBuildingCode(buildings);
+    }
+
     setTimeout(() => {
       window.location.href = "owner_home.html";
     }, 900);
   });
-
-  function getLocalArray(key) {
-    try {
-      return JSON.parse(localStorage.getItem(key) || "[]");
-    } catch {
-      return [];
-    }
-  }
 });
