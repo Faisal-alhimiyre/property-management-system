@@ -21,6 +21,15 @@ function setupNavbar() {
   const navType = document.body.dataset.nav || "user";
   const activeRole = localStorage.getItem("activeRole");
 
+  let currentUser = null;
+  try {
+    currentUser = JSON.parse(localStorage.getItem("walajna_current_user") || "null");
+  } catch {
+    currentUser = null;
+  }
+
+  const roles = Array.isArray(currentUser?.roles) ? currentUser.roles : [];
+
   const homeLink = document.getElementById("nav-home");
   const link2 = document.getElementById("nav-link-2");
   const link3 = document.getElementById("nav-link-3");
@@ -37,7 +46,7 @@ function setupNavbar() {
   clearActiveLinks();
 
   // =========================
-  // 1) GUEST NAV (صفحة البداية)
+  // 1) GUEST NAV
   // =========================
   if (navType === "guest") {
     homeLink.textContent = "الرئيسية";
@@ -66,7 +75,7 @@ function setupNavbar() {
   }
 
   // =========================
-  // 2) USER NAV (مالك + مستأجر)
+  // 2) USER NAV
   // =========================
   let homeHref = "../auth/login.html";
 
@@ -79,6 +88,7 @@ function setupNavbar() {
   homeLink.textContent = "الرئيسية";
   homeLink.href = homeHref;
 
+  // الخدمات تبقى كما هي
   link2.textContent = "الخدمات";
   link2.href = "../main/services.html";
 
@@ -90,7 +100,7 @@ function setupNavbar() {
   link4.addEventListener("click", (e) => {
     e.preventDefault();
     localStorage.removeItem("activeRole");
-    localStorage.removeItem("currentUser");
+    localStorage.removeItem("walajna_current_user");
     window.location.href = "../auth/login.html";
   });
 
@@ -107,9 +117,64 @@ function setupNavbar() {
   settingsLink.textContent = "⚙️";
   settingsLink.style.display = "grid";
 
+  // إضافة قائمة تبديل الدور فقط إذا عنده أكثر من رول
+  if (roles.length > 1) {
+  insertRoleSwitcher({
+    roles,
+    activeRole,
+    afterElement: link4
+  });
+}
+
   setActiveLinkByPage(navType);
 }
 
+function insertRoleSwitcher({ roles, activeRole, afterElement }) {
+
+  if (!afterElement) return;
+
+  if (document.getElementById("nav-role-switcher")) return;
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "nav-role-switcher";
+  wrapper.id = "nav-role-switcher";
+
+  const select = document.createElement("select");
+  select.className = "nav-role-switcher__select";
+
+  const roleLabels = {
+    owner: "مالك",
+    tenant: "مستأجر"
+  };
+
+  roles.forEach((role) => {
+    const option = document.createElement("option");
+    option.value = role;
+    option.textContent = roleLabels[role] || role;
+
+    if (role === activeRole) option.selected = true;
+
+    select.appendChild(option);
+  });
+
+  select.addEventListener("change", () => {
+
+    const newRole = select.value;
+
+    localStorage.setItem("activeRole", newRole);
+
+    if (newRole === "owner") {
+      window.location.href = "../owners/owner_home.html";
+    } else {
+      window.location.href = "../tenants/tenant_home.html";
+    }
+
+  });
+
+  wrapper.appendChild(select);
+
+  afterElement.insertAdjacentElement("afterend", wrapper);
+}
 function clearActiveLinks() {
   document.querySelectorAll(".walajna-topbar__nav a").forEach((link) => {
     link.classList.remove("is-active");

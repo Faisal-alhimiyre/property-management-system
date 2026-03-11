@@ -473,6 +473,87 @@ body{
   width: 100%;
   box-sizing: border-box;
 }
+#documentsList .wl-item {
+  cursor: pointer;
+}
+
+#documentsList .wl-item:hover {
+  background: #f8fafc;
+}
+.action-blue{
+  background:#2563eb;
+  color:white;
+}
+
+.action-blue:disabled{
+  background:#94a3b8;
+  cursor:not-allowed;
+}
+
+.action-red{
+  background:#dc2626;
+  color:white;
+}
+.actions{
+  display:flex;
+  flex-direction:column;
+  gap:18px;
+}
+
+.actions-row{
+  display:flex;
+  justify-content:center;
+  gap:20px;
+  flex-wrap:wrap;
+}
+
+.actions-row-bottom{
+  justify-content:space-between;
+}
+.action-black{
+  background:#111827;
+  color:#fff;
+}
+
+.action-black:hover{
+  background:#000;
+}
+
+/* لون تاريخ الاستحقاق */
+
+.due-normal{
+  color:#111827;
+  font-weight:700;
+}
+
+.due-warning{
+  color:#ea580c;
+  font-weight:800;
+}
+
+.due-overdue{
+  color:#dc2626;
+  font-weight:800;
+}
+.next-payment-date{
+  font-weight:600;
+  margin-right:8px;
+  font-size:13px;
+}
+
+.next-payment-normal{
+  color:#111827;
+}
+
+.next-payment-warning{
+  color:#ea580c;
+  font-weight:700;
+}
+
+.next-payment-overdue{
+  color:#dc2626;
+  font-weight:700;
+}
 /* Responsive */
 @media (max-width: 820px){
   .details-grid{

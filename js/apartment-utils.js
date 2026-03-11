@@ -1,21 +1,102 @@
-window.WalajnaApartment = window.WalajnaApartment || {};
+/* ========================================
+   Apartment Utilities
+   ======================================== */
 
-WalajnaApartment.getApartmentIdFromUrl = function () {
-  const params = new URLSearchParams(window.location.search);
-  return params.get("id");
-};
+function getStatusLabel(leaseStatus) {
+  switch (leaseStatus) {
+    case "vacant":
+      return "فارغة";
 
-WalajnaApartment.normalizeApartmentLeaseStatus = function (apartment) {
-  if (!apartment.contract) return apartment;
+    case "active":
+      return "نشط";
+
+    case "ending_soon":
+      return "قريب الانتهاء";
+
+    case "ended":
+      return "منتهي";
+
+    default:
+      return "—";
+  }
+}
+
+
+function getStatusClass(leaseStatus) {
+  switch (leaseStatus) {
+    case "active":
+      return "ok";
+
+    case "ending_soon":
+      return "warn";
+
+    case "ended":
+      return "danger";
+
+    default:
+      return "";
+  }
+}
+
+
+function daysBetween(todayStr, endStr) {
+
+  const today = new Date(todayStr);
+  const end = new Date(endStr);
+
+  const ms = end - today;
+
+  return Math.ceil(ms / (1000 * 60 * 60 * 24));
+}
+
+
+/* ========================================
+   Lease Status Normalization
+   ======================================== */
+
+function normalizeApartmentLeaseStatus(apartment) {
+
+  if (!apartment) return apartment;
+
+  const updated = { ...apartment };
+
+
+  /* No tenant or no contract */
+  if (!updated.tenantNationalId || !updated.contract?.endDate) {
+
+    updated.leaseStatus = "vacant";
+    updated.status = "فارغة";
+
+    return updated;
+  }
+
 
   const today = new Date();
-  const end = new Date(apartment.contract.endDate);
+  const todayStr = today.toISOString().slice(0, 10);
 
-  const diff = Math.ceil((end - today) / (1000 * 60 * 60 * 24));
+  const endDate = updated.contract.endDate;
 
-  if (diff < 0) apartment.status = "منتهي";
-  else if (diff < 30) apartment.status = "قريب الانتهاء";
-  else apartment.status = "نشط";
+  const remainingDays = daysBetween(todayStr, endDate);
 
-  return apartment;
-};
+
+  if (remainingDays < 0) {
+
+    updated.leaseStatus = "ended";
+
+  }
+  else if (remainingDays <= 30) {
+
+    updated.leaseStatus = "ending_soon";
+
+  }
+  else {
+
+    updated.leaseStatus = "active";
+
+  }
+
+
+  updated.status = getStatusLabel(updated.leaseStatus);
+
+  return updated;
+}

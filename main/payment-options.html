@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>خيارات الدفع - ولجنا</title>
+  <link rel="stylesheet" href="../css/navstyle.css">
+  <style>
+    body{
+      background:#f3f4f6;
+      font-family:inherit;
+    }
+    .payment-options-wrap{
+      max-width:1100px;
+      margin:40px auto;
+      padding:20px;
+    }
+    .payment-options-header{
+      background:#dff4f7;
+      border-radius:24px;
+      padding:24px;
+      margin-bottom:24px;
+    }
+    .payment-options-header h2{
+      margin:0 0 8px;
+      font-size:40px;
+    }
+    .payment-options-header p{
+      margin:0;
+      color:#64748b;
+    }
+    .payment-methods-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+      gap:16px;
+    }
+    .payment-method-card{
+      background:#fff;
+      border:1px solid #e5e7eb;
+      border-radius:20px;
+      padding:22px;
+      cursor:pointer;
+      transition:.2s ease;
+      box-shadow:0 10px 25px rgba(15,23,42,.05);
+    }
+    .payment-method-card:hover{
+      transform:translateY(-2px);
+      border-color:#cbd5e1;
+    }
+    .payment-method-card h3{
+      margin:0 0 10px;
+      font-size:24px;
+    }
+    .payment-method-card p{
+      margin:0;
+      color:#64748b;
+      line-height:1.7;
+    }
+    .payment-summary-box{
+      background:#fff;
+      border:1px solid #e5e7eb;
+      border-radius:20px;
+      padding:18px;
+      margin-bottom:20px;
+    }
+    .back-link{
+      display:inline-flex;
+      margin-top:18px;
+      text-decoration:none;
+      color:#111827;
+      font-weight:700;
+    }
+  </style>
+</head>
+<body data-nav="user">
+
+  <div id="navbar-container"></div>
+
+  <main class="payment-options-wrap">
+    <section class="payment-options-header">
+      <h2>خيارات الدفع</h2>
+      <p>اختر طريقة الدفع المناسبة لإتمام العملية</p>
+      <a id="backToPaymentsLink" class="back-link" href="#">العودة إلى صفحة المدفوعات</a>
+    </section>
+
+    <section id="paymentSummaryBox" class="payment-summary-box">جارٍ تحميل بيانات الدفعة...</section>
+
+    <section class="payment-methods-grid">
+      <div class="payment-method-card" data-method="tamara">
+        <h3>تمارا</h3>
+        <p>ادفع الآن أو قسّط المبلغ حسب الخيارات المتاحة.</p>
+      </div>
+
+      <div class="payment-method-card" data-method="tabby">
+        <h3>تابي</h3>
+        <p>خيار مناسب للدفع المرن على دفعات.</p>
+      </div>
+
+      <div class="payment-method-card" data-method="apple_pay">
+        <h3>Apple Pay</h3>
+        <p>إتمام سريع وآمن لعملية الدفع.</p>
+      </div>
+
+      <div class="payment-method-card" data-method="card">
+        <h3>البطاقة</h3>
+        <p>الدفع باستخدام البطاقة البنكية مباشرة.</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="../js/nav.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const params = new URLSearchParams(window.location.search);
+      const apartmentId = params.get("id");
+      const paymentId = params.get("paymentId");
+
+      const payments = JSON.parse(localStorage.getItem("walajna_payments") || "[]");
+      const payment = payments.find((item) => String(item.id) === String(paymentId));
+
+      const summaryBox = document.getElementById("paymentSummaryBox");
+      const backLink = document.getElementById("backToPaymentsLink");
+
+      if (backLink && apartmentId) {
+        backLink.href = `../main/payment.html?id=${encodeURIComponent(apartmentId)}`;
+      }
+
+      if (summaryBox) {
+        if (!payment) {
+          summaryBox.textContent = "لم يتم العثور على الدفعة المحددة.";
+        } else {
+          summaryBox.innerHTML = `
+            <strong>المبلغ:</strong> ${Number(payment.amount || 0).toLocaleString("ar-SA")} ريال
+            <br>
+            <strong>تاريخ الاستحقاق:</strong> ${payment.dueDate || "—"}
+          `;
+        }
+      }
+
+      document.querySelectorAll(".payment-method-card").forEach((card) => {
+        card.addEventListener("click", function () {
+          const method = this.dataset.method;
+
+          if (!payment) {
+            alert("تعذر العثور على بيانات الدفعة");
+            return;
+          }
+
+          const updatedPayments = payments.map((item) => {
+            if (item.id !== payment.id) return item;
+
+            return {
+              ...item,
+              status: "paid",
+              paymentMethod: method,
+              paidAt: new Date().toISOString().slice(0, 10),
+              notes: "تم السداد من صفحة خيارات الدفع"
+            };
+          });
+
+          localStorage.setItem("walajna_payments", JSON.stringify(updatedPayments));
+
+          alert("تم تنفيذ الدفع بنجاح ✅");
+          window.location.href = `../main/payments.html?id=${encodeURIComponent(apartmentId)}`;
+        });
+      });
+    });
+  </script>
+
+</body>
+</html>

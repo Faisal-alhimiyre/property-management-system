@@ -86,15 +86,29 @@
           <span class="label">ملاحظات</span>
           <span class="value" id="notes">—</span>
         </div>
+        <div class="item">
+        <span class="label"> الدفعة القادمة
+        <span id="nextPaymentDate" class="next-payment-date">—</span>
+        </span>
+           <span class="value" id="nextPaymentAmount">—</span>
+         </div>
       </div>
     </section>
+<div id="apartmentPaymentReminder" class="apartment-payment-reminder-box"></div>
+   <section class="actions">
+  <div class="actions-row">
+    <button id="mainActionBtn" class="action-btn">طلب صيانة</button>
+    <button id="paymentsBtn" class="action-btn">عرض المدفوعات</button>
+    <button id="documentsBtn" class="action-btn">عرض الوثائق</button>
+    <button id="viewRequestsBtn" class="action-btn">عرض الطلبات</button>
+    <button id="tenantPayBtn" class="action-btn action-black">سداد الايجار</button>
+  </div>
 
-    <section class="actions">
-      <button id="mainActionBtn" class="action-btn">طلب صيانة</button>
-      <button id="paymentsBtn" class="action-btn">عرض المدفوعات</button>
-      <button id="documentsBtn" class="action-btn">عرض الوثائق</button>
-      <button id="viewRequestsBtn" class="action-btn"> عرض الطلبات </button>
-    </section>
+  <div class="actions-row actions-row-bottom">
+    <button id="evictTenantBtn" class="action-btn action-red">إخلاء المستأجر</button>
+    <button id="renewContractBtn" class="action-btn action-blue">تجديد العقد</button>
+  </div>
+</section>
   </main>
 
   <!-- Request Type Modal -->
@@ -181,6 +195,7 @@
     </div>
   </div>
 </div>
+
 <!-- Link Tenant Modal -->
 <div id="linkTenantModal" class="wl-modal" aria-hidden="true">
   <div class="wl-modal__backdrop" data-link-close="true"></div>
@@ -197,90 +212,121 @@
 
     <div class="wl-modal__body">
       <div class="details-grid">
-       
-      <div class="item">
-  <label class="label" for="linkFullName">الاسم الكامل</label>
-  <input id="linkFullName" type="text" />
-</div>
+        <div class="item">
+          <label class="label" for="linkFullName">الاسم الكامل</label>
+          <input id="linkFullName" type="text" />
+        </div>
 
-<div class="item">
-  <label class="label" for="linkNationalId">رقم الهوية / الإقامة</label>
-  <input id="linkNationalId" type="text" maxlength="10" />
-</div>
+        <div class="item">
+          <label class="label" for="linkNationalId">رقم الهوية / الإقامة</label>
+          <input id="linkNationalId" type="text" maxlength="10" />
+        </div>
 
-<div class="item">
-  <label class="label" for="linkNationality">الجنسية</label>
-  <input id="linkNationality" type="text" />
-</div>
+        <div class="item">
+          <label class="label" for="linkNationality">الجنسية</label>
+          <input id="linkNationality" type="text" />
+        </div>
 
-<div class="item">
-  <label class="label" for="linkTenantType">أفراد أو عوائل</label>
-  <select id="linkTenantType">
-    <option value="">اختر</option>
-    <option value="أفراد">أفراد</option>
-    <option value="عوائل">عوائل</option>
-  </select>
-</div>
+        <div class="item">
+          <label class="label" for="linkTenantType">أفراد أو عوائل</label>
+          <select id="linkTenantType">
+            <option value="">اختر</option>
+            <option value="أفراد">أفراد</option>
+            <option value="عوائل">عوائل</option>
+          </select>
+        </div>
 
-<div class="item">
-  <label class="label" for="linkPhoneNumber">رقم الجوال</label>
-  <input id="linkPhoneNumber" type="text" maxlength="10" />
-</div>
+        <div class="item">
+          <label class="label" for="linkPhoneNumber">رقم الجوال</label>
+          <input id="linkPhoneNumber" type="text" maxlength="10" />
+        </div>
 
-<div class="item">
-  <label class="label" for="linkRent">الإيجار الشهري</label>
-  <input id="linkRent" type="text" />
-</div>
+        <div class="item">
+          <label class="label" for="linkRent">الإيجار الشهري</label>
+          <input id="linkRent" type="text" />
+        </div>
 
-<div class="item">
-  <label class="label" for="linkInsurancePaid">التأمين المدفوع</label>
-  <input id="linkInsurancePaid" type="text" />
-</div>
+        <div class="item">
+          <label class="label" for="linkInsurancePaid">التأمين المدفوع</label>
+          <input id="linkInsurancePaid" type="text" />
+        </div>
 
-<div class="item">
-  <label class="label" for="linkStartDate">تاريخ بداية العقد</label>
-  <input id="linkStartDate" type="date" />
-</div>
+        <div class="item">
+          <label class="label" for="linkStartDate">تاريخ بداية العقد</label>
+          <input id="linkStartDate" type="date" />
+        </div>
 
-<div class="item">
-  <label class="label" for="linkEndDate">تاريخ نهاية العقد</label>
-  <input id="linkEndDate" type="date" />
-</div>
+        <div class="item">
+          <label class="label" for="linkEndDate">تاريخ نهاية العقد</label>
+          <input id="linkEndDate" type="date" />
+        </div>
 
-<div class="item">
-  <label class="label" for="linkMeterNumber">رقم العداد</label>
-  <input id="linkMeterNumber" type="text" />
-</div>
+        <div class="item">
+          <label class="label" for="linkMeterNumber">رقم العداد</label>
+          <input id="linkMeterNumber" type="text" />
+        </div>
 
-<div class="item">
-  <label class="label" for="linkNotes">ملاحظات</label>
-  <input id="linkNotes" type="text" />
-</div>
+        <div class="item">
+          <label class="label" for="linkNotes">ملاحظات</label>
+          <input id="linkNotes" type="text" />
+        </div>
 
-<div class="item">
-  <label class="label" for="contractFile">ملف عقد الإيجار</label>
-  <input id="contractFile" type="file" accept=".docx,.pdf,.txt,.jpg,.png" />
-</div>
+        <div class="item">
+          <label class="label" for="contractFile">ملف عقد الإيجار</label>
+          <input id="contractFile" type="file" accept=".docx,.pdf,.txt,.jpg,.png" />
+        </div>
 
-<div class="item">
-  <button id="extractContractBtn" class="wl-btn wl-btn--ghost" type="button">
-    استخراج البيانات من العقد
-  </button>
-</div>
+        <div class="item">
+          <button id="extractContractBtn" class="wl-btn wl-btn--ghost" type="button">
+            استخراج البيانات من العقد
+          </button>
+        </div>
+      </div>
 
-<p id="linkTenantError" class="error"></p>
+      <p id="linkTenantError" class="error"></p>
+    </div>
 
-<div class="wl-modal__footer">
-  <button id="saveLinkedTenantBtn" class="wl-btn wl-btn--primary" type="button">
-    حفظ وربط المستأجر
-  </button>
-  <button id="cancelLinkTenantModal" class="wl-btn wl-btn--ghost" type="button">
-    إلغاء
-  </button>
+    <div class="wl-modal__footer">
+      <button id="saveLinkedTenantBtn" class="wl-btn wl-btn--primary" type="button">
+        حفظ وربط المستأجر
+      </button>
+      <button id="cancelLinkTenantModal" class="wl-btn wl-btn--ghost" type="button">
+        إلغاء
+      </button>
+    </div>
+  </div>
 </div>
+<!-- Documents Modal -->
+<div id="documentsModal" class="wl-modal" aria-hidden="true">
+  <div class="wl-modal__backdrop" data-docs-close="true"></div>
+
+  <div class="wl-modal__panel" role="dialog" aria-modal="true" aria-labelledby="documentsModalTitle">
+    <div class="wl-modal__header">
+      <div>
+        <h3 id="documentsModalTitle" class="wl-modal__title">الوثائق</h3>
+        <p class="wl-modal__subtitle">الملفات المرتبطة بهذه الشقة</p>
+      </div>
+
+      <button id="closeDocumentsModal" class="wl-icon-btn" type="button" aria-label="إغلاق">✕</button>
+    </div>
+
+    <div class="wl-modal__body">
+      <div id="documentsList" class="wl-list"></div>
+    </div>
+
+    <div class="wl-modal__footer">
+      <button id="cancelDocumentsModal" class="wl-btn wl-btn--ghost" type="button">إغلاق</button>
+    </div>
   </div>
 </div>
   <script src="../js/nav.js"></script>
-  <script src="../js/apartment-details.js"></script>
+ <script src="../js/apartment-storage.js"></script>
+<script src="../js/apartment-utils.js"></script>
+<script src="../js/apartment-ui.js"></script>
+<script src="../js/apartment-documents.js"></script>
+<script src="../js/apartment-requests.js"></script>
+<script src="../js/apartment-link-tenant.js"></script>
+<script src="../js/apartment-page.js"></script>
+
 </body>
 </html>

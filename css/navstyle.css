@@ -91,7 +91,42 @@
   width: auto;
   display: block;
 }
+.nav-role-switcher{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
 
+.nav-role-switcher__label{
+  font-size: 13px;
+  font-weight: 700;
+  color: inherit;
+}
+
+.nav-role-switcher__select{
+  border: 1px solid rgba(255,255,255,0.25);
+  background: rgba(255,255,255,0.12);
+  color: inherit;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.nav-role-switcher__select option{
+  color: #111827;
+  background: white;
+}
+.nav-role-switcher{
+  margin-inline-start:10px;
+}
+
+.nav-role-switcher__select{
+  border-radius:8px;
+  padding:6px 10px;
+  font-weight:700;
+  cursor:pointer;
+}
 /* موبايل */
 @media (max-width: 900px){
   .walajna-topbar__inner{
