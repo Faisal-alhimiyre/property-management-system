@@ -24,7 +24,7 @@
 
         <div class="form-group">
           <label for="buildingCode">رمز العمارة</label>
-          <input type="text" id="buildingCode" placeholder="مثال: B01" required>
+          <input type="text" id="buildingCode" readonly class="form-input ">
         </div>
 
         <div class="form-group">
@@ -37,16 +37,21 @@
           <input type="number" id="apartmentCount" min="1" placeholder="مثال: 14" required>
         </div>
 
-        <div class="form-actions">
-          <button type="submit" class="save-btn">حفظ العمارة</button>
-        </div>
-      </form>
+         <div class="form-group">
+        <label for="totalFloors">عدد الطوابق</label>
+        <input type="number" id="totalFloors" min="1" placeholder="مثال: 7" />
+         </div>
 
+         <div class="form-group">
+         <label for="apartmentsPerFloor">عدد الشقق في كل طابق</label>
+          <input type="number" id="apartmentsPerFloor" min="1" placeholder="مثال: 2" />
+           </div>
+              <button type="submit" class="save-btn">حفظ العمارة</button>
       <p id="formMessage" class="form-message"></p>
     </section>
   </main>
 
-  <script src="../js/nav.js"></script>
-  <script src="../js/owner-edit.js"></script>
+  <script src="../js/main/nav.js"></script>
+  <script src="../js/owner-manager/owner-edit.js"></script>
 </body>
 </html>

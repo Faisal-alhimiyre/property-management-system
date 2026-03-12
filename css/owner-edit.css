@@ -155,7 +155,10 @@ body{
 .form-message.error{
   color: var(--danger);
 }
-
+.disabled-field{
+background:#f3f4f6;
+cursor:not-allowed;
+}
 /* optional nice layout on larger screens */
 @media (min-width: 720px){
   .building-form{

@@ -16,10 +16,26 @@ body{
   margin-bottom:25px;
 }
 
-.apartments-grid{
-  display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
-  gap:18px;
+#apartmentsGrid{
+  display:flex;
+  flex-direction:column;
+  gap:24px;
+}
+
+.floor-section{
+  width:100%;
+}
+
+.floor-title{
+  font-size:18px;
+  font-weight:700;
+  margin-bottom:12px;
+}
+
+.floor-apartments{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
 }
 
 .apartment-card{
@@ -28,17 +44,27 @@ body{
   padding:16px;
   background:#fff;
   cursor:pointer;
-  transition:transform .15s ease;
+  transition:transform .15s ease, box-shadow .15s ease;
+  min-width:220px;
 }
 
 .apartment-card:hover{
   transform:translateY(-3px);
+  box-shadow:0 6px 14px rgba(0,0,0,0.12);
+}
+
+.apartment-number-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:10px;
 }
 
 .apartment-number{
   font-size:22px;
   font-weight:900;
-  margin-bottom:8px;
+  margin:0;
 }
 
 .apartment-tenant{
@@ -47,26 +73,108 @@ body{
   color:#444;
 }
 
+/* الحالة العادية */
 .apartment-card.none{
   background:#e5e5e5;
+  color:#111;
 }
 
-.apartment-card.complaint{
+/* تأخر الإيجار */
+.apartment-card.rent-overdue{
   background:#ef4444;
   color:#fff;
 }
 
+/* صيانة */
 .apartment-card.maintenance{
   background:#f59e0b;
   color:#fff;
 }
 
+/* شكوى */
+.apartment-card.complaint{
+  background:#facc15;
+  color:#111;
+}
+
+/* اقتراح */
 .apartment-card.suggestion{
   background:#3b82f6;
   color:#fff;
 }
 
+/* طلب */
 .apartment-card.request{
   background:#22c55e;
   color:#fff;
+}
+
+/* وضوح النص داخل الكروت الملونة */
+.apartment-card.rent-overdue .apartment-number,
+.apartment-card.rent-overdue .apartment-tenant,
+.apartment-card.maintenance .apartment-number,
+.apartment-card.maintenance .apartment-tenant,
+.apartment-card.suggestion .apartment-number,
+.apartment-card.suggestion .apartment-tenant,
+.apartment-card.request .apartment-number,
+.apartment-card.request .apartment-tenant{
+  color:#fff;
+  text-shadow:0 1px 2px rgba(0,0,0,0.35);
+}
+
+/* الشكوى أصفر، فنخلي النص داكن */
+.apartment-card.complaint .apartment-number,
+.apartment-card.complaint .apartment-tenant{
+  color:#111;
+}
+
+/* الشارات */
+.apartment-badges{
+  margin-top:10px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+.apartment-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-size:11px;
+  font-weight:700;
+  padding:4px 8px;
+  border-radius:999px;
+  background:rgba(255,255,255,0.95);
+  border:1px solid rgba(0,0,0,0.08);
+  backdrop-filter:blur(3px);
+  color:#111827;
+}
+
+.rented-badge{
+  background:#ecfdf5;
+  color:#047857;
+  border:1px solid #a7f3d0;
+}
+
+.badge-dot{
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  flex-shrink:0;
+}
+
+.badge-maintenance .badge-dot{
+  background:#f59e0b;
+}
+
+.badge-complaint .badge-dot{
+  background:#facc15;
+}
+
+.badge-suggestion .badge-dot{
+  background:#3b82f6;
+}
+
+.badge-request .badge-dot{
+  background:#22c55e;
 }

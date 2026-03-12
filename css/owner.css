@@ -9,8 +9,9 @@
   --brand-dark:#0ea5a2;
 
   --none:#d9dee5;
-  --complaint:#ef4444;
+  --rent-overdue:#ef4444;
   --maintenance:#f59e0b;
+  --complaint:#facc15;
   --suggestion:#3b82f6;
   --request:#22c55e;
 }
@@ -42,6 +43,7 @@ body{
   margin:0;
   font-size:24px;
   font-weight:900;
+  color:var(--text);
 }
 
 .page-subtitle{
@@ -51,7 +53,7 @@ body{
   font-weight:700;
 }
 
-/* ADD BUILDING BUTTON */
+/* add building button */
 
 .add-building-btn{
   background:linear-gradient(135deg,var(--brand),var(--brand-dark));
@@ -61,7 +63,6 @@ body{
   border-radius:999px;
   text-decoration:none;
   font-size:14px;
-
   box-shadow:0 8px 18px rgba(24,199,195,0.28);
   transition:all .15s ease;
 }
@@ -71,7 +72,7 @@ body{
   box-shadow:0 12px 24px rgba(24,199,195,0.35);
 }
 
-/* BUILDINGS FEED */
+/* buildings feed */
 
 .buildings-container{
   display:flex;
@@ -79,7 +80,7 @@ body{
   gap:10px;
 }
 
-/* BUILDING CARD (SMALL) */
+/* building card */
 
 .building-card{
   background:var(--card);
@@ -94,8 +95,6 @@ body{
   background:#fafafa;
 }
 
-/* building header */
-
 .building-card__head{
   display:flex;
   justify-content:space-between;
@@ -107,6 +106,7 @@ body{
   font-size:14px;
   font-weight:900;
   margin:0;
+  color:var(--text);
 }
 
 .building-count{
@@ -115,7 +115,7 @@ body{
   color:var(--muted);
 }
 
-/* APARTMENT GRID */
+/* apartment grid */
 
 .apartments-grid{
   display:grid;
@@ -123,26 +123,29 @@ body{
   gap:0;
 }
 
-/* SMALL COLOR SQUARES */
+/* small squares */
 
 .apartment-square{
   width:12px;
   height:12px;
   border:1px solid #ffffff;
+  box-sizing:border-box;
 }
-
-/* COLORS */
 
 .apartment-square.none{
   background:var(--none);
 }
 
-.apartment-square.complaint{
-  background:var(--complaint);
+.apartment-square.rent-overdue{
+  background:var(--rent-overdue);
 }
 
 .apartment-square.maintenance{
   background:var(--maintenance);
+}
+
+.apartment-square.complaint{
+  background:var(--complaint);
 }
 
 .apartment-square.suggestion{
@@ -177,8 +180,26 @@ body{
   border-radius:3px;
 }
 
-.legend-color.none{background:var(--none);}
-.legend-color.complaint{background:var(--complaint);}
-.legend-color.maintenance{background:var(--maintenance);}
-.legend-color.suggestion{background:var(--suggestion);}
-.legend-color.request{background:var(--request);}
+.legend-color.none{
+  background:var(--none);
+}
+
+.legend-color.rent-overdue{
+  background:var(--rent-overdue);
+}
+
+.legend-color.maintenance{
+  background:var(--maintenance);
+}
+
+.legend-color.complaint{
+  background:var(--complaint);
+}
+
+.legend-color.suggestion{
+  background:var(--suggestion);
+}
+
+.legend-color.request{
+  background:var(--request);
+}

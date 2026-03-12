@@ -30,12 +30,12 @@ function initRequestsSystem(aptId, activeRole, currentUser, leaseStatus) {
   const submitOwnerReplyBtn = document.getElementById("submitOwnerReplyBtn");
 
 
-  const requestTypes = [
-    { id: "complaint", title: "شكوى", desc: "بلاغ أو ملاحظة تحتاج متابعة", color: "#ef4444" },
-    { id: "maintenance", title: "صيانة", desc: "مشكلة فنية داخل الشقة أو المرافق", color: "#f59e0b" },
-    { id: "suggestion", title: "اقتراح", desc: "فكرة لتحسين السكن أو الخدمات", color: "#3b82f6" },
-    { id: "request", title: "طلب", desc: "طلب عام (وثائق، تمديد، استفسار)", color: "#16a34a" }
-  ];
+const requestTypes = [
+  { id: "maintenance", title: "صيانة", desc: "مشكلة فنية داخل الشقة أو المرافق", color: "#f59e0b" },
+  { id: "complaint", title: "شكوى", desc: "بلاغ أو ملاحظة تحتاج متابعة", color: "#facc15" },
+  { id: "suggestion", title: "اقتراح", desc: "فكرة لتحسين السكن أو الخدمات", color: "#3b82f6" },
+  { id: "request", title: "طلب", desc: "طلب عام (وثائق، تمديد، استفسار)", color: "#22c55e" }
+];
 
   let selectedRequestType = null;
   let selectedOwnerRequestId = null;
@@ -195,43 +195,66 @@ function initRequestsSystem(aptId, activeRole, currentUser, leaseStatus) {
     }
 
 
-    viewRequestsList.innerHTML = apartmentRequests.map((req) => `
+   viewRequestsList.innerHTML = apartmentRequests.map((req) => `
 
-      <div class="wl-item" tabindex="0" data-request-id="${req.id}">
+  <div class="wl-item" tabindex="0" data-request-id="${req.id}">
 
-        <div class="wl-item__left">
+    <div class="wl-item__left">
 
-          <span class="wl-dot" style="background:${req.typeColor || "#94a3b8"}"></span>
+      <span class="wl-dot" style="background:${req.typeColor || "#94a3b8"}"></span>
 
-          <div>
+      <div>
 
-            <div class="wl-item__title">${req.typeTitle || "طلب"}</div>
+        <div class="wl-item__title">${req.typeTitle || "طلب"}</div>
 
-            <div class="wl-item__desc">${req.message || "—"}</div>
+        <div class="wl-item__desc">${req.message || "—"}</div>
 
-            <div class="wl-item__desc">
-              تاريخ الإرسال: ${new Date(req.createdAt).toLocaleString("ar-SA")}
-            </div>
-
-            <div class="wl-item__desc">
-              الحالة: ${req.status === "replied" ? "تم الرد" : "جديد"}
-            </div>
-
-            ${
-              req.ownerReply
-                ? `<div class="wl-item__desc"><strong>رد المالك:</strong> ${req.ownerReply}</div>`
-                : ""
-            }
-
-          </div>
-
+        <div class="wl-item__desc">
+          تاريخ الإرسال: ${new Date(req.createdAt).toLocaleString("ar-SA")}
         </div>
 
-        <span class="wl-badge">${req.typeId || "request"}</span>
+        <div class="wl-item__desc">
+          الحالة:
+          ${
+            req.status === "resolved"
+              ? "تمت المعالجة"
+              : req.status === "replied"
+              ? "تم الرد"
+              : "جديد"
+          }
+        </div>
+
+        ${
+          req.ownerReply
+            ? `<div class="wl-item__desc"><strong>رد المالك:</strong> ${req.ownerReply}</div>`
+            : ""
+        }
+
+        ${
+          activeRole === "owner" && req.status !== "resolved"
+            ? `
+              <div style="margin-top:10px;">
+                <button
+                  type="button"
+                  class="resolve-request-btn"
+                  data-resolve-id="${req.id}"
+                >
+                  تمت المعالجة
+                </button>
+              </div>
+            `
+            : ""
+        }
 
       </div>
 
-    `).join("");
+    </div>
+
+    <span class="wl-badge">${req.typeId || "request"}</span>
+
+  </div>
+
+`).join("");
 
   }
 
@@ -395,25 +418,47 @@ function initRequestsSystem(aptId, activeRole, currentUser, leaseStatus) {
   }
 
 
-  if (viewRequestsList) {
+ if (viewRequestsList) {
+  viewRequestsList.addEventListener("click", (e) => {
+    if (activeRole !== "owner") return;
 
-    viewRequestsList.addEventListener("click", (e) => {
+    const resolveBtn = e.target.closest(".resolve-request-btn");
 
-      if (activeRole !== "owner") return;
+    if (resolveBtn) {
+      const requestId = resolveBtn.dataset.resolveId;
 
-      const item = e.target.closest(".wl-item");
+      const allRequests = getRequests();
 
-      if (!item) return;
+      const updatedRequests = allRequests.map((req) => {
+        if (req.id === requestId) {
+          return {
+            ...req,
+            status: "resolved",
+            resolvedAt: new Date().toISOString()
+          };
+        }
+        return req;
+      });
 
-      selectedOwnerRequestId = item.dataset.requestId;
+      saveRequests(updatedRequests);
+      renderViewRequests();
+      resetOwnerReplyUI();
 
-      if (ownerReplyBox) ownerReplyBox.style.display = "block";
+      alert("تمت معالجة الطلب ✅");
+      return;
+    }
 
-      if (ownerReplyMessage) ownerReplyMessage.focus();
+    const item = e.target.closest(".wl-item");
 
-    });
+    if (!item) return;
 
-  }
+    selectedOwnerRequestId = item.dataset.requestId;
+
+    if (ownerReplyBox) ownerReplyBox.style.display = "block";
+
+    if (ownerReplyMessage) ownerReplyMessage.focus();
+  });
+}
 
 
   if (ownerReplyMessage && ownerReplyCharCount) {
