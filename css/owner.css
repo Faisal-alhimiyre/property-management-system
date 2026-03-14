@@ -183,6 +183,10 @@ body{
 .legend-color.none{
   background:var(--none);
 }
+.legend-color.rented{
+  background:var(--none);
+  border:2px solid #22c55e;
+}
 
 .legend-color.rent-overdue{
   background:var(--rent-overdue);
@@ -202,4 +206,7 @@ body{
 
 .legend-color.request{
   background:var(--request);
+}
+.apartment-square.rented{
+  box-shadow:0 0 0 2px #22c55e inset;
 }

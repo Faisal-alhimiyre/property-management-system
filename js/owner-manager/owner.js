@@ -79,6 +79,15 @@ document.addEventListener("DOMContentLoaded", () => {
     return highestPriorityRequest.typeId;
   }
 
+  function isApartmentRented(apartment) {
+    return (
+      apartment.leaseStatus !== "vacant" ||
+      !!apartment.tenantUserId ||
+      !!apartment.tenantNationalId ||
+      !!apartment.tenantInfo?.fullName
+    );
+  }
+
   const currentUser = getCurrentUser();
   const allBuildings = getLocalArray("walajna_buildings");
   const apartments = getLocalArray("walajna_apartments");
@@ -111,18 +120,21 @@ document.addEventListener("DOMContentLoaded", () => {
         (apartment) => apartment.buildingId === building.id
       );
 
-      const squaresHtml = buildingApartments
-        .map((apartment) => {
-          const typeClass = getApartmentStatusClass(apartment, requests, payments);
+      const squaresHtml = buildingApartments.map((apartment) => {
+        const typeClass = getApartmentStatusClass(apartment, requests, payments);
 
-          return `
-            <div 
-              class="apartment-square ${typeClass}"
-              title="شقة ${apartment.number}">
-            </div>
-          `;
-        })
-        .join("");
+        const rentedClass =
+          isApartmentRented(apartment) && typeClass === "none"
+            ? "rented"
+            : "";
+
+        return `
+          <div 
+            class="apartment-square ${typeClass} ${rentedClass}"
+            title="شقة ${apartment.number}">
+          </div>
+        `;
+      }).join("");
 
       return `
         <article class="building-card" data-building-id="${building.id}">
