@@ -2,6 +2,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("buildingForm");
   const message = document.getElementById("formMessage");
   const buildingCodeInput = document.getElementById("buildingCode");
+  const defaultPaymentCycleInput = document.getElementById("defaultPaymentCycle");
 
   if (!form) return;
 
@@ -46,7 +47,13 @@ document.addEventListener("DOMContentLoaded", () => {
     message.style.color = "#16a34a";
   }
 
-  function buildApartmentRecord(buildingCode, buildingName, apartmentNumber, floorNumber) {
+  function buildApartmentRecord(
+    buildingCode,
+    buildingName,
+    apartmentNumber,
+    floorNumber,
+    paymentDefaults = {}
+  ) {
     const aptNumber = String(apartmentNumber);
 
     return {
@@ -67,18 +74,34 @@ document.addEventListener("DOMContentLoaded", () => {
       contract: null,
       tenantHistory: [],
 
+      paymentDefaults: {
+        paymentCycle: paymentDefaults.paymentCycle || "monthly",
+      },
+
       createdAt: new Date().toISOString(),
     };
   }
 
-  function generateApartmentsForBuilding(buildingCode, buildingName, apartmentCount, apartmentsPerFloor) {
+  function generateApartmentsForBuilding(
+    buildingCode,
+    buildingName,
+    apartmentCount,
+    apartmentsPerFloor,
+    paymentDefaults = {}
+  ) {
     const generatedApartments = [];
 
     for (let i = 1; i <= apartmentCount; i++) {
       const floorNumber = Math.ceil(i / apartmentsPerFloor);
 
       generatedApartments.push(
-        buildApartmentRecord(buildingCode, buildingName, i, floorNumber)
+        buildApartmentRecord(
+          buildingCode,
+          buildingName,
+          i,
+          floorNumber,
+          paymentDefaults
+        )
       );
     }
 
@@ -91,6 +114,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const newCode = generateUniqueBuildingCode(existingBuildings);
     buildingCodeInput.value = newCode;
     buildingCodeInput.readOnly = true;
+  }
+
+  if (defaultPaymentCycleInput && !defaultPaymentCycleInput.value) {
+    defaultPaymentCycleInput.value = "monthly";
   }
 
   form.addEventListener("submit", (e) => {
@@ -112,6 +139,9 @@ document.addEventListener("DOMContentLoaded", () => {
       10
     );
 
+    const defaultPaymentCycle =
+      document.getElementById("defaultPaymentCycle")?.value || "monthly";
+
     if (!buildingName || !buildingCode || !buildingCity || !apartmentCount || apartmentCount < 1) {
       showError("يرجى تعبئة البيانات الأساسية بشكل صحيح");
       return;
@@ -132,6 +162,11 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    if (!defaultPaymentCycle) {
+      showError("يرجى اختيار دورة الدفع الافتراضية");
+      return;
+    }
+
     const buildings = getLocalArray("walajna_buildings");
     const apartments = getLocalArray("walajna_apartments");
 
@@ -148,6 +183,10 @@ document.addEventListener("DOMContentLoaded", () => {
       localStorage.getItem("walajna_current_user") || "null"
     );
 
+    const paymentDefaults = {
+      paymentCycle: defaultPaymentCycle,
+    };
+
     const newBuilding = {
       id: buildingCode,
       name: buildingName,
@@ -155,6 +194,7 @@ document.addEventListener("DOMContentLoaded", () => {
       apartmentCount: apartmentCount,
       totalFloors: totalFloors,
       apartmentsPerFloor: apartmentsPerFloor,
+      paymentDefaults,
       ownerId: currentUser?.id || null,
       createdAt: new Date().toISOString(),
     };
@@ -163,7 +203,8 @@ document.addEventListener("DOMContentLoaded", () => {
       buildingCode,
       buildingName,
       apartmentCount,
-      apartmentsPerFloor
+      apartmentsPerFloor,
+      paymentDefaults
     );
 
     buildings.push(newBuilding);
@@ -179,6 +220,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (buildingCodeInput) {
       buildingCodeInput.value = generateUniqueBuildingCode(buildings);
       buildingCodeInput.readOnly = true;
+    }
+
+    if (defaultPaymentCycleInput) {
+      defaultPaymentCycleInput.value = "monthly";
     }
 
     setTimeout(() => {

@@ -1,88 +1,200 @@
 /* dashboard.css */
 
+:root{
+  --text:#0f172a;
+  --muted:#64748b;
+  --surface:rgba(255,255,255,0.78);
+  --surface-strong:rgba(255,255,255,0.9);
+  --border:rgba(255,255,255,0.42);
+
+  --brand-1:#67d8d4;
+  --brand-2:#49c6d9;
+  --brand-3:#2f5d86;
+  --brand-4:#24496d;
+
+  --shadow-sm:0 8px 22px rgba(15,23,42,0.08);
+  --shadow-md:0 14px 34px rgba(15,23,42,0.12);
+  --shadow-lg:0 22px 48px rgba(15,23,42,0.16);
+}
+
+/* الصفحة */
+body{
+  margin:0;
+  min-height:100vh;
+  font-family:Arial,sans-serif;
+  color:var(--text);
+  background:
+    linear-gradient(
+      to bottom,
+      var(--brand-1) 0%,
+      var(--brand-2) 28%,
+      var(--brand-3) 28%,
+      var(--brand-4) 100%
+    );
+  background-attachment:fixed;
+}
+
 /* عنوان الصفحة */
 .page-title{
-  width: 100%;
-  padding: 18px 0 6px;
-  text-align: center;
+  width:100%;
+  padding:26px 16px 8px;
+  text-align:center;
 }
 
 .page-title h2{
-  margin: 0;
-  font-size: 28px;
-  font-weight: 900;
-  color: #0b0f14;
+  margin:0;
+  font-size:44px;
+  font-weight:900;
+  letter-spacing:-0.6px;
+  color:#0b2540;
+  text-shadow:0 2px 10px rgba(255,255,255,0.16);
 }
 
+/* شبكة العمائر */
 .buildings-grid{
-  max-width: 1200px;   /* increased container width */
-  margin: 60px auto;
+  max-width:1200px;
+  margin:34px auto 56px;
+  padding:0 22px;
 
-  display: grid;
-  grid-template-columns: repeat(3, 320px); /* card width */
-  justify-content: center;
-  gap: 85px; /* space between cards */
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(280px, 320px));
+  justify-content:center;
+  gap:26px;
 }
 
+/* كرت العمارة */
+.building-card{
+  width:100%;
+  height:190px;
+
+  position:relative;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+
+  border-radius:28px;
+  overflow:hidden;
+
+  border:1px solid rgba(255,255,255,0.35);
+  background:var(--surface);
+  box-shadow:var(--shadow-md);
+
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+
+  transition:transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+}
 
 .building-card:hover{
-  transform: translateY(-2px);
-  box-shadow: 0 10px 18px rgba(0,0,0,.12);
+  transform:translateY(-6px);
+  box-shadow:var(--shadow-lg);
+  border-color:rgba(255,255,255,0.55);
 }
 
-.building-card{
-  width: 320px;
-  height: 180px;
-
-  border: 3px solid #0b0f14;
-  border-radius: 18px;
-  overflow: hidden;
-
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.building-card::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:
+    linear-gradient(
+      to top,
+      rgba(11,37,64,0.22) 0%,
+      rgba(11,37,64,0.06) 38%,
+      rgba(255,255,255,0.04) 100%
+    );
+  z-index:1;
+  pointer-events:none;
 }
+
 .building-card img{
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  top: 0;
-  left: 0;
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit:cover;
 }
+
 .building-card p{
-  position: relative;
-  z-index: 2;
+  position:relative;
+  z-index:2;
+  margin:0;
+  padding:0 18px;
 
-  font-size: 18px;
-  font-weight: 800;
-  color: white;
+  font-size:28px;
+  font-weight:900;
+  line-height:1.35;
+  color:#ffffff;
 
-  text-align: center;
-  text-shadow: 0 2px 6px rgba(0,0,0,0.6);
-}
-.no-building {
-  grid-column: 1 / -1;
-  text-align: center;
-  font-size: 30px;
-  margin-top: 40px;
+  text-align:center;
+  text-shadow:0 3px 10px rgba(0,0,0,0.35);
 }
 
+/* لا توجد عمائر */
+.no-building{
+  grid-column:1 / -1;
+  text-align:center;
+  font-size:28px;
+  font-weight:900;
+  color:#ffffff;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:24px;
+  padding:28px 18px;
+  box-shadow:var(--shadow-sm);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+}
 
 /* Responsive */
 @media (max-width: 900px){
+  .page-title h2{
+    font-size:34px;
+  }
+
   .buildings-grid{
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns:repeat(auto-fit, minmax(240px, 300px));
+    gap:18px;
+    margin:26px auto 40px;
+  }
+
+  .building-card{
+    height:175px;
+    border-radius:24px;
+  }
+
+  .building-card p{
+    font-size:24px;
   }
 }
 
 @media (max-width: 560px){
+  .page-title{
+    padding:20px 12px 6px;
+  }
+
+  .page-title h2{
+    font-size:28px;
+  }
+
   .buildings-grid{
-    grid-template-columns: 1fr;
+    grid-template-columns:1fr;
+    max-width:360px;
+    padding:0 14px;
+    gap:14px;
   }
 
   .building-card{
-    height: 170px;
+    height:165px;
+    border-radius:22px;
+  }
+
+  .building-card p{
+    font-size:22px;
+    padding:0 14px;
+  }
+
+  .no-building{
+    font-size:22px;
+    padding:22px 14px;
   }
 }

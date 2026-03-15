@@ -138,11 +138,48 @@
       }
     }
 
+    function getContractInfo() {
+      const contract = apartment.contract || {};
+      const tenantInfo = apartment.tenantInfo || {};
+      const tenant = apartment.tenant || {};
+
+      const monthlyRent = utils.getMonthlyRentAmount(apartment);
+      const effectiveSettings = utils.getEffectivePaymentSettings(apartment);
+
+      const paymentCycle = effectiveSettings.paymentCycle || "monthly";
+      const installmentAmount = utils.getInstallmentAmount(apartment);
+
+      const tenantName =
+        tenantInfo.fullName ||
+        tenant.fullName ||
+        tenant.name ||
+        apartment.tenantName ||
+        apartment.tenantFullName ||
+        "—";
+
+      return {
+        tenantName,
+        monthlyRent,
+        paymentCycle,
+        paymentCycleLabel: utils.getPaymentCycleLabel(paymentCycle),
+        installmentAmount,
+        contractStartDate: contract.startDate || "",
+        contractEndDate: contract.endDate || "",
+      };
+    }
+
     function renderSummary(payments) {
       if (!elements.summaryContainer) return;
 
       const summary = utils.calculatePaymentsSummary(payments);
-      ui.renderSummary(elements.summaryContainer, summary, utils);
+      const contractInfo = getContractInfo();
+
+      ui.renderSummary(
+        elements.summaryContainer,
+        summary,
+        utils,
+        contractInfo
+      );
     }
 
     function renderTable(payments) {

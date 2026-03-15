@@ -14,6 +14,14 @@ function initLinkTenantSystem(aptId, currentUser) {
     tenantType: document.getElementById("linkTenantType"),
     phoneNumber: document.getElementById("linkPhoneNumber"),
     rent: document.getElementById("linkRent"),
+    paymentCycle: document.getElementById("linkPaymentCycle"),
+    installmentsCount: document.getElementById("linkInstallmentsCount"),
+
+    floorNumber: document.getElementById("linkFloorNumber"),
+    roomsCount: document.getElementById("linkRoomsCount"),
+    bathroomsCount: document.getElementById("linkBathroomsCount"),
+    livingRoomsCount: document.getElementById("linkLivingRoomsCount"),
+
     insurancePaid: document.getElementById("linkInsurancePaid"),
     startDate: document.getElementById("linkStartDate"),
     endDate: document.getElementById("linkEndDate"),
@@ -40,8 +48,57 @@ function initLinkTenantSystem(aptId, currentUser) {
     if (field) field.value = "";
   }
 
+  function getCurrentApartment() {
+    const apartments = typeof getApartments === "function" ? getApartments() : [];
+    return apartments.find((apt) => apt.id === aptId) || null;
+  }
+
+  function getDefaultInstallmentsCount(paymentCycle) {
+    switch (paymentCycle) {
+      case "annual":
+        return 1;
+      case "semi_annual":
+        return 2;
+      case "quarterly":
+        return 4;
+      case "monthly":
+      default:
+        return 12;
+    }
+  }
+
+  function getApartmentPaymentDefaults() {
+    const apartment = getCurrentApartment();
+    const defaults = apartment?.paymentDefaults || {};
+
+    const paymentCycle = defaults.paymentCycle || "quarterly";
+    const installmentsCount = Number(
+      defaults.installmentsCount || getDefaultInstallmentsCount(paymentCycle)
+    );
+
+    return {
+      paymentCycle,
+      installmentsCount,
+    };
+  }
+
+  function syncInstallmentsCountWithPaymentCycle() {
+    if (!elements.paymentCycle || !elements.installmentsCount) return;
+
+    const cycle = getFieldValue(elements.paymentCycle) || "quarterly";
+    const currentValue = Number(elements.installmentsCount.value || 0);
+
+    if (!currentValue || currentValue < 1) {
+      elements.installmentsCount.value = String(
+        getDefaultInstallmentsCount(cycle)
+      );
+    }
+  }
+
   function resetForm() {
     showError("");
+
+    const paymentDefaults = getApartmentPaymentDefaults();
 
     clearField(elements.fullName);
     clearField(elements.nationalId);
@@ -49,6 +106,22 @@ function initLinkTenantSystem(aptId, currentUser) {
     clearField(elements.tenantType);
     clearField(elements.phoneNumber);
     clearField(elements.rent);
+
+    if (elements.paymentCycle) {
+      elements.paymentCycle.value = paymentDefaults.paymentCycle || "quarterly";
+    }
+
+    if (elements.installmentsCount) {
+      elements.installmentsCount.value = String(
+        paymentDefaults.installmentsCount || 4
+      );
+    }
+
+    clearField(elements.floorNumber);
+    clearField(elements.roomsCount);
+    clearField(elements.bathroomsCount);
+    clearField(elements.livingRoomsCount);
+
     clearField(elements.insurancePaid);
     clearField(elements.startDate);
     clearField(elements.endDate);
@@ -74,6 +147,17 @@ function initLinkTenantSystem(aptId, currentUser) {
   }
 
   function readFormData() {
+    const apartmentDefaults = getApartmentPaymentDefaults();
+
+    const paymentCycle =
+      getFieldValue(elements.paymentCycle) ||
+      apartmentDefaults.paymentCycle ||
+      "quarterly";
+
+    const rawInstallmentsCount = Number(
+      getFieldValue(elements.installmentsCount) || 0
+    );
+
     return {
       fullName: getFieldValue(elements.fullName),
       nationalId: getFieldValue(elements.nationalId),
@@ -81,6 +165,21 @@ function initLinkTenantSystem(aptId, currentUser) {
       tenantType: getFieldValue(elements.tenantType),
       phone: getFieldValue(elements.phoneNumber),
       rent: getFieldValue(elements.rent),
+
+      paymentCycle,
+      installmentsCount:
+        rawInstallmentsCount > 0
+          ? rawInstallmentsCount
+          : Number(
+              apartmentDefaults.installmentsCount ||
+                getDefaultInstallmentsCount(paymentCycle)
+            ),
+
+      floorNumber: getFieldValue(elements.floorNumber),
+      roomsCount: getFieldValue(elements.roomsCount),
+      bathroomsCount: getFieldValue(elements.bathroomsCount),
+      livingRoomsCount: getFieldValue(elements.livingRoomsCount),
+
       insurancePaid: getFieldValue(elements.insurancePaid),
       startDate: getFieldValue(elements.startDate),
       endDate: getFieldValue(elements.endDate),
@@ -96,7 +195,15 @@ function initLinkTenantSystem(aptId, currentUser) {
     if (!data.tenantType) return "اختر أفراد أو عوائل";
     if (!data.phone) return "أدخل رقم الجوال";
     if (!data.rent) return "أدخل الإيجار الشهري";
-    if (!data.startDate || !data.endDate) return "أدخل تاريخ بداية ونهاية العقد";
+    if (!data.paymentCycle) return "اختر دورة الدفع";
+
+    if (!data.installmentsCount || Number(data.installmentsCount) < 1) {
+      return "أدخل عدد دفعات صحيح";
+    }
+
+    if (!data.startDate || !data.endDate) {
+      return "أدخل تاريخ بداية ونهاية العقد";
+    }
 
     if (!/^\d{10}$/.test(data.nationalId)) {
       return "رقم الهوية / الإقامة يجب أن يكون 10 أرقام";
@@ -150,6 +257,11 @@ function initLinkTenantSystem(aptId, currentUser) {
       ownerId: currentUser?.id || null,
       rent: data.rent,
 
+      floorNumber: data.floorNumber ? Number(data.floorNumber) : null,
+      roomsCount: data.roomsCount ? Number(data.roomsCount) : null,
+      bathroomsCount: data.bathroomsCount ? Number(data.bathroomsCount) : null,
+      livingRoomsCount: data.livingRoomsCount ? Number(data.livingRoomsCount) : null,
+
       tenantUserId: tenantUserId,
       tenantNationalId: data.nationalId,
 
@@ -164,7 +276,8 @@ function initLinkTenantSystem(aptId, currentUser) {
         startDate: data.startDate,
         endDate: data.endDate,
         rentAmount: Number(data.rent),
-        paymentCycle: "monthly",
+        paymentCycle: data.paymentCycle,
+        installmentsCount: Number(data.installmentsCount),
         insurancePaid: data.insurancePaid,
         meterNumber: data.meterNumber,
         notes: data.notes,
@@ -282,6 +395,12 @@ function initLinkTenantSystem(aptId, currentUser) {
 
     if (elements.extractBtn) {
       elements.extractBtn.addEventListener("click", handleExtractContract);
+    }
+
+    if (elements.paymentCycle) {
+      elements.paymentCycle.addEventListener("change", function () {
+        syncInstallmentsCountWithPaymentCycle();
+      });
     }
   }
 

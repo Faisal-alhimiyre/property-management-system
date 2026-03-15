@@ -24,7 +24,7 @@
 
         <div class="form-group">
           <label for="buildingCode">رمز العمارة</label>
-          <input type="text" id="buildingCode" readonly class="form-input ">
+          <input type="text" id="buildingCode" readonly class="form-input">
         </div>
 
         <div class="form-group">
@@ -37,17 +37,28 @@
           <input type="number" id="apartmentCount" min="1" placeholder="مثال: 14" required>
         </div>
 
-         <div class="form-group">
-        <label for="totalFloors">عدد الطوابق</label>
-        <input type="number" id="totalFloors" min="1" placeholder="مثال: 7" />
-         </div>
+        <div class="form-group">
+          <label for="totalFloors">عدد الطوابق</label>
+          <input type="number" id="totalFloors" min="1" placeholder="مثال: 7" />
+        </div>
 
-         <div class="form-group">
-         <label for="apartmentsPerFloor">عدد الشقق في كل طابق</label>
+        <div class="form-group">
+          <label for="apartmentsPerFloor">عدد الشقق في كل طابق</label>
           <input type="number" id="apartmentsPerFloor" min="1" placeholder="مثال: 2" />
-           </div>
-              <button type="submit" class="save-btn">حفظ العمارة</button>
-      <p id="formMessage" class="form-message"></p>
+        </div>
+
+        <div class="form-group">
+          <label for="defaultPaymentCycle">دورة الدفع الافتراضية</label>
+          <select id="defaultPaymentCycle">
+            <option value="monthly">شهري</option>
+            <option value="quarterly">ربع سنوي</option>
+            <option value="semi_annual">نصف سنوي</option>
+            <option value="annual">سنوي</option>
+          </select>
+        </div>
+        <button type="submit" class="save-btn">حفظ العمارة</button>
+        <p id="formMessage" class="form-message"></p>
+      </form>
     </section>
   </main>
 

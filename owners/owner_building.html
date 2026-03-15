@@ -1,31 +1,60 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>شقق العمارة</title>
 
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>شقق العمارة</title>
-
-<link rel="stylesheet" href="../css/navstyle.css">
-<link rel="stylesheet" href="../css/owner-building.css">
-
+  <link rel="stylesheet" href="../css/navstyle.css">
+  <link rel="stylesheet" href="../css/owner-building.css">
 </head>
 
 <body data-nav="user">
 
-<div id="navbar-container"></div>
+  <div id="navbar-container"></div>
 
-<main class="owner-building-wrap">
+  <main class="owner-building-wrap">
 
-<h2 id="buildingTitle">العمارة</h2>
+    <section class="building-finance-summary">
+      <div class="finance-card">
+        <span class="finance-label">الدخل الشهري</span>
+        <strong id="buildingIncome">0 ريال</strong>
+      </div>
 
-<section id="apartmentsGrid" class="apartments-grid"></section>
+      <div class="finance-card">
+        <span class="finance-label">المصروفات</span>
+        <strong id="buildingCosts">0 ريال</strong>
+      </div>
 
-</main>
+      <div class="finance-card">
+        <span class="finance-label">الربح الشهري</span>
+        <strong id="buildingProfit">0 ريال</strong>
+      </div>
 
-<script src="../js/main/nav.js"></script>
-<script src="../js/owner-manager/owner-building.js"></script>
+   
+    </section>
 
+    <section class="building-shell">
+      <div class="building-shell__header">
+        <h2 id="buildingTitle">العمارة</h2>
+      </div>
+    <div class="building-stats">
+  <div class="building-stat-item">
+    <span class="building-stat-label">الوحدات المؤجرة</span>
+    <strong id="buildingOccupiedUnits">0 / 0</strong>
+  </div>
+
+  <div class="building-stat-item">
+    <span class="building-stat-label">الشقق المتأخرة</span>
+    <strong id="buildingLateUnits">0</strong>
+  </div>
+</div>
+      <section id="apartmentsGrid" class="apartments-grid"></section>
+    </section>
+
+  </main>
+
+  <script src="../js/main/nav.js"></script>
+  <script src="../js/owner-manager/owner-building.js"></script>
 </body>
 </html>

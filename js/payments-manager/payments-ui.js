@@ -29,7 +29,7 @@
       }
       .payments-summary-grid{
         display:grid;
-        grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+        grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
         gap:12px;
         margin-bottom:16px;
       }
@@ -282,22 +282,52 @@
     `;
   }
 
-  function renderSummary(container, summary, utils) {
+  function renderSummary(container, summary, utils, contractInfo = null) {
     if (!container) return;
+
+    const contractCards = contractInfo
+      ? `
+        <div class="payments-summary-card">
+          <span class="label">المستأجر</span>
+          <span class="value">${contractInfo.tenantName || "—"}</span>
+        </div>
+
+        <div class="payments-summary-card">
+          <span class="label">الإيجار الشهري</span>
+          <span class="value">${utils.formatCurrency(contractInfo.monthlyRent)}</span>
+        </div>
+
+        <div class="payments-summary-card">
+          <span class="label">دورة الدفع</span>
+          <span class="value">${contractInfo.paymentCycleLabel || "—"}</span>
+        </div>
+
+        <div class="payments-summary-card">
+          <span class="label">قيمة الدفعة</span>
+          <span class="value">${utils.formatCurrency(contractInfo.installmentAmount)}</span>
+        </div>
+      `
+      : "";
+
     container.innerHTML = `
       <div class="payments-summary-grid">
+        ${contractCards}
+
         <div class="payments-summary-card">
           <span class="label">إجمالي الجدول</span>
           <span class="value">${utils.formatCurrency(summary.total)}</span>
         </div>
+
         <div class="payments-summary-card">
           <span class="label">تم دفعه</span>
           <span class="value">${utils.formatCurrency(summary.paid)}</span>
         </div>
+
         <div class="payments-summary-card">
           <span class="label">المتبقي</span>
           <span class="value">${utils.formatCurrency(summary.pending)}</span>
         </div>
+
         <div class="payments-summary-card">
           <span class="label">المتأخر</span>
           <span class="value">${utils.formatCurrency(summary.overdue)}</span>

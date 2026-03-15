@@ -220,7 +220,36 @@ button{
 /* Optional: slightly different feel for each button (still same style) */
 .choose-btn.owner{ opacity: .95; }
 .choose-btn.tenant{ opacity: 1; }
+.recover-switch{
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
 
+.recover-tab{
+  border: 2px solid #0b0f14;
+  background: #ffffff;
+  color: #0b2a3a;
+  border-radius: 999px;
+  padding: 12px 22px;
+  font-size: 15px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 4px 6px 0 rgba(0,0,0,.75);
+  transition: .15s ease;
+}
+
+.recover-tab.active{
+  background: linear-gradient(90deg, #4ee7e7, #1c63c7);
+  color: #ffffff;
+}
+
+.recover-tab:hover{
+  transform: translateY(-1px);
+}
 
 
 /* Mobile */

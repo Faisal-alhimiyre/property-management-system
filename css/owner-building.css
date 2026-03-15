@@ -1,115 +1,274 @@
-body{
-  background:#f3f4f6;
-  margin:0;
-  font-family:Arial,sans-serif;
+:root{
+  --text:#0f172a;
+  --muted:#64748b;
+  --surface:#ffffff;
+  --surface-soft:rgba(255,255,255,0.78);
+  --surface-strong:rgba(255,255,255,0.90);
+  --border:rgba(255,255,255,0.38);
+
+  --brand-1:#67d8d4;
+  --brand-2:#49c6d9;
+  --brand-3:#2f5d86;
+  --brand-4:#24496d;
+
+  --shadow-sm:0 8px 20px rgba(15,23,42,0.05);
+  --shadow-md:0 12px 28px rgba(15,23,42,0.09);
+  --shadow-lg:0 18px 38px rgba(15,23,42,0.12);
+
+  --none:#f8fafc;
+  --rent-overdue:#ef4444;
+  --maintenance:#f59e0b;
+  --complaint:#facc15;
+  --suggestion:#3b82f6;
+  --request:#22c55e;
+  --expense:#dc2626;
 }
 
+/* page */
+body{
+  margin:0;
+  min-height:100vh;
+  font-family:Arial,sans-serif;
+  color:var(--text);
+  background:
+    linear-gradient(
+      to bottom,
+      var(--brand-1) 0%,
+      var(--brand-2) 28%,
+      var(--brand-3) 28%,
+      var(--brand-4) 100%
+    );
+  background-attachment:fixed;
+}
+
+/* wrapper */
 .owner-building-wrap{
-  max-width:1000px;
-  margin:30px auto;
-  padding:20px;
+  max-width:1280px;
+  margin:24px auto 42px;
+  padding:0 18px;
+}
+
+/* summary */
+.building-finance-summary{
+  display:grid;
+  grid-template-columns:repeat(3, 1fr);
+  max-width:900px;
+  gap:14px;
+  margin:0 auto 18px;
+  max-width:1080px;
+  justify-content:center;
+}
+
+.finance-card{
+  position:relative;
+  overflow:hidden;
+  background:rgba(255,255,255,0.76);
+  border:1px solid rgba(255,255,255,0.42);
+  border-radius:22px;
+  padding:16px 18px;
+  box-shadow:var(--shadow-md);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  min-height:76px;
+}
+
+.finance-card::before{
+  content:"";
+  position:absolute;
+  top:0;
+  right:0;
+  left:0;
+  height:3px;
+  background:linear-gradient(90deg, #22d3ee, #14b8a6);
+}
+
+.finance-label{
+  color:var(--muted);
+  font-size:12px;
+  font-weight:800;
+}
+
+.finance-card strong{
+  color:#0f2740;
+  font-size:28px;
+  line-height:1.1;
+  font-weight:900;
+  letter-spacing:-0.4px;
+}
+
+.finance-card strong.profit-positive{
+  color:#067647;
+}
+
+.finance-card strong.profit-negative{
+  color:#b42318;
+}
+
+/* المصروفات بالأحمر */
+.finance-card:has(#buildingCosts)::before{
+  background:linear-gradient(90deg, #ef4444, #dc2626);
+}
+
+.finance-card:has(#buildingCosts) strong{
+  color:var(--expense);
+}
+
+/* building shell */
+.building-shell{
+  max-width:1220px;
+  margin:0 auto;
+  background:rgba(255,255,255,0.70);
+  border:1px solid rgba(255,255,255,0.36);
+  border-radius:32px;
+  padding:20px 20px 22px;
+  box-shadow:var(--shadow-lg);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+}
+
+.building-shell__header{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  margin-bottom:18px;
 }
 
 #buildingTitle{
-  font-size:28px;
+  margin:0;
+  font-size:34px;
   font-weight:900;
-  margin-bottom:25px;
+  color:#0b2540;
+  letter-spacing:-0.6px;
+  text-align:center;
 }
 
-#apartmentsGrid{
+/* floors area */
+.apartments-grid{
   display:flex;
   flex-direction:column;
-  gap:24px;
+  gap:14px;
 }
 
+/* floor block */
 .floor-section{
-  width:100%;
+  display:grid;
+  grid-template-columns:110px 1fr;
+  gap:12px;
+  align-items:stretch;
 }
 
+/* floor title right side */
 .floor-title{
-  font-size:18px;
-  font-weight:700;
-  margin-bottom:12px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:100%;
+  background:rgba(255,255,255,0.56);
+  border:1px solid rgba(255,255,255,0.42);
+  border-radius:22px;
+  box-shadow:var(--shadow-sm);
+  font-size:22px;
+  font-weight:900;
+  color:#12314d;
+  padding:14px 10px;
+  text-align:center;
 }
 
+/* floor track */
 .floor-apartments{
+  position:relative;
   display:flex;
   flex-wrap:wrap;
   gap:12px;
+  justify-content:flex-start;
+  align-items:stretch;
+  background:rgba(255,255,255,0.34);
+  border:1px solid rgba(255,255,255,0.30);
+  border-radius:24px;
+  padding:14px;
+  min-height:92px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.50);
 }
 
+/* apartment card */
 .apartment-card{
-  border:2px solid #222;
-  border-radius:16px;
-  padding:16px;
-  background:#fff;
+  position:relative;
+  overflow:hidden;
+  border-radius:20px;
+  padding:12px 14px;
+  background:linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border:1px solid rgba(15,23,42,0.05);
   cursor:pointer;
-  transition:transform .15s ease, box-shadow .15s ease;
-  min-width:220px;
+  transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+  width:190px;
+  min-height:78px;
+  box-shadow:var(--shadow-sm);
+  flex-shrink:0;
 }
 
 .apartment-card:hover{
-  transform:translateY(-3px);
-  box-shadow:0 6px 14px rgba(0,0,0,0.12);
+  transform:translateY(-2px);
+  box-shadow:var(--shadow-md);
+  border-color:rgba(20,184,166,0.22);
 }
 
 .apartment-number-row{
   display:flex;
-  align-items:center;
+  align-items:flex-start;
   justify-content:space-between;
-  gap:10px;
-  margin-bottom:10px;
+  gap:8px;
+  margin-bottom:6px;
 }
 
 .apartment-number{
-  font-size:22px;
+  font-size:18px;
+  line-height:1.1;
   font-weight:900;
-  margin:0;
+  color:#0f172a;
 }
 
 .apartment-tenant{
-  font-size:14px;
-  font-weight:700;
-  color:#444;
+  font-size:12px;
+  font-weight:800;
+  color:#334155;
+  line-height:1.45;
 }
 
-/* الحالة العادية */
+/* states */
 .apartment-card.none{
-  background:#e5e5e5;
-  color:#111;
+  background:linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  color:#111827;
 }
 
-/* تأخر الإيجار */
 .apartment-card.rent-overdue{
-  background:#ef4444;
+  background:linear-gradient(180deg, #ef5350 0%, #dc2626 100%);
   color:#fff;
 }
 
-/* صيانة */
 .apartment-card.maintenance{
-  background:#f59e0b;
+  background:linear-gradient(180deg, #f8b84a 0%, #f59e0b 100%);
   color:#fff;
 }
 
-/* شكوى */
 .apartment-card.complaint{
-  background:#facc15;
-  color:#111;
+  background:linear-gradient(180deg, #fde978 0%, #facc15 100%);
+  color:#111827;
 }
 
-/* اقتراح */
 .apartment-card.suggestion{
-  background:#3b82f6;
+  background:linear-gradient(180deg, #60a5fa 0%, #2563eb 100%);
   color:#fff;
 }
 
-/* طلب */
 .apartment-card.request{
-  background:#22c55e;
+  background:linear-gradient(180deg, #4ade80 0%, #16a34a 100%);
   color:#fff;
 }
 
-/* وضوح النص داخل الكروت الملونة */
+/* text on colored cards */
 .apartment-card.rent-overdue .apartment-number,
 .apartment-card.rent-overdue .apartment-tenant,
 .apartment-card.maintenance .apartment-number,
@@ -119,35 +278,34 @@ body{
 .apartment-card.request .apartment-number,
 .apartment-card.request .apartment-tenant{
   color:#fff;
-  text-shadow:0 1px 2px rgba(0,0,0,0.35);
+  text-shadow:0 1px 2px rgba(0,0,0,0.22);
 }
 
-/* الشكوى أصفر، فنخلي النص داكن */
 .apartment-card.complaint .apartment-number,
 .apartment-card.complaint .apartment-tenant{
-  color:#111;
+  color:#111827;
 }
 
-/* الشارات */
+/* badges */
 .apartment-badges{
-  margin-top:10px;
+  margin-top:8px;
   display:flex;
   flex-wrap:wrap;
-  gap:8px;
+  gap:6px;
 }
 
 .apartment-badge{
   display:inline-flex;
   align-items:center;
   gap:6px;
-  font-size:11px;
-  font-weight:700;
+  font-size:10px;
+  font-weight:800;
   padding:4px 8px;
   border-radius:999px;
-  background:rgba(255,255,255,0.95);
-  border:1px solid rgba(0,0,0,0.08);
-  backdrop-filter:blur(3px);
+  background:rgba(255,255,255,0.94);
+  border:1px solid rgba(15,23,42,0.08);
   color:#111827;
+  box-shadow:0 3px 8px rgba(15,23,42,0.04);
 }
 
 .rented-badge{
@@ -177,4 +335,128 @@ body{
 
 .badge-request .badge-dot{
   background:#22c55e;
+}
+
+.building-stats{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:18px;
+  margin:10px auto 18px;
+  flex-wrap:wrap;
+}
+
+.building-stat-item{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 16px;
+  background:rgba(255,255,255,0.82);
+  border:1px solid rgba(255,255,255,0.42);
+  border-radius:999px;
+  box-shadow:var(--shadow-sm);
+}
+
+.building-stat-label{
+  font-size:13px;
+  font-weight:800;
+  color:var(--muted);
+}
+
+.building-stat-item strong{
+  font-size:18px;
+  font-weight:900;
+  color:#0f172a;
+}
+
+
+/* responsive */
+@media (max-width: 1100px){
+  .building-finance-summary{
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    max-width:920px;
+  }
+
+  #buildingTitle{
+    font-size:30px;
+  }
+
+  .floor-section{
+    grid-template-columns:96px 1fr;
+  }
+
+  .floor-title{
+    font-size:20px;
+  }
+
+  .apartment-card{
+    width:176px;
+  }
+}
+
+@media (max-width: 820px){
+  .owner-building-wrap{
+    padding:0 14px;
+    margin:18px auto 34px;
+  }
+
+  .building-finance-summary{
+    grid-template-columns:1fr;
+    gap:10px;
+    margin-bottom:14px;
+  }
+
+  .finance-card{
+    min-height:auto;
+    padding:14px 16px;
+    border-radius:18px;
+  }
+
+  .finance-card strong{
+    font-size:24px;
+  }
+
+  .building-shell{
+    border-radius:24px;
+    padding:14px;
+  }
+
+  #buildingTitle{
+    font-size:26px;
+  }
+
+  .apartments-grid{
+    gap:12px;
+  }
+
+  .floor-section{
+    grid-template-columns:1fr;
+    gap:10px;
+  }
+
+  .floor-title{
+    min-height:auto;
+    padding:12px;
+    border-radius:18px;
+    font-size:18px;
+  }
+
+  .floor-apartments{
+    padding:12px;
+    border-radius:18px;
+    justify-content:center;
+  }
+
+  .apartment-card{
+    width:100%;
+    min-height:78px;
+  }
+
+  .apartment-number{
+    font-size:18px;
+  }
+
+  .apartment-tenant{
+    font-size:12px;
+  }
 }

@@ -5,72 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>خيارات الدفع - ولجنا</title>
   <link rel="stylesheet" href="../css/navstyle.css">
-  <style>
-    body{
-      background:#f3f4f6;
-      font-family:inherit;
-    }
-    .payment-options-wrap{
-      max-width:1100px;
-      margin:40px auto;
-      padding:20px;
-    }
-    .payment-options-header{
-      background:#dff4f7;
-      border-radius:24px;
-      padding:24px;
-      margin-bottom:24px;
-    }
-    .payment-options-header h2{
-      margin:0 0 8px;
-      font-size:40px;
-    }
-    .payment-options-header p{
-      margin:0;
-      color:#64748b;
-    }
-    .payment-methods-grid{
-      display:grid;
-      grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
-      gap:16px;
-    }
-    .payment-method-card{
-      background:#fff;
-      border:1px solid #e5e7eb;
-      border-radius:20px;
-      padding:22px;
-      cursor:pointer;
-      transition:.2s ease;
-      box-shadow:0 10px 25px rgba(15,23,42,.05);
-    }
-    .payment-method-card:hover{
-      transform:translateY(-2px);
-      border-color:#cbd5e1;
-    }
-    .payment-method-card h3{
-      margin:0 0 10px;
-      font-size:24px;
-    }
-    .payment-method-card p{
-      margin:0;
-      color:#64748b;
-      line-height:1.7;
-    }
-    .payment-summary-box{
-      background:#fff;
-      border:1px solid #e5e7eb;
-      border-radius:20px;
-      padding:18px;
-      margin-bottom:20px;
-    }
-    .back-link{
-      display:inline-flex;
-      margin-top:18px;
-      text-decoration:none;
-      color:#111827;
-      font-weight:700;
-    }
-  </style>
+  <link rel="stylesheet" href="../css/payment-options.css">
 </head>
 <body data-nav="user">
 
@@ -78,37 +13,55 @@
 
   <main class="payment-options-wrap">
     <section class="payment-options-header">
-      <h2>خيارات الدفع</h2>
-      <p>اختر طريقة الدفع المناسبة لإتمام العملية</p>
-      <a id="backToPaymentsLink" class="back-link" href="#">العودة إلى صفحة المدفوعات</a>
+      <div class="payment-options-header__content">
+        <h2>خيارات الدفع</h2>
+        <p>اختر طريقة الدفع المناسبة لإتمام العملية</p>
+        <a id="backToPaymentsLink" class="back-link" href="#">
+  ← العودة إلى صفحة المدفوعات
+</a>
+      </div>
     </section>
 
-    <section id="paymentSummaryBox" class="payment-summary-box">جارٍ تحميل بيانات الدفعة...</section>
+    <section id="paymentSummaryBox" class="payment-summary-box">
+      جارٍ تحميل بيانات الدفعة...
+    </section>
 
     <section class="payment-methods-grid">
-      <div class="payment-method-card" data-method="tamara">
-        <h3>تمارا</h3>
+      <div class="payment-method-card tamara" data-method="tamara">
+        <div class="payment-method-head">
+          <img src="../images/tamara.png" alt="Tamara" class="payment-method-logo">
+          <h3>تمارا</h3>
+        </div>
         <p>ادفع الآن أو قسّط المبلغ حسب الخيارات المتاحة.</p>
       </div>
 
-      <div class="payment-method-card" data-method="tabby">
-        <h3>تابي</h3>
+      <div class="payment-method-card tabby" data-method="tabby">
+        <div class="payment-method-head">
+          <img src="../images/tabby.png" alt="Tabby" class="payment-method-logo">
+          <h3>تابي</h3>
+        </div>
         <p>خيار مناسب للدفع المرن على دفعات.</p>
       </div>
 
-      <div class="payment-method-card" data-method="apple_pay">
-        <h3>Apple Pay</h3>
+      <div class="payment-method-card apple-pay" data-method="apple_pay">
+        <div class="payment-method-head">
+          <img src="../images/apple-pay.png" alt="Apple Pay" class="payment-method-logo">
+          <h3>Apple Pay</h3>
+        </div>
         <p>إتمام سريع وآمن لعملية الدفع.</p>
       </div>
 
-      <div class="payment-method-card" data-method="card">
-        <h3>البطاقة</h3>
+      <div class="payment-method-card bank-card" data-method="card">
+        <div class="payment-method-head">
+          <img src="../images/mastercard.png" alt="MasterCard" class="payment-method-logo">
+          <h3>البطاقة</h3>
+        </div>
         <p>الدفع باستخدام البطاقة البنكية مباشرة.</p>
       </div>
     </section>
   </main>
 
-  <script src="../js/nav.js"></script>
+  <script src="../js/main/nav.js"></script>
   <script>
     document.addEventListener("DOMContentLoaded", function () {
       const params = new URLSearchParams(window.location.search);
@@ -122,7 +75,7 @@
       const backLink = document.getElementById("backToPaymentsLink");
 
       if (backLink && apartmentId) {
-        backLink.href = `../main/payment.html?id=${encodeURIComponent(apartmentId)}`;
+        backLink.href = `../main/payments.html?id=${encodeURIComponent(apartmentId)}`;
       }
 
       if (summaryBox) {
@@ -130,9 +83,14 @@
           summaryBox.textContent = "لم يتم العثور على الدفعة المحددة.";
         } else {
           summaryBox.innerHTML = `
-            <strong>المبلغ:</strong> ${Number(payment.amount || 0).toLocaleString("ar-SA")} ريال
-            <br>
-            <strong>تاريخ الاستحقاق:</strong> ${payment.dueDate || "—"}
+            <div class="payment-summary-row">
+              <span class="payment-summary-label">المبلغ</span>
+              <strong class="payment-summary-value">${Number(payment.amount || 0).toLocaleString("ar-SA")} ريال</strong>
+            </div>
+            <div class="payment-summary-row">
+              <span class="payment-summary-label">تاريخ الاستحقاق</span>
+              <strong class="payment-summary-value">${payment.dueDate || "—"}</strong>
+            </div>
           `;
         }
       }

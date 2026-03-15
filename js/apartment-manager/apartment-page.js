@@ -4,11 +4,32 @@ document.addEventListener("DOMContentLoaded", () => {
      ========================= */
   const title = document.getElementById("aptTitle");
   const roleLabel = document.getElementById("pageRoleLabel");
+
   const number = document.getElementById("aptNumber");
   const building = document.getElementById("buildingName");
   const status = document.getElementById("leaseStatus");
   const rent = document.getElementById("rentAmount");
-  const dueDateInfo = document.getElementById("dueDateInfo");
+
+  const floorNumberEl = document.getElementById("floorNumber");
+  const roomsCountEl = document.getElementById("roomsCount");
+  const bathroomsCountEl = document.getElementById("bathroomsCount");
+  const livingRoomsCountEl = document.getElementById("livingRoomsCount");
+
+  const tenantFullNameEl = document.getElementById("tenantFullName");
+  const tenantNationalityEl = document.getElementById("tenantNationality");
+  const tenantTypeEl = document.getElementById("tenantType");
+  const insurancePaidEl = document.getElementById("insurancePaid");
+  const phoneNumberEl = document.getElementById("phoneNumber");
+  const identityNumberEl = document.getElementById("identityNumber");
+
+  const startDateEl = document.getElementById("startDate");
+  const endDateEl = document.getElementById("endDate");
+  const meterNumberEl = document.getElementById("meterNumber");
+  const notesEl = document.getElementById("notes");
+
+  const ownerInfoSection = document.getElementById("ownerInfoSection");
+  const ownerFullNameEl = document.getElementById("ownerFullName");
+  const ownerNationalIdEl = document.getElementById("ownerNationalId");
 
   const mainActionBtn = document.getElementById("mainActionBtn");
   const paymentsBtn = document.getElementById("paymentsBtn");
@@ -17,6 +38,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const renewContractBtn = document.getElementById("renewContractBtn");
   const evictTenantBtn = document.getElementById("evictTenantBtn");
   const tenantPayBtn = document.getElementById("tenantPayBtn");
+  const viewCostsBtn = document.getElementById("viewCostsBtn");
 
   if (!title && !number && !building && !status && !rent) return;
 
@@ -38,6 +60,7 @@ document.addEventListener("DOMContentLoaded", () => {
      ========================= */
   const apartments = getApartments();
   const buildings = getBuildings();
+  const users = typeof getUsers === "function" ? getUsers() : [];
 
   let data = apartments.find((apt) => apt.id === aptId);
 
@@ -53,7 +76,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const contract = data.contract || {};
 
   let remainingDays = null;
-
   if (contract.endDate) {
     const todayStr = new Date().toISOString().slice(0, 10);
     remainingDays = daysBetween(todayStr, contract.endDate);
@@ -62,6 +84,97 @@ document.addEventListener("DOMContentLoaded", () => {
   /* =========================
      4) HELPERS
      ========================= */
+  function formatMoney(value) {
+    return `${Number(value || 0).toLocaleString("en-US")} ريال`;
+  }
+
+  function formatDate(dateString) {
+    if (!dateString) return "—";
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return dateString;
+    return date.toLocaleDateString("en-GB");
+  }
+
+  function getPaymentCycleLabel(cycle) {
+    const labels = {
+      monthly: "شهري",
+      quarterly: "ربع سنوي",
+      semi_annual: "نصف سنوي",
+      annual: "سنوي",
+    };
+
+    return labels[cycle] || "شهري";
+  }
+
+  function getCycleMonthsCount(cycle) {
+    const monthsMap = {
+      monthly: 1,
+      quarterly: 3,
+      semi_annual: 6,
+      annual: 12,
+    };
+
+    return monthsMap[cycle] || 1;
+  }
+
+  function getMonthlyRent(contractData) {
+    return Number(contractData?.rentAmount || data?.rent || 0);
+  }
+
+  function getContractMonths(startDate, endDate) {
+    if (!startDate || !endDate) return 0;
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 0;
+    if (end < start) return 0;
+
+    return (
+      (end.getFullYear() - start.getFullYear()) * 12 +
+      (end.getMonth() - start.getMonth()) +
+      1
+    );
+  }
+
+  function getInstallmentAmount(contractData) {
+    const monthlyRent = getMonthlyRent(contractData);
+    const paymentCycle = contractData?.paymentCycle || "monthly";
+    const installmentsCount = Number(contractData?.installmentsCount || 0);
+
+    const contractMonths = getContractMonths(
+      contractData?.startDate,
+      contractData?.endDate
+    );
+
+    if (installmentsCount > 0 && contractMonths > 0) {
+      const totalContractRent = monthlyRent * contractMonths;
+      return totalContractRent / installmentsCount;
+    }
+
+    const monthsCount = getCycleMonthsCount(paymentCycle);
+    return monthlyRent * monthsCount;
+  }
+
+  function updateRentDisplay(contractData) {
+  if (!rent) return;
+
+  const monthlyRent = getMonthlyRent(contractData);
+  const paymentCycle = contractData?.paymentCycle || "monthly";
+  const installmentAmount = getInstallmentAmount(contractData);
+  const cycleLabel = getPaymentCycleLabel(paymentCycle);
+
+  if (!monthlyRent) {
+    rent.textContent = "—";
+    return;
+  }
+
+  const annualRent = monthlyRent * 12;
+
+  rent.textContent =
+    `${formatMoney(annualRent)} سنويًا • ${formatMoney(installmentAmount)} لكل دفعة (${cycleLabel})`;
+}
+
   function getPaymentsForApartment(apartmentId) {
     try {
       const payments = JSON.parse(localStorage.getItem("walajna_payments") || "[]");
@@ -105,60 +218,135 @@ document.addEventListener("DOMContentLoaded", () => {
     return unpaidPayments[0] || null;
   }
 
-  function formatDueDateForDisplay(dateString) {
-    if (!dateString) return "—";
+  function updateNextPaymentInfo(apartmentId) {
+    const dateEl = document.getElementById("nextPaymentDate");
+    const amountEl = document.getElementById("nextPaymentAmount");
 
-    const date = new Date(dateString);
-    if (Number.isNaN(date.getTime())) return dateString;
+    if (!dateEl || !amountEl) return;
 
-    return date.toLocaleDateString("ar-SA");
+    const nextPayment = getNextDuePayment(apartmentId);
+
+    if (!nextPayment) {
+      dateEl.textContent = "";
+      amountEl.textContent = "لا يوجد دفعات";
+      return;
+    }
+
+    const dueDate = new Date(nextPayment.dueDate);
+    const today = new Date();
+
+    const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+    const formattedDate = dueDate.toLocaleDateString("en-GB");
+
+    dateEl.textContent = "— " + formattedDate;
+    amountEl.textContent = formatMoney(nextPayment.amount);
+
+    dateEl.classList.remove(
+      "next-payment-normal",
+      "next-payment-warning",
+      "next-payment-overdue"
+    );
+
+    if (diffDays < 0) {
+      dateEl.classList.add("next-payment-overdue");
+    } else if (diffDays <= 5) {
+      dateEl.classList.add("next-payment-warning");
+    } else {
+      dateEl.classList.add("next-payment-normal");
+    }
   }
 
-  function updateNextPaymentInfo(apartmentId){
+  function updatePageTitle() {
+    if (!title) return;
 
-  const dateEl = document.getElementById("nextPaymentDate");
-  const amountEl = document.getElementById("nextPaymentAmount");
+    const aptNumber = data.number || data.apartmentNumber || "—";
+    const buildingName = buildingData?.name || data.buildingName || "—";
 
-  if(!dateEl || !amountEl) return;
-
-  const payments = JSON.parse(localStorage.getItem("walajna_payments") || "[]");
-
-  const nextPayment = payments
-    .filter(p => p.apartmentId === apartmentId && p.status !== "paid")
-    .sort((a,b)=> new Date(a.dueDate) - new Date(b.dueDate))[0];
-
-  if(!nextPayment){
-    dateEl.textContent = "";
-    amountEl.textContent = "لا يوجد دفعات";
-    return;
+    title.textContent = `شقة ${data.number} ${buildingData.name}`;
   }
 
-  const dueDate = new Date(nextPayment.dueDate);
-  const today = new Date();
+  function fillExtraApartmentInfo() {
+    if (floorNumberEl) {
+      floorNumberEl.textContent =
+        data.floorNumber ?? data.contract?.floorNumber ?? "—";
+    }
 
-  const diffDays = Math.ceil((dueDate - today)/(1000*60*60*24));
+    if (roomsCountEl) {
+      roomsCountEl.textContent =
+        data.roomsCount ?? data.contract?.roomsCount ?? "—";
+    }
 
-  const formattedDate = dueDate.toLocaleDateString("en-GB");
+    if (bathroomsCountEl) {
+      bathroomsCountEl.textContent =
+        data.bathroomsCount ?? data.contract?.bathroomsCount ?? "—";
+    }
 
-  dateEl.textContent = "— " + formattedDate;
-  amountEl.textContent = nextPayment.amount + " ريال";
-
-  dateEl.classList.remove(
-    "next-payment-normal",
-    "next-payment-warning",
-    "next-payment-overdue"
-  );
-
-  if(diffDays < 0){
-    dateEl.classList.add("next-payment-overdue");
+    if (livingRoomsCountEl) {
+      livingRoomsCountEl.textContent =
+        data.livingRoomsCount ?? data.contract?.livingRoomsCount ?? "—";
+    }
   }
-  else if(diffDays <= 5){
-    dateEl.classList.add("next-payment-warning");
+
+  function fillTenantInfo() {
+    const tenantInfo = data.tenantInfo || {};
+
+    if (tenantFullNameEl) {
+      tenantFullNameEl.textContent = tenantInfo.fullName || "—";
+    }
+
+    if (tenantNationalityEl) {
+      tenantNationalityEl.textContent = tenantInfo.nationality || "—";
+    }
+
+    if (tenantTypeEl) {
+      tenantTypeEl.textContent = tenantInfo.tenantType || "—";
+    }
+
+    if (insurancePaidEl) {
+      insurancePaidEl.textContent = contract.insurancePaid || "—";
+    }
+
+    if (phoneNumberEl) {
+      phoneNumberEl.textContent = tenantInfo.phoneNumber || "—";
+    }
+
+    if (identityNumberEl) {
+      identityNumberEl.textContent = data.tenantNationalId || "—";
+    }
   }
-  else{
-    dateEl.classList.add("next-payment-normal");
+
+  function fillAdditionalInfo() {
+    if (startDateEl) startDateEl.textContent = formatDate(contract.startDate);
+    if (endDateEl) endDateEl.textContent = formatDate(contract.endDate);
+    if (meterNumberEl) meterNumberEl.textContent = contract.meterNumber || "—";
+    if (notesEl) notesEl.textContent = contract.notes || "—";
   }
-}
+
+  function fillOwnerInfoForTenantOnly() {
+    if (!ownerInfoSection) return;
+
+    if (activeRole !== "tenant") {
+      ownerInfoSection.style.display = "none";
+      return;
+    }
+
+    const owner = users.find((u) => u.id === data.ownerId);
+
+    if (!owner) {
+      ownerInfoSection.style.display = "none";
+      return;
+    }
+
+    ownerInfoSection.style.display = "block";
+
+    if (ownerFullNameEl) {
+      ownerFullNameEl.textContent = owner.fullName || "—";
+    }
+
+    if (ownerNationalIdEl) {
+      ownerNationalIdEl.textContent = owner.nationalId || "—";
+    }
+  }
 
   function goToPaymentsPage() {
     window.location.href = `../main/payments.html?id=${encodeURIComponent(aptId)}`;
@@ -172,13 +360,21 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    window.location.href = `../main/payment-options.html?id=${encodeURIComponent(aptId)}&paymentId=${encodeURIComponent(nextPayment.id)}`;
+    window.location.href =
+      `../main/payment-options.html?id=${encodeURIComponent(aptId)}` +
+      `&paymentId=${encodeURIComponent(nextPayment.id)}`;
   }
 
   /* =========================
      5) FILL UI
      ========================= */
   fillApartmentInfoUI(data, buildingData);
+  updatePageTitle();
+  updateRentDisplay(contract);
+  fillExtraApartmentInfo();
+  fillTenantInfo();
+  fillAdditionalInfo();
+  fillOwnerInfoForTenantOnly();
   updateNextPaymentInfo(aptId);
 
   if (roleLabel) {
@@ -205,6 +401,7 @@ document.addEventListener("DOMContentLoaded", () => {
       hideElement(viewRequestsBtn);
       hideElement(paymentsBtn);
       hideElement(documentsBtn);
+      hideElement(viewCostsBtn);
 
       if (tenantPayBtn) hideElement(tenantPayBtn);
     } else {
@@ -214,6 +411,7 @@ document.addEventListener("DOMContentLoaded", () => {
       showElement(viewRequestsBtn);
       showElement(paymentsBtn);
       showElement(documentsBtn);
+      showElement(viewCostsBtn);
 
       if (tenantPayBtn) hideElement(tenantPayBtn);
 
@@ -234,6 +432,7 @@ document.addEventListener("DOMContentLoaded", () => {
     showElement(viewRequestsBtn);
     showElement(paymentsBtn);
     showElement(documentsBtn);
+    hideElement(viewCostsBtn);
 
     if (tenantPayBtn) {
       showElement(tenantPayBtn);
@@ -247,6 +446,7 @@ document.addEventListener("DOMContentLoaded", () => {
       hideElement(viewRequestsBtn);
       hideElement(paymentsBtn);
       hideElement(documentsBtn);
+      hideElement(viewCostsBtn);
 
       if (tenantPayBtn) hideElement(tenantPayBtn);
     }
@@ -275,7 +475,21 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   /* =========================
-     10) RENEW CONTRACT
+     10) COSTS
+     ========================= */
+  if (viewCostsBtn) {
+    viewCostsBtn.addEventListener("click", () => {
+      if (!aptId) {
+        alert("تعذر تحديد الشقة");
+        return;
+      }
+
+      window.location.href = `../main/costs.html?id=${encodeURIComponent(aptId)}`;
+    });
+  }
+
+  /* =========================
+     11) RENEW CONTRACT
      ========================= */
   if (renewContractBtn) {
     renewContractBtn.addEventListener("click", () => {
@@ -289,7 +503,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   /* =========================
-     11) EVICT TENANT
+     12) EVICT TENANT
      ========================= */
   if (evictTenantBtn) {
     evictTenantBtn.addEventListener("click", () => {
@@ -318,7 +532,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   /* =========================
-     12) CLICKABLE CARDS (GLOBAL)
+     13) CLICKABLE CARDS (GLOBAL)
      ========================= */
   document.querySelectorAll(".clickable-card").forEach((card) => {
     card.addEventListener("click", () => {

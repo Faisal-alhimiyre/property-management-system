@@ -1,58 +1,54 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>استعادة كلمة المرور - ولجنا</title>
-
-<link rel="stylesheet" href="../css/register.css">
-
+  <link rel="stylesheet" href="../css/register.css" />
 </head>
-
 <body>
 
-<div class="register-bg"></div>
+  <div class="register-bg"></div>
 
-<a href="../auth/login.html" class="logo">
-<img src="../pics/logo.png" class="brand-logo">
-</a>
+  <a href="../auth/login.html" class="logo">
+    <img src="../pics/logo.png" class="brand-logo" alt="Walajna Logo" />
+  </a>
 
-<main class="register-wrap">
+  <main class="register-wrap">
+    <form class="register-form" id="forgotForm">
+      <h2 class="title">استعادة كلمة المرور</h2>
 
-<form class="register-form" id="forgotForm">
+      <div class="recover-switch">
+        <button type="button" class="recover-tab active" data-method="email">
+          البريد الإلكتروني
+        </button>
 
-<h2 class="title">استعادة كلمة المرور</h2>
+        <button type="button" class="recover-tab" data-method="phone">
+          رقم الجوال
+        </button>
+      </div>
 
-<div class="row">
-<label for="email">البريد الإلكتروني</label>
-<input id="email" type="email" required>
-</div>
+      <div class="row">
+        <label for="identifier" id="identifierLabel">البريد الإلكتروني</label>
+        <input
+          id="identifier"
+          type="email"
+          placeholder="ادخل البريد الإلكتروني"
+          autocomplete="email"
+          required
+        />
+      </div>
 
-<button class="register-btn" type="submit">
-إرسال
-</button>
+      <p id="forgotMessage" class="error"></p>
 
-<p class="footer">
-<a href="../auth/login.html">رجوع لتسجيل الدخول</a>
-</p>
+      <button class="register-btn" type="submit">متابعة</button>
 
-</form>
+      <p class="footer">
+        <a href="../auth/login.html">رجوع لتسجيل الدخول</a>
+      </p>
+    </form>
+  </main>
 
-</main>
-
-<script>
-
-document.getElementById("forgotForm").addEventListener("submit", function(e){
-
-e.preventDefault();
-
-const email = document.getElementById("email").value;
-
-alert("تم إرسال رابط استعادة كلمة المرور إلى: " + email);
-
-});
-
-</script>
-
+  <script src="../js/main/forgetpass.js"></script>
 </body>
 </html>
