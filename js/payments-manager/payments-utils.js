@@ -187,7 +187,7 @@
 
     const payments = [];
 
-    while (current <= end) {
+    while (current < end) {
 
       payments.push({
         id: generatePaymentId(),
