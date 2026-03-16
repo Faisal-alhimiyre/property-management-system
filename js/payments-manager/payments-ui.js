@@ -131,6 +131,10 @@
         background:#f3f4f6;
         color:#111827;
       }
+      .payments-action-btn[disabled]{
+        opacity:.6;
+        cursor:not-allowed;
+      }
       .payments-form-grid{
         display:grid;
         grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
@@ -261,6 +265,81 @@
     modal.setAttribute("aria-hidden", "true");
   }
 
+  function getRelatedPayments(payment, payments) {
+    if (!payment) return [];
+
+    return payments.filter((p) => {
+      const sameApartment = p.apartmentId === payment.apartmentId;
+      const sameContract =
+        payment.contractId ? p.contractId === payment.contractId : true;
+
+      return sameApartment && sameContract && p.status !== "cancelled";
+    });
+  }
+
+  function canPay(payment, payments) {
+    if (!payment) return false;
+
+    const relatedPayments = getRelatedPayments(payment, payments);
+
+    const unpaidBefore = relatedPayments.find((p) => {
+      return (
+        new Date(p.dueDate) < new Date(payment.dueDate) &&
+        p.status !== "paid"
+      );
+    });
+
+    return !unpaidBefore;
+  }
+
+  function payPayment(paymentId, options = {}) {
+    const onSuccess = options.onSuccess || null;
+
+    if (typeof getPayments !== "function" || typeof savePayments !== "function") {
+      console.error("getPayments أو savePayments غير معرفة");
+      alert("تعذر تنفيذ الدفع: نظام التخزين غير جاهز");
+      return false;
+    }
+
+    const payments = getPayments();
+    const payment = payments.find((p) => p.id === paymentId);
+
+    if (!payment) {
+      alert("الدفعة غير موجودة");
+      return false;
+    }
+
+    if (payment.status === "paid") {
+      alert("هذه الدفعة مدفوعة مسبقًا");
+      return false;
+    }
+
+    if (payment.status === "cancelled") {
+      alert("لا يمكن دفع دفعة ملغية");
+      return false;
+    }
+
+    if (!canPay(payment, payments)) {
+      alert("يجب دفع الدفعات السابقة أولاً");
+      return false;
+    }
+
+    payment.status = "paid";
+    payment.paidAt = new Date().toISOString();
+    payment.paymentMethod = payment.paymentMethod || "manual";
+    payment.notes = payment.notes || "تم السداد من صفحة خيارات الدفع";
+
+    savePayments(payments);
+
+    if (typeof onSuccess === "function") {
+      onSuccess(payment, payments);
+    } else if (typeof window.renderPayments === "function") {
+      window.renderPayments();
+    }
+
+    return true;
+  }
+
   function renderReminder(container, reminder, activeRole) {
     if (!container) return;
 
@@ -336,7 +415,7 @@
     `;
   }
 
-  function renderPaymentsTable(container, payments, options) {
+  function renderPaymentsTable(container, payments, options = {}) {
     const { utils, activeRole } = options;
 
     if (!container) return;
@@ -369,8 +448,12 @@
             ${payments.map((payment) => {
               let actionHtml = `<button class="payments-action-btn ghost" type="button" disabled>—</button>`;
 
+              const payAllowed = canPay(payment, payments);
+
               if (payment.status !== "paid" && payment.status !== "cancelled") {
-                if (isOwner) {
+                if (!payAllowed) {
+                  actionHtml = `<button class="payments-action-btn ghost" type="button" disabled>سدّد السابق أولاً</button>`;
+                } else if (isOwner) {
                   actionHtml = `<button class="payments-action-btn primary" data-pay-action="record" data-pay-id="${payment.id}">تسجيل دفعة</button>`;
                 } else {
                   actionHtml = `<button class="payments-action-btn primary" data-pay-action="tenant-pay" data-pay-id="${payment.id}">دفع الآن</button>`;
@@ -412,13 +495,50 @@
     if (notesInput) notesInput.value = "";
   }
 
+  function bindPaymentsTableActions(container, options = {}) {
+    if (!container) return;
+
+    const onAfterPay = options.onAfterPay || null;
+    const onRecordPayment = options.onRecordPayment || null;
+
+    container.addEventListener("click", function (event) {
+      const btn = event.target.closest("[data-pay-action]");
+      if (!btn) return;
+
+      const action = btn.dataset.payAction;
+      const paymentId = btn.dataset.payId;
+
+      if (!paymentId) return;
+
+      if (action === "tenant-pay") {
+        payPayment(paymentId, {
+          onSuccess: onAfterPay,
+        });
+        return;
+      }
+
+      if (action === "record") {
+        if (typeof onRecordPayment === "function") {
+          onRecordPayment(paymentId);
+        } else {
+          payPayment(paymentId, {
+            onSuccess: onAfterPay,
+          });
+        }
+      }
+    });
+  }
+
   window.WalajnaPaymentsUI = {
     ensurePaymentsStyles,
     openModal,
     closeModal,
+    canPay,
+    payPayment,
     renderReminder,
     renderSummary,
     renderPaymentsTable,
     fillPaymentRecordForm,
+    bindPaymentsTableActions,
   };
 })();

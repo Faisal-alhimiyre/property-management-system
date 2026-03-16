@@ -187,7 +187,7 @@
 
     const payments = [];
 
-    while (current <= end) {
+    while (current < end) {
 
       payments.push({
         id: generatePaymentId(),
@@ -228,7 +228,7 @@
 
     return generateCycleBasedSchedule(apartment);
   }
-
+  
   function calculatePaymentsSummary(payments) {
 
     const normalized = normalizePaymentStatuses(payments);

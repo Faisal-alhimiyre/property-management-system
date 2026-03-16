@@ -30,29 +30,155 @@
         <span class="finance-label">الربح الشهري</span>
         <strong id="buildingProfit">0 ريال</strong>
       </div>
-
-   
     </section>
 
     <section class="building-shell">
       <div class="building-shell__header">
         <h2 id="buildingTitle">العمارة</h2>
       </div>
-    <div class="building-stats">
-  <div class="building-stat-item">
-    <span class="building-stat-label">الوحدات المؤجرة</span>
-    <strong id="buildingOccupiedUnits">0 / 0</strong>
-  </div>
 
-  <div class="building-stat-item">
-    <span class="building-stat-label">الشقق المتأخرة</span>
-    <strong id="buildingLateUnits">0</strong>
-  </div>
-</div>
+      <div class="building-stats">
+        <div class="building-stat-item">
+          <span class="building-stat-label">الوحدات المؤجرة</span>
+          <strong id="buildingOccupiedUnits">0 / 0</strong>
+        </div>
+
+        <div class="building-stat-item">
+          <span class="building-stat-label">الشقق المتأخرة</span>
+          <strong id="buildingLateUnits">0</strong>
+        </div>
+      </div>
+
       <section id="apartmentsGrid" class="apartments-grid"></section>
     </section>
 
   </main>
+
+  <!-- مودال تعديل الشقة -->
+  <div id="editApartmentModal" class="apartment-edit-modal" aria-hidden="true">
+    <div class="apartment-edit-modal__backdrop" data-close-edit-modal="true"></div>
+
+    <div class="apartment-edit-modal__panel" role="dialog" aria-modal="true" aria-labelledby="editApartmentModalTitle">
+      <div class="apartment-edit-modal__header">
+        <div>
+          <h3 id="editApartmentModalTitle" class="apartment-edit-modal__title">تعديل الشقة</h3>
+          <p class="apartment-edit-modal__subtitle">عدّل بيانات الشقة والمستأجر والعقد</p>
+        </div>
+
+        <button id="closeEditApartmentModal" class="apartment-edit-modal__close" type="button" aria-label="إغلاق">✕</button>
+      </div>
+
+      <div class="apartment-edit-modal__body">
+        <div class="details-grid">
+          <div class="item">
+            <label class="label" for="linkFullName">الاسم الكامل</label>
+            <input id="linkFullName" type="text" />
+          </div>
+
+          <div class="item">
+            <label class="label" for="linkNationalId">رقم الهوية / الإقامة</label>
+            <input id="linkNationalId" type="text" maxlength="10" />
+          </div>
+
+          <div class="item">
+            <label class="label" for="linkNationality">الجنسية</label>
+            <input id="linkNationality" type="text" />
+          </div>
+
+          <div class="item">
+            <label class="label" for="linkTenantType">أفراد أو عوائل</label>
+            <select id="linkTenantType">
+              <option value="">اختر</option>
+              <option value="أفراد">أفراد</option>
+              <option value="عوائل">عوائل</option>
+            </select>
+          </div>
+
+          <div class="item">
+            <label class="label" for="linkPhoneNumber">رقم الجوال</label>
+            <input id="linkPhoneNumber" type="text" maxlength="10" />
+          </div>
+
+          <div class="item">
+            <label class="label" for="linkRent">الإيجار الشهري</label>
+            <input id="linkRent" type="number" min="0" step="0.01" />
+          </div>
+
+          <div class="item">
+            <label class="label" for="linkFloorNumber">الدور</label>
+            <input id="linkFloorNumber" type="number" min="0" />
+          </div>
+
+          <div class="item">
+            <label class="label" for="linkRoomsCount">عدد الغرف</label>
+            <input id="linkRoomsCount" type="number" min="0" />
+          </div>
+
+          <div class="item">
+            <label class="label" for="linkBathroomsCount">عدد الحمامات</label>
+            <input id="linkBathroomsCount" type="number" min="0" />
+          </div>
+
+          <div class="item">
+            <label class="label" for="linkLivingRoomsCount">عدد الصالات</label>
+            <input id="linkLivingRoomsCount" type="number" min="0" />
+          </div>
+
+          <div class="item">
+            <label class="label" for="linkPaymentCycle">دورة الدفع</label>
+            <select id="linkPaymentCycle">
+              <option value="monthly">شهري</option>
+              <option value="quarterly">ربع سنوي</option>
+              <option value="semi_annual">نصف سنوي</option>
+              <option value="annual">سنوي</option>
+            </select>
+          </div>
+
+          <div class="item">
+            <label class="label" for="linkInstallmentsCount">عدد الدفعات</label>
+            <input id="linkInstallmentsCount" type="number" min="1" />
+          </div>
+
+          <div class="item">
+            <label class="label" for="linkInsurancePaid">التأمين المدفوع</label>
+            <input id="linkInsurancePaid" type="text" />
+          </div>
+
+          <div class="item">
+            <label class="label" for="linkStartDate">تاريخ بداية العقد</label>
+            <input id="linkStartDate" type="date" />
+          </div>
+
+          <div class="item">
+            <label class="label" for="linkEndDate">تاريخ نهاية العقد</label>
+            <input id="linkEndDate" type="date" />
+          </div>
+
+          <div class="item">
+            <label class="label" for="linkMeterNumber">رقم العداد</label>
+            <input id="linkMeterNumber" type="text" />
+          </div>
+
+         <div class="item full-width">
+  <label class="label" for="linkNotes">ملاحظات</label>
+  <textarea id="linkNotes"></textarea>
+</div>
+        </div>
+
+        <p id="linkTenantError" class="error"></p>
+      </div>
+
+      <div class="apartment-edit-modal__footer">
+        <button id="saveLinkedTenantBtn" class="apartment-edit-btn primary" type="button">
+          حفظ التعديلات
+        </button>
+
+        <button id="cancelEditApartmentModal" class="apartment-edit-btn ghost" type="button">
+          إلغاء
+        </button>
+      </div>
+    </div>
+  </div>
 
   <script src="../js/main/nav.js"></script>
   <script src="../js/owner-manager/owner-building.js"></script>

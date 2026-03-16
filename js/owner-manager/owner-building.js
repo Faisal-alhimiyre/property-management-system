@@ -28,6 +28,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const buildingApartments = apartments.filter((a) => a.buildingId === buildingId);
 
+  let selectedApartmentId = null;
+
   function formatMoney(value) {
     return `${Number(value || 0).toLocaleString("en-US")} ريال`;
   }
@@ -74,6 +76,224 @@ document.addEventListener("DOMContentLoaded", () => {
       dueDate.setHours(0, 0, 0, 0);
       return dueDate < today;
     });
+  }
+
+  function closeAllApartmentMenus() {
+    document.querySelectorAll(".apartment-card-menu").forEach((menu) => {
+      menu.classList.remove("is-open");
+    });
+
+    document.querySelectorAll(".apartment-card").forEach((card) => {
+      card.classList.remove("menu-open");
+    });
+  }
+
+  function showError(message) {
+    const errorBox = document.getElementById("linkTenantError");
+    if (errorBox) {
+      errorBox.textContent = message || "";
+    }
+  }
+
+  function setFieldValue(id, value) {
+    const field = document.getElementById(id);
+    if (field) {
+      field.value = value ?? "";
+    }
+  }
+
+  function openEditModal(apartmentId) {
+    const allApartments = JSON.parse(localStorage.getItem("walajna_apartments") || "[]");
+    const apartment = allApartments.find((item) => item.id === apartmentId);
+
+    if (!apartment) return;
+
+    selectedApartmentId = apartmentId;
+
+    const tenantInfo = apartment.tenantInfo || {};
+    const contract = apartment.contract || {};
+
+    const titleEl = document.getElementById("editApartmentModalTitle");
+    const modal = document.getElementById("editApartmentModal");
+
+    if (titleEl) {
+      titleEl.textContent = `تعديل شقة ${apartment.number}`;
+    }
+
+    setFieldValue("linkFullName", tenantInfo.fullName);
+    setFieldValue("linkNationalId", apartment.tenantNationalId);
+    setFieldValue("linkNationality", tenantInfo.nationality);
+    setFieldValue("linkTenantType", tenantInfo.tenantType);
+    setFieldValue("linkPhoneNumber", tenantInfo.phoneNumber);
+    setFieldValue("linkRent", apartment.rent || contract.rentAmount || "");
+
+    setFieldValue("linkFloorNumber", apartment.floorNumber);
+    setFieldValue("linkRoomsCount", apartment.roomsCount);
+    setFieldValue("linkBathroomsCount", apartment.bathroomsCount);
+    setFieldValue("linkLivingRoomsCount", apartment.livingRoomsCount);
+
+    setFieldValue("linkPaymentCycle", contract.paymentCycle || apartment.paymentDefaults?.paymentCycle || "monthly");
+    setFieldValue("linkInstallmentsCount", contract.installmentsCount || "");
+    setFieldValue("linkInsurancePaid", contract.insurancePaid);
+    setFieldValue("linkStartDate", contract.startDate);
+    setFieldValue("linkEndDate", contract.endDate);
+    setFieldValue("linkMeterNumber", contract.meterNumber);
+    setFieldValue("linkNotes", contract.notes);
+
+    showError("");
+
+    if (modal) {
+      modal.classList.add("is-open");
+      modal.setAttribute("aria-hidden", "false");
+    }
+  }
+
+  function closeEditModal() {
+    selectedApartmentId = null;
+
+    const modal = document.getElementById("editApartmentModal");
+    if (!modal) return;
+
+    modal.classList.remove("is-open");
+    modal.setAttribute("aria-hidden", "true");
+    showError("");
+  }
+
+  function readEditFormData() {
+    const getValue = (id) => {
+      return (document.getElementById(id)?.value || "").trim();
+    };
+
+    return {
+      fullName: getValue("linkFullName"),
+      nationalId: getValue("linkNationalId"),
+      nationality: getValue("linkNationality"),
+      tenantType: getValue("linkTenantType"),
+      phone: getValue("linkPhoneNumber"),
+      rent: getValue("linkRent"),
+
+      floorNumber: getValue("linkFloorNumber"),
+      roomsCount: getValue("linkRoomsCount"),
+      bathroomsCount: getValue("linkBathroomsCount"),
+      livingRoomsCount: getValue("linkLivingRoomsCount"),
+
+      paymentCycle: getValue("linkPaymentCycle"),
+      installmentsCount: getValue("linkInstallmentsCount"),
+      insurancePaid: getValue("linkInsurancePaid"),
+      startDate: getValue("linkStartDate"),
+      endDate: getValue("linkEndDate"),
+      meterNumber: getValue("linkMeterNumber"),
+      notes: getValue("linkNotes"),
+    };
+  }
+
+  function validateEditFormData(data) {
+    if (data.nationalId && !/^\d{10}$/.test(data.nationalId)) {
+      return "رقم الهوية / الإقامة يجب أن يكون 10 أرقام";
+    }
+
+    if (data.phone && !/^05\d{8}$/.test(data.phone)) {
+      return "رقم الجوال غير صحيح";
+    }
+
+    if (data.endDate && data.startDate && data.endDate < data.startDate) {
+      return "تاريخ نهاية العقد يجب أن يكون بعد تاريخ البداية";
+    }
+
+    if (data.installmentsCount && Number(data.installmentsCount) < 1) {
+      return "عدد الدفعات غير صحيح";
+    }
+
+    return "";
+  }
+
+  function saveApartmentEdit() {
+    if (!selectedApartmentId) return;
+
+    const formData = readEditFormData();
+    const validationMessage = validateEditFormData(formData);
+
+    showError("");
+
+    if (validationMessage) {
+      showError(validationMessage);
+      return;
+    }
+
+    const allApartments = JSON.parse(localStorage.getItem("walajna_apartments") || "[]");
+
+    const updatedApartments = allApartments.map((apt) => {
+      if (apt.id !== selectedApartmentId) return apt;
+
+      const oldContract = apt.contract || {};
+      const oldTenantInfo = apt.tenantInfo || {};
+
+      const hasTenantData =
+        formData.fullName ||
+        formData.nationalId ||
+        formData.nationality ||
+        formData.tenantType ||
+        formData.phone;
+
+      return {
+        ...apt,
+        rent: formData.rent ? Number(formData.rent) : "",
+        floorNumber: formData.floorNumber ? Number(formData.floorNumber) : null,
+        roomsCount: formData.roomsCount ? Number(formData.roomsCount) : null,
+        bathroomsCount: formData.bathroomsCount ? Number(formData.bathroomsCount) : null,
+        livingRoomsCount: formData.livingRoomsCount ? Number(formData.livingRoomsCount) : null,
+
+        tenantNationalId: formData.nationalId || null,
+
+        tenantInfo: hasTenantData
+          ? {
+              fullName: formData.fullName || "",
+              phoneNumber: formData.phone || "",
+              nationality: formData.nationality || "",
+              tenantType: formData.tenantType || "",
+            }
+          : oldTenantInfo,
+
+        contract: {
+          ...oldContract,
+          startDate: formData.startDate || "",
+          endDate: formData.endDate || "",
+          rentAmount: formData.rent ? Number(formData.rent) : Number(oldContract.rentAmount || 0),
+          paymentCycle: formData.paymentCycle || apt.paymentDefaults?.paymentCycle || "monthly",
+          installmentsCount: formData.installmentsCount ? Number(formData.installmentsCount) : Number(oldContract.installmentsCount || 0),
+          insurancePaid: formData.insurancePaid || "",
+          meterNumber: formData.meterNumber || "",
+          notes: formData.notes || "",
+        },
+      };
+    });
+
+    localStorage.setItem("walajna_apartments", JSON.stringify(updatedApartments));
+    closeEditModal();
+    window.location.reload();
+  }
+
+  function evictApartment(apartmentId) {
+    const confirmed = confirm("هل أنت متأكد من إخلاء المستأجر من هذه الشقة؟");
+    if (!confirmed) return;
+
+    const updatedApartments = apartments.map((apartment) => {
+      if (apartment.id !== apartmentId) return apartment;
+
+      return {
+        ...apartment,
+        rent: "",
+        tenantUserId: null,
+        tenantNationalId: null,
+        tenantInfo: {},
+        contract: {},
+        leaseStatus: "vacant",
+        status: "فارغة",
+      };
+    });
+
+    localStorage.setItem("walajna_apartments", JSON.stringify(updatedApartments));
+    window.location.reload();
   }
 
   function getBuildingFinancialSummary() {
@@ -152,6 +372,28 @@ document.addEventListener("DOMContentLoaded", () => {
 
   renderBuildingFinancialSummary();
 
+  function deleteApartment(apartmentId) {
+    const confirmed = confirm("هل أنت متأكد من حذف الشقة؟ سيتم حذف كل البيانات المرتبطة بها.");
+    if (!confirmed) return;
+
+    const updatedApartments = apartments.filter((apartment) => apartment.id !== apartmentId);
+    const updatedRequests = requests.filter((request) => request.apartmentId !== apartmentId);
+    const updatedPayments = payments.filter((payment) => payment.apartmentId !== apartmentId);
+    const updatedCosts = costs.filter((cost) => cost.apartmentId !== apartmentId);
+
+    const documents = JSON.parse(localStorage.getItem("walajna_documents") || "[]");
+    const updatedDocuments = documents.filter((document) => document.apartmentId !== apartmentId);
+
+    localStorage.setItem("walajna_apartments", JSON.stringify(updatedApartments));
+    localStorage.setItem("walajna_requests", JSON.stringify(updatedRequests));
+    localStorage.setItem("walajna_payments", JSON.stringify(updatedPayments));
+    localStorage.setItem("walajna_costs", JSON.stringify(updatedCosts));
+    localStorage.setItem("walajna_documents", JSON.stringify(updatedDocuments));
+
+    alert("تم حذف الشقة بنجاح");
+    window.location.reload();
+  }
+
   const floors = {};
 
   buildingApartments.forEach((apartment) => {
@@ -221,6 +463,37 @@ document.addEventListener("DOMContentLoaded", () => {
 
           return `
             <div class="apartment-card ${typeClass}" data-id="${apartment.id}">
+              <div class="apartment-card-menu-wrap">
+                <button
+                  type="button"
+                  class="apartment-more-btn"
+                  data-menu-btn="true"
+                  data-id="${apartment.id}"
+                  aria-label="خيارات الشقة"
+                >
+                  ⋮
+                </button>
+
+                <div class="apartment-card-menu" data-menu="${apartment.id}">
+                  <button
+                    type="button"
+                    data-action="edit-apartment"
+                    data-id="${apartment.id}"
+                  >
+                    تعديل
+                  </button>
+
+                  <button
+                    type="button"
+                    class="danger"
+                    data-action="evict-apartment"
+                    data-id="${apartment.id}"
+                  >
+                    إخلاء
+                  </button>
+                </div>
+              </div>
+
               <div class="apartment-number-row">
                 <div class="apartment-number">
                   شقة ${apartment.number}
@@ -241,7 +514,6 @@ document.addEventListener("DOMContentLoaded", () => {
       return `
         <div class="floor-section">
           <div class="floor-title">الدور ${floorNumber}</div>
-
           <div class="floor-apartments">
             ${apartmentsHtml}
           </div>
@@ -250,10 +522,83 @@ document.addEventListener("DOMContentLoaded", () => {
     })
     .join("");
 
+  document.querySelectorAll(".apartment-more-btn").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const apartmentId = button.dataset.id;
+      const card = button.closest(".apartment-card");
+      const targetMenu = document.querySelector(`[data-menu="${apartmentId}"]`);
+      const isOpen = targetMenu?.classList.contains("is-open");
+
+      closeAllApartmentMenus();
+
+      if (targetMenu && !isOpen) {
+        targetMenu.classList.add("is-open");
+        if (card) {
+          card.classList.add("menu-open");
+        }
+      }
+    });
+  });
+
+  document.querySelectorAll('[data-action="edit-apartment"]').forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const apartmentId = button.dataset.id;
+      closeAllApartmentMenus();
+      openEditModal(apartmentId);
+    });
+  });
+
+  document.querySelectorAll('[data-action="evict-apartment"]').forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const apartmentId = button.dataset.id;
+      closeAllApartmentMenus();
+      evictApartment(apartmentId);
+    });
+  });
+
+ 
   document.querySelectorAll(".apartment-card").forEach((card) => {
-    card.addEventListener("click", () => {
+    card.addEventListener("click", (event) => {
+      if (event.target.closest(".apartment-card-menu-wrap")) return;
+
       const aptId = card.dataset.id;
       window.location.href = `../main/apartment_info.html?id=${encodeURIComponent(aptId)}`;
     });
+  });
+
+  const closeBtn = document.getElementById("closeEditApartmentModal");
+  const cancelBtn = document.getElementById("cancelEditApartmentModal");
+  const backdrop = document.querySelector('[data-close-edit-modal="true"]');
+  const saveBtn = document.getElementById("saveLinkedTenantBtn");
+
+  if (closeBtn) {
+    closeBtn.addEventListener("click", closeEditModal);
+  }
+
+  if (cancelBtn) {
+    cancelBtn.addEventListener("click", closeEditModal);
+  }
+
+  if (backdrop) {
+    backdrop.addEventListener("click", closeEditModal);
+  }
+
+  if (saveBtn) {
+    saveBtn.addEventListener("click", saveApartmentEdit);
+  }
+
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest(".apartment-card-menu-wrap")) {
+      closeAllApartmentMenus();
+    }
   });
 });
