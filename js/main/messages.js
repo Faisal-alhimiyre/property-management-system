@@ -6,6 +6,13 @@ document.addEventListener("DOMContentLoaded", () => {
     ACTIVE_ROLE: "activeRole"
   };
 
+  const REQUEST_STORAGE_CANDIDATES = [
+    "walajna_requests",
+    "walajna_apartment_requests",
+    "apartment_requests",
+    "requests"
+  ];
+
   const pageTitle = document.getElementById("pageTitle");
   const pageSubtitle = document.getElementById("pageSubtitle");
   const composeBtn = document.getElementById("composeBtn");
@@ -25,23 +32,37 @@ document.addEventListener("DOMContentLoaded", () => {
   const receiverLandlord = document.getElementById("receiverLandlord");
 
   let allUsers = getLocalArray(STORAGE_KEYS.USERS);
-  let currentUser = getLocalObject(STORAGE_KEYS.CURRENT_USER);
+  let loggedInUser = getLocalObject(STORAGE_KEYS.CURRENT_USER);
   let allMessages = getLocalArray(STORAGE_KEYS.MESSAGES);
   let activeRole = localStorage.getItem(STORAGE_KEYS.ACTIVE_ROLE) || "";
+  let currentUser = null;
   let visibleMessages = [];
 
   seedSampleMessagesIfNeeded();
-  allMessages = getLocalArray(STORAGE_KEYS.MESSAGES);
 
-  if (!currentUser) {
+  allUsers = getLocalArray(STORAGE_KEYS.USERS);
+  allMessages = getLocalArray(STORAGE_KEYS.MESSAGES);
+  loggedInUser = getLocalObject(STORAGE_KEYS.CURRENT_USER);
+
+  if (!loggedInUser) {
     alert("لا يوجد مستخدم مسجل دخول حالياً");
     window.location.href = "login.html";
     return;
   }
 
   if (!activeRole) {
-    activeRole = normalizeRole(currentUser.role || currentUser.accountType || "");
+    activeRole = getUserRole(loggedInUser);
     localStorage.setItem(STORAGE_KEYS.ACTIVE_ROLE, activeRole);
+  } else {
+    activeRole = normalizeRole(activeRole);
+    localStorage.setItem(STORAGE_KEYS.ACTIVE_ROLE, activeRole);
+  }
+
+  currentUser = resolveCurrentUserByRole(loggedInUser, activeRole, allUsers);
+
+  if (!currentUser) {
+    alert("تعذر تحديد المستخدم الحالي حسب الدور النشط.");
+    return;
   }
 
   setupRoleView();
@@ -50,14 +71,18 @@ document.addEventListener("DOMContentLoaded", () => {
   bindEvents();
 
   function bindEvents() {
-    searchInput.addEventListener("input", renderMessages);
-    typeFilter.addEventListener("change", renderMessages);
-    statusFilter.addEventListener("change", renderMessages);
-    sortFilter.addEventListener("change", renderMessages);
+    if (searchInput) searchInput.addEventListener("input", renderMessages);
+    if (typeFilter) typeFilter.addEventListener("change", renderMessages);
+    if (statusFilter) statusFilter.addEventListener("change", renderMessages);
+    if (sortFilter) sortFilter.addEventListener("change", renderMessages);
 
-    composeBtn.addEventListener("click", () => openModal(composeModal));
+    if (composeBtn) {
+      composeBtn.addEventListener("click", () => openModal(composeModal));
+    }
 
-    composeForm.addEventListener("submit", handleComposeSubmit);
+    if (composeForm) {
+      composeForm.addEventListener("submit", handleComposeSubmit);
+    }
 
     document.querySelectorAll("[data-close]").forEach(btn => {
       btn.addEventListener("click", () => {
@@ -78,24 +103,26 @@ document.addEventListener("DOMContentLoaded", () => {
   function setupRoleView() {
     if (activeRole === "landlord") {
       pageTitle.textContent = "صندوق رسائل المالك";
-      pageSubtitle.textContent = "استعراض الرسائل الواردة من المستأجرين حسب العقار والوحدة";
+      pageSubtitle.textContent = "استعراض الرسائل والتنبيهات الواردة من المستأجرين حسب العقار والوحدة";
       composeBtn.classList.add("hidden");
     } else {
       pageTitle.textContent = "رسائل المستأجر";
-      pageSubtitle.textContent = "إدارة الرسائل المرسلة إلى المالك بخصوص العقار أو الشقة";
+      pageSubtitle.textContent = "إدارة الرسائل والتنبيهات المتعلقة بالعقار أو الشقة";
       composeBtn.classList.remove("hidden");
     }
   }
 
   function populateLandlords() {
+    if (!receiverLandlord) return;
+
     receiverLandlord.innerHTML = `<option value="">اختر المالك</option>`;
 
-    const landlords = allUsers.filter(user => normalizeRole(user.role || user.accountType || "") === "landlord");
+    const landlords = allUsers.filter(user => getUserRole(user) === "landlord");
 
     landlords.forEach(landlord => {
       const option = document.createElement("option");
-      option.value = landlord.id || landlord.email || landlord.username;
-      option.textContent = landlord.fullName || landlord.name || landlord.username || landlord.email || "مالك";
+      option.value = getUserIdentifier(landlord);
+      option.textContent = getUserDisplayName(landlord) || "مالك";
       receiverLandlord.appendChild(option);
     });
   }
@@ -103,20 +130,21 @@ document.addEventListener("DOMContentLoaded", () => {
   function renderMessages() {
     let filtered = getMessagesForCurrentRole();
 
-    const searchValue = searchInput.value.trim().toLowerCase();
-    const typeValue = typeFilter.value;
-    const statusValue = statusFilter.value;
-    const sortValue = sortFilter.value;
+    const searchValue = (searchInput?.value || "").trim().toLowerCase();
+    const typeValue = typeFilter?.value || "all";
+    const statusValue = statusFilter?.value || "all";
+    const sortValue = sortFilter?.value || "newest";
 
     filtered = filtered.filter(msg => {
       const matchesSearch =
         !searchValue ||
-        (msg.buildingName || "").toLowerCase().includes(searchValue) ||
-        (msg.buildingNumber || "").toLowerCase().includes(searchValue) ||
-        (msg.apartmentNumber || "").toLowerCase().includes(searchValue) ||
-        (msg.subject || "").toLowerCase().includes(searchValue) ||
-        (msg.senderName || "").toLowerCase().includes(searchValue) ||
-        (msg.receiverName || "").toLowerCase().includes(searchValue);
+        String(msg.buildingName || "").toLowerCase().includes(searchValue) ||
+        String(msg.buildingNumber || "").toLowerCase().includes(searchValue) ||
+        String(msg.apartmentNumber || "").toLowerCase().includes(searchValue) ||
+        String(msg.subject || "").toLowerCase().includes(searchValue) ||
+        String(msg.body || "").toLowerCase().includes(searchValue) ||
+        String(msg.senderName || "").toLowerCase().includes(searchValue) ||
+        String(msg.receiverName || "").toLowerCase().includes(searchValue);
 
       const matchesType = typeValue === "all" || msg.type === typeValue;
       const matchesStatus = statusValue === "all" || msg.status === statusValue;
@@ -125,8 +153,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     filtered.sort((a, b) => {
-      const dateA = new Date(a.dateSent).getTime();
-      const dateB = new Date(b.dateSent).getTime();
+      const dateA = new Date(a.dateSent || a.createdAt || 0).getTime();
+      const dateB = new Date(b.dateSent || b.createdAt || 0).getTime();
       return sortValue === "oldest" ? dateA - dateB : dateB - dateA;
     });
 
@@ -137,8 +165,8 @@ document.addEventListener("DOMContentLoaded", () => {
       emptyState.classList.remove("hidden");
       emptyText.textContent =
         activeRole === "landlord"
-          ? "لا توجد رسائل واردة مطابقة حالياً."
-          : "لا توجد رسائل مرسلة مطابقة حالياً.";
+          ? "لا توجد رسائل أو تنبيهات واردة مطابقة حالياً."
+          : "لا توجد رسائل أو تنبيهات مطابقة حالياً.";
       return;
     }
 
@@ -146,7 +174,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     filtered.forEach(msg => {
       const card = document.createElement("article");
-      card.className = `message-card ${msg.type}`;
+      card.className = `message-card ${msg.type || ""} ${msg.sourceType === "request" ? "request-notification" : ""}`;
+
+      const sourceBadge = msg.sourceType === "request"
+        ? `<span class="type-badge ${escapeHtml(msg.type || "")}">تنبيه طلب</span>`
+        : `<span class="type-badge ${escapeHtml(msg.type || "")}">${getTypeLabel(msg.type)}</span>`;
 
       card.innerHTML = `
         <div class="message-color-bar"></div>
@@ -158,8 +190,8 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>
 
             <div class="message-badges">
-              <span class="type-badge ${msg.type}">${getTypeLabel(msg.type)}</span>
-              <span class="status-badge ${msg.status}">${msg.status === "read" ? "مقروء" : "غير مقروء"}</span>
+              ${sourceBadge}
+              <span class="status-badge ${escapeHtml(msg.status || "unread")}">${msg.status === "read" ? "مقروء" : "غير مقروء"}</span>
             </div>
           </div>
 
@@ -188,12 +220,12 @@ document.addEventListener("DOMContentLoaded", () => {
           <p class="message-preview">${escapeHtml(truncateText(msg.body || "", 150))}</p>
 
           <div class="message-actions">
-            <span class="message-date">تاريخ الإرسال: ${formatDate(msg.dateSent)}</span>
+            <span class="message-date">تاريخ الإرسال: ${formatDate(msg.dateSent || msg.createdAt)}</span>
 
             <div class="message-actions-right">
-              <button class="action-btn view-btn" data-id="${msg.id}">عرض التفاصيل</button>
+              <button class="action-btn view-btn" data-id="${escapeHtml(msg.id)}" data-source="${escapeHtml(msg.sourceType || "message")}" type="button">عرض التفاصيل</button>
               ${activeRole === "landlord" && msg.status === "unread"
-                ? `<button class="action-btn mark-btn" data-id="${msg.id}">تحديد كمقروء</button>`
+                ? `<button class="action-btn mark-btn" data-id="${escapeHtml(msg.id)}" data-source="${escapeHtml(msg.sourceType || "message")}" type="button">تحديد كمقروء</button>`
                 : ""}
             </div>
           </div>
@@ -210,15 +242,15 @@ document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll(".view-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         const id = btn.dataset.id;
-        const message = allMessages.find(m => String(m.id) === String(id));
-        if (!message) return;
+        const source = btn.dataset.source || "message";
+        const item = visibleMessages.find(m => String(m.id) === String(id) && String(m.sourceType || "message") === source);
+        if (!item) return;
 
-        if (activeRole === "landlord" && message.status === "unread") {
-          message.status = "read";
-          saveMessages();
+        if (activeRole === "landlord" && item.status === "unread") {
+          markItemAsRead(item);
         }
 
-        openDetailsModal(message);
+        openDetailsModal(item);
         renderMessages();
       });
     });
@@ -226,11 +258,11 @@ document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll(".mark-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         const id = btn.dataset.id;
-        const message = allMessages.find(m => String(m.id) === String(id));
-        if (!message) return;
+        const source = btn.dataset.source || "message";
+        const item = visibleMessages.find(m => String(m.id) === String(id) && String(m.sourceType || "message") === source);
+        if (!item) return;
 
-        message.status = "read";
-        saveMessages();
+        markItemAsRead(item);
         renderMessages();
       });
     });
@@ -257,7 +289,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const landlord = allUsers.find(user => String(user.id || user.email || user.username) === String(landlordId));
+    const landlord = allUsers.find(user => String(getUserIdentifier(user)) === String(landlordId));
     if (!landlord) {
       alert("تعذر العثور على المالك المحدد.");
       return;
@@ -271,12 +303,15 @@ document.addEventListener("DOMContentLoaded", () => {
       buildingName,
       buildingNumber,
       apartmentNumber,
-      senderId: currentUser.id || currentUser.email || currentUser.username,
-      senderName: currentUser.fullName || currentUser.name || currentUser.username || currentUser.email || "مستأجر",
+
+      senderId: getUserIdentifier(currentUser),
+      senderName: getUserDisplayName(currentUser),
       senderRole: "tenant",
-      receiverId: landlord.id || landlord.email || landlord.username,
-      receiverName: landlord.fullName || landlord.name || landlord.username || landlord.email || "مالك",
+
+      receiverId: getUserIdentifier(landlord),
+      receiverName: getUserDisplayName(landlord),
       receiverRole: "landlord",
+
       status: "unread",
       dateSent: new Date().toISOString()
     };
@@ -292,6 +327,19 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function openDetailsModal(message) {
+    const extraRequestInfo = message.sourceType === "request"
+      ? `
+        <div class="details-body-box">
+          <h4>تفاصيل الطلب</h4>
+          <p><strong>نوع الطلب:</strong> ${escapeHtml(getTypeLabel(message.type))}</p>
+          <p><strong>حالة الطلب:</strong> ${escapeHtml(message.requestStatusLabel || "-")}</p>
+          ${message.ownerReply ? `<p><strong>رد المالك:</strong> ${escapeHtml(message.ownerReply)}</p>` : ""}
+          ${message.repliedAt ? `<p><strong>تاريخ الرد:</strong> ${escapeHtml(formatDate(message.repliedAt))}</p>` : ""}
+          ${message.resolvedAt ? `<p><strong>تاريخ المعالجة:</strong> ${escapeHtml(formatDate(message.resolvedAt))}</p>` : ""}
+        </div>
+      `
+      : "";
+
     detailsContent.innerHTML = `
       <div class="details-grid">
         <div class="details-header">
@@ -300,8 +348,10 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
 
           <div class="message-badges">
-            <span class="type-badge ${message.type}">${getTypeLabel(message.type)}</span>
-            <span class="status-badge ${message.status}">${message.status === "read" ? "مقروء" : "غير مقروء"}</span>
+            <span class="type-badge ${escapeHtml(message.type || "")}">
+              ${message.sourceType === "request" ? "تنبيه طلب" : getTypeLabel(message.type)}
+            </span>
+            <span class="status-badge ${escapeHtml(message.status || "unread")}">${message.status === "read" ? "مقروء" : "غير مقروء"}</span>
           </div>
         </div>
 
@@ -313,7 +363,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
           <div class="meta-item">
             <span class="meta-label">تاريخ الإرسال</span>
-            <span class="meta-value">${formatDate(message.dateSent)}</span>
+            <span class="meta-value">${formatDate(message.dateSent || message.createdAt)}</span>
           </div>
 
           <div class="meta-item">
@@ -333,14 +383,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
           <div class="meta-item">
             <span class="meta-label">نوع الرسالة</span>
-            <span class="meta-value">${getTypeLabel(message.type)}</span>
+            <span class="meta-value">${escapeHtml(getTypeLabel(message.type))}</span>
           </div>
         </div>
 
         <div class="details-body-box">
-          <h4>محتوى الرسالة</h4>
+          <h4>${message.sourceType === "request" ? "محتوى الطلب" : "محتوى الرسالة"}</h4>
           <p>${escapeHtml(message.body || "")}</p>
         </div>
+
+        ${extraRequestInfo}
       </div>
     `;
 
@@ -348,13 +400,184 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function getMessagesForCurrentRole() {
-    const currentId = String(currentUser.id || currentUser.email || currentUser.username || "");
+    const normalMessages = getNormalMessagesForCurrentRole();
+    const requestNotifications = getRequestNotificationsForCurrentRole();
+    return [...normalMessages, ...requestNotifications];
+  }
+
+  function getNormalMessagesForCurrentRole() {
+    const currentId = String(getUserIdentifier(currentUser) || "");
+    const currentName = String(getUserDisplayName(currentUser) || "");
 
     if (activeRole === "landlord") {
-      return allMessages.filter(msg => String(msg.receiverId) === currentId || normalizeRole(msg.receiverRole) === "landlord" && String(msg.receiverName) === String(currentUser.fullName || currentUser.name || currentUser.username || currentUser.email));
+      return allMessages
+        .filter(msg => {
+          const receiverId = String(msg.receiverId || "");
+          const receiverName = String(msg.receiverName || "");
+          const receiverRole = normalizeRole(msg.receiverRole || "");
+
+          return (
+            (receiverId && receiverId === currentId) ||
+            (receiverName && receiverName === currentName) ||
+            (
+              receiverRole === "landlord" &&
+              (
+                receiverId === currentId ||
+                receiverName === currentName
+              )
+            )
+          );
+        })
+        .map(msg => ({
+          ...msg,
+          sourceType: "message"
+        }));
     }
 
-    return allMessages.filter(msg => String(msg.senderId) === currentId || normalizeRole(msg.senderRole) === "tenant" && String(msg.senderName) === String(currentUser.fullName || currentUser.name || currentUser.username || currentUser.email));
+    return allMessages
+      .filter(msg => {
+        const senderId = String(msg.senderId || "");
+        const senderName = String(msg.senderName || "");
+        const senderRole = normalizeRole(msg.senderRole || "");
+
+        return (
+          (senderId && senderId === currentId) ||
+          (senderName && senderName === currentName) ||
+          (
+            senderRole === "tenant" &&
+            (
+              senderId === currentId ||
+              senderName === currentName
+            )
+          )
+        );
+      })
+      .map(msg => ({
+        ...msg,
+        sourceType: "message"
+      }));
+  }
+
+  function getRequestNotificationsForCurrentRole() {
+    const requests = getRequests();
+    if (!requests.length) return [];
+
+    const currentNationalId = String(currentUser?.nationalId || "");
+    const tenantName = getUserDisplayName(currentUser) || "المستأجر";
+    const landlordName = "المالك";
+
+    let filteredRequests = [];
+
+    if (activeRole === "tenant") {
+      filteredRequests = requests.filter(req => {
+        const reqNationalId = String(req.tenantNationalId || "");
+        return currentNationalId && reqNationalId === currentNationalId;
+      });
+    } else {
+      filteredRequests = requests;
+    }
+
+    return filteredRequests.map(req => {
+      const seen = activeRole === "landlord"
+        ? !!req.ownerSeen
+        : !!req.tenantSeen;
+
+      const requestStatusLabel =
+        req.status === "resolved"
+          ? "تمت المعالجة"
+          : req.status === "replied"
+          ? "تم الرد"
+          : "جديد";
+
+      return {
+        id: String(req.id),
+        sourceType: "request",
+        type: req.typeId || "request",
+        subject: `تنبيه طلب: ${req.typeTitle || getTypeLabel(req.typeId || "request")}`,
+        body: req.message || "",
+        buildingName: req.buildingName || req.propertyName || req.building || "-",
+        buildingNumber: req.buildingNumber || req.propertyNumber || "-",
+        apartmentNumber: req.apartmentNumber || req.unitNumber || "-",
+        apartmentId: req.apartmentId || "",
+        senderId: activeRole === "landlord" ? String(req.tenantNationalId || "") : "system",
+        senderName: activeRole === "landlord" ? tenantName : landlordName,
+        senderRole: "tenant",
+        receiverId: activeRole === "landlord" ? getUserIdentifier(currentUser) : "system",
+        receiverName: activeRole === "landlord" ? landlordName : tenantName,
+        receiverRole: activeRole === "landlord" ? "landlord" : "tenant",
+        status: seen ? "read" : "unread",
+        createdAt: req.createdAt,
+        dateSent: req.createdAt,
+        ownerReply: req.ownerReply || "",
+        repliedAt: req.repliedAt || "",
+        resolvedAt: req.resolvedAt || "",
+        rawRequestStatus: req.status || "new",
+        requestStatusLabel
+      };
+    });
+  }
+
+  function markItemAsRead(item) {
+    if (!item) return;
+
+    if ((item.sourceType || "message") === "request") {
+      markRequestNotificationAsRead(item.id);
+      return;
+    }
+
+    const message = allMessages.find(m => String(m.id) === String(item.id));
+    if (!message) return;
+
+    message.status = "read";
+    saveMessages();
+  }
+
+  function markRequestNotificationAsRead(requestId) {
+    const requests = getRequests();
+    const updated = requests.map(req => {
+      if (String(req.id) !== String(requestId)) return req;
+
+      if (activeRole === "landlord") {
+        return { ...req, ownerSeen: true };
+      }
+
+      return { ...req, tenantSeen: true };
+    });
+
+    saveRequests(updated);
+  }
+
+  function resolveCurrentUserByRole(loggedUser, role, users) {
+    if (!loggedUser) return null;
+
+    const loggedRole = getUserRole(loggedUser);
+
+    if (loggedRole === role) {
+      return loggedUser;
+    }
+
+    const sameRoleUser = users.find(user => getUserRole(user) === role);
+    return sameRoleUser || loggedUser;
+  }
+
+  function getUserRole(user) {
+    if (!user) return "";
+    return normalizeRole(
+      user.role ||
+      user.roles ||
+      user.accountType ||
+      ""
+    );
+  }
+
+  function getUserIdentifier(user) {
+    if (!user) return "";
+    return String(user.id || user.email || user.username || "");
+  }
+
+  function getUserDisplayName(user) {
+    if (!user) return "";
+    return String(user.fullName || user.name || user.username || user.email || "");
   }
 
   function openModal(modal) {
@@ -369,6 +592,32 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function saveMessages() {
     localStorage.setItem(STORAGE_KEYS.MESSAGES, JSON.stringify(allMessages));
+  }
+
+  function detectRequestStorageKey() {
+    for (const key of REQUEST_STORAGE_CANDIDATES) {
+      const parsed = getParsedStorageValue(key);
+      if (Array.isArray(parsed)) return key;
+    }
+    return REQUEST_STORAGE_CANDIDATES[0];
+  }
+
+  function getRequests() {
+    const key = detectRequestStorageKey();
+    return getLocalArray(key);
+  }
+
+  function saveRequests(requests) {
+    const key = detectRequestStorageKey();
+    localStorage.setItem(key, JSON.stringify(requests));
+  }
+
+  function getParsedStorageValue(key) {
+    try {
+      return JSON.parse(localStorage.getItem(key));
+    } catch {
+      return null;
+    }
   }
 
   function getLocalArray(key) {
@@ -420,8 +669,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function formatDate(dateString) {
     if (!dateString) return "-";
-    const date = new Date(dateString);
 
+    const date = new Date(dateString);
     if (isNaN(date.getTime())) return dateString;
 
     return new Intl.DateTimeFormat("ar-SA", {
@@ -458,18 +707,19 @@ document.addEventListener("DOMContentLoaded", () => {
     const current = getLocalObject(STORAGE_KEYS.CURRENT_USER);
     if (!current) return;
 
-    const role = localStorage.getItem(STORAGE_KEYS.ACTIVE_ROLE) || normalizeRole(current.role || current.accountType || "");
+    const roleFromStorage = localStorage.getItem(STORAGE_KEYS.ACTIVE_ROLE) || getUserRole(current);
+    const role = normalizeRole(roleFromStorage);
     const users = getLocalArray(STORAGE_KEYS.USERS);
 
     const tenantUser =
-      normalizeRole(current.role || current.accountType || "") === "tenant"
+      getUserRole(current) === "tenant"
         ? current
-        : users.find(u => normalizeRole(u.role || u.accountType || "") === "tenant");
+        : users.find(u => getUserRole(u) === "tenant");
 
     const landlordUser =
-      normalizeRole(current.role || current.accountType || "") === "landlord"
+      getUserRole(current) === "landlord"
         ? current
-        : users.find(u => normalizeRole(u.role || u.accountType || "") === "landlord");
+        : users.find(u => getUserRole(u) === "landlord");
 
     if (!tenantUser || !landlordUser) return;
 
@@ -482,11 +732,11 @@ document.addEventListener("DOMContentLoaded", () => {
         buildingName: "برج الروضة",
         buildingNumber: "B-12",
         apartmentNumber: "A-203",
-        senderId: tenantUser.id || tenantUser.email || tenantUser.username,
-        senderName: tenantUser.fullName || tenantUser.name || tenantUser.username || tenantUser.email,
+        senderId: getUserIdentifier(tenantUser),
+        senderName: getUserDisplayName(tenantUser),
         senderRole: "tenant",
-        receiverId: landlordUser.id || landlordUser.email || landlordUser.username,
-        receiverName: landlordUser.fullName || landlordUser.name || landlordUser.username || landlordUser.email,
+        receiverId: getUserIdentifier(landlordUser),
+        receiverName: getUserDisplayName(landlordUser),
         receiverRole: "landlord",
         status: role === "landlord" ? "unread" : "read",
         dateSent: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString()
@@ -499,11 +749,11 @@ document.addEventListener("DOMContentLoaded", () => {
         buildingName: "مبنى الياسمين",
         buildingNumber: "C-04",
         apartmentNumber: "12",
-        senderId: tenantUser.id || tenantUser.email || tenantUser.username,
-        senderName: tenantUser.fullName || tenantUser.name || tenantUser.username || tenantUser.email,
+        senderId: getUserIdentifier(tenantUser),
+        senderName: getUserDisplayName(tenantUser),
         senderRole: "tenant",
-        receiverId: landlordUser.id || landlordUser.email || landlordUser.username,
-        receiverName: landlordUser.fullName || landlordUser.name || landlordUser.username || landlordUser.email,
+        receiverId: getUserIdentifier(landlordUser),
+        receiverName: getUserDisplayName(landlordUser),
         receiverRole: "landlord",
         status: "read",
         dateSent: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString()
@@ -516,11 +766,11 @@ document.addEventListener("DOMContentLoaded", () => {
         buildingName: "برج الروضة",
         buildingNumber: "B-12",
         apartmentNumber: "A-203",
-        senderId: tenantUser.id || tenantUser.email || tenantUser.username,
-        senderName: tenantUser.fullName || tenantUser.name || tenantUser.username || tenantUser.email,
+        senderId: getUserIdentifier(tenantUser),
+        senderName: getUserDisplayName(tenantUser),
         senderRole: "tenant",
-        receiverId: landlordUser.id || landlordUser.email || landlordUser.username,
-        receiverName: landlordUser.fullName || landlordUser.name || landlordUser.username || landlordUser.email,
+        receiverId: getUserIdentifier(landlordUser),
+        receiverName: getUserDisplayName(landlordUser),
         receiverRole: "landlord",
         status: "read",
         dateSent: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString()

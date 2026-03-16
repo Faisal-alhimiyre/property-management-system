@@ -178,7 +178,7 @@ const requestTypes = [
           ? "عرض طلبات المستأجر والرد عليها"
           : "عرض طلباتك السابقة";
     }
-
+    
 
     if (apartmentRequests.length === 0) {
 
