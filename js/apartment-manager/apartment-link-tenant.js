@@ -5,6 +5,7 @@
 function initLinkTenantSystem(aptId, currentUser) {
   const elements = {
     modal: document.getElementById("linkTenantModal"),
+    modalTitle: document.getElementById("linkTenantModalTitle"),
     closeBtn: document.getElementById("closeLinkTenantModal"),
     cancelBtn: document.getElementById("cancelLinkTenantModal"),
 
@@ -34,6 +35,8 @@ function initLinkTenantSystem(aptId, currentUser) {
     errorBox: document.getElementById("linkTenantError"),
   };
 
+  let currentMode = "create";
+
   function showError(message) {
     if (elements.errorBox) {
       elements.errorBox.textContent = message || "";
@@ -46,6 +49,10 @@ function initLinkTenantSystem(aptId, currentUser) {
 
   function clearField(field) {
     if (field) field.value = "";
+  }
+
+  function setFieldValue(field, value) {
+    if (field) field.value = value ?? "";
   }
 
   function getCurrentApartment() {
@@ -95,6 +102,24 @@ function initLinkTenantSystem(aptId, currentUser) {
     }
   }
 
+  function setModalMode(mode) {
+    currentMode = mode === "edit" ? "edit" : "create";
+
+    if (elements.modalTitle) {
+      elements.modalTitle.textContent =
+        currentMode === "edit"
+          ? "تعديل بيانات الشقة"
+          : "ربط مستأجر بالشقة";
+    }
+
+    if (elements.saveBtn) {
+      elements.saveBtn.textContent =
+        currentMode === "edit"
+          ? "حفظ التعديلات"
+          : "حفظ وربط المستأجر";
+    }
+  }
+
   function resetForm() {
     showError("");
 
@@ -130,10 +155,49 @@ function initLinkTenantSystem(aptId, currentUser) {
     clearField(elements.contractFile);
   }
 
-  function openModal() {
+  function fillFormFromApartment(apartmentData) {
+    if (!apartmentData) return;
+
+    const tenantInfo = apartmentData.tenantInfo || {};
+    const contract = apartmentData.contract || {};
+
+    setFieldValue(elements.fullName, tenantInfo.fullName);
+    setFieldValue(elements.nationalId, apartmentData.tenantNationalId);
+    setFieldValue(elements.nationality, tenantInfo.nationality);
+    setFieldValue(elements.tenantType, tenantInfo.tenantType);
+    setFieldValue(elements.phoneNumber, tenantInfo.phoneNumber);
+    setFieldValue(elements.rent, apartmentData.rent || contract.rentAmount || "");
+
+    setFieldValue(
+      elements.paymentCycle,
+      contract.paymentCycle || apartmentData.paymentDefaults?.paymentCycle || "quarterly"
+    );
+    setFieldValue(elements.installmentsCount, contract.installmentsCount || "");
+
+    setFieldValue(elements.floorNumber, apartmentData.floorNumber);
+    setFieldValue(elements.roomsCount, apartmentData.roomsCount);
+    setFieldValue(elements.bathroomsCount, apartmentData.bathroomsCount);
+    setFieldValue(elements.livingRoomsCount, apartmentData.livingRoomsCount);
+
+    setFieldValue(elements.insurancePaid, contract.insurancePaid);
+    setFieldValue(elements.startDate, contract.startDate);
+    setFieldValue(elements.endDate, contract.endDate);
+    setFieldValue(elements.meterNumber, contract.meterNumber);
+    setFieldValue(elements.notes, contract.notes);
+  }
+
+  function openModal(apartmentData = null) {
     if (!elements.modal) return;
 
     resetForm();
+
+    if (apartmentData) {
+      setModalMode("edit");
+      fillFormFromApartment(apartmentData);
+    } else {
+      setModalMode("create");
+    }
+
     elements.modal.classList.add("is-open");
     elements.modal.setAttribute("aria-hidden", "false");
   }
@@ -144,6 +208,7 @@ function initLinkTenantSystem(aptId, currentUser) {
     elements.modal.classList.remove("is-open");
     elements.modal.setAttribute("aria-hidden", "true");
     resetForm();
+    setModalMode("create");
   }
 
   function readFormData() {
@@ -255,7 +320,7 @@ function initLinkTenantSystem(aptId, currentUser) {
     const updatedApartment = {
       ...apartment,
       ownerId: currentUser?.id || null,
-      rent: data.rent,
+      rent: data.rent ? Number(data.rent) : "",
 
       floorNumber: data.floorNumber ? Number(data.floorNumber) : null,
       roomsCount: data.roomsCount ? Number(data.roomsCount) : null,
@@ -300,7 +365,11 @@ function initLinkTenantSystem(aptId, currentUser) {
 
     saveApartments(updatedApartments);
 
-    if (elements.contractFile && elements.contractFile.files.length > 0) {
+    if (
+      currentMode === "create" &&
+      elements.contractFile &&
+      elements.contractFile.files.length > 0
+    ) {
       const file = elements.contractFile.files[0];
       saveDocumentForApartment(file, aptId);
     }
@@ -320,7 +389,11 @@ function initLinkTenantSystem(aptId, currentUser) {
     saveTenantLink(formData);
 
     closeModal();
-    alert("تم ربط المستأجر بالشقة بنجاح ✅");
+    alert(
+      currentMode === "edit"
+        ? "تم حفظ التعديلات بنجاح ✅"
+        : "تم ربط المستأجر بالشقة بنجاح ✅"
+    );
     window.location.reload();
   }
 
@@ -409,6 +482,10 @@ function initLinkTenantSystem(aptId, currentUser) {
 
   return {
     openLinkTenantModal: openModal,
+    openEditTenantModal: function () {
+      const apartment = getCurrentApartment();
+      openModal(apartment);
+    },
     closeLinkTenantModalFn: closeModal,
   };
 }

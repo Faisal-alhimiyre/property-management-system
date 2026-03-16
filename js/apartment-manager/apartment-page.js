@@ -389,6 +389,21 @@ document.addEventListener("DOMContentLoaded", () => {
   const linkTenantSystem = initLinkTenantSystem(aptId, currentUser);
 
   /* =========================
+     OPEN EDIT / LINK MODAL
+     ========================= */
+  if (mainActionBtn) {
+    mainActionBtn.addEventListener("click", () => {
+      if (activeRole !== "owner") return;
+
+      if (data.leaseStatus === "vacant") {
+        linkTenantSystem.openLinkTenantModal();
+      } else {
+        linkTenantSystem.openEditTenantModal();
+      }
+    });
+  }
+
+  /* =========================
      7) BUTTONS BY ROLE + STATE
      ========================= */
   if (activeRole === "owner") {
@@ -405,7 +420,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (tenantPayBtn) hideElement(tenantPayBtn);
     } else {
-      hideElement(mainActionBtn);
+      if (mainActionBtn) {
+        mainActionBtn.textContent = "تعديل بيانات الشقة";
+      }
+
+      showElement(mainActionBtn);
       showElement(renewContractBtn);
       showElement(evictTenantBtn);
       showElement(viewRequestsBtn);

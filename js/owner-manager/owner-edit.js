@@ -3,8 +3,35 @@ document.addEventListener("DOMContentLoaded", () => {
   const message = document.getElementById("formMessage");
   const buildingCodeInput = document.getElementById("buildingCode");
   const defaultPaymentCycleInput = document.getElementById("defaultPaymentCycle");
+  const buildingCitySelect = document.getElementById("building-city");
+
+  const params = new URLSearchParams(window.location.search);
+  const editBuildingId = params.get("buildingId");
+  const pageMode = params.get("mode");
+  const isEditMode = pageMode === "edit" && !!editBuildingId;
 
   if (!form) return;
+
+  const cities = [
+    "الرياض",
+    "جدة",
+    "مكة",
+    "المدينة المنورة",
+    "الدمام",
+    "الخبر",
+    "الظهران",
+    "الطائف",
+    "تبوك",
+    "أبها",
+    "خميس مشيط",
+    "حائل",
+    "بريدة",
+    "عنيزة",
+    "نجران",
+    "جازان",
+    "الجبيل",
+    "ينبع"
+  ];
 
   function getLocalArray(key) {
     try {
@@ -38,13 +65,85 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function showError(text) {
+    if (!message) return;
     message.textContent = text;
     message.style.color = "#dc2626";
   }
 
   function showSuccess(text) {
+    if (!message) return;
     message.textContent = text;
     message.style.color = "#16a34a";
+  }
+
+  function populateCities() {
+    if (!buildingCitySelect) return;
+
+    buildingCitySelect.innerHTML = `<option value="">اختر المدينة</option>`;
+
+    cities.forEach((city) => {
+      const option = document.createElement("option");
+      option.value = city;
+      option.textContent = city;
+      buildingCitySelect.appendChild(option);
+    });
+  }
+
+  function fillFormForEdit(building) {
+    if (!building) return;
+
+    const buildingNameInput = document.getElementById("buildingName");
+    const apartmentCountInput = document.getElementById("apartmentCount");
+    const totalFloorsInput = document.getElementById("totalFloors");
+    const apartmentsPerFloorInput = document.getElementById("apartmentsPerFloor");
+         if (apartmentCountInput) {
+      apartmentCountInput.value = building.apartmentCount || "";
+      apartmentCountInput.disabled = true;
+    }
+
+    if (totalFloorsInput) {
+      totalFloorsInput.value = building.totalFloors || "";
+      totalFloorsInput.disabled = true;
+    }
+
+    if (apartmentsPerFloorInput) {
+      apartmentsPerFloorInput.value = building.apartmentsPerFloor || "";
+      apartmentsPerFloorInput.disabled = true;
+    }
+    if (buildingNameInput) {
+      buildingNameInput.value = building.name || "";
+    }
+
+    if (buildingCodeInput) {
+      buildingCodeInput.value = building.id || "";
+      buildingCodeInput.readOnly = true;
+    }
+
+    if (buildingCitySelect) {
+      buildingCitySelect.value = building.city || "";
+    }
+
+    if (apartmentCountInput) {
+      apartmentCountInput.value = building.apartmentCount || "";
+    }
+
+    if (totalFloorsInput) {
+      totalFloorsInput.value = building.totalFloors || "";
+    }
+
+    if (apartmentsPerFloorInput) {
+      apartmentsPerFloorInput.value = building.apartmentsPerFloor || "";
+    }
+
+    if (defaultPaymentCycleInput) {
+      defaultPaymentCycleInput.value =
+        building.paymentDefaults?.paymentCycle || "monthly";
+    }
+
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn) {
+      submitBtn.textContent = "حفظ التعديلات";
+    }
   }
 
   function buildApartmentRecord(
@@ -61,7 +160,7 @@ document.addEventListener("DOMContentLoaded", () => {
       buildingId: buildingCode,
       buildingName: buildingName,
       number: aptNumber,
-      floorNumber: floorNumber,
+      floorNumber,
 
       leaseStatus: "vacant",
       status: "فارغة",
@@ -92,7 +191,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const generatedApartments = [];
 
     for (let i = 1; i <= apartmentCount; i++) {
-      const floorNumber = Math.ceil(i / apartmentsPerFloor);
+      const floorNumber = Math.floor((i - 1) / apartmentsPerFloor) + 1;
 
       generatedApartments.push(
         buildApartmentRecord(
@@ -108,32 +207,51 @@ document.addEventListener("DOMContentLoaded", () => {
     return generatedApartments;
   }
 
+  populateCities();
+
   const existingBuildings = getLocalArray("walajna_buildings");
+  const buildingToEdit = existingBuildings.find(
+    (building) => building.id === editBuildingId
+  );
 
-  if (buildingCodeInput) {
-    const newCode = generateUniqueBuildingCode(existingBuildings);
-    buildingCodeInput.value = newCode;
-    buildingCodeInput.readOnly = true;
-  }
+  if (isEditMode) {
+    if (!buildingToEdit) {
+      showError("لم يتم العثور على بيانات العمارة المطلوب تعديلها");
+      return;
+    }
 
-  if (defaultPaymentCycleInput && !defaultPaymentCycleInput.value) {
-    defaultPaymentCycleInput.value = "monthly";
+    fillFormForEdit(buildingToEdit);
+  } else {
+    if (buildingCodeInput) {
+      const newCode = generateUniqueBuildingCode(existingBuildings);
+      buildingCodeInput.value = newCode;
+      buildingCodeInput.readOnly = true;
+    }
+
+    if (defaultPaymentCycleInput && !defaultPaymentCycleInput.value) {
+      defaultPaymentCycleInput.value = "monthly";
+    }
   }
 
   form.addEventListener("submit", (e) => {
     e.preventDefault();
 
+    showError("");
+
     const buildingName = document.getElementById("buildingName")?.value.trim();
     const buildingCode = document.getElementById("buildingCode")?.value.trim();
-    const buildingCity = document.getElementById("buildingCity")?.value.trim();
+    const buildingCity = document.getElementById("building-city")?.value.trim();
+
     const apartmentCount = parseInt(
       document.getElementById("apartmentCount")?.value,
       10
     );
+
     const totalFloors = parseInt(
       document.getElementById("totalFloors")?.value,
       10
     );
+
     const apartmentsPerFloor = parseInt(
       document.getElementById("apartmentsPerFloor")?.value,
       10
@@ -170,9 +288,16 @@ document.addEventListener("DOMContentLoaded", () => {
     const buildings = getLocalArray("walajna_buildings");
     const apartments = getLocalArray("walajna_apartments");
 
-    const buildingExists = buildings.some(
-      (b) => b.id.toLowerCase() === buildingCode.toLowerCase()
-    );
+    const buildingExists = buildings.some((b) => {
+      if (isEditMode) {
+        return (
+          b.id.toLowerCase() === buildingCode.toLowerCase() &&
+          b.id !== editBuildingId
+        );
+      }
+
+      return b.id.toLowerCase() === buildingCode.toLowerCase();
+    });
 
     if (buildingExists) {
       showError("رمز العمارة مستخدم بالفعل");
@@ -187,43 +312,73 @@ document.addEventListener("DOMContentLoaded", () => {
       paymentCycle: defaultPaymentCycle,
     };
 
-    const newBuilding = {
+    const buildingPayload = {
       id: buildingCode,
       name: buildingName,
       city: buildingCity,
-      apartmentCount: apartmentCount,
-      totalFloors: totalFloors,
-      apartmentsPerFloor: apartmentsPerFloor,
+      apartmentCount,
+      totalFloors,
+      apartmentsPerFloor,
       paymentDefaults,
       ownerId: currentUser?.id || null,
-      createdAt: new Date().toISOString(),
+      createdAt: isEditMode
+        ? (buildingToEdit?.createdAt || new Date().toISOString())
+        : new Date().toISOString(),
     };
 
-    const newApartments = generateApartmentsForBuilding(
-      buildingCode,
-      buildingName,
-      apartmentCount,
-      apartmentsPerFloor,
-      paymentDefaults
-    );
+    if (isEditMode) {
+      const updatedBuildings = buildings.map((building) =>
+        building.id === editBuildingId ? buildingPayload : building
+      );
 
-    buildings.push(newBuilding);
-    apartments.push(...newApartments);
+      const updatedApartments = apartments.map((apartment) => {
+        if (apartment.buildingId !== editBuildingId) return apartment;
 
-    saveLocalArray("walajna_buildings", buildings);
-    saveLocalArray("walajna_apartments", apartments);
+        return {
+          ...apartment,
+          buildingName: buildingName,
+          paymentDefaults: {
+            ...apartment.paymentDefaults,
+            paymentCycle: defaultPaymentCycle,
+          },
+        };
+      });
 
-    showSuccess("تم حفظ العمارة بنجاح");
+      saveLocalArray("walajna_buildings", updatedBuildings);
+      saveLocalArray("walajna_apartments", updatedApartments);
 
-    form.reset();
+      showSuccess("تم تحديث العمارة بنجاح");
+    } else {
+      const newApartments = generateApartmentsForBuilding(
+        buildingCode,
+        buildingName,
+        apartmentCount,
+        apartmentsPerFloor,
+        paymentDefaults
+      );
 
-    if (buildingCodeInput) {
-      buildingCodeInput.value = generateUniqueBuildingCode(buildings);
-      buildingCodeInput.readOnly = true;
-    }
+      buildings.push(buildingPayload);
+      apartments.push(...newApartments);
 
-    if (defaultPaymentCycleInput) {
-      defaultPaymentCycleInput.value = "monthly";
+      saveLocalArray("walajna_buildings", buildings);
+      saveLocalArray("walajna_apartments", apartments);
+
+      showSuccess("تم حفظ العمارة بنجاح");
+
+      form.reset();
+
+      if (buildingCodeInput) {
+        buildingCodeInput.value = generateUniqueBuildingCode(buildings);
+        buildingCodeInput.readOnly = true;
+      }
+
+      if (defaultPaymentCycleInput) {
+        defaultPaymentCycleInput.value = "monthly";
+      }
+
+      if (buildingCitySelect) {
+        buildingCitySelect.value = "";
+      }
     }
 
     setTimeout(() => {

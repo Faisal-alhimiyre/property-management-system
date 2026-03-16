@@ -25,7 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
       maintenance: 2,
       complaint: 3,
       suggestion: 4,
-      request: 5
+      request: 5,
     };
 
     return priorities[typeId] || 99;
@@ -70,7 +70,10 @@ document.addEventListener("DOMContentLoaded", () => {
       return "rent-overdue";
     }
 
-    const highestPriorityRequest = getHighestPriorityRequest(apartment.id, allRequests);
+    const highestPriorityRequest = getHighestPriorityRequest(
+      apartment.id,
+      allRequests
+    );
 
     if (!highestPriorityRequest) {
       return "none";
@@ -86,6 +89,75 @@ document.addEventListener("DOMContentLoaded", () => {
       !!apartment.tenantNationalId ||
       !!apartment.tenantInfo?.fullName
     );
+  }
+
+  function editBuilding(buildingId) {
+    window.location.href = `../owners/owner_edit.html?buildingId=${encodeURIComponent(
+      buildingId
+    )}&mode=edit`;
+  }
+
+  function deleteBuilding(buildingId) {
+    const confirmed = confirm(
+      "هل أنت متأكد من حذف العمارة؟ سيتم حذف جميع الشقق والبيانات المرتبطة بها."
+    );
+    if (!confirmed) return;
+
+    const allBuildings = getLocalArray("walajna_buildings");
+    const allApartments = getLocalArray("walajna_apartments");
+    const allRequests = getLocalArray("walajna_requests");
+    const allPayments = getLocalArray("walajna_payments");
+    const allCosts = getLocalArray("walajna_costs");
+    const allDocuments = getLocalArray("walajna_documents");
+
+    const buildingApartments = allApartments.filter(
+      (apartment) => apartment.buildingId === buildingId
+    );
+
+    const apartmentIds = buildingApartments.map((apartment) => apartment.id);
+
+    const updatedBuildings = allBuildings.filter(
+      (building) => building.id !== buildingId
+    );
+
+    const updatedApartments = allApartments.filter(
+      (apartment) => apartment.buildingId !== buildingId
+    );
+
+    const updatedRequests = allRequests.filter(
+      (request) => !apartmentIds.includes(request.apartmentId)
+    );
+
+    const updatedPayments = allPayments.filter(
+      (payment) => !apartmentIds.includes(payment.apartmentId)
+    );
+
+    const updatedCosts = allCosts.filter(
+      (cost) => !apartmentIds.includes(cost.apartmentId)
+    );
+
+    const updatedDocuments = allDocuments.filter(
+      (document) => !apartmentIds.includes(document.apartmentId)
+    );
+
+    localStorage.setItem("walajna_buildings", JSON.stringify(updatedBuildings));
+    localStorage.setItem(
+      "walajna_apartments",
+      JSON.stringify(updatedApartments)
+    );
+    localStorage.setItem("walajna_requests", JSON.stringify(updatedRequests));
+    localStorage.setItem("walajna_payments", JSON.stringify(updatedPayments));
+    localStorage.setItem("walajna_costs", JSON.stringify(updatedCosts));
+    localStorage.setItem("walajna_documents", JSON.stringify(updatedDocuments));
+
+    alert("تم حذف العمارة بنجاح");
+    window.location.reload();
+  }
+
+  function closeAllBuildingMenus() {
+    document.querySelectorAll(".building-card-menu").forEach((menu) => {
+      menu.classList.remove("is-open");
+    });
   }
 
   const currentUser = getCurrentUser();
@@ -120,24 +192,61 @@ document.addEventListener("DOMContentLoaded", () => {
         (apartment) => apartment.buildingId === building.id
       );
 
-      const squaresHtml = buildingApartments.map((apartment) => {
-        const typeClass = getApartmentStatusClass(apartment, requests, payments);
+      const squaresHtml = buildingApartments
+        .map((apartment) => {
+          const typeClass = getApartmentStatusClass(
+            apartment,
+            requests,
+            payments
+          );
 
-        const rentedClass =
-          isApartmentRented(apartment) && typeClass === "none"
-            ? "rented"
-            : "";
+          const rentedClass =
+            isApartmentRented(apartment) && typeClass === "none"
+              ? "rented"
+              : "";
 
-        return `
-          <div 
-            class="apartment-square ${typeClass} ${rentedClass}"
-            title="شقة ${apartment.number}">
-          </div>
-        `;
-      }).join("");
+          return `
+            <div 
+              class="apartment-square ${typeClass} ${rentedClass}"
+              title="شقة ${apartment.number}">
+            </div>
+          `;
+        })
+        .join("");
 
       return `
         <article class="building-card" data-building-id="${building.id}">
+          <div class="building-menu-wrap">
+            <button
+              type="button"
+              class="building-more-btn"
+              data-menu-btn="true"
+              data-building-id="${building.id}"
+              aria-label="خيارات العمارة"
+            >
+              ⋮
+            </button>
+
+            <div class="building-card-menu" data-menu="${building.id}">
+              <button
+                type="button"
+                data-action="edit-building"
+                data-building-id="${building.id}"
+              >
+                تعديل
+              </button>
+
+              <button
+                type="button"
+                class="danger"
+                data-action="delete-building"
+                data-building-id="${building.id}"
+              >
+                حذف
+              </button>
+            </div>
+          </div>
+
           <div class="building-card__head">
             <h3 class="building-title">${building.name}</h3>
             <span class="building-count">${buildingApartments.length} شقة</span>
@@ -151,10 +260,59 @@ document.addEventListener("DOMContentLoaded", () => {
     })
     .join("");
 
-  document.querySelectorAll(".building-card").forEach((card) => {
-    card.addEventListener("click", () => {
-      const buildingId = card.dataset.buildingId;
-      window.location.href = `owner_building.html?buildingId=${encodeURIComponent(buildingId)}`;
+  document.querySelectorAll("[data-menu-btn]").forEach((btn) => {
+    btn.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const buildingId = btn.dataset.buildingId;
+      const menu = document.querySelector(`[data-menu="${buildingId}"]`);
+      const isOpen = menu?.classList.contains("is-open");
+
+      closeAllBuildingMenus();
+
+      if (menu && !isOpen) {
+        menu.classList.add("is-open");
+      }
     });
+  });
+
+  document.querySelectorAll('[data-action="edit-building"]').forEach((btn) => {
+    btn.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const buildingId = btn.dataset.buildingId;
+      closeAllBuildingMenus();
+      editBuilding(buildingId);
+    });
+  });
+
+  document.querySelectorAll('[data-action="delete-building"]').forEach((btn) => {
+    btn.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const buildingId = btn.dataset.buildingId;
+      closeAllBuildingMenus();
+      deleteBuilding(buildingId);
+    });
+  });
+
+  document.querySelectorAll(".building-card").forEach((card) => {
+    card.addEventListener("click", (event) => {
+      if (event.target.closest(".building-menu-wrap")) return;
+
+      const buildingId = card.dataset.buildingId;
+      window.location.href = `owner_building.html?buildingId=${encodeURIComponent(
+        buildingId
+      )}`;
+    });
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest(".building-menu-wrap")) {
+      closeAllBuildingMenus();
+    }
   });
 });

@@ -228,7 +228,7 @@
 
     return generateCycleBasedSchedule(apartment);
   }
-
+  
   function calculatePaymentsSummary(payments) {
 
     const normalized = normalizePaymentStatuses(payments);
