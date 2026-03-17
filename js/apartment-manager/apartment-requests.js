@@ -359,23 +359,32 @@ const requestTypes = [
         const all = getRequests();
 
 
-        const newReq = {
+        const apartment = JSON.parse(localStorage.getItem("walajna_apartments") || "[]")
+  .find(a => a.id === aptId);
 
-          id: "R" + Date.now(),
+const building = JSON.parse(localStorage.getItem("walajna_buildings") || "[]")
+  .find(b => b.id === apartment?.buildingId);
 
-          apartmentId: aptId,
+const newReq = {
+  id: "R" + Date.now(),
 
-          tenantNationalId: currentUser?.nationalId || null,
+  apartmentId: aptId,
+  apartmentNumber: apartment?.number || apartment?.apartmentNumber || "-",
 
-          typeId: chosen?.id || selectedRequestType,
+  buildingId: apartment?.buildingId || null,
+  buildingName: building?.name || "-",
+  buildingNumber: building?.number || "-",
 
-          typeTitle: chosen?.title || "",
+  tenantNationalId: currentUser?.nationalId || null,
 
-          typeColor: chosen?.color || "#94a3b8",
+  typeId: chosen?.id || selectedRequestType,
+  typeTitle: chosen?.title || "",
+  typeColor: chosen?.color || "#94a3b8",
 
           message: message,
 
           createdAt: new Date().toISOString(),
+
           status: "new",
           ownerSeen: false,
           ownerSeenAt: null,

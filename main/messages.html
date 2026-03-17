@@ -7,6 +7,8 @@
   <link rel="stylesheet" href="../css/messages.css" />
 </head>
 <body>
+  <div id="navbar-container"></div>
+
   <div class="page-bg">
     <div class="glow glow-1"></div>
     <div class="glow glow-2"></div>
@@ -16,18 +18,15 @@
   <div class="messages-shell">
     <!-- Sidebar -->
     <aside class="sidebar glass-card">
-      <div class="brand-box">
-        <div class="brand-logo">و</div>
-        <div>
-          <h2>ولجنا</h2>
-          <p>Walajna</p>
-        </div>
-      </div>
+    <div class="brand-box">
+  
+  <div>
+    <h2 id="sidebarUserName">اسم المستخدم</h2>
+    <p id="sidebarUserRole">Walajna</p>
+  </div>
+</div>
 
-      <nav class="side-nav">
-        <button class="nav-item active">الرسائل</button>
-        <button class="nav-item" onclick="window.location.href='dashboard.html'">الرئيسية</button>
-      </nav>
+      <nav class="side-nav"></nav>
 
       <div class="legend-box">
         <h4>معاني الألوان</h4>
@@ -58,9 +57,7 @@
           <p id="pageSubtitle">صندوق بريد منظم لإدارة الرسائل المتعلقة بالعقار</p>
         </div>
 
-        <div class="header-actions">
-          <button id="composeBtn" class="primary-btn hidden" type="button">رسالة جديدة</button>
-        </div>
+        <div class="header-actions"></div>
       </header>
 
       <section class="toolbar glass-card">
@@ -121,73 +118,9 @@
     </div>
   </div>
 
-  <!-- Compose Modal -->
-  <div id="composeModal" class="modal">
-    <div class="modal-backdrop" data-close="composeModal"></div>
-
-    <div class="modal-dialog glass-card modal-md">
-      <div class="modal-header">
-        <div>
-          <h2>رسالة جديدة</h2>
-          <p>إرسال رسالة إلى المالك</p>
-        </div>
-        <button class="close-btn" data-close="composeModal" type="button">×</button>
-      </div>
-
-      <form id="composeForm" class="modal-body compose-form">
-        <div class="form-group">
-          <label for="messageType">نوع الرسالة</label>
-          <select id="messageType" required>
-            <option value="">اختر النوع</option>
-            <option value="complaint">شكوى</option>
-            <option value="maintenance">صيانة</option>
-            <option value="suggestion">اقتراح</option>
-            <option value="request">طلب</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label for="buildingName">اسم المبنى</label>
-          <input id="buildingName" type="text" placeholder="مثال: برج الروضة" required />
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label for="buildingNumber">رقم المبنى</label>
-            <input id="buildingNumber" type="text" placeholder="مثال: B-12" required />
-          </div>
-
-          <div class="form-group">
-            <label for="apartmentNumber">رقم الشقة</label>
-            <input id="apartmentNumber" type="text" placeholder="مثال: A-203" required />
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label for="receiverLandlord">المرسل إليه (المالك)</label>
-          <select id="receiverLandlord" required>
-            <option value="">اختر المالك</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label for="messageSubject">عنوان الرسالة</label>
-          <input id="messageSubject" type="text" placeholder="اكتب عنوان الرسالة" required />
-        </div>
-
-        <div class="form-group">
-          <label for="messageBody">محتوى الرسالة</label>
-          <textarea id="messageBody" rows="6" placeholder="اكتب الرسالة هنا..." required></textarea>
-        </div>
-
-        <div class="modal-actions">
-          <button type="button" class="secondary-btn" data-close="composeModal">إلغاء</button>
-          <button type="submit" class="primary-btn">إرسال الرسالة</button>
-        </div>
-      </form>
-    </div>
-  </div>
+ 
 
   <script src="../js/main/messages.js"></script>
+  <script src="../js/main/nav.js"></script>
 </body>
 </html>
