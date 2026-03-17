@@ -318,12 +318,82 @@
             <label class="label" for="linkMeterNumber">رقم العداد</label>
             <input id="linkMeterNumber" type="text" />
           </div>
-
+         
           <div class="item">
             <label class="label" for="linkNotes">ملاحظات</label>
             <input id="linkNotes" type="text" />
           </div>
+          <!-- الخدمات والمرافق -->
+          <div class="form-section">
+  <h4 class="form-section-title">الخدمات والمرافق</h4>
 
+  <div class="form-grid">
+    <div class="form-group">
+      <label for="linkElectricityIncluded">الكهرباء</label>
+      <select id="linkElectricityIncluded">
+        <option value="no">لا يشمل</option>
+        <option value="yes">يشمل</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="linkWaterIncluded">الماء</label>
+      <select id="linkWaterIncluded">
+        <option value="no">لا يشمل</option>
+        <option value="yes">يشمل</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="linkGasType">الغاز</label>
+      <select id="linkGasType">
+        <option value="none">غير متوفر</option>
+        <option value="central">مركزي</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="linkAcType">التكييف</label>
+      <select id="linkAcType">
+        <option value="none">غير متوفر</option>
+        <option value="central">مركزي</option>
+      </select>
+    </div>
+  </div>
+            <!-- بيانات الوسيط -->
+<div class="form-section">
+  <h4 class="form-section-title">بيانات الوسيط (اختياري)</h4>
+
+  <div class="form-grid">
+    <div class="form-group">
+      <label for="linkBrokerName">اسم الوسيط</label>
+      <input
+        id="linkBrokerName"
+        type="text"
+        placeholder="أدخل اسم الوسيط"
+      />
+    </div>
+
+    <div class="form-group">
+      <label for="linkBrokerCommercialRegister">السجل التجاري</label>
+      <input
+        id="linkBrokerCommercialRegister"
+        type="text"
+        placeholder="أدخل السجل التجاري"
+      />
+    </div>
+
+    <div class="form-group">
+      <label for="linkBrokerPhone">جوال الوسيط</label>
+      <input
+        id="linkBrokerPhone"
+        type="text"
+        placeholder="أدخل رقم الجوال"
+      />
+    </div>
+  </div>
+</div>
+</div>
           <div class="item">
             <label class="label" for="contractFile">ملف عقد الإيجار</label>
             <input id="contractFile" type="file" accept=".docx,.pdf,.txt,.jpg,.png" />

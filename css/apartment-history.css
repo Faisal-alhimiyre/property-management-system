@@ -1,0 +1,152 @@
+:root {
+  --bg: #f3f6fb;
+  --card: #ffffff;
+  --text: #0f172a;
+  --muted: #64748b;
+  --border: #e2e8f0;
+  --brand: #0ea5a2;
+  --brand-dark: #0f766e;
+  --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  --shadow-soft: 0 6px 18px rgba(15, 23, 42, 0.05);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background:
+    linear-gradient(
+      to bottom,
+      #74d6dc 0%,
+      #4ec0d8 28%,
+      #274e74 28%,
+      #355f86 100%
+    );
+  min-height: 100vh;
+  color: var(--text);
+}
+
+.page-shell {
+  max-width: 1280px;
+  margin: 34px auto 60px;
+  padding: 0 22px;
+}
+
+/* HEADER */
+.page-head {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 20px;
+  padding: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: var(--shadow);
+  margin-bottom: 20px;
+}
+
+.page-title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: bold;
+}
+
+.page-subtitle {
+  margin: 5px 0 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.back-btn {
+  border: none;
+  background: var(--brand);
+  color: white;
+  padding: 10px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+/* LAYOUT */
+.layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 20px;
+}
+
+/* SIDEBAR */
+.sidebar {
+  background: white;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+
+.sidebar-title {
+  margin-bottom: 10px;
+  font-weight: bold;
+}
+
+.sidebar-btn {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: white;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.sidebar-btn.active {
+  background: var(--brand);
+  color: white;
+}
+
+/* CONTENT */
+.content-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.section-head {
+  background: white;
+  padding: 15px;
+  border-radius: 16px;
+  font-weight: bold;
+  box-shadow: var(--shadow);
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+/* CARD */
+.card {
+  background: white;
+  padding: 18px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  box-shadow: var(--shadow-soft);
+  transition: 0.2s;
+}
+
+.card:hover {
+  transform: translateY(-3px);
+}
+
+.card h3 {
+  margin: 0 0 8px;
+}
+
+.card p {
+  margin: 4px 0;
+  font-size: 14px;
+  color: var(--muted);
+}

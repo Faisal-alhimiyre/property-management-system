@@ -604,6 +604,30 @@ body{
 }
 
 /* responsive */
+.finance-link-row{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  margin:22px 0 28px;
+}
+
+.finance-summary-btn{
+  border:none;
+  background:#0c1831;
+  color:#fff;
+  font-size:16px;
+  font-weight:800;
+  padding:14px 26px;
+  border-radius:18px;
+  cursor:pointer;
+  transition:0.2s ease;
+  box-shadow:0 8px 18px rgba(12,24,49,0.18);
+}
+
+.finance-summary-btn:hover{
+  background:#142445;
+  transform:translateY(-1px);
+}
 @media (max-width: 760px){
   .apartment-edit-modal__panel{
     width:min(96vw, 96vw);

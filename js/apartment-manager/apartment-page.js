@@ -157,23 +157,23 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function updateRentDisplay(contractData) {
-  if (!rent) return;
+    if (!rent) return;
 
-  const monthlyRent = getMonthlyRent(contractData);
-  const paymentCycle = contractData?.paymentCycle || "monthly";
-  const installmentAmount = getInstallmentAmount(contractData);
-  const cycleLabel = getPaymentCycleLabel(paymentCycle);
+    const monthlyRent = getMonthlyRent(contractData);
+    const paymentCycle = contractData?.paymentCycle || "monthly";
+    const installmentAmount = getInstallmentAmount(contractData);
+    const cycleLabel = getPaymentCycleLabel(paymentCycle);
 
-  if (!monthlyRent) {
-    rent.textContent = "—";
-    return;
+    if (!monthlyRent) {
+      rent.textContent = "—";
+      return;
+    }
+
+    const annualRent = monthlyRent * 12;
+
+    rent.textContent =
+      `${formatMoney(annualRent)} سنويًا • ${formatMoney(installmentAmount)} لكل دفعة (${cycleLabel})`;
   }
-
-  const annualRent = monthlyRent * 12;
-
-  rent.textContent =
-    `${formatMoney(annualRent)} سنويًا • ${formatMoney(installmentAmount)} لكل دفعة (${cycleLabel})`;
-}
 
   function getPaymentsForApartment(apartmentId) {
     try {
@@ -262,7 +262,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const aptNumber = data.number || data.apartmentNumber || "—";
     const buildingName = buildingData?.name || data.buildingName || "—";
 
-    title.textContent = `شقة ${data.number} ${buildingData.name}`;
+    title.textContent = `شقة ${aptNumber} ${buildingName}`;
   }
 
   function fillExtraApartmentInfo() {
@@ -363,6 +363,56 @@ document.addEventListener("DOMContentLoaded", () => {
     window.location.href =
       `../main/payment-options.html?id=${encodeURIComponent(aptId)}` +
       `&paymentId=${encodeURIComponent(nextPayment.id)}`;
+  }
+
+  function ensureHistoryButton() {
+    if (activeRole !== "owner") return;
+
+    const actionsRow =
+      mainActionBtn?.parentElement ||
+      renewContractBtn?.parentElement ||
+      evictTenantBtn?.parentElement ||
+      paymentsBtn?.parentElement ||
+      documentsBtn?.parentElement ||
+      viewRequestsBtn?.parentElement ||
+      viewCostsBtn?.parentElement;
+
+    if (!actionsRow) return;
+    if (document.getElementById("apartmentHistoryBtn")) return;
+
+    const historyBtn = document.createElement("button");
+    historyBtn.id = "apartmentHistoryBtn";
+    historyBtn.type = "button";
+    historyBtn.textContent = "سجل الشقة";
+
+    if (mainActionBtn) {
+      historyBtn.className = mainActionBtn.className;
+    }
+
+    historyBtn.addEventListener("click", () => {
+      window.location.href = `../owners/apartment_history.html?apartmentId=${encodeURIComponent(aptId)}`;
+    });
+
+    actionsRow.appendChild(historyBtn);
+  }
+
+  function buildTenantHistoryEntry(apartmentData) {
+    return {
+      historyId: "H" + Date.now(),
+      apartmentId: apartmentData.id,
+      buildingId: apartmentData.buildingId || null,
+      buildingName: apartmentData.buildingName || buildingData?.name || "",
+      apartmentNumber: apartmentData.number || apartmentData.apartmentNumber || "",
+
+      tenantInfo: { ...(apartmentData.tenantInfo || {}) },
+      tenantNationalId: apartmentData.tenantNationalId || null,
+      tenantUserId: apartmentData.tenantUserId || null,
+
+      contract: { ...(apartmentData.contract || {}) },
+
+      archivedAt: new Date().toISOString(),
+      archiveReason: "vacated"
+    };
   }
 
   /* =========================
@@ -471,6 +521,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  ensureHistoryButton();
+
   /* =========================
      8) PAYMENTS
      ========================= */
@@ -526,13 +578,29 @@ document.addEventListener("DOMContentLoaded", () => {
      ========================= */
   if (evictTenantBtn) {
     evictTenantBtn.addEventListener("click", () => {
-      if (!confirm("هل أنت متأكد من إخلاء المستأجر؟")) return;
+      if (!confirm("هل أنت متأكد من إخلاء المستأجر؟ سيتم حفظه في سجل الشقة.")) return;
 
       const updatedApartments = getApartments().map((apt) => {
         if (apt.id !== aptId) return apt;
 
+        const hasTenantData =
+          !!apt.tenantUserId ||
+          !!apt.tenantNationalId ||
+          !!apt.tenantInfo?.fullName ||
+          !!apt.contract?.startDate ||
+          !!apt.contract?.endDate;
+
+        const tenantHistory = Array.isArray(apt.tenantHistory)
+          ? [...apt.tenantHistory]
+          : [];
+
+        if (hasTenantData) {
+          tenantHistory.push(buildTenantHistoryEntry(apt));
+        }
+
         return {
           ...apt,
+          tenantHistory,
           tenantUserId: null,
           tenantNationalId: null,
           tenantInfo: {},
@@ -543,9 +611,8 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       saveApartments(updatedApartments);
-      deleteApartmentDocuments(aptId);
 
-      alert("تم إخلاء المستأجر وحذف الوثائق بنجاح");
+      alert("تم إخلاء المستأجر وحفظه في سجل الشقة");
       window.location.reload();
     });
   }

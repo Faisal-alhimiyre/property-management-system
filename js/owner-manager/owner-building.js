@@ -1,6 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   const title = document.getElementById("buildingTitle");
   const grid = document.getElementById("apartmentsGrid");
+  const financeBtn = document.getElementById("financeSummaryBtn");
 
   if (!grid) return;
 
@@ -24,6 +25,15 @@ document.addEventListener("DOMContentLoaded", () => {
     title.textContent = building.name;
   } else if (title) {
     title.textContent = "لم يتم العثور على العمارة";
+  }
+
+  function openFinanceSummary() {
+    if (!buildingId) return;
+    window.location.href = `finance_summary.html?buildingId=${encodeURIComponent(buildingId)}`;
+  }
+
+  if (financeBtn) {
+    financeBtn.addEventListener("click", openFinanceSummary);
   }
 
   const buildingApartments = apartments.filter((a) => a.buildingId === buildingId);
@@ -296,16 +306,112 @@ document.addEventListener("DOMContentLoaded", () => {
     window.location.reload();
   }
 
+  function getCycleMonths(paymentCycle) {
+    switch (paymentCycle) {
+      case "quarterly":
+        return 3;
+      case "semi_annual":
+      case "semi":
+        return 6;
+      case "annual":
+        return 12;
+      case "monthly":
+      default:
+        return 1;
+    }
+  }
+
+  function startOfMonth(date) {
+    return new Date(date.getFullYear(), date.getMonth(), 1);
+  }
+
+  function endOfMonth(date) {
+    return new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999);
+  }
+
+  function addMonths(date, monthsToAdd) {
+    const d = new Date(date);
+    const originalDay = d.getDate();
+
+    d.setDate(1);
+    d.setMonth(d.getMonth() + monthsToAdd);
+
+    const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    d.setDate(Math.min(originalDay, lastDay));
+
+    return d;
+  }
+
+  function rangesOverlap(startA, endA, startB, endB) {
+    return startA <= endB && endA >= startB;
+  }
+
+  function getPaymentCoverageStart(payment) {
+    const rawDate = payment.dueDate;
+    const date = rawDate ? new Date(rawDate) : null;
+
+    if (!date || Number.isNaN(date.getTime())) return null;
+
+    return date;
+  }
+
+  function getApartmentRealizedIncomeForRange(apartmentId, rangeStart, rangeEnd) {
+    const apartmentPayments = payments.filter((payment) => {
+      return payment.apartmentId === apartmentId && payment.status === "paid";
+    });
+
+    let income = 0;
+
+    apartmentPayments.forEach((payment) => {
+      const coverageStartDate = getPaymentCoverageStart(payment);
+      if (!coverageStartDate) return;
+
+      const cycleMonths = getCycleMonths(payment.paymentCycle);
+      const monthlyAmount =
+        Number(payment.monthlyRentAmount || 0) ||
+        (cycleMonths > 0 ? Number(payment.amount || 0) / cycleMonths : 0);
+
+      if (!monthlyAmount) return;
+
+      for (let i = 0; i < cycleMonths; i += 1) {
+        const coveredMonthDate = addMonths(coverageStartDate, i);
+        const coveredStart = startOfMonth(coveredMonthDate);
+        const coveredEnd = endOfMonth(coveredMonthDate);
+
+        if (rangesOverlap(coveredStart, coveredEnd, rangeStart, rangeEnd)) {
+          income += monthlyAmount;
+        }
+      }
+    });
+
+    return income;
+  }
+
   function getBuildingFinancialSummary() {
     const apartmentIds = buildingApartments.map((a) => a.id);
 
+    const today = new Date();
+    const currentMonthStart = startOfMonth(today);
+    const currentMonthEnd = endOfMonth(today);
+
     const monthlyIncome = buildingApartments.reduce((sum, apartment) => {
-      const monthlyRent = Number(apartment?.contract?.rentAmount || 0);
-      return sum + monthlyRent;
+      return sum + getApartmentRealizedIncomeForRange(
+        apartment.id,
+        currentMonthStart,
+        currentMonthEnd
+      );
     }, 0);
 
     const expenses = costs
-      .filter((cost) => apartmentIds.includes(cost.apartmentId))
+      .filter((cost) => {
+        if (!apartmentIds.includes(cost.apartmentId)) return false;
+        if (!cost.date) return false;
+
+        const costDate = new Date(cost.date);
+        if (Number.isNaN(costDate.getTime())) return false;
+
+        return costDate >= currentMonthStart && costDate <= currentMonthEnd;
+      })
       .reduce((sum, cost) => sum + Number(cost.amount || 0), 0);
 
     const profit = monthlyIncome - expenses;
@@ -565,7 +671,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
- 
   document.querySelectorAll(".apartment-card").forEach((card) => {
     card.addEventListener("click", (event) => {
       if (event.target.closest(".apartment-card-menu-wrap")) return;

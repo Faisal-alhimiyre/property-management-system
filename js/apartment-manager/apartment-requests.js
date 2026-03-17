@@ -376,8 +376,9 @@ const requestTypes = [
           message: message,
 
           createdAt: new Date().toISOString(),
-
-          status: "new"
+          status: "new",
+          ownerSeen: false,
+          ownerSeenAt: null,
         };
 
 

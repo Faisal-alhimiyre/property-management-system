@@ -241,7 +241,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const buildingName = document.getElementById("buildingName")?.value.trim();
     const buildingCode = document.getElementById("buildingCode")?.value.trim();
     const buildingCity = document.getElementById("building-city")?.value.trim();
-
+        
+    if (/[a-zA-Z]/.test(buildingName)) {
+  alert("اسم الشقة يجب أن يكون بالعربية فقط");
+  return;
+}
     const apartmentCount = parseInt(
       document.getElementById("apartmentCount")?.value,
       10
@@ -274,12 +278,15 @@ document.addEventListener("DOMContentLoaded", () => {
       showError("يرجى إدخال عدد الشقق في كل طابق بشكل صحيح");
       return;
     }
+const expectedApartments = totalFloors * apartmentsPerFloor;
 
-    if (totalFloors * apartmentsPerFloor < apartmentCount) {
-      showError("عدد الطوابق × عدد الشقق في كل طابق أقل من إجمالي عدد الشقق");
-      return;
-    }
-
+if (apartmentCount !== expectedApartments) {
+    showError(
+        `توزيع الشقق غير صحيح. 
+عدد الشقق يجب أن يكون ${expectedApartments} بناءً على الأدوار والشقق في كل دور`
+    );
+    return;
+}
     if (!defaultPaymentCycle) {
       showError("يرجى اختيار دورة الدفع الافتراضية");
       return;

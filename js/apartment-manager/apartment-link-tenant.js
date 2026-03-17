@@ -33,6 +33,14 @@ function initLinkTenantSystem(aptId, currentUser) {
     extractBtn: document.getElementById("extractContractBtn"),
     saveBtn: document.getElementById("saveLinkedTenantBtn"),
     errorBox: document.getElementById("linkTenantError"),
+        brokerName: document.getElementById("linkBrokerName"),
+    brokerCommercialRegister: document.getElementById("linkBrokerCommercialRegister"),
+    brokerPhone: document.getElementById("linkBrokerPhone"),
+
+    electricityIncluded: document.getElementById("linkElectricityIncluded"),
+    waterIncluded: document.getElementById("linkWaterIncluded"),
+    gasType: document.getElementById("linkGasType"),
+    acType: document.getElementById("linkAcType"),
   };
 
   let currentMode = "create";
@@ -54,7 +62,634 @@ function initLinkTenantSystem(aptId, currentUser) {
   function setFieldValue(field, value) {
     if (field) field.value = value ?? "";
   }
+    function getCheckboxOrSelectValue(field, defaultValue = "") {
+    if (!field) return defaultValue;
 
+    if (field.type === "checkbox") {
+      return field.checked;
+    }
+
+    return (field.value || "").trim() || defaultValue;
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  function formatDateAr(dateStr) {
+    if (!dateStr) return "—";
+    const date = new Date(dateStr);
+    if (Number.isNaN(date.getTime())) return dateStr;
+    return date.toLocaleDateString("ar-SA");
+  }
+
+  function formatCurrency(value) {
+    const number = Number(value || 0);
+    if (!number) return "0 ريال";
+    return `${number.toLocaleString("en-US")} ريال`;
+  }
+
+  function getArabicPaymentCycleLabel(cycle) {
+    switch (cycle) {
+      case "monthly":
+        return "شهري";
+      case "quarterly":
+        return "ربع سنوي";
+      case "semi_annual":
+        return "نصف سنوي";
+      case "annual":
+        return "سنوي";
+      default:
+        return "—";
+    }
+  }
+
+  function getIncludedLabel(value) {
+    return value === true || value === "yes" || value === "included"
+      ? "يشمل"
+      : "لا يشمل";
+  }
+
+  function getServiceTypeLabel(value) {
+    return value === "central" ? "مركزي" : "غير متوفر";
+  }
+
+  function addMonths(date, months) {
+    const d = new Date(date);
+    const originalDay = d.getDate();
+    d.setMonth(d.getMonth() + months);
+
+    if (d.getDate() < originalDay) {
+      d.setDate(0);
+    }
+
+    return d;
+  }
+
+  function getCycleMonths(paymentCycle) {
+    switch (paymentCycle) {
+      case "monthly":
+        return 1;
+      case "quarterly":
+        return 3;
+      case "semi_annual":
+        return 6;
+      case "annual":
+        return 12;
+      default:
+        return 1;
+    }
+  }
+
+  function buildInstallmentsSchedule(data) {
+    const count = Number(data.installmentsCount || 0);
+    const startDate = data.startDate ? new Date(data.startDate) : null;
+    const cycleMonths = getCycleMonths(data.paymentCycle);
+    const totalRent = Number(data.rent || 0);
+    const installmentAmount = count > 0 ? totalRent / count : totalRent;
+
+    if (!startDate || Number.isNaN(startDate.getTime()) || count < 1) {
+      return [];
+    }
+
+    return Array.from({ length: count }).map((_, index) => {
+      const dueDate = addMonths(startDate, index * cycleMonths);
+      return {
+        number: index + 1,
+        dueDate: formatDateAr(dueDate.toISOString()),
+        amount: `${Math.round(installmentAmount).toLocaleString("en-US")} ريال`,
+      };
+    });
+  }
+
+  function getCurrentOwnerInfo() {
+    return {
+      fullName:
+        currentUser?.fullName ||
+        currentUser?.name ||
+        currentUser?.username ||
+        "—",
+      nationalId:
+        currentUser?.nationalId ||
+        currentUser?.idNumber ||
+        "—",
+      phoneNumber:
+        currentUser?.phoneNumber ||
+        currentUser?.phone ||
+        currentUser?.mobile ||
+        "—",
+    };
+  }
+
+  function buildLeaseContractHtml(apartment, data) {
+    const owner = getCurrentOwnerInfo();
+
+    const brokerInfo = {
+      name: data.brokerName || "—",
+      commercialRegister: data.brokerCommercialRegister || "—",
+      phone: data.brokerPhone || "—",
+    };
+
+    const services = {
+      electricity: getIncludedLabel(data.electricityIncluded),
+      water: getIncludedLabel(data.waterIncluded),
+      gas: getServiceTypeLabel(data.gasType),
+      ac: getServiceTypeLabel(data.acType),
+    };
+
+    const scheduleRows = buildInstallmentsSchedule(data)
+      .map(
+        (item) => `
+          <tr>
+            <td>${item.number}</td>
+            <td>${escapeHtml(item.dueDate)}</td>
+            <td>${escapeHtml(item.amount)}</td>
+          </tr>
+        `
+      )
+      .join("");
+
+    const buildingName = apartment?.buildingName || "—";
+    const apartmentNumber = apartment?.number || "—";
+
+    return `
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <title>عقد إيجار - ${escapeHtml(buildingName)} - شقة ${escapeHtml(apartmentNumber)}</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 18mm;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      direction: rtl;
+      background: #eef2f7;
+      color: #0f172a;
+      line-height: 1.8;
+    }
+
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 18px auto;
+      background: #fff;
+      padding: 18mm 16mm;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.10);
+      page-break-after: always;
+    }
+
+    .page:last-child {
+      page-break-after: auto;
+    }
+
+    .header {
+      border: 2px solid #0f766e;
+      border-radius: 14px;
+      padding: 16px 18px;
+      margin-bottom: 18px;
+      background: linear-gradient(180deg, #f0fdfa 0%, #ffffff 100%);
+    }
+
+    .title {
+      margin: 0;
+      text-align: center;
+      font-size: 24px;
+      font-weight: 800;
+      color: #115e59;
+    }
+
+    .subtitle {
+      text-align: center;
+      margin-top: 6px;
+      font-size: 13px;
+      color: #475569;
+      font-weight: 700;
+    }
+
+    .section {
+      border: 1px solid #dbe4ee;
+      border-radius: 14px;
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+
+    .section-title {
+      background: #f8fafc;
+      padding: 10px 14px;
+      font-size: 15px;
+      font-weight: 800;
+      color: #0f172a;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .section-body {
+      padding: 14px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px 14px;
+    }
+
+    .field {
+      border: 1px dashed #d6dde7;
+      border-radius: 10px;
+      padding: 8px 10px;
+      min-height: 58px;
+    }
+
+    .label {
+      font-size: 12px;
+      color: #64748b;
+      margin-bottom: 4px;
+      font-weight: 700;
+    }
+
+    .value {
+      font-size: 14px;
+      color: #0f172a;
+      font-weight: 800;
+      word-break: break-word;
+    }
+
+    .full {
+      grid-column: 1 / -1;
+    }
+
+    .summary-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-top: 8px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+      font-size: 13px;
+    }
+
+    th, td {
+      border: 1px solid #dbe4ee;
+      padding: 8px 10px;
+      text-align: center;
+    }
+
+    th {
+      background: #f8fafc;
+      font-weight: 800;
+    }
+
+    .terms {
+      padding-right: 20px;
+      margin: 0;
+    }
+
+    .terms li {
+      margin-bottom: 10px;
+    }
+
+    .signatures {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 22px;
+    }
+
+    .sign-box {
+      border: 1px solid #dbe4ee;
+      border-radius: 12px;
+      min-height: 120px;
+      padding: 14px;
+    }
+
+    .sign-title {
+      font-size: 15px;
+      font-weight: 800;
+      margin-bottom: 10px;
+    }
+
+    .footer-note {
+      text-align: center;
+      color: #64748b;
+      font-size: 12px;
+      margin-top: 18px;
+      font-weight: 700;
+    }
+
+    @media print {
+      body {
+        background: #fff;
+      }
+
+      .page {
+        margin: 0;
+        box-shadow: none;
+        width: auto;
+        min-height: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <section class="page">
+    <div class="header">
+      <h1 class="title">عقد إيجار وحدة سكنية</h1>
+      <div class="subtitle">تم إنشاء هذه النسخة تلقائيًا عبر نظام ولجنا</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">أطراف العقد</div>
+      <div class="section-body">
+        <div class="grid">
+          <div class="field">
+            <div class="label">اسم المؤجر</div>
+            <div class="value">${escapeHtml(owner.fullName)}</div>
+          </div>
+
+          <div class="field">
+            <div class="label">هوية المؤجر</div>
+            <div class="value">${escapeHtml(owner.nationalId)}</div>
+          </div>
+
+          <div class="field">
+            <div class="label">جوال المؤجر</div>
+            <div class="value">${escapeHtml(owner.phoneNumber)}</div>
+          </div>
+
+          <div class="field">
+            <div class="label">اسم المستأجر</div>
+            <div class="value">${escapeHtml(data.fullName)}</div>
+          </div>
+
+          <div class="field">
+            <div class="label">هوية / إقامة المستأجر</div>
+            <div class="value">${escapeHtml(data.nationalId)}</div>
+          </div>
+
+          <div class="field">
+            <div class="label">جوال المستأجر</div>
+            <div class="value">${escapeHtml(data.phone)}</div>
+          </div>
+
+          <div class="field">
+            <div class="label">جنسية المستأجر</div>
+            <div class="value">${escapeHtml(data.nationality || "—")}</div>
+          </div>
+
+          <div class="field">
+            <div class="label">نوع السكن</div>
+            <div class="value">${escapeHtml(data.tenantType || "—")}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">بيانات الوسيط</div>
+      <div class="section-body">
+        <div class="grid">
+          <div class="field">
+            <div class="label">اسم الوسيط</div>
+            <div class="value">${escapeHtml(brokerInfo.name)}</div>
+          </div>
+
+          <div class="field">
+            <div class="label">السجل التجاري</div>
+            <div class="value">${escapeHtml(brokerInfo.commercialRegister)}</div>
+          </div>
+
+          <div class="field">
+            <div class="label">جوال الوسيط</div>
+            <div class="value">${escapeHtml(brokerInfo.phone)}</div>
+          </div>
+
+          <div class="field">
+            <div class="label">ملاحظات الوسيط</div>
+            <div class="value">${brokerInfo.name === "—" ? "—" : "تم إدراج بيانات الوسيط في هذا العقد"}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">بيانات العقار والوحدة</div>
+      <div class="section-body">
+        <div class="grid">
+          <div class="field">
+            <div class="label">اسم العمارة</div>
+            <div class="value">${escapeHtml(buildingName)}</div>
+          </div>
+
+          <div class="field">
+            <div class="label">رقم الشقة</div>
+            <div class="value">${escapeHtml(apartmentNumber)}</div>
+          </div>
+
+          <div class="field">
+            <div class="label">الدور</div>
+            <div class="value">${escapeHtml(data.floorNumber || apartment?.floorNumber || "—")}</div>
+          </div>
+
+          <div class="field">
+            <div class="label">عدد الغرف</div>
+            <div class="value">${escapeHtml(data.roomsCount || apartment?.roomsCount || "—")}</div>
+          </div>
+
+          <div class="field">
+            <div class="label">عدد الحمامات</div>
+            <div class="value">${escapeHtml(data.bathroomsCount || apartment?.bathroomsCount || "—")}</div>
+          </div>
+
+          <div class="field">
+            <div class="label">عدد الصالات</div>
+            <div class="value">${escapeHtml(data.livingRoomsCount || apartment?.livingRoomsCount || "—")}</div>
+          </div>
+
+          <div class="field">
+            <div class="label">رقم العداد</div>
+            <div class="value">${escapeHtml(data.meterNumber || "—")}</div>
+          </div>
+
+          <div class="field">
+            <div class="label">فترة العقد</div>
+            <div class="value">${formatDateAr(data.startDate)} — ${formatDateAr(data.endDate)}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">البيانات المالية والخدمات</div>
+      <div class="section-body">
+        <div class="grid">
+          <div class="field">
+            <div class="label">قيمة الإيجار</div>
+            <div class="value">${formatCurrency(data.rent)}</div>
+          </div>
+
+          <div class="field">
+            <div class="label">مبلغ التأمين</div>
+            <div class="value">${formatCurrency(data.insurancePaid)}</div>
+          </div>
+
+          <div class="field">
+            <div class="label">دورة السداد</div>
+            <div class="value">${escapeHtml(getArabicPaymentCycleLabel(data.paymentCycle))}</div>
+          </div>
+
+          <div class="field">
+            <div class="label">عدد الدفعات</div>
+            <div class="value">${escapeHtml(data.installmentsCount)}</div>
+          </div>
+
+          <div class="field">
+            <div class="label">الكهرباء</div>
+            <div class="value">${escapeHtml(services.electricity)}</div>
+          </div>
+
+          <div class="field">
+            <div class="label">الماء</div>
+            <div class="value">${escapeHtml(services.water)}</div>
+          </div>
+
+          <div class="field">
+            <div class="label">الغاز</div>
+            <div class="value">${escapeHtml(services.gas)}</div>
+          </div>
+
+          <div class="field">
+            <div class="label">التكييف</div>
+            <div class="value">${escapeHtml(services.ac)}</div>
+          </div>
+
+          <div class="field full">
+            <div class="label">وصف الخدمات</div>
+            <div class="value">
+              الإيجار ${escapeHtml(services.electricity)} الكهرباء، و${escapeHtml(services.water)} الماء،
+              والغاز ${escapeHtml(services.gas)}، والتكييف ${escapeHtml(services.ac)}.
+            </div>
+          </div>
+
+          <div class="field full">
+            <div class="label">ملاحظات إضافية</div>
+            <div class="value">${escapeHtml(data.notes || "—")}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="page">
+    <div class="header">
+      <h2 class="title" style="font-size:22px;">جدول الدفعات وأهم البنود</h2>
+      <div class="subtitle">نسخة أولية من العقد - صفحة ثانية</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">جدول سداد الدفعات</div>
+      <div class="section-body">
+        <table>
+          <thead>
+            <tr>
+              <th>م</th>
+              <th>تاريخ الاستحقاق</th>
+              <th>قيمة الدفعة</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${scheduleRows || `<tr><td colspan="3">لا توجد دفعات متاحة</td></tr>`}
+          </tbody>
+        </table>
+
+        <div class="summary-box">
+          تبدأ مدة العقد من <strong>${formatDateAr(data.startDate)}</strong>
+          وتنتهي في <strong>${formatDateAr(data.endDate)}</strong>،
+          ويقر الطرفان بصحة البيانات المدخلة أعلاه.
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">أهم البنود الأساسية</div>
+      <div class="section-body">
+        <ol class="terms">
+          <li>أقر الطرفان بأن البيانات المثبتة في هذا العقد صحيحة وتمت بإرادتهما.</li>
+          <li>يلتزم المستأجر بسداد الدفعات في مواعيدها المحددة وفق جدول السداد المبين في هذا العقد.</li>
+          <li>يلتزم المستأجر بالمحافظة على الوحدة وعدم استخدامها بما يخالف الأنظمة أو يسبب ضررًا للعقار.</li>
+          <li>يلتزم المؤجر بتمكين المستأجر من الانتفاع بالوحدة خلال مدة العقد وفق البنود المتفق عليها.</li>
+          <li>يتم التعامل مع الخدمات المذكورة أعلاه وفق الحالة الموضحة أمام كل خدمة في هذا العقد.</li>
+          <li>أي ملاحق أو اتفاقات لاحقة بين الطرفين تعد جزءًا مكملًا لهذا العقد إذا تم اعتمادها من الطرفين.</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">الإقرار والتوقيع</div>
+      <div class="section-body">
+        <div class="signatures">
+          <div class="sign-box">
+            <div class="sign-title">توقيع المؤجر</div>
+            <div>الاسم: ${escapeHtml(owner.fullName)}</div>
+            <div>التوقيع: ____________________</div>
+            <div>التاريخ: ____________________</div>
+          </div>
+
+          <div class="sign-box">
+            <div class="sign-title">توقيع المستأجر</div>
+            <div>الاسم: ${escapeHtml(data.fullName)}</div>
+            <div>التوقيع: ____________________</div>
+            <div>التاريخ: ____________________</div>
+          </div>
+        </div>
+
+        <div class="footer-note">
+          هذه الوثيقة تم توليدها تلقائيًا من نظام ولجنا، ويمكن تطويرها لاحقًا إلى نسخة عقد كاملة متعددة الصفحات.
+        </div>
+      </div>
+    </div>
+  </section>
+
+</body>
+</html>
+    `;
+  }
+
+  function saveAutoLeaseContractDocument(apartment, data) {
+    if (typeof upsertHtmlDocumentForApartment !== "function") return;
+
+    const html = buildLeaseContractHtml(apartment, data);
+    const apartmentNo = apartment?.number || "—";
+    const fileName = `عقد إيجار - شقة ${apartmentNo}.html`;
+
+    upsertHtmlDocumentForApartment(
+      html,
+      apartment.id,
+      fileName,
+      {
+        docType: "auto_lease_contract",
+        generatedAutomatically: true,
+      }
+    );
+  }
   function getCurrentApartment() {
     const apartments = typeof getApartments === "function" ? getApartments() : [];
     return apartments.find((apt) => apt.id === aptId) || null;
@@ -153,6 +788,25 @@ function initLinkTenantSystem(aptId, currentUser) {
     clearField(elements.meterNumber);
     clearField(elements.notes);
     clearField(elements.contractFile);
+        clearField(elements.brokerName);
+    clearField(elements.brokerCommercialRegister);
+    clearField(elements.brokerPhone);
+
+    if (elements.electricityIncluded) {
+      elements.electricityIncluded.value = "no";
+    }
+
+    if (elements.waterIncluded) {
+      elements.waterIncluded.value = "no";
+    }
+
+    if (elements.gasType) {
+      elements.gasType.value = "none";
+    }
+
+    if (elements.acType) {
+      elements.acType.value = "none";
+    }
   }
 
   function fillFormFromApartment(apartmentData) {
@@ -184,6 +838,23 @@ function initLinkTenantSystem(aptId, currentUser) {
     setFieldValue(elements.endDate, contract.endDate);
     setFieldValue(elements.meterNumber, contract.meterNumber);
     setFieldValue(elements.notes, contract.notes);
+        setFieldValue(elements.brokerName, contract.brokerInfo?.name);
+    setFieldValue(
+      elements.brokerCommercialRegister,
+      contract.brokerInfo?.commercialRegister
+    );
+    setFieldValue(elements.brokerPhone, contract.brokerInfo?.phone);
+
+    setFieldValue(
+      elements.electricityIncluded,
+      contract.services?.electricityIncluded ? "yes" : "no"
+    );
+    setFieldValue(
+      elements.waterIncluded,
+      contract.services?.waterIncluded ? "yes" : "no"
+    );
+    setFieldValue(elements.gasType, contract.services?.gasType || "none");
+    setFieldValue(elements.acType, contract.services?.acType || "none");
   }
 
   function openModal(apartmentData = null) {
@@ -230,7 +901,16 @@ function initLinkTenantSystem(aptId, currentUser) {
       tenantType: getFieldValue(elements.tenantType),
       phone: getFieldValue(elements.phoneNumber),
       rent: getFieldValue(elements.rent),
+            brokerName: getFieldValue(elements.brokerName),
+      brokerCommercialRegister: getFieldValue(elements.brokerCommercialRegister),
+      brokerPhone: getFieldValue(elements.brokerPhone),
 
+      electricityIncluded:
+        getCheckboxOrSelectValue(elements.electricityIncluded, "no") === "yes",
+      waterIncluded:
+        getCheckboxOrSelectValue(elements.waterIncluded, "no") === "yes",
+      gasType: getCheckboxOrSelectValue(elements.gasType, "none"),
+      acType: getCheckboxOrSelectValue(elements.acType, "none"),
       paymentCycle,
       installmentsCount:
         rawInstallmentsCount > 0
@@ -346,24 +1026,43 @@ function initLinkTenantSystem(aptId, currentUser) {
         insurancePaid: data.insurancePaid,
         meterNumber: data.meterNumber,
         notes: data.notes,
+                brokerInfo: {
+          name: data.brokerName || "",
+          commercialRegister: data.brokerCommercialRegister || "",
+          phone: data.brokerPhone || "",
+        },
+
+        services: {
+          electricityIncluded: !!data.electricityIncluded,
+          waterIncluded: !!data.waterIncluded,
+          gasType: data.gasType || "none",
+          acType: data.acType || "none",
+        },
       },
     };
 
     return normalizeApartmentLeaseStatus(updatedApartment);
   }
 
-  function saveTenantLink(data) {
+   function saveTenantLink(data) {
     const tenantUser = ensureTenantRoleByNationalId(data.nationalId);
     const tenantUserId = tenantUser ? tenantUser.id : null;
 
     const apartments = getApartments();
+    let savedApartment = null;
 
     const updatedApartments = apartments.map((apt) => {
       if (apt.id !== aptId) return apt;
-      return buildUpdatedApartment(apt, tenantUserId, data);
+
+      savedApartment = buildUpdatedApartment(apt, tenantUserId, data);
+      return savedApartment;
     });
 
     saveApartments(updatedApartments);
+
+    if (savedApartment) {
+      saveAutoLeaseContractDocument(savedApartment, data);
+    }
 
     if (
       currentMode === "create" &&

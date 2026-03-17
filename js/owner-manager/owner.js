@@ -1,6 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   const container = document.getElementById("buildingsContainer");
   const emptyState = document.getElementById("emptyState");
+  const globalRequestsAlert = document.getElementById("globalRequestsAlert");
 
   if (!container) return;
 
@@ -10,6 +11,10 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch {
       return [];
     }
+  }
+
+  function setLocalArray(key, value) {
+    localStorage.setItem(key, JSON.stringify(value));
   }
 
   function getCurrentUser() {
@@ -141,10 +146,7 @@ document.addEventListener("DOMContentLoaded", () => {
     );
 
     localStorage.setItem("walajna_buildings", JSON.stringify(updatedBuildings));
-    localStorage.setItem(
-      "walajna_apartments",
-      JSON.stringify(updatedApartments)
-    );
+    localStorage.setItem("walajna_apartments", JSON.stringify(updatedApartments));
     localStorage.setItem("walajna_requests", JSON.stringify(updatedRequests));
     localStorage.setItem("walajna_payments", JSON.stringify(updatedPayments));
     localStorage.setItem("walajna_costs", JSON.stringify(updatedCosts));
@@ -158,6 +160,53 @@ document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll(".building-card-menu").forEach((menu) => {
       menu.classList.remove("is-open");
     });
+  }
+
+  function getApartmentIdsForBuilding(buildingId, allApartments) {
+    return allApartments
+      .filter((apartment) => apartment.buildingId === buildingId)
+      .map((apartment) => apartment.id);
+  }
+
+  function isRequestNewForOwner(request) {
+    return request.status === "new" && request.ownerSeen !== true;
+  }
+
+  function getNewRequestsForBuilding(buildingId, allApartments, allRequests) {
+    const buildingApartmentIds = getApartmentIdsForBuilding(buildingId, allApartments);
+
+    return allRequests.filter(
+      (request) =>
+        buildingApartmentIds.includes(request.apartmentId) &&
+        isRequestNewForOwner(request)
+    );
+  }
+
+  function getNewRequestsCountForBuilding(buildingId, allApartments, allRequests) {
+    return getNewRequestsForBuilding(buildingId, allApartments, allRequests).length;
+  }
+
+  function markBuildingRequestsAsSeen(buildingId, allApartments) {
+    const requests = getLocalArray("walajna_requests");
+    const buildingApartmentIds = getApartmentIdsForBuilding(buildingId, allApartments);
+
+    const updatedRequests = requests.map((request) => {
+      if (
+        buildingApartmentIds.includes(request.apartmentId) &&
+        request.status === "new" &&
+        request.ownerSeen !== true
+      ) {
+        return {
+          ...request,
+          ownerSeen: true,
+          ownerSeenAt: new Date().toISOString(),
+        };
+      }
+
+      return request;
+    });
+
+    setLocalArray("walajna_requests", updatedRequests);
   }
 
   const currentUser = getCurrentUser();
@@ -174,9 +223,18 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
-  const buildings = allBuildings.filter(
-    (building) => building.ownerId === currentUser.id
-  );
+  const buildings = allBuildings
+    .filter((building) => building.ownerId === currentUser.id)
+    .sort((a, b) => {
+      const aNewCount = getNewRequestsCountForBuilding(a.id, apartments, requests);
+      const bNewCount = getNewRequestsCountForBuilding(b.id, apartments, requests);
+
+      if (bNewCount !== aNewCount) {
+        return bNewCount - aNewCount;
+      }
+
+      return (b.createdAt || "").localeCompare(a.createdAt || "");
+    });
 
   if (!buildings.length) {
     if (emptyState) {
@@ -186,10 +244,29 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
+  const totalNewRequests = buildings.reduce((sum, building) => {
+    return sum + getNewRequestsCountForBuilding(building.id, apartments, requests);
+  }, 0);
+
+  if (globalRequestsAlert) {
+    if (totalNewRequests > 0) {
+      globalRequestsAlert.innerHTML = `يوجد ${totalNewRequests} طلبات جديدة`;
+      globalRequestsAlert.style.display = "flex";
+    } else {
+      globalRequestsAlert.style.display = "none";
+    }
+  }
+
   container.innerHTML = buildings
     .map((building) => {
       const buildingApartments = apartments.filter(
         (apartment) => apartment.buildingId === building.id
+      );
+
+      const newRequestsCount = getNewRequestsCountForBuilding(
+        building.id,
+        apartments,
+        requests
       );
 
       const squaresHtml = buildingApartments
@@ -206,7 +283,7 @@ document.addEventListener("DOMContentLoaded", () => {
               : "";
 
           return `
-            <div 
+            <div
               class="apartment-square ${typeClass} ${rentedClass}"
               title="شقة ${apartment.number}">
             </div>
@@ -215,7 +292,18 @@ document.addEventListener("DOMContentLoaded", () => {
         .join("");
 
       return `
-        <article class="building-card" data-building-id="${building.id}">
+        <article
+          class="building-card ${newRequestsCount > 0 ? "has-notifications" : ""}"
+          data-building-id="${building.id}"
+        >
+          ${
+            newRequestsCount > 0
+              ? `
+                <span class="building-notification-badge">${newRequestsCount}</span>
+              `
+              : ""
+          }
+
           <div class="building-menu-wrap">
             <button
               type="button"
@@ -304,6 +392,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (event.target.closest(".building-menu-wrap")) return;
 
       const buildingId = card.dataset.buildingId;
+
+      markBuildingRequestsAsSeen(buildingId, apartments);
+
       window.location.href = `owner_building.html?buildingId=${encodeURIComponent(
         buildingId
       )}`;
