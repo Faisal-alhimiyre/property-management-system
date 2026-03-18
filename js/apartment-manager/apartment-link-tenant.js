@@ -19,9 +19,11 @@ function initLinkTenantSystem(aptId, currentUser) {
     installmentsCount: document.getElementById("linkInstallmentsCount"),
 
     floorNumber: document.getElementById("linkFloorNumber"),
-    roomsCount: document.getElementById("linkRoomsCount"),
-    bathroomsCount: document.getElementById("linkBathroomsCount"),
-    livingRoomsCount: document.getElementById("linkLivingRoomsCount"),
+
+    // keep old HTML IDs if they already exist in your form
+    bedrooms: document.getElementById("linkBedrooms") || document.getElementById("linkRoomsCount"),
+    bathrooms: document.getElementById("linkBathrooms") || document.getElementById("linkBathroomsCount"),
+    livingRooms: document.getElementById("linkLivingRooms") || document.getElementById("linkLivingRoomsCount"),
 
     insurancePaid: document.getElementById("linkInsurancePaid"),
     startDate: document.getElementById("linkStartDate"),
@@ -33,7 +35,8 @@ function initLinkTenantSystem(aptId, currentUser) {
     extractBtn: document.getElementById("extractContractBtn"),
     saveBtn: document.getElementById("saveLinkedTenantBtn"),
     errorBox: document.getElementById("linkTenantError"),
-        brokerName: document.getElementById("linkBrokerName"),
+
+    brokerName: document.getElementById("linkBrokerName"),
     brokerCommercialRegister: document.getElementById("linkBrokerCommercialRegister"),
     brokerPhone: document.getElementById("linkBrokerPhone"),
 
@@ -62,7 +65,8 @@ function initLinkTenantSystem(aptId, currentUser) {
   function setFieldValue(field, value) {
     if (field) field.value = value ?? "";
   }
-    function getCheckboxOrSelectValue(field, defaultValue = "") {
+
+  function getCheckboxOrSelectValue(field, defaultValue = "") {
     if (!field) return defaultValue;
 
     if (field.type === "checkbox") {
@@ -216,6 +220,24 @@ function initLinkTenantSystem(aptId, currentUser) {
 
     const buildingName = apartment?.buildingName || "—";
     const apartmentNumber = apartment?.number || "—";
+
+    const apartmentBedrooms =
+      data.bedrooms ??
+      apartment?.bedrooms ??
+      apartment?.roomsCount ??
+      "—";
+
+    const apartmentBathrooms =
+      data.bathrooms ??
+      apartment?.bathrooms ??
+      apartment?.bathroomsCount ??
+      "—";
+
+    const apartmentLivingRooms =
+      data.livingRooms ??
+      apartment?.livingRooms ??
+      apartment?.livingRoomsCount ??
+      "—";
 
     return `
 <!DOCTYPE html>
@@ -510,18 +532,18 @@ function initLinkTenantSystem(aptId, currentUser) {
           </div>
 
           <div class="field">
-            <div class="label">عدد الغرف</div>
-            <div class="value">${escapeHtml(data.roomsCount || apartment?.roomsCount || "—")}</div>
+            <div class="label">عدد غرف النوم</div>
+            <div class="value">${escapeHtml(apartmentBedrooms)}</div>
           </div>
 
           <div class="field">
             <div class="label">عدد الحمامات</div>
-            <div class="value">${escapeHtml(data.bathroomsCount || apartment?.bathroomsCount || "—")}</div>
+            <div class="value">${escapeHtml(apartmentBathrooms)}</div>
           </div>
 
           <div class="field">
-            <div class="label">عدد الصالات</div>
-            <div class="value">${escapeHtml(data.livingRoomsCount || apartment?.livingRoomsCount || "—")}</div>
+            <div class="label">عدد غرف المعيشة</div>
+            <div class="value">${escapeHtml(apartmentLivingRooms)}</div>
           </div>
 
           <div class="field">
@@ -690,6 +712,7 @@ function initLinkTenantSystem(aptId, currentUser) {
       }
     );
   }
+
   function getCurrentApartment() {
     const apartments = typeof getApartments === "function" ? getApartments() : [];
     return apartments.find((apt) => apt.id === aptId) || null;
@@ -755,107 +778,110 @@ function initLinkTenantSystem(aptId, currentUser) {
     }
   }
 
-  function resetForm() {
-    showError("");
+function resetForm() {
+  showError("");
 
-    const paymentDefaults = getApartmentPaymentDefaults();
+  const paymentDefaults = getApartmentPaymentDefaults();
+  const apartment = getCurrentApartment();
 
-    clearField(elements.fullName);
-    clearField(elements.nationalId);
-    clearField(elements.nationality);
-    clearField(elements.tenantType);
-    clearField(elements.phoneNumber);
-    clearField(elements.rent);
+  clearField(elements.fullName);
+  clearField(elements.nationalId);
+  clearField(elements.nationality);
+  clearField(elements.tenantType);
+  clearField(elements.phoneNumber);
+  clearField(elements.rent);
 
-    if (elements.paymentCycle) {
-      elements.paymentCycle.value = paymentDefaults.paymentCycle || "quarterly";
-    }
-
-    if (elements.installmentsCount) {
-      elements.installmentsCount.value = String(
-        paymentDefaults.installmentsCount || 4
-      );
-    }
-
-    clearField(elements.floorNumber);
-    clearField(elements.roomsCount);
-    clearField(elements.bathroomsCount);
-    clearField(elements.livingRoomsCount);
-
-    clearField(elements.insurancePaid);
-    clearField(elements.startDate);
-    clearField(elements.endDate);
-    clearField(elements.meterNumber);
-    clearField(elements.notes);
-    clearField(elements.contractFile);
-        clearField(elements.brokerName);
-    clearField(elements.brokerCommercialRegister);
-    clearField(elements.brokerPhone);
-
-    if (elements.electricityIncluded) {
-      elements.electricityIncluded.value = "no";
-    }
-
-    if (elements.waterIncluded) {
-      elements.waterIncluded.value = "no";
-    }
-
-    if (elements.gasType) {
-      elements.gasType.value = "none";
-    }
-
-    if (elements.acType) {
-      elements.acType.value = "none";
-    }
+  if (elements.paymentCycle) {
+    elements.paymentCycle.value = paymentDefaults.paymentCycle || "quarterly";
   }
+
+  if (elements.installmentsCount) {
+    elements.installmentsCount.value = String(
+      paymentDefaults.installmentsCount || 4
+    );
+  }
+
+  // take values from apartment saved in owner-edit
+  setFieldValue(elements.floorNumber, apartment?.floorNumber ?? "");
+  setFieldValue(elements.bedrooms, apartment?.bedrooms ?? "");
+  setFieldValue(elements.bathrooms, apartment?.bathrooms ?? "");
+  setFieldValue(elements.livingRooms, apartment?.livingRooms ?? "");
+
+  clearField(elements.insurancePaid);
+  clearField(elements.startDate);
+  clearField(elements.endDate);
+  clearField(elements.meterNumber);
+  clearField(elements.notes);
+  clearField(elements.contractFile);
+  clearField(elements.brokerName);
+  clearField(elements.brokerCommercialRegister);
+  clearField(elements.brokerPhone);
+
+  if (elements.electricityIncluded) {
+    elements.electricityIncluded.value = "no";
+  }
+
+  if (elements.waterIncluded) {
+    elements.waterIncluded.value = "no";
+  }
+
+  if (elements.gasType) {
+    elements.gasType.value = "none";
+  }
+
+  if (elements.acType) {
+    elements.acType.value = "none";
+  }
+}
 
   function fillFormFromApartment(apartmentData) {
-    if (!apartmentData) return;
+  if (!apartmentData) return;
 
-    const tenantInfo = apartmentData.tenantInfo || {};
-    const contract = apartmentData.contract || {};
+  const tenantInfo = apartmentData.tenantInfo || {};
+  const contract = apartmentData.contract || {};
 
-    setFieldValue(elements.fullName, tenantInfo.fullName);
-    setFieldValue(elements.nationalId, apartmentData.tenantNationalId);
-    setFieldValue(elements.nationality, tenantInfo.nationality);
-    setFieldValue(elements.tenantType, tenantInfo.tenantType);
-    setFieldValue(elements.phoneNumber, tenantInfo.phoneNumber);
-    setFieldValue(elements.rent, apartmentData.rent || contract.rentAmount || "");
+  setFieldValue(elements.fullName, tenantInfo.fullName);
+  setFieldValue(elements.nationalId, apartmentData.tenantNationalId);
+  setFieldValue(elements.nationality, tenantInfo.nationality);
+  setFieldValue(elements.tenantType, tenantInfo.tenantType);
+  setFieldValue(elements.phoneNumber, tenantInfo.phoneNumber);
+  setFieldValue(elements.rent, apartmentData.rent || contract.rentAmount || "");
 
-    setFieldValue(
-      elements.paymentCycle,
-      contract.paymentCycle || apartmentData.paymentDefaults?.paymentCycle || "quarterly"
-    );
-    setFieldValue(elements.installmentsCount, contract.installmentsCount || "");
+  setFieldValue(
+    elements.paymentCycle,
+    contract.paymentCycle || apartmentData.paymentDefaults?.paymentCycle || "quarterly"
+  );
+  setFieldValue(elements.installmentsCount, contract.installmentsCount || "");
 
-    setFieldValue(elements.floorNumber, apartmentData.floorNumber);
-    setFieldValue(elements.roomsCount, apartmentData.roomsCount);
-    setFieldValue(elements.bathroomsCount, apartmentData.bathroomsCount);
-    setFieldValue(elements.livingRoomsCount, apartmentData.livingRoomsCount);
+  // take values from apartment saved in owner-edit
+  setFieldValue(elements.floorNumber, apartmentData.floorNumber ?? "");
+  setFieldValue(elements.bedrooms, apartmentData.bedrooms ?? "");
+  setFieldValue(elements.bathrooms, apartmentData.bathrooms ?? "");
+  setFieldValue(elements.livingRooms, apartmentData.livingRooms ?? "");
 
-    setFieldValue(elements.insurancePaid, contract.insurancePaid);
-    setFieldValue(elements.startDate, contract.startDate);
-    setFieldValue(elements.endDate, contract.endDate);
-    setFieldValue(elements.meterNumber, contract.meterNumber);
-    setFieldValue(elements.notes, contract.notes);
-        setFieldValue(elements.brokerName, contract.brokerInfo?.name);
-    setFieldValue(
-      elements.brokerCommercialRegister,
-      contract.brokerInfo?.commercialRegister
-    );
-    setFieldValue(elements.brokerPhone, contract.brokerInfo?.phone);
+  setFieldValue(elements.insurancePaid, contract.insurancePaid);
+  setFieldValue(elements.startDate, contract.startDate);
+  setFieldValue(elements.endDate, contract.endDate);
+  setFieldValue(elements.meterNumber, contract.meterNumber);
+  setFieldValue(elements.notes, contract.notes);
+  setFieldValue(elements.brokerName, contract.brokerInfo?.name);
+  setFieldValue(
+    elements.brokerCommercialRegister,
+    contract.brokerInfo?.commercialRegister
+  );
+  setFieldValue(elements.brokerPhone, contract.brokerInfo?.phone);
 
-    setFieldValue(
-      elements.electricityIncluded,
-      contract.services?.electricityIncluded ? "yes" : "no"
-    );
-    setFieldValue(
-      elements.waterIncluded,
-      contract.services?.waterIncluded ? "yes" : "no"
-    );
-    setFieldValue(elements.gasType, contract.services?.gasType || "none");
-    setFieldValue(elements.acType, contract.services?.acType || "none");
-  }
+  setFieldValue(
+    elements.electricityIncluded,
+    contract.services?.electricityIncluded ? "yes" : "no"
+  );
+  setFieldValue(
+    elements.waterIncluded,
+    contract.services?.waterIncluded ? "yes" : "no"
+  );
+  setFieldValue(elements.gasType, contract.services?.gasType || "none");
+  setFieldValue(elements.acType, contract.services?.acType || "none");
+}
 
   function openModal(apartmentData = null) {
     if (!elements.modal) return;
@@ -901,7 +927,8 @@ function initLinkTenantSystem(aptId, currentUser) {
       tenantType: getFieldValue(elements.tenantType),
       phone: getFieldValue(elements.phoneNumber),
       rent: getFieldValue(elements.rent),
-            brokerName: getFieldValue(elements.brokerName),
+
+      brokerName: getFieldValue(elements.brokerName),
       brokerCommercialRegister: getFieldValue(elements.brokerCommercialRegister),
       brokerPhone: getFieldValue(elements.brokerPhone),
 
@@ -911,19 +938,20 @@ function initLinkTenantSystem(aptId, currentUser) {
         getCheckboxOrSelectValue(elements.waterIncluded, "no") === "yes",
       gasType: getCheckboxOrSelectValue(elements.gasType, "none"),
       acType: getCheckboxOrSelectValue(elements.acType, "none"),
+
       paymentCycle,
       installmentsCount:
         rawInstallmentsCount > 0
           ? rawInstallmentsCount
           : Number(
               apartmentDefaults.installmentsCount ||
-                getDefaultInstallmentsCount(paymentCycle)
+              getDefaultInstallmentsCount(paymentCycle)
             ),
 
       floorNumber: getFieldValue(elements.floorNumber),
-      roomsCount: getFieldValue(elements.roomsCount),
-      bathroomsCount: getFieldValue(elements.bathroomsCount),
-      livingRoomsCount: getFieldValue(elements.livingRoomsCount),
+      bedrooms: getFieldValue(elements.bedrooms),
+      bathrooms: getFieldValue(elements.bathrooms),
+      livingRooms: getFieldValue(elements.livingRooms),
 
       insurancePaid: getFieldValue(elements.insurancePaid),
       startDate: getFieldValue(elements.startDate),
@@ -1003,9 +1031,9 @@ function initLinkTenantSystem(aptId, currentUser) {
       rent: data.rent ? Number(data.rent) : "",
 
       floorNumber: data.floorNumber ? Number(data.floorNumber) : null,
-      roomsCount: data.roomsCount ? Number(data.roomsCount) : null,
-      bathroomsCount: data.bathroomsCount ? Number(data.bathroomsCount) : null,
-      livingRoomsCount: data.livingRoomsCount ? Number(data.livingRoomsCount) : null,
+      bedrooms: data.bedrooms ? Number(data.bedrooms) : null,
+      bathrooms: data.bathrooms ? Number(data.bathrooms) : null,
+      livingRooms: data.livingRooms ? Number(data.livingRooms) : null,
 
       tenantUserId: tenantUserId,
       tenantNationalId: data.nationalId,
@@ -1026,7 +1054,7 @@ function initLinkTenantSystem(aptId, currentUser) {
         insurancePaid: data.insurancePaid,
         meterNumber: data.meterNumber,
         notes: data.notes,
-                brokerInfo: {
+        brokerInfo: {
           name: data.brokerName || "",
           commercialRegister: data.brokerCommercialRegister || "",
           phone: data.brokerPhone || "",
@@ -1044,7 +1072,7 @@ function initLinkTenantSystem(aptId, currentUser) {
     return normalizeApartmentLeaseStatus(updatedApartment);
   }
 
-   function saveTenantLink(data) {
+  function saveTenantLink(data) {
     const tenantUser = ensureTenantRoleByNationalId(data.nationalId);
     const tenantUserId = tenantUser ? tenantUser.id : null;
 
