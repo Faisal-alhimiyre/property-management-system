@@ -55,14 +55,48 @@ document.addEventListener("DOMContentLoaded", () => {
     return priorities[typeId] || 99;
   }
 
-  function getOpenRequests(apartmentId) {
-    return requests.filter((request) => {
-      return request.apartmentId === apartmentId && request.status !== "resolved";
-    });
+  function getApartmentCurrentContractId(apartment) {
+    if (!apartment) return null;
+
+    return (
+      apartment.currentContractId ||
+      apartment.contract?.id ||
+      apartment.contractId ||
+      null
+    );
   }
 
-  function getHighestPriorityRequest(apartmentId) {
-    const openRequests = getOpenRequests(apartmentId);
+  function isApartmentOccupied(apartment) {
+    return !!(
+      apartment?.tenantUserId ||
+      apartment?.tenantNationalId ||
+      apartment?.tenantInfo?.fullName ||
+      apartment?.tenantInfo?.phoneNumber ||
+      apartment?.tenantInfo?.nationality ||
+      apartment?.tenantInfo?.tenantType ||
+      apartment?.contract?.id ||
+      apartment?.contract?.startDate ||
+      apartment?.contract?.endDate ||
+      apartment?.contract?.rentAmount ||
+      apartment?.contract?.paymentCycle ||
+      apartment?.contract?.meterNumber
+    );
+  }
+
+  function getOpenRequests(apartment) {
+    const currentContractId = getApartmentCurrentContractId(apartment);
+
+    if (currentContractId) {
+      return requests.filter((request) => {
+        return request.contractId === currentContractId && request.status !== "resolved";
+      });
+    }
+
+    return [];
+  }
+
+  function getHighestPriorityRequest(apartment) {
+    const openRequests = getOpenRequests(apartment);
 
     if (!openRequests.length) return null;
 
@@ -71,13 +105,17 @@ document.addEventListener("DOMContentLoaded", () => {
     )[0];
   }
 
-  function isApartmentRentOverdue(apartmentId) {
+  function isApartmentRentOverdue(apartment) {
+    const currentContractId = getApartmentCurrentContractId(apartment);
+
+    if (!currentContractId) return false;
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     return payments.some((payment) => {
-      if (payment.apartmentId !== apartmentId) return false;
-      if (payment.status === "paid") return false;
+      if (payment.contractId !== currentContractId) return false;
+      if (payment.status === "paid" || payment.status === "cancelled") return false;
       if (!payment.dueDate) return false;
 
       const dueDate = new Date(payment.dueDate);
@@ -284,19 +322,30 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function evictApartment(apartmentId) {
+    const apartment = apartments.find((item) => item.id === apartmentId);
+    if (!apartment) return;
+
+    const openRequests = getOpenRequests(apartment);
+
+    if (openRequests.length > 0) {
+      alert("لا يمكن إخلاء الشقة قبل معالجة جميع الطلبات المفتوحة");
+      return;
+    }
+
     const confirmed = confirm("هل أنت متأكد من إخلاء المستأجر من هذه الشقة؟");
     if (!confirmed) return;
 
-    const updatedApartments = apartments.map((apartment) => {
-      if (apartment.id !== apartmentId) return apartment;
+    const updatedApartments = apartments.map((item) => {
+      if (item.id !== apartmentId) return item;
 
       return {
-        ...apartment,
+        ...item,
         rent: "",
         tenantUserId: null,
         tenantNationalId: null,
         tenantInfo: {},
         contract: {},
+        currentContractId: null,
         leaseStatus: "vacant",
         status: "فارغة",
       };
@@ -388,23 +437,28 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function getBuildingFinancialSummary() {
-    const apartmentIds = buildingApartments.map((a) => a.id);
+  const today = new Date();
+  const currentMonthStart = startOfMonth(today);
+  const currentMonthEnd = endOfMonth(today);
 
-    const today = new Date();
-    const currentMonthStart = startOfMonth(today);
-    const currentMonthEnd = endOfMonth(today);
+  const monthlyIncome = buildingApartments.reduce((sum, apartment) => {
+    return sum + getApartmentRealizedIncomeForRange(
+      apartment.id,
+      currentMonthStart,
+      currentMonthEnd
+    );
+  }, 0);
 
-    const monthlyIncome = buildingApartments.reduce((sum, apartment) => {
-      return sum + getApartmentRealizedIncomeForRange(
-        apartment.id,
-        currentMonthStart,
-        currentMonthEnd
-      );
-    }, 0);
+  const expenses = buildingApartments.reduce((sum, apartment) => {
+    const currentContractId = getApartmentCurrentContractId(apartment);
 
-    const expenses = costs
+    if (!currentContractId) {
+      return sum;
+    }
+
+    const apartmentCurrentContractCosts = costs
       .filter((cost) => {
-        if (!apartmentIds.includes(cost.apartmentId)) return false;
+        if (cost.contractId !== currentContractId) return false;
         if (!cost.date) return false;
 
         const costDate = new Date(cost.date);
@@ -412,32 +466,30 @@ document.addEventListener("DOMContentLoaded", () => {
 
         return costDate >= currentMonthStart && costDate <= currentMonthEnd;
       })
-      .reduce((sum, cost) => sum + Number(cost.amount || 0), 0);
+      .reduce((costSum, cost) => costSum + Number(cost.amount || 0), 0);
 
-    const profit = monthlyIncome - expenses;
+    return sum + apartmentCurrentContractCosts;
+  }, 0);
 
-    const occupiedUnits = buildingApartments.filter((apartment) => {
-      return (
-        apartment.leaseStatus !== "vacant" ||
-        !!apartment.tenantUserId ||
-        !!apartment.tenantNationalId ||
-        !!apartment.tenantInfo?.fullName
-      );
-    }).length;
+  const profit = monthlyIncome - expenses;
 
-    const lateUnits = buildingApartments.filter((apartment) => {
-      return isApartmentRentOverdue(apartment.id);
-    }).length;
+  const occupiedUnits = buildingApartments.filter((apartment) => {
+    return isApartmentOccupied(apartment);
+  }).length;
 
-    return {
-      monthlyIncome,
-      expenses,
-      profit,
-      occupiedUnits,
-      totalUnits: buildingApartments.length,
-      lateUnits,
-    };
-  }
+  const lateUnits = buildingApartments.filter((apartment) => {
+    return isApartmentRentOverdue(apartment);
+  }).length;
+
+  return {
+    monthlyIncome,
+    expenses,
+    profit,
+    occupiedUnits,
+    totalUnits: buildingApartments.length,
+    lateUnits,
+  };
+}
 
   function renderBuildingFinancialSummary() {
     const incomeEl = document.getElementById("buildingIncome");
@@ -526,17 +578,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const apartmentsHtml = floorApartments
         .map((apartment) => {
-          const openRequests = getOpenRequests(apartment.id);
-          const highestPriorityRequest = getHighestPriorityRequest(apartment.id);
-          const isOverdue = isApartmentRentOverdue(apartment.id);
+          const openRequests = getOpenRequests(apartment);
+          const highestPriorityRequest = getHighestPriorityRequest(apartment);
+          const isOverdue = isApartmentRentOverdue(apartment);
 
           let typeClass = "none";
 
-          const isRented =
-            apartment.leaseStatus !== "vacant" ||
-            !!apartment.tenantUserId ||
-            !!apartment.tenantNationalId ||
-            !!apartment.tenantInfo?.fullName;
+          const isRented = isApartmentOccupied(apartment);
 
           const rentedBadge = isRented
             ? `<span class="apartment-badge rented-badge">مؤجرة</span>`

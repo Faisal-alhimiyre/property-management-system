@@ -38,22 +38,27 @@
 
     let selectedPaymentId = null;
 
-    function getSortedApartmentPayments() {
-      const originalPayments = storage.getPaymentsByApartmentId(apartment.id);
-      const normalizedPayments = utils.normalizePaymentStatuses(originalPayments);
+   function getSortedApartmentPayments() {
+  const contractId = utils.generateContractId(apartment);
 
-      const hasChanges =
-        JSON.stringify(originalPayments) !== JSON.stringify(normalizedPayments);
+  if (!contractId) {
+    return [];
+  }
 
-      if (hasChanges) {
-        persistNormalizedPayments(normalizedPayments);
-      }
+  const originalPayments = storage.getPaymentsByContractId(contractId);
+  const normalizedPayments = utils.normalizePaymentStatuses(originalPayments);
 
-      return normalizedPayments.sort((a, b) =>
-        a.dueDate.localeCompare(b.dueDate)
-      );
-    }
+  const hasChanges =
+    JSON.stringify(originalPayments) !== JSON.stringify(normalizedPayments);
 
+  if (hasChanges) {
+    persistNormalizedPayments(normalizedPayments);
+  }
+
+  return normalizedPayments.sort((a, b) =>
+    a.dueDate.localeCompare(b.dueDate)
+  );
+}
     function persistNormalizedPayments(normalizedPayments) {
       const allPayments = storage.getPayments();
       const normalizedMap = new Map(

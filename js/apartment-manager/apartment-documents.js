@@ -26,6 +26,43 @@ function buildHtmlDataUrl(html) {
   return "data:text/html;charset=utf-8," + encodeURIComponent(html);
 }
 
+function getApartmentByIdForDocuments(aptId) {
+  try {
+    const apartments =
+      typeof getApartments === "function"
+        ? getApartments()
+        : JSON.parse(localStorage.getItem("walajna_apartments") || "[]");
+
+    return apartments.find((apt) => apt.id === aptId) || null;
+  } catch {
+    return null;
+  }
+}
+
+function getCurrentContractIdForApartment(aptId) {
+  const apartment = getApartmentByIdForDocuments(aptId);
+
+  return (
+    apartment?.currentContractId ||
+    apartment?.contract?.id ||
+    apartment?.contractId ||
+    null
+  );
+}
+
+function getDocumentsForApartmentContext(aptId) {
+  const documents = getDocuments();
+  const currentContractId = getCurrentContractIdForApartment(aptId);
+
+  // 🔥 مهم: لا fallback على apartmentId إذا يوجد عقد حالي
+  if (currentContractId) {
+    return documents.filter((doc) => doc.contractId === currentContractId);
+  }
+
+  // إذا ما فيه عقد حالي، لا نعرض وثائق قديمة
+  return [];
+}
+
 /* ========================================
    Render Documents List
    ======================================== */
@@ -33,16 +70,14 @@ function buildHtmlDataUrl(html) {
 function renderDocumentsList(documentsList, aptId) {
   if (!documentsList) return;
 
-  const documents = getDocuments();
-
-  const apartmentDocs = documents.filter((doc) => doc.apartmentId === aptId);
+  const apartmentDocs = getDocumentsForApartmentContext(aptId);
 
   if (apartmentDocs.length === 0) {
     documentsList.innerHTML = `
       <div class="wl-item">
         <div>
           <div class="wl-item__title">لا توجد وثائق</div>
-          <div class="wl-item__desc">لا توجد ملفات مرتبطة بهذه الشقة حتى الآن</div>
+          <div class="wl-item__desc">لا توجد ملفات مرتبطة بالعقد الحالي حتى الآن</div>
         </div>
       </div>
     `;
@@ -50,26 +85,34 @@ function renderDocumentsList(documentsList, aptId) {
   }
 
   documentsList.innerHTML = apartmentDocs
+    .slice()
+    .sort((a, b) => new Date(b.uploadedAt || 0) - new Date(a.uploadedAt || 0))
     .map(
       (doc) => `
-    <div class="wl-item" tabindex="0" data-doc-id="${doc.id}">
-      <div class="wl-item__left">
-        <span class="wl-dot" style="background:${doc.docType === "auto_lease_contract" ? "#0f766e" : "#0ea5a4"}"></span>
+        <div class="wl-item" tabindex="0" data-doc-id="${doc.id}">
+          <div class="wl-item__left">
+            <span class="wl-dot" style="background:${doc.docType === "auto_lease_contract" ? "#0f766e" : "#0ea5a4"}"></span>
 
-        <div>
-          <div class="wl-item__title">
-            ${doc.fileName || "ملف"}
+            <div>
+              <div class="wl-item__title">
+                ${doc.fileName || "ملف"}
+              </div>
+
+              <div class="wl-item__desc">
+                تم الرفع: ${new Date(doc.uploadedAt).toLocaleString("ar-SA")}
+              </div>
+
+              ${
+                doc.contractId
+                  ? `<div class="wl-item__desc">العقد: ${doc.contractId}</div>`
+                  : ""
+              }
+            </div>
           </div>
 
-          <div class="wl-item__desc">
-            تم الرفع: ${new Date(doc.uploadedAt).toLocaleString("ar-SA")}
-          </div>
+          <span class="wl-badge">فتح</span>
         </div>
-      </div>
-
-      <span class="wl-badge">فتح</span>
-    </div>
-  `
+      `
     )
     .join("");
 }
@@ -78,7 +121,7 @@ function renderDocumentsList(documentsList, aptId) {
    Save Document
    ======================================== */
 
-function saveDocumentForApartment(file, aptId) {
+function saveDocumentForApartment(file, aptId, extraData = {}) {
   const reader = new FileReader();
 
   reader.onload = function (e) {
@@ -91,6 +134,7 @@ function saveDocumentForApartment(file, aptId) {
       fileData: e.target.result,
       mimeType: file.type || "",
       uploadedAt: new Date().toISOString(),
+      ...extraData,
     });
 
     saveDocuments(documents);
@@ -120,9 +164,8 @@ function upsertHtmlDocumentForApartment(htmlContent, aptId, fileName, matcher = 
 
   const index = documents.findIndex((doc) => {
     if (doc.apartmentId !== aptId) return false;
-
+    if (matcher.contractId && doc.contractId !== matcher.contractId) return false;
     if (matcher.docType && doc.docType !== matcher.docType) return false;
-
     return true;
   });
 

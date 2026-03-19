@@ -55,6 +55,17 @@ document.addEventListener("DOMContentLoaded", () => {
     return apartments.find((apt) => apt.id === apartmentId) || null;
   }
 
+  function getCurrentContractId(apartment) {
+    if (!apartment) return null;
+
+    return (
+      apartment.currentContractId ||
+      apartment.contract?.id ||
+      apartment.contractId ||
+      null
+    );
+  }
+
   function getCosts() {
     return JSON.parse(localStorage.getItem(COSTS_KEY) || "[]");
   }
@@ -64,7 +75,14 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function getApartmentCosts() {
-    return getCosts().filter((item) => item.apartmentId === apartmentId);
+    const apartment = getApartment();
+    const currentContractId = getCurrentContractId(apartment);
+
+    if (!currentContractId) {
+      return [];
+    }
+
+    return getCosts().filter((item) => item.contractId === currentContractId);
   }
 
   function formatAmount(value) {
@@ -72,8 +90,16 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function openModal() {
+    const apartment = getApartment();
+    const currentContractId = getCurrentContractId(apartment);
+
+    if (!currentContractId) {
+      alert("لا يمكن تسجيل مصروفات بدون عقد حالي");
+      return;
+    }
+
     recordCostModal.setAttribute("aria-hidden", "false");
-    selectedCostInfo.textContent = `تسجيل مصروف جديد للشقة ${apartmentId}`;
+    selectedCostInfo.textContent = `تسجيل مصروف جديد للشقة ${apartment?.number || apartmentId}`;
     costDateInput.value = new Date().toISOString().slice(0, 10);
   }
 
@@ -123,7 +149,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function renderTable(costs) {
     if (!costs.length) {
-      costsTableContainer.innerHTML = `<div class="empty-state">لا يوجد مصروفات مسجلة حاليًا</div>`;
+      costsTableContainer.innerHTML = `<div class="empty-state">لا يوجد مصروفات مرتبطة بالعقد الحالي</div>`;
       return;
     }
 
@@ -177,11 +203,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function renderPage() {
     const apartment = getApartment();
+    const currentContractId = getCurrentContractId(apartment);
     const allCosts = getApartmentCosts();
     const keyword = (searchInput.value || "").trim().toLowerCase();
 
     if (apartment) {
       pageSub.textContent = `عرض مصروفات الشقة ${apartment.number} - ${apartment.buildingName || ""}`;
+    }
+
+    if (openCostModalBtn) {
+      openCostModalBtn.disabled = !currentContractId;
+      openCostModalBtn.title = currentContractId
+        ? ""
+        : "لا يمكن تسجيل مصروفات بدون عقد حالي";
     }
 
     let filteredCosts = allCosts;
@@ -212,6 +246,14 @@ document.addEventListener("DOMContentLoaded", () => {
   searchInput?.addEventListener("input", renderPage);
 
   saveCostBtn?.addEventListener("click", () => {
+    const apartment = getApartment();
+    const currentContractId = getCurrentContractId(apartment);
+
+    if (!currentContractId) {
+      alert("لا يمكن تسجيل مصروفات بدون عقد حالي");
+      return;
+    }
+
     const type = costTypeInput.value;
     const amount = Number(costAmountInput.value);
     const status = costStatusInput.value;
@@ -228,6 +270,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const newCost = {
       id: `COST-${Date.now()}`,
       apartmentId,
+      contractId: currentContractId,
       type,
       typeLabel: COST_TYPES[type] || "أخرى",
       amount,
