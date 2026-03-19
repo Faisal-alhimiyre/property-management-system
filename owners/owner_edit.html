@@ -27,12 +27,13 @@
           <input type="text" id="buildingCode" readonly class="form-input">
         </div>
 
-       <div class="form-group select-group">
-  <label for="building-city">المدينة</label>
-  <select id="building-city" required>
-    <option value="">اختر المدينة</option>
-  </select>
-</div>
+        <div class="form-group select-group">
+          <label for="building-city">المدينة</label>
+          <select id="building-city" required>
+            <option value="">اختر المدينة</option>
+          </select>
+        </div>
+
         <div class="form-group full">
           <label for="apartmentCount">عدد الشقق</label>
           <input type="number" id="apartmentCount" min="1" placeholder="مثال: 14" required>
@@ -48,15 +49,32 @@
           <input type="number" id="apartmentsPerFloor" min="1" placeholder="مثال: 2" />
         </div>
 
+        <!-- NEW: apartment details -->
+        <div class="form-group">
+          <label for="bedrooms">عدد غرف النوم</label>
+          <input type="number" id="bedrooms" min="0" placeholder="مثال: 3" required>
+        </div>
+
+        <div class="form-group">
+          <label for="bathrooms">عدد دورات المياه</label>
+          <input type="number" id="bathrooms" min="0" placeholder="مثال: 2" required>
+        </div>
+
+        <div class="form-group">
+          <label for="livingRooms">عدد غرف المعيشة</label>
+          <input type="number" id="livingRooms" min="0" placeholder="مثال: 1" required>
+        </div>
+
         <div class="form-group select-group">
-         <label for="defaultPaymentCycle">دورة الدفع الافتراضية</label>
+          <label for="defaultPaymentCycle">دورة الدفع الافتراضية</label>
           <select id="defaultPaymentCycle" required>
-          <option value="monthly">شهري</option>
-          <option value="quarterly">ربع سنوي</option>
-          <option value="semi_annual">نصف سنوي</option>
-          <option value="annual">سنوي</option>
+            <option value="monthly">شهري</option>
+            <option value="quarterly">ربع سنوي</option>
+            <option value="semi_annual">نصف سنوي</option>
+            <option value="annual">سنوي</option>
           </select>
-          </div> 
+        </div>
+
         <button type="submit" class="save-btn">حفظ العمارة</button>
         <p id="formMessage" class="form-message"></p>
       </form>

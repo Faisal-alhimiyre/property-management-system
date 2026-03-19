@@ -19,9 +19,11 @@ function initLinkTenantSystem(aptId, currentUser) {
     installmentsCount: document.getElementById("linkInstallmentsCount"),
 
     floorNumber: document.getElementById("linkFloorNumber"),
-    roomsCount: document.getElementById("linkRoomsCount"),
-    bathroomsCount: document.getElementById("linkBathroomsCount"),
-    livingRoomsCount: document.getElementById("linkLivingRoomsCount"),
+
+    // keep old HTML IDs if they already exist in your form
+    bedrooms: document.getElementById("linkBedrooms") || document.getElementById("linkRoomsCount"),
+    bathrooms: document.getElementById("linkBathrooms") || document.getElementById("linkBathroomsCount"),
+    livingRooms: document.getElementById("linkLivingRooms") || document.getElementById("linkLivingRoomsCount"),
 
     insurancePaid: document.getElementById("linkInsurancePaid"),
     startDate: document.getElementById("linkStartDate"),
@@ -33,6 +35,8 @@ function initLinkTenantSystem(aptId, currentUser) {
     extractBtn: document.getElementById("extractContractBtn"),
     saveBtn: document.getElementById("saveLinkedTenantBtn"),
     errorBox: document.getElementById("linkTenantError"),
+
+    brokerName: document.getElementById("linkBrokerName"),
 
     brokerName: document.getElementById("linkBrokerName"),
     brokerCommercialRegister: document.getElementById("linkBrokerCommercialRegister"),
@@ -63,6 +67,8 @@ function initLinkTenantSystem(aptId, currentUser) {
   function setFieldValue(field, value) {
     if (field) field.value = value ?? "";
   }
+
+  function getCheckboxOrSelectValue(field, defaultValue = "") {
 
   function getCheckboxOrSelectValue(field, defaultValue = "") {
     if (!field) return defaultValue;
@@ -255,6 +261,24 @@ function initLinkTenantSystem(aptId, currentUser) {
 
     const buildingName = apartment?.buildingName || "—";
     const apartmentNumber = apartment?.number || "—";
+
+    const apartmentBedrooms =
+      data.bedrooms ??
+      apartment?.bedrooms ??
+      apartment?.roomsCount ??
+      "—";
+
+    const apartmentBathrooms =
+      data.bathrooms ??
+      apartment?.bathrooms ??
+      apartment?.bathroomsCount ??
+      "—";
+
+    const apartmentLivingRooms =
+      data.livingRooms ??
+      apartment?.livingRooms ??
+      apartment?.livingRoomsCount ??
+      "—";
 
     return `
 <!DOCTYPE html>
@@ -573,6 +597,7 @@ function initLinkTenantSystem(aptId, currentUser) {
     );
   }
 
+
   function getCurrentApartment() {
     const apartments = typeof getApartments === "function" ? getApartments() : [];
     return apartments.find((apt) => apt.id === aptId) || null;
@@ -638,32 +663,34 @@ function initLinkTenantSystem(aptId, currentUser) {
     }
   }
 
-  function resetForm() {
-    showError("");
+function resetForm() {
+  showError("");
 
-    const paymentDefaults = getApartmentPaymentDefaults();
+  const paymentDefaults = getApartmentPaymentDefaults();
+  const apartment = getCurrentApartment();
 
-    clearField(elements.fullName);
-    clearField(elements.nationalId);
-    clearField(elements.nationality);
-    clearField(elements.tenantType);
-    clearField(elements.phoneNumber);
-    clearField(elements.rent);
+  clearField(elements.fullName);
+  clearField(elements.nationalId);
+  clearField(elements.nationality);
+  clearField(elements.tenantType);
+  clearField(elements.phoneNumber);
+  clearField(elements.rent);
 
-    if (elements.paymentCycle) {
-      elements.paymentCycle.value = paymentDefaults.paymentCycle || "quarterly";
-    }
+  if (elements.paymentCycle) {
+    elements.paymentCycle.value = paymentDefaults.paymentCycle || "quarterly";
+  }
 
-    if (elements.installmentsCount) {
-      elements.installmentsCount.value = String(
-        paymentDefaults.installmentsCount || 4
-      );
-    }
+  if (elements.installmentsCount) {
+    elements.installmentsCount.value = String(
+      paymentDefaults.installmentsCount || 4
+    );
+  }
 
-    clearField(elements.floorNumber);
-    clearField(elements.roomsCount);
-    clearField(elements.bathroomsCount);
-    clearField(elements.livingRoomsCount);
+  // take values from apartment saved in owner-edit
+  setFieldValue(elements.floorNumber, apartment?.floorNumber ?? "");
+  setFieldValue(elements.bedrooms, apartment?.bedrooms ?? "");
+  setFieldValue(elements.bathrooms, apartment?.bathrooms ?? "");
+  setFieldValue(elements.livingRooms, apartment?.livingRooms ?? "");
 
     clearField(elements.insurancePaid);
     clearField(elements.startDate);
@@ -675,46 +702,47 @@ function initLinkTenantSystem(aptId, currentUser) {
     clearField(elements.brokerCommercialRegister);
     clearField(elements.brokerPhone);
 
-    if (elements.electricityIncluded) {
-      elements.electricityIncluded.value = "no";
-    }
-
-    if (elements.waterIncluded) {
-      elements.waterIncluded.value = "no";
-    }
-
-    if (elements.gasType) {
-      elements.gasType.value = "none";
-    }
-
-    if (elements.acType) {
-      elements.acType.value = "none";
-    }
+  if (elements.electricityIncluded) {
+    elements.electricityIncluded.value = "no";
   }
 
+  if (elements.waterIncluded) {
+    elements.waterIncluded.value = "no";
+  }
+
+  if (elements.gasType) {
+    elements.gasType.value = "none";
+  }
+
+  if (elements.acType) {
+    elements.acType.value = "none";
+  }
+}
+
   function fillFormFromApartment(apartmentData) {
-    if (!apartmentData) return;
+  if (!apartmentData) return;
 
-    const tenantInfo = apartmentData.tenantInfo || {};
-    const contract = apartmentData.contract || {};
+  const tenantInfo = apartmentData.tenantInfo || {};
+  const contract = apartmentData.contract || {};
 
-    setFieldValue(elements.fullName, tenantInfo.fullName);
-    setFieldValue(elements.nationalId, apartmentData.tenantNationalId);
-    setFieldValue(elements.nationality, tenantInfo.nationality);
-    setFieldValue(elements.tenantType, tenantInfo.tenantType);
-    setFieldValue(elements.phoneNumber, tenantInfo.phoneNumber);
-    setFieldValue(elements.rent, apartmentData.rent || contract.rentAmount || "");
+  setFieldValue(elements.fullName, tenantInfo.fullName);
+  setFieldValue(elements.nationalId, apartmentData.tenantNationalId);
+  setFieldValue(elements.nationality, tenantInfo.nationality);
+  setFieldValue(elements.tenantType, tenantInfo.tenantType);
+  setFieldValue(elements.phoneNumber, tenantInfo.phoneNumber);
+  setFieldValue(elements.rent, apartmentData.rent || contract.rentAmount || "");
 
-    setFieldValue(
-      elements.paymentCycle,
-      contract.paymentCycle || apartmentData.paymentDefaults?.paymentCycle || "quarterly"
-    );
-    setFieldValue(elements.installmentsCount, contract.installmentsCount || "");
+  setFieldValue(
+    elements.paymentCycle,
+    contract.paymentCycle || apartmentData.paymentDefaults?.paymentCycle || "quarterly"
+  );
+  setFieldValue(elements.installmentsCount, contract.installmentsCount || "");
 
-    setFieldValue(elements.floorNumber, apartmentData.floorNumber);
-    setFieldValue(elements.roomsCount, apartmentData.roomsCount);
-    setFieldValue(elements.bathroomsCount, apartmentData.bathroomsCount);
-    setFieldValue(elements.livingRoomsCount, apartmentData.livingRoomsCount);
+  // take values from apartment saved in owner-edit
+  setFieldValue(elements.floorNumber, apartmentData.floorNumber ?? "");
+  setFieldValue(elements.bedrooms, apartmentData.bedrooms ?? "");
+  setFieldValue(elements.bathrooms, apartmentData.bathrooms ?? "");
+  setFieldValue(elements.livingRooms, apartmentData.livingRooms ?? "");
 
     setFieldValue(elements.insurancePaid, contract.insurancePaid);
     setFieldValue(elements.startDate, contract.startDate);
@@ -728,17 +756,17 @@ function initLinkTenantSystem(aptId, currentUser) {
     );
     setFieldValue(elements.brokerPhone, contract.brokerInfo?.phone);
 
-    setFieldValue(
-      elements.electricityIncluded,
-      contract.services?.electricityIncluded ? "yes" : "no"
-    );
-    setFieldValue(
-      elements.waterIncluded,
-      contract.services?.waterIncluded ? "yes" : "no"
-    );
-    setFieldValue(elements.gasType, contract.services?.gasType || "none");
-    setFieldValue(elements.acType, contract.services?.acType || "none");
-  }
+  setFieldValue(
+    elements.electricityIncluded,
+    contract.services?.electricityIncluded ? "yes" : "no"
+  );
+  setFieldValue(
+    elements.waterIncluded,
+    contract.services?.waterIncluded ? "yes" : "no"
+  );
+  setFieldValue(elements.gasType, contract.services?.gasType || "none");
+  setFieldValue(elements.acType, contract.services?.acType || "none");
+}
 
   function openModal(apartmentData = null) {
     if (!elements.modal) return;
@@ -790,6 +818,8 @@ function initLinkTenantSystem(aptId, currentUser) {
       rent: getFieldValue(elements.rent),
 
       brokerName: getFieldValue(elements.brokerName),
+
+      brokerName: getFieldValue(elements.brokerName),
       brokerCommercialRegister: getFieldValue(elements.brokerCommercialRegister),
       brokerPhone: getFieldValue(elements.brokerPhone),
 
@@ -800,6 +830,7 @@ function initLinkTenantSystem(aptId, currentUser) {
       gasType: getCheckboxOrSelectValue(elements.gasType, "none"),
       acType: getCheckboxOrSelectValue(elements.acType, "none"),
 
+
       paymentCycle,
       installmentsCount:
         rawInstallmentsCount > 0
@@ -807,12 +838,13 @@ function initLinkTenantSystem(aptId, currentUser) {
           : Number(
               apartmentDefaults.installmentsCount ||
               getDefaultInstallmentsCount(paymentCycle)
+              getDefaultInstallmentsCount(paymentCycle)
             ),
 
       floorNumber: getFieldValue(elements.floorNumber),
-      roomsCount: getFieldValue(elements.roomsCount),
-      bathroomsCount: getFieldValue(elements.bathroomsCount),
-      livingRoomsCount: getFieldValue(elements.livingRoomsCount),
+      bedrooms: getFieldValue(elements.bedrooms),
+      bathrooms: getFieldValue(elements.bathrooms),
+      livingRooms: getFieldValue(elements.livingRooms),
 
       insurancePaid: getFieldValue(elements.insurancePaid),
       startDate: getFieldValue(elements.startDate),
@@ -902,9 +934,9 @@ function initLinkTenantSystem(aptId, currentUser) {
       rent: data.rent ? Number(data.rent) : "",
 
       floorNumber: data.floorNumber ? Number(data.floorNumber) : null,
-      roomsCount: data.roomsCount ? Number(data.roomsCount) : null,
-      bathroomsCount: data.bathroomsCount ? Number(data.bathroomsCount) : null,
-      livingRoomsCount: data.livingRoomsCount ? Number(data.livingRoomsCount) : null,
+      bedrooms: data.bedrooms ? Number(data.bedrooms) : null,
+      bathrooms: data.bathrooms ? Number(data.bathrooms) : null,
+      livingRooms: data.livingRooms ? Number(data.livingRooms) : null,
 
       tenantUserId: tenantUserId,
       tenantNationalId: data.nationalId,
@@ -946,6 +978,7 @@ function initLinkTenantSystem(aptId, currentUser) {
     return normalizeApartmentLeaseStatus(updatedApartment);
   }
 
+  function saveTenantLink(data) {
   function saveTenantLink(data) {
     const tenantUser = ensureTenantRoleByNationalId(data.nationalId);
     const tenantUserId = tenantUser ? tenantUser.id : null;

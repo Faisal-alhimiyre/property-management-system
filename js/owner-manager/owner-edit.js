@@ -96,7 +96,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const apartmentCountInput = document.getElementById("apartmentCount");
     const totalFloorsInput = document.getElementById("totalFloors");
     const apartmentsPerFloorInput = document.getElementById("apartmentsPerFloor");
-         if (apartmentCountInput) {
+    const bedroomsInput = document.getElementById("bedrooms");
+    const bathroomsInput = document.getElementById("bathrooms");
+    const livingRoomsInput = document.getElementById("livingRooms");
+
+    if (apartmentCountInput) {
       apartmentCountInput.value = building.apartmentCount || "";
       apartmentCountInput.disabled = true;
     }
@@ -110,6 +114,7 @@ document.addEventListener("DOMContentLoaded", () => {
       apartmentsPerFloorInput.value = building.apartmentsPerFloor || "";
       apartmentsPerFloorInput.disabled = true;
     }
+
     if (buildingNameInput) {
       buildingNameInput.value = building.name || "";
     }
@@ -123,21 +128,21 @@ document.addEventListener("DOMContentLoaded", () => {
       buildingCitySelect.value = building.city || "";
     }
 
-    if (apartmentCountInput) {
-      apartmentCountInput.value = building.apartmentCount || "";
-    }
-
-    if (totalFloorsInput) {
-      totalFloorsInput.value = building.totalFloors || "";
-    }
-
-    if (apartmentsPerFloorInput) {
-      apartmentsPerFloorInput.value = building.apartmentsPerFloor || "";
-    }
-
     if (defaultPaymentCycleInput) {
       defaultPaymentCycleInput.value =
         building.paymentDefaults?.paymentCycle || "monthly";
+    }
+
+    if (bedroomsInput) {
+      bedroomsInput.value = building.apartmentDefaults?.bedrooms ?? "";
+    }
+
+    if (bathroomsInput) {
+      bathroomsInput.value = building.apartmentDefaults?.bathrooms ?? "";
+    }
+
+    if (livingRoomsInput) {
+      livingRoomsInput.value = building.apartmentDefaults?.livingRooms ?? "";
     }
 
     const submitBtn = form.querySelector('button[type="submit"]');
@@ -151,7 +156,8 @@ document.addEventListener("DOMContentLoaded", () => {
     buildingName,
     apartmentNumber,
     floorNumber,
-    paymentDefaults = {}
+    paymentDefaults = {},
+    apartmentDefaults = {}
   ) {
     const aptNumber = String(apartmentNumber);
 
@@ -173,6 +179,10 @@ document.addEventListener("DOMContentLoaded", () => {
       contract: null,
       tenantHistory: [],
 
+      bedrooms: apartmentDefaults.bedrooms ?? 0,
+      bathrooms: apartmentDefaults.bathrooms ?? 0,
+      livingRooms: apartmentDefaults.livingRooms ?? 0,
+
       paymentDefaults: {
         paymentCycle: paymentDefaults.paymentCycle || "monthly",
       },
@@ -186,7 +196,8 @@ document.addEventListener("DOMContentLoaded", () => {
     buildingName,
     apartmentCount,
     apartmentsPerFloor,
-    paymentDefaults = {}
+    paymentDefaults = {},
+    apartmentDefaults = {}
   ) {
     const generatedApartments = [];
 
@@ -199,7 +210,8 @@ document.addEventListener("DOMContentLoaded", () => {
           buildingName,
           i,
           floorNumber,
-          paymentDefaults
+          paymentDefaults,
+          apartmentDefaults
         )
       );
     }
@@ -241,11 +253,16 @@ document.addEventListener("DOMContentLoaded", () => {
     const buildingName = document.getElementById("buildingName")?.value.trim();
     const buildingCode = document.getElementById("buildingCode")?.value.trim();
     const buildingCity = document.getElementById("building-city")?.value.trim();
-        
+
+    const bedrooms = parseInt(document.getElementById("bedrooms")?.value, 10);
+    const bathrooms = parseInt(document.getElementById("bathrooms")?.value, 10);
+    const livingRooms = parseInt(document.getElementById("livingRooms")?.value, 10);
+
     if (/[a-zA-Z]/.test(buildingName)) {
-  alert("اسم الشقة يجب أن يكون بالعربية فقط");
-  return;
-}
+      alert("اسم الشقة يجب أن يكون بالعربية فقط");
+      return;
+    }
+
     const apartmentCount = parseInt(
       document.getElementById("apartmentCount")?.value,
       10
@@ -278,15 +295,32 @@ document.addEventListener("DOMContentLoaded", () => {
       showError("يرجى إدخال عدد الشقق في كل طابق بشكل صحيح");
       return;
     }
-const expectedApartments = totalFloors * apartmentsPerFloor;
 
-if (apartmentCount !== expectedApartments) {
-    showError(
+    if (Number.isNaN(bedrooms) || bedrooms < 0) {
+      showError("يرجى إدخال عدد غرف النوم بشكل صحيح");
+      return;
+    }
+
+    if (Number.isNaN(bathrooms) || bathrooms < 0) {
+      showError("يرجى إدخال عدد دورات المياه بشكل صحيح");
+      return;
+    }
+
+    if (Number.isNaN(livingRooms) || livingRooms < 0) {
+      showError("يرجى إدخال عدد غرف المعيشة بشكل صحيح");
+      return;
+    }
+
+    const expectedApartments = totalFloors * apartmentsPerFloor;
+
+    if (apartmentCount !== expectedApartments) {
+      showError(
         `توزيع الشقق غير صحيح. 
 عدد الشقق يجب أن يكون ${expectedApartments} بناءً على الأدوار والشقق في كل دور`
-    );
-    return;
-}
+      );
+      return;
+    }
+
     if (!defaultPaymentCycle) {
       showError("يرجى اختيار دورة الدفع الافتراضية");
       return;
@@ -319,6 +353,12 @@ if (apartmentCount !== expectedApartments) {
       paymentCycle: defaultPaymentCycle,
     };
 
+    const apartmentDefaults = {
+      bedrooms,
+      bathrooms,
+      livingRooms,
+    };
+
     const buildingPayload = {
       id: buildingCode,
       name: buildingName,
@@ -327,6 +367,7 @@ if (apartmentCount !== expectedApartments) {
       totalFloors,
       apartmentsPerFloor,
       paymentDefaults,
+      apartmentDefaults,
       ownerId: currentUser?.id || null,
       createdAt: isEditMode
         ? (buildingToEdit?.createdAt || new Date().toISOString())
@@ -344,6 +385,9 @@ if (apartmentCount !== expectedApartments) {
         return {
           ...apartment,
           buildingName: buildingName,
+          bedrooms,
+          bathrooms,
+          livingRooms,
           paymentDefaults: {
             ...apartment.paymentDefaults,
             paymentCycle: defaultPaymentCycle,
@@ -361,7 +405,8 @@ if (apartmentCount !== expectedApartments) {
         buildingName,
         apartmentCount,
         apartmentsPerFloor,
-        paymentDefaults
+        paymentDefaults,
+        apartmentDefaults
       );
 
       buildings.push(buildingPayload);

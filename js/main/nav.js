@@ -98,11 +98,17 @@ function setupNavbar() {
   link4.textContent = "تسجيل الخروج";
   link4.href = "#";
   link4.addEventListener("click", (e) => {
-    e.preventDefault();
-    localStorage.removeItem("activeRole");
-    localStorage.removeItem("walajna_current_user");
-    window.location.href = "../auth/login.html";
-  });
+  e.preventDefault();
+
+  const confirmed = window.confirm("هل أنت متأكد أنك تريد تسجيل الخروج؟");
+
+  if (!confirmed) return;
+
+  localStorage.removeItem("activeRole");
+  localStorage.removeItem("walajna_current_user");
+  window.location.href = "../auth/login.html";
+ });
+  
 
   logoLink.href = homeHref;
 

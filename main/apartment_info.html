@@ -18,26 +18,28 @@
       <h2 id="aptTitle">تفاصيل الشقة</h2>
       <p id="pageRoleLabel" class="page-role-label">—</p>
     </div>
- <section id="ownerInfoSection" class="details-card" style="display:none;">
-    <h3 class="section-title">معلومات المالك</h3>
-    <div class="details-grid">
-      <div class="item">
-        <span class="label">الاسم الكامل</span>
-        <span class="value" id="ownerFullName">—</span>
+
+    <section id="ownerInfoSection" class="details-card" style="display:none;">
+      <h3 class="section-title">معلومات المالك</h3>
+      <div class="details-grid">
+        <div class="item">
+          <span class="label">الاسم الكامل</span>
+          <span class="value" id="ownerFullName">—</span>
+        </div>
+        <div class="item">
+          <span class="label">رقم الهوية</span>
+          <span class="value" id="ownerNationalId">—</span>
+        </div>
       </div>
-      <div class="item">
-        <span class="label">رقم الهوية</span>
-        <span class="value" id="ownerNationalId">—</span>
-      </div>
-    </div>
-  </section>
+    </section>
+
     <section class="details-card">
       <h3 class="section-title">معلومات المستأجر</h3>
       <div class="details-grid">
         <div class="item">
-  <span class="label">الاسم الكامل</span>
-  <span class="value" id="tenantFullName">—</span>
-</div>
+          <span class="label">الاسم الكامل</span>
+          <span class="value" id="tenantFullName">—</span>
+        </div>
         <div class="item">
           <span class="label">الجنسية</span>
           <span class="value" id="tenantNationality">—</span>
@@ -60,43 +62,44 @@
         </div>
       </div>
     </section>
+
     <section class="details-card">
-  <h3 class="section-title">معلومات الشقة</h3>
-  <div class="details-grid">
-    <div class="item">
-      <span class="label">رقم الشقة</span>
-      <span class="value" id="aptNumber">—</span>
-    </div>
-    <div class="item">
-      <span class="label">اسم العمارة</span>
-      <span class="value" id="buildingName">—</span>
-    </div>
-    <div class="item">
-      <span class="label">الحالة</span>
-      <span class="value" id="leaseStatus">—</span>
-    </div>
-    <div class="item">
-      <span class="label">الإيجار الشهري</span>
-      <span class="value" id="rentAmount">—</span>
-    </div>
-    <div class="item">
-      <span class="label">الدور</span>
-      <span class="value" id="floorNumber">—</span>
-    </div>
-    <div class="item">
-      <span class="label">عدد الغرف</span>
-      <span class="value" id="roomsCount">—</span>
-    </div>
-    <div class="item">
-      <span class="label">عدد الحمامات</span>
-      <span class="value" id="bathroomsCount">—</span>
-    </div>
-    <div class="item">
-      <span class="label">عدد الصالات</span>
-      <span class="value" id="livingRoomsCount">—</span>
-    </div>
-  </div>
-</section>
+      <h3 class="section-title">معلومات الشقة</h3>
+      <div class="details-grid">
+        <div class="item">
+          <span class="label">رقم الشقة</span>
+          <span class="value" id="aptNumber">—</span>
+        </div>
+        <div class="item">
+          <span class="label">اسم العمارة</span>
+          <span class="value" id="buildingName">—</span>
+        </div>
+        <div class="item">
+          <span class="label">الحالة</span>
+          <span class="value" id="leaseStatus">—</span>
+        </div>
+        <div class="item">
+          <span class="label">الإيجار الشهري</span>
+          <span class="value" id="rentAmount">—</span>
+        </div>
+        <div class="item">
+          <span class="label">الدور</span>
+          <span class="value" id="floorNumber">—</span>
+        </div>
+        <div class="item">
+          <span class="label">عدد غرف النوم</span>
+          <span class="value" id="bedrooms">—</span>
+        </div>
+        <div class="item">
+          <span class="label">عدد الحمامات</span>
+          <span class="value" id="bathrooms">—</span>
+        </div>
+        <div class="item">
+          <span class="label">عدد غرف المعيشة</span>
+          <span class="value" id="livingRooms">—</span>
+        </div>
+      </div>
+    </section>
 
     <section class="details-card">
       <h3 class="section-title">معلومات إضافية</h3>
@@ -275,20 +278,26 @@
             <label class="label" for="linkRent">الإيجار الشهري</label>
             <input id="linkRent" type="number" min="0" step="0.01" />
           </div>
-  <div class="item">
-<label class="label" for="linkRoomsCount">عدد الغرف</label>
-<input id="linkRoomsCount" type="number" min="0">
-</div>
 
-<div class="item">
-<label class="label" for="linkBathroomsCount">عدد الحمامات</label>
-<input id="linkBathroomsCount" type="number" min="0">
-</div>
+          <div class="item">
+            <label class="label" for="linkBedrooms">عدد غرف النوم</label>
+            <input id="linkBedrooms" type="number" min="0">
+          </div>
 
-<div class="item">
-<label class="label" for="linkLivingRoomsCount">عدد الصالات</label>
-<input id="linkLivingRoomsCount" type="number" min="0">
-</div>
+          <div class="item">
+            <label class="label" for="linkBathrooms">عدد الحمامات</label>
+            <input id="linkBathrooms" type="number" min="0">
+          </div>
+
+          <div class="item">
+            <label class="label" for="linkLivingRooms">عدد غرف المعيشة</label>
+            <input id="linkLivingRooms" type="number" min="0">
+          </div>
+
+          <div class="item">
+            <label class="label" for="linkFloorNumber">الدور</label>
+            <input id="linkFloorNumber" type="number" min="0" />
+          </div>
 
           <div class="item">
             <label class="label" for="linkPaymentCycle">دورة الدفع</label>
@@ -299,6 +308,7 @@
               <option value="annual">سنوي</option>
             </select>
           </div>
+
           <div class="item">
             <label class="label" for="linkInsurancePaid">التأمين المدفوع</label>
             <input id="linkInsurancePaid" type="text" />
@@ -318,82 +328,83 @@
             <label class="label" for="linkMeterNumber">رقم العداد</label>
             <input id="linkMeterNumber" type="text" />
           </div>
-         
+
           <div class="item">
             <label class="label" for="linkNotes">ملاحظات</label>
             <input id="linkNotes" type="text" />
           </div>
-          <!-- الخدمات والمرافق -->
+
           <div class="form-section">
-  <h4 class="form-section-title">الخدمات والمرافق</h4>
+            <h4 class="form-section-title">الخدمات والمرافق</h4>
 
-  <div class="form-grid">
-    <div class="form-group">
-      <label for="linkElectricityIncluded">الكهرباء</label>
-      <select id="linkElectricityIncluded">
-        <option value="no">لا يشمل</option>
-        <option value="yes">يشمل</option>
-      </select>
-    </div>
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="linkElectricityIncluded">الكهرباء</label>
+                <select id="linkElectricityIncluded">
+                  <option value="no">لا يشمل</option>
+                  <option value="yes">يشمل</option>
+                </select>
+              </div>
 
-    <div class="form-group">
-      <label for="linkWaterIncluded">الماء</label>
-      <select id="linkWaterIncluded">
-        <option value="no">لا يشمل</option>
-        <option value="yes">يشمل</option>
-      </select>
-    </div>
+              <div class="form-group">
+                <label for="linkWaterIncluded">الماء</label>
+                <select id="linkWaterIncluded">
+                  <option value="no">لا يشمل</option>
+                  <option value="yes">يشمل</option>
+                </select>
+              </div>
 
-    <div class="form-group">
-      <label for="linkGasType">الغاز</label>
-      <select id="linkGasType">
-        <option value="none">غير متوفر</option>
-        <option value="central">مركزي</option>
-      </select>
-    </div>
+              <div class="form-group">
+                <label for="linkGasType">الغاز</label>
+                <select id="linkGasType">
+                  <option value="none">غير متوفر</option>
+                  <option value="central">مركزي</option>
+                </select>
+              </div>
 
-    <div class="form-group">
-      <label for="linkAcType">التكييف</label>
-      <select id="linkAcType">
-        <option value="none">غير متوفر</option>
-        <option value="central">مركزي</option>
-      </select>
-    </div>
-  </div>
-            <!-- بيانات الوسيط -->
-<div class="form-section">
-  <h4 class="form-section-title">بيانات الوسيط (اختياري)</h4>
+              <div class="form-group">
+                <label for="linkAcType">التكييف</label>
+                <select id="linkAcType">
+                  <option value="none">غير متوفر</option>
+                  <option value="central">مركزي</option>
+                </select>
+              </div>
+            </div>
 
-  <div class="form-grid">
-    <div class="form-group">
-      <label for="linkBrokerName">اسم الوسيط</label>
-      <input
-        id="linkBrokerName"
-        type="text"
-        placeholder="أدخل اسم الوسيط"
-      />
-    </div>
+            <div class="form-section">
+              <h4 class="form-section-title">بيانات الوسيط (اختياري)</h4>
 
-    <div class="form-group">
-      <label for="linkBrokerCommercialRegister">السجل التجاري</label>
-      <input
-        id="linkBrokerCommercialRegister"
-        type="text"
-        placeholder="أدخل السجل التجاري"
-      />
-    </div>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label for="linkBrokerName">اسم الوسيط</label>
+                  <input
+                    id="linkBrokerName"
+                    type="text"
+                    placeholder="أدخل اسم الوسيط"
+                  />
+                </div>
 
-    <div class="form-group">
-      <label for="linkBrokerPhone">جوال الوسيط</label>
-      <input
-        id="linkBrokerPhone"
-        type="text"
-        placeholder="أدخل رقم الجوال"
-      />
-    </div>
-  </div>
-</div>
-</div>
+                <div class="form-group">
+                  <label for="linkBrokerCommercialRegister">السجل التجاري</label>
+                  <input
+                    id="linkBrokerCommercialRegister"
+                    type="text"
+                    placeholder="أدخل السجل التجاري"
+                  />
+                </div>
+
+                <div class="form-group">
+                  <label for="linkBrokerPhone">جوال الوسيط</label>
+                  <input
+                    id="linkBrokerPhone"
+                    type="text"
+                    placeholder="أدخل رقم الجوال"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="item">
             <label class="label" for="contractFile">ملف عقد الإيجار</label>
             <input id="contractFile" type="file" accept=".docx,.pdf,.txt,.jpg,.png" />
