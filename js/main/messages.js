@@ -69,7 +69,6 @@ document.addEventListener("DOMContentLoaded", () => {
   renderMessages();
   bindEvents();
 
-
   function bindEvents() {
     if (searchInput) searchInput.addEventListener("input", renderMessages);
     if (typeFilter) typeFilter.addEventListener("change", renderMessages);
@@ -100,7 +99,7 @@ document.addEventListener("DOMContentLoaded", () => {
       pageSubtitle.textContent = "استعراض الرسائل والتنبيهات المتعلقة بالعقار أو الشقة";
     }
   }
-    
+
   function renderMessages() {
     let filtered = getMessagesForCurrentRole();
 
@@ -154,6 +153,10 @@ document.addEventListener("DOMContentLoaded", () => {
         ? `<span class="type-badge ${escapeHtml(msg.type || "")}">تنبيه طلب</span>`
         : `<span class="type-badge ${escapeHtml(msg.type || "")}">${getTypeLabel(msg.type)}</span>`;
 
+      const replyAlertBadge = msg.hasReplyAlert
+        ? `<span class="reply-alert-dot" aria-label="يوجد رد جديد"></span>`
+        : "";
+
       card.innerHTML = `
         <div class="message-color-bar"></div>
 
@@ -165,6 +168,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             <div class="message-badges">
               ${sourceBadge}
+              ${replyAlertBadge}
               <span class="status-badge ${escapeHtml(msg.status || "unread")}">
                 ${msg.status === "read" ? "مقروء" : "غير مقروء"}
               </span>
@@ -275,6 +279,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <span class="type-badge ${escapeHtml(message.type || "")}">
               ${message.sourceType === "request" ? "تنبيه طلب" : getTypeLabel(message.type)}
             </span>
+            ${message.hasReplyAlert ? `<span class="reply-alert-dot" aria-label="يوجد رد جديد"></span>` : ""}
             <span class="status-badge ${escapeHtml(message.status || "unread")}">
               ${message.status === "read" ? "مقروء" : "غير مقروء"}
             </span>
@@ -330,22 +335,24 @@ document.addEventListener("DOMContentLoaded", () => {
     const requestNotifications = getRequestNotificationsForCurrentRole();
     return [...normalMessages, ...requestNotifications];
   }
-   function setupSidebarUser() {
-  if (!currentUser) return;
 
-  if (sidebarUserName) {
-    sidebarUserName.textContent =
-      currentUser.fullName ||
-      currentUser.name ||
-      currentUser.username ||
-      "المستخدم";
+  function setupSidebarUser() {
+    if (!currentUser) return;
+
+    if (sidebarUserName) {
+      sidebarUserName.textContent =
+        currentUser.fullName ||
+        currentUser.name ||
+        currentUser.username ||
+        "المستخدم";
+    }
+
+    if (sidebarUserRole) {
+      sidebarUserRole.textContent =
+        activeRole === "landlord" ? "مالك" : "مستأجر";
+    }
   }
 
-  if (sidebarUserRole) {
-    sidebarUserRole.textContent =
-      activeRole === "landlord" ? "مالك" : "مستأجر";
-  }
-}
   function getNormalMessagesForCurrentRole() {
     const currentId = String(getUserIdentifier(currentUser) || "");
     const currentName = String(getUserDisplayName(currentUser) || "");
@@ -392,10 +399,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!requests.length) return [];
 
     const buildings = getLocalArray("walajna_buildings");
+    const users = getLocalArray(STORAGE_KEYS.USERS);
+    const apartments = getLocalArray("walajna_apartments");
 
     const currentNationalId = String(currentUser?.nationalId || "");
-    const tenantName = getUserDisplayName(currentUser) || "المستأجر";
-    const landlordName = "المالك";
 
     let filteredRequests = [];
 
@@ -410,10 +417,43 @@ document.addEventListener("DOMContentLoaded", () => {
 
     return filteredRequests.map(req => {
       const matchedBuilding = buildings.find(
-        b => String(b.name || "").trim() === String(req.buildingName || "").trim()
+        b =>
+          String(b.name || "").trim() === String(req.buildingName || "").trim() ||
+          String(b.id || "").trim() === String(req.buildingId || "").trim()
+      );
+
+      const matchedApartment = apartments.find(
+        a =>
+          String(a.id || "").trim() === String(req.apartmentId || "").trim() ||
+          (
+            String(a.buildingName || "").trim() === String(req.buildingName || "").trim() &&
+            String(a.number || "").trim() === String(req.apartmentNumber || "").trim()
+          )
       );
 
       const resolvedBuildingNumber = matchedBuilding?.id || "-";
+
+      const ownerUser = users.find(
+        u => String(u.id || "") === String(matchedBuilding?.ownerId || "")
+      );
+
+      const tenantUser = users.find(
+        u => String(u.nationalId || "") === String(req.tenantNationalId || "")
+      );
+
+      const landlordName =
+        ownerUser?.fullName ||
+        ownerUser?.name ||
+        ownerUser?.username ||
+        "المالك";
+
+      const tenantDisplayName =
+        req.tenantName ||
+        tenantUser?.fullName ||
+        tenantUser?.name ||
+        tenantUser?.username ||
+        matchedApartment?.tenantInfo?.fullName ||
+        "المستأجر";
 
       const seen = activeRole === "landlord"
         ? !!req.ownerSeen
@@ -430,20 +470,39 @@ document.addEventListener("DOMContentLoaded", () => {
         id: String(req.id),
         sourceType: "request",
         type: req.typeId || "request",
-        subject: activeRole === "landlord"
-           ? `تنبيه طلب: ${req.typeTitle || getTypeLabel(req.typeId || "request")}`
-          : `تم إرسال طلب: ${req.typeTitle || getTypeLabel(req.typeId || "request")}`,
+        subject:
+          activeRole === "landlord"
+            ? `تنبيه طلب: ${req.typeTitle || getTypeLabel(req.typeId || "request")}`
+            : `تم إرسال طلب: ${req.typeTitle || getTypeLabel(req.typeId || "request")}`,
         body: req.message || "",
         buildingName: req.buildingName || "-",
         buildingNumber: resolvedBuildingNumber,
         apartmentNumber: req.apartmentNumber || "-",
         apartmentId: req.apartmentId || "",
-        senderId: activeRole === "landlord" ? String(req.tenantNationalId || "") : "system",
-        senderName: activeRole === "landlord" ? tenantName : landlordName,
-        senderRole: "tenant",
-        receiverId: activeRole === "landlord" ? getUserIdentifier(currentUser) : "system",
-        receiverName: activeRole === "landlord" ? landlordName : tenantName,
-        receiverRole: activeRole === "landlord" ? "landlord" : "tenant",
+
+        senderId:
+          activeRole === "landlord"
+            ? String(req.tenantNationalId || "")
+            : "system",
+
+        senderName:
+          activeRole === "landlord"
+            ? tenantDisplayName
+            : landlordName,
+
+        senderRole:
+          activeRole === "landlord"
+            ? "tenant"
+            : "landlord",
+
+        receiverId:
+          activeRole === "landlord"
+            ? getUserIdentifier(currentUser)
+            : String(matchedBuilding?.ownerId || ""),
+
+        receiverName: landlordName,
+        receiverRole: "landlord",
+
         status: seen ? "read" : "unread",
         createdAt: req.createdAt,
         dateSent: req.createdAt,
@@ -451,7 +510,12 @@ document.addEventListener("DOMContentLoaded", () => {
         repliedAt: req.repliedAt || "",
         resolvedAt: req.resolvedAt || "",
         rawRequestStatus: req.status || "new",
-        requestStatusLabel
+        requestStatusLabel,
+
+        hasReplyAlert:
+          activeRole === "tenant" &&
+          !!req.ownerReply &&
+          !req.tenantSeen
       };
     });
   }
