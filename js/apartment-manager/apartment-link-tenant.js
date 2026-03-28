@@ -37,6 +37,8 @@ function initLinkTenantSystem(aptId, currentUser) {
     errorBox: document.getElementById("linkTenantError"),
 
     brokerName: document.getElementById("linkBrokerName"),
+
+    brokerName: document.getElementById("linkBrokerName"),
     brokerCommercialRegister: document.getElementById("linkBrokerCommercialRegister"),
     brokerPhone: document.getElementById("linkBrokerPhone"),
 
@@ -65,6 +67,7 @@ function initLinkTenantSystem(aptId, currentUser) {
   function setFieldValue(field, value) {
     if (field) field.value = value ?? "";
   }
+
 
   function getCheckboxOrSelectValue(field, defaultValue = "") {
     if (!field) return defaultValue;
@@ -134,6 +137,42 @@ function initLinkTenantSystem(aptId, currentUser) {
 
     return d;
   }
+
+  function toInputDate(date) {
+    const d = new Date(date);
+    if (Number.isNaN(d.getTime())) return "";
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  function generateContractId() {
+    return "CONTRACT_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
+  }
+
+ function calculateAutoEndDate(startDateStr) {
+  if (!startDateStr) return "";
+
+  const startDate = new Date(startDateStr);
+  if (Number.isNaN(startDate.getTime())) return "";
+
+  const endDate = new Date(startDate);
+  endDate.setFullYear(endDate.getFullYear() + 1);
+
+  return toInputDate(endDate);
+}
+function syncEndDateWithStartDate(force = false) {
+  if (!elements.startDate || !elements.endDate) return;
+  if (!elements.startDate.value) return;
+
+  if (!force && currentMode !== "create") return;
+
+  const nextEndDate = calculateAutoEndDate(elements.startDate.value);
+  if (nextEndDate) {
+    elements.endDate.value = nextEndDate;
+  }
+}
 
   function getCycleMonths(paymentCycle) {
     switch (paymentCycle) {
@@ -246,13 +285,8 @@ function initLinkTenantSystem(aptId, currentUser) {
   <meta charset="UTF-8" />
   <title>عقد إيجار - ${escapeHtml(buildingName)} - شقة ${escapeHtml(apartmentNumber)}</title>
   <style>
-    @page {
-      size: A4;
-      margin: 18mm;
-    }
-
+    @page { size: A4; margin: 18mm; }
     * { box-sizing: border-box; }
-
     body {
       margin: 0;
       font-family: Arial, sans-serif;
@@ -261,7 +295,6 @@ function initLinkTenantSystem(aptId, currentUser) {
       color: #0f172a;
       line-height: 1.8;
     }
-
     .page {
       width: 210mm;
       min-height: 297mm;
@@ -271,11 +304,7 @@ function initLinkTenantSystem(aptId, currentUser) {
       box-shadow: 0 10px 30px rgba(15, 23, 42, 0.10);
       page-break-after: always;
     }
-
-    .page:last-child {
-      page-break-after: auto;
-    }
-
+    .page:last-child { page-break-after: auto; }
     .header {
       border: 2px solid #0f766e;
       border-radius: 14px;
@@ -283,7 +312,6 @@ function initLinkTenantSystem(aptId, currentUser) {
       margin-bottom: 18px;
       background: linear-gradient(180deg, #f0fdfa 0%, #ffffff 100%);
     }
-
     .title {
       margin: 0;
       text-align: center;
@@ -291,7 +319,6 @@ function initLinkTenantSystem(aptId, currentUser) {
       font-weight: 800;
       color: #115e59;
     }
-
     .subtitle {
       text-align: center;
       margin-top: 6px;
@@ -299,14 +326,12 @@ function initLinkTenantSystem(aptId, currentUser) {
       color: #475569;
       font-weight: 700;
     }
-
     .section {
       border: 1px solid #dbe4ee;
       border-radius: 14px;
       margin-bottom: 16px;
       overflow: hidden;
     }
-
     .section-title {
       background: #f8fafc;
       padding: 10px 14px;
@@ -315,42 +340,31 @@ function initLinkTenantSystem(aptId, currentUser) {
       color: #0f172a;
       border-bottom: 1px solid #e2e8f0;
     }
-
-    .section-body {
-      padding: 14px;
-    }
-
+    .section-body { padding: 14px; }
     .grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px 14px;
     }
-
     .field {
       border: 1px dashed #d6dde7;
       border-radius: 10px;
       padding: 8px 10px;
       min-height: 58px;
     }
-
     .label {
       font-size: 12px;
       color: #64748b;
       margin-bottom: 4px;
       font-weight: 700;
     }
-
     .value {
       font-size: 14px;
       color: #0f172a;
       font-weight: 800;
       word-break: break-word;
     }
-
-    .full {
-      grid-column: 1 / -1;
-    }
-
+    .full { grid-column: 1 / -1; }
     .summary-box {
       background: #f8fafc;
       border: 1px solid #e2e8f0;
@@ -360,54 +374,40 @@ function initLinkTenantSystem(aptId, currentUser) {
       font-size: 14px;
       font-weight: 700;
     }
-
     table {
       width: 100%;
       border-collapse: collapse;
       margin-top: 8px;
       font-size: 13px;
     }
-
     th, td {
       border: 1px solid #dbe4ee;
       padding: 8px 10px;
       text-align: center;
     }
-
-    th {
-      background: #f8fafc;
-      font-weight: 800;
-    }
-
+    th { background: #f8fafc; font-weight: 800; }
     .terms {
       padding-right: 20px;
       margin: 0;
     }
-
-    .terms li {
-      margin-bottom: 10px;
-    }
-
+    .terms li { margin-bottom: 10px; }
     .signatures {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 14px;
       margin-top: 22px;
     }
-
     .sign-box {
       border: 1px solid #dbe4ee;
       border-radius: 12px;
       min-height: 120px;
       padding: 14px;
     }
-
     .sign-title {
       font-size: 15px;
       font-weight: 800;
       margin-bottom: 10px;
     }
-
     .footer-note {
       text-align: center;
       color: #64748b;
@@ -415,12 +415,8 @@ function initLinkTenantSystem(aptId, currentUser) {
       margin-top: 18px;
       font-weight: 700;
     }
-
     @media print {
-      body {
-        background: #fff;
-      }
-
+      body { background: #fff; }
       .page {
         margin: 0;
         box-shadow: none;
@@ -431,7 +427,6 @@ function initLinkTenantSystem(aptId, currentUser) {
   </style>
 </head>
 <body>
-
   <section class="page">
     <div class="header">
       <h1 class="title">عقد إيجار وحدة سكنية</h1>
@@ -442,45 +437,14 @@ function initLinkTenantSystem(aptId, currentUser) {
       <div class="section-title">أطراف العقد</div>
       <div class="section-body">
         <div class="grid">
-          <div class="field">
-            <div class="label">اسم المؤجر</div>
-            <div class="value">${escapeHtml(owner.fullName)}</div>
-          </div>
-
-          <div class="field">
-            <div class="label">هوية المؤجر</div>
-            <div class="value">${escapeHtml(owner.nationalId)}</div>
-          </div>
-
-          <div class="field">
-            <div class="label">جوال المؤجر</div>
-            <div class="value">${escapeHtml(owner.phoneNumber)}</div>
-          </div>
-
-          <div class="field">
-            <div class="label">اسم المستأجر</div>
-            <div class="value">${escapeHtml(data.fullName)}</div>
-          </div>
-
-          <div class="field">
-            <div class="label">هوية / إقامة المستأجر</div>
-            <div class="value">${escapeHtml(data.nationalId)}</div>
-          </div>
-
-          <div class="field">
-            <div class="label">جوال المستأجر</div>
-            <div class="value">${escapeHtml(data.phone)}</div>
-          </div>
-
-          <div class="field">
-            <div class="label">جنسية المستأجر</div>
-            <div class="value">${escapeHtml(data.nationality || "—")}</div>
-          </div>
-
-          <div class="field">
-            <div class="label">نوع السكن</div>
-            <div class="value">${escapeHtml(data.tenantType || "—")}</div>
-          </div>
+          <div class="field"><div class="label">اسم المؤجر</div><div class="value">${escapeHtml(owner.fullName)}</div></div>
+          <div class="field"><div class="label">هوية المؤجر</div><div class="value">${escapeHtml(owner.nationalId)}</div></div>
+          <div class="field"><div class="label">جوال المؤجر</div><div class="value">${escapeHtml(owner.phoneNumber)}</div></div>
+          <div class="field"><div class="label">اسم المستأجر</div><div class="value">${escapeHtml(data.fullName)}</div></div>
+          <div class="field"><div class="label">هوية / إقامة المستأجر</div><div class="value">${escapeHtml(data.nationalId)}</div></div>
+          <div class="field"><div class="label">جوال المستأجر</div><div class="value">${escapeHtml(data.phone)}</div></div>
+          <div class="field"><div class="label">جنسية المستأجر</div><div class="value">${escapeHtml(data.nationality || "—")}</div></div>
+          <div class="field"><div class="label">نوع السكن</div><div class="value">${escapeHtml(data.tenantType || "—")}</div></div>
         </div>
       </div>
     </div>
@@ -489,25 +453,10 @@ function initLinkTenantSystem(aptId, currentUser) {
       <div class="section-title">بيانات الوسيط</div>
       <div class="section-body">
         <div class="grid">
-          <div class="field">
-            <div class="label">اسم الوسيط</div>
-            <div class="value">${escapeHtml(brokerInfo.name)}</div>
-          </div>
-
-          <div class="field">
-            <div class="label">السجل التجاري</div>
-            <div class="value">${escapeHtml(brokerInfo.commercialRegister)}</div>
-          </div>
-
-          <div class="field">
-            <div class="label">جوال الوسيط</div>
-            <div class="value">${escapeHtml(brokerInfo.phone)}</div>
-          </div>
-
-          <div class="field">
-            <div class="label">ملاحظات الوسيط</div>
-            <div class="value">${brokerInfo.name === "—" ? "—" : "تم إدراج بيانات الوسيط في هذا العقد"}</div>
-          </div>
+          <div class="field"><div class="label">اسم الوسيط</div><div class="value">${escapeHtml(brokerInfo.name)}</div></div>
+          <div class="field"><div class="label">السجل التجاري</div><div class="value">${escapeHtml(brokerInfo.commercialRegister)}</div></div>
+          <div class="field"><div class="label">جوال الوسيط</div><div class="value">${escapeHtml(brokerInfo.phone)}</div></div>
+          <div class="field"><div class="label">ملاحظات الوسيط</div><div class="value">${brokerInfo.name === "—" ? "—" : "تم إدراج بيانات الوسيط في هذا العقد"}</div></div>
         </div>
       </div>
     </div>
@@ -516,45 +465,14 @@ function initLinkTenantSystem(aptId, currentUser) {
       <div class="section-title">بيانات العقار والوحدة</div>
       <div class="section-body">
         <div class="grid">
-          <div class="field">
-            <div class="label">اسم العمارة</div>
-            <div class="value">${escapeHtml(buildingName)}</div>
-          </div>
-
-          <div class="field">
-            <div class="label">رقم الشقة</div>
-            <div class="value">${escapeHtml(apartmentNumber)}</div>
-          </div>
-
-          <div class="field">
-            <div class="label">الدور</div>
-            <div class="value">${escapeHtml(data.floorNumber || apartment?.floorNumber || "—")}</div>
-          </div>
-
-          <div class="field">
-            <div class="label">عدد غرف النوم</div>
-            <div class="value">${escapeHtml(apartmentBedrooms)}</div>
-          </div>
-
-          <div class="field">
-            <div class="label">عدد الحمامات</div>
-            <div class="value">${escapeHtml(apartmentBathrooms)}</div>
-          </div>
-
-          <div class="field">
-            <div class="label">عدد غرف المعيشة</div>
-            <div class="value">${escapeHtml(apartmentLivingRooms)}</div>
-          </div>
-
-          <div class="field">
-            <div class="label">رقم العداد</div>
-            <div class="value">${escapeHtml(data.meterNumber || "—")}</div>
-          </div>
-
-          <div class="field">
-            <div class="label">فترة العقد</div>
-            <div class="value">${formatDateAr(data.startDate)} — ${formatDateAr(data.endDate)}</div>
-          </div>
+          <div class="field"><div class="label">اسم العمارة</div><div class="value">${escapeHtml(buildingName)}</div></div>
+          <div class="field"><div class="label">رقم الشقة</div><div class="value">${escapeHtml(apartmentNumber)}</div></div>
+          <div class="field"><div class="label">الدور</div><div class="value">${escapeHtml(data.floorNumber || apartment?.floorNumber || "—")}</div></div>
+          <div class="field"><div class="label">عدد الغرف</div><div class="value">${escapeHtml(data.roomsCount || apartment?.roomsCount || "—")}</div></div>
+          <div class="field"><div class="label">عدد الحمامات</div><div class="value">${escapeHtml(data.bathroomsCount || apartment?.bathroomsCount || "—")}</div></div>
+          <div class="field"><div class="label">عدد الصالات</div><div class="value">${escapeHtml(data.livingRoomsCount || apartment?.livingRoomsCount || "—")}</div></div>
+          <div class="field"><div class="label">رقم العداد</div><div class="value">${escapeHtml(data.meterNumber || "—")}</div></div>
+          <div class="field"><div class="label">فترة العقد</div><div class="value">${formatDateAr(data.startDate)} — ${formatDateAr(data.endDate)}</div></div>
         </div>
       </div>
     </div>
@@ -563,46 +481,14 @@ function initLinkTenantSystem(aptId, currentUser) {
       <div class="section-title">البيانات المالية والخدمات</div>
       <div class="section-body">
         <div class="grid">
-          <div class="field">
-            <div class="label">قيمة الإيجار</div>
-            <div class="value">${formatCurrency(data.rent)}</div>
-          </div>
-
-          <div class="field">
-            <div class="label">مبلغ التأمين</div>
-            <div class="value">${formatCurrency(data.insurancePaid)}</div>
-          </div>
-
-          <div class="field">
-            <div class="label">دورة السداد</div>
-            <div class="value">${escapeHtml(getArabicPaymentCycleLabel(data.paymentCycle))}</div>
-          </div>
-
-          <div class="field">
-            <div class="label">عدد الدفعات</div>
-            <div class="value">${escapeHtml(data.installmentsCount)}</div>
-          </div>
-
-          <div class="field">
-            <div class="label">الكهرباء</div>
-            <div class="value">${escapeHtml(services.electricity)}</div>
-          </div>
-
-          <div class="field">
-            <div class="label">الماء</div>
-            <div class="value">${escapeHtml(services.water)}</div>
-          </div>
-
-          <div class="field">
-            <div class="label">الغاز</div>
-            <div class="value">${escapeHtml(services.gas)}</div>
-          </div>
-
-          <div class="field">
-            <div class="label">التكييف</div>
-            <div class="value">${escapeHtml(services.ac)}</div>
-          </div>
-
+          <div class="field"><div class="label">قيمة الإيجار</div><div class="value">${formatCurrency(data.rent)}</div></div>
+          <div class="field"><div class="label">مبلغ التأمين</div><div class="value">${formatCurrency(data.insurancePaid)}</div></div>
+          <div class="field"><div class="label">دورة السداد</div><div class="value">${escapeHtml(getArabicPaymentCycleLabel(data.paymentCycle))}</div></div>
+          <div class="field"><div class="label">عدد الدفعات</div><div class="value">${escapeHtml(data.installmentsCount)}</div></div>
+          <div class="field"><div class="label">الكهرباء</div><div class="value">${escapeHtml(services.electricity)}</div></div>
+          <div class="field"><div class="label">الماء</div><div class="value">${escapeHtml(services.water)}</div></div>
+          <div class="field"><div class="label">الغاز</div><div class="value">${escapeHtml(services.gas)}</div></div>
+          <div class="field"><div class="label">التكييف</div><div class="value">${escapeHtml(services.ac)}</div></div>
           <div class="field full">
             <div class="label">وصف الخدمات</div>
             <div class="value">
@@ -610,11 +496,7 @@ function initLinkTenantSystem(aptId, currentUser) {
               والغاز ${escapeHtml(services.gas)}، والتكييف ${escapeHtml(services.ac)}.
             </div>
           </div>
-
-          <div class="field full">
-            <div class="label">ملاحظات إضافية</div>
-            <div class="value">${escapeHtml(data.notes || "—")}</div>
-          </div>
+          <div class="field full"><div class="label">ملاحظات إضافية</div><div class="value">${escapeHtml(data.notes || "—")}</div></div>
         </div>
       </div>
     </div>
@@ -689,7 +571,6 @@ function initLinkTenantSystem(aptId, currentUser) {
       </div>
     </div>
   </section>
-
 </body>
 </html>
     `;
@@ -707,11 +588,13 @@ function initLinkTenantSystem(aptId, currentUser) {
       apartment.id,
       fileName,
       {
+        contractId: apartment.currentContractId || apartment.contract?.id || null,
         docType: "auto_lease_contract",
         generatedAutomatically: true,
       }
     );
   }
+
 
   function getCurrentApartment() {
     const apartments = typeof getApartments === "function" ? getApartments() : [];
@@ -807,15 +690,15 @@ function resetForm() {
   setFieldValue(elements.bathrooms, apartment?.bathrooms ?? "");
   setFieldValue(elements.livingRooms, apartment?.livingRooms ?? "");
 
-  clearField(elements.insurancePaid);
-  clearField(elements.startDate);
-  clearField(elements.endDate);
-  clearField(elements.meterNumber);
-  clearField(elements.notes);
-  clearField(elements.contractFile);
-  clearField(elements.brokerName);
-  clearField(elements.brokerCommercialRegister);
-  clearField(elements.brokerPhone);
+    clearField(elements.insurancePaid);
+    clearField(elements.startDate);
+    clearField(elements.endDate);
+    clearField(elements.meterNumber);
+    clearField(elements.notes);
+    clearField(elements.contractFile);
+    clearField(elements.brokerName);
+    clearField(elements.brokerCommercialRegister);
+    clearField(elements.brokerPhone);
 
   if (elements.electricityIncluded) {
     elements.electricityIncluded.value = "no";
@@ -859,17 +742,17 @@ function resetForm() {
   setFieldValue(elements.bathrooms, apartmentData.bathrooms ?? "");
   setFieldValue(elements.livingRooms, apartmentData.livingRooms ?? "");
 
-  setFieldValue(elements.insurancePaid, contract.insurancePaid);
-  setFieldValue(elements.startDate, contract.startDate);
-  setFieldValue(elements.endDate, contract.endDate);
-  setFieldValue(elements.meterNumber, contract.meterNumber);
-  setFieldValue(elements.notes, contract.notes);
-  setFieldValue(elements.brokerName, contract.brokerInfo?.name);
-  setFieldValue(
-    elements.brokerCommercialRegister,
-    contract.brokerInfo?.commercialRegister
-  );
-  setFieldValue(elements.brokerPhone, contract.brokerInfo?.phone);
+    setFieldValue(elements.insurancePaid, contract.insurancePaid);
+    setFieldValue(elements.startDate, contract.startDate);
+    setFieldValue(elements.endDate, contract.endDate);
+    setFieldValue(elements.meterNumber, contract.meterNumber);
+    setFieldValue(elements.notes, contract.notes);
+    setFieldValue(elements.brokerName, contract.brokerInfo?.name);
+    setFieldValue(
+      elements.brokerCommercialRegister,
+      contract.brokerInfo?.commercialRegister
+    );
+    setFieldValue(elements.brokerPhone, contract.brokerInfo?.phone);
 
   setFieldValue(
     elements.electricityIncluded,
@@ -893,6 +776,10 @@ function resetForm() {
       fillFormFromApartment(apartmentData);
     } else {
       setModalMode("create");
+    }
+
+    if (currentMode === "create") {
+      syncEndDateWithStartDate(true);
     }
 
     elements.modal.classList.add("is-open");
@@ -929,6 +816,8 @@ function resetForm() {
       rent: getFieldValue(elements.rent),
 
       brokerName: getFieldValue(elements.brokerName),
+
+      brokerName: getFieldValue(elements.brokerName),
       brokerCommercialRegister: getFieldValue(elements.brokerCommercialRegister),
       brokerPhone: getFieldValue(elements.brokerPhone),
 
@@ -939,6 +828,7 @@ function resetForm() {
       gasType: getCheckboxOrSelectValue(elements.gasType, "none"),
       acType: getCheckboxOrSelectValue(elements.acType, "none"),
 
+
       paymentCycle,
       installmentsCount:
         rawInstallmentsCount > 0
@@ -946,6 +836,7 @@ function resetForm() {
           : Number(
               apartmentDefaults.installmentsCount ||
               getDefaultInstallmentsCount(paymentCycle)
+            
             ),
 
       floorNumber: getFieldValue(elements.floorNumber),
@@ -1025,27 +916,44 @@ function resetForm() {
   }
 
   function buildUpdatedApartment(apartment, tenantUserId, data) {
+    existingContractId =
+  apartment?.currentContractId ||
+  apartment?.contract?.id;
+  apartment?.contractId ||
+  
+      null;
+
+    const finalContractId =
+      currentMode === "edit"
+        ? (existingContractId || generateContractId())
+        : generateContractId();
+
     const updatedApartment = {
-      ...apartment,
-      ownerId: currentUser?.id || null,
-      rent: data.rent ? Number(data.rent) : "",
+  ...apartment,
+  ownerId: currentUser?.id || null,
+  rent: data.rent ? Number(data.rent) : "",
 
-      floorNumber: data.floorNumber ? Number(data.floorNumber) : null,
-      bedrooms: data.bedrooms ? Number(data.bedrooms) : null,
-      bathrooms: data.bathrooms ? Number(data.bathrooms) : null,
-      livingRooms: data.livingRooms ? Number(data.livingRooms) : null,
+  floorNumber: data.floorNumber ? Number(data.floorNumber) : null,
+  bedrooms: data.bedrooms ? Number(data.bedrooms) : null,
+  bathrooms: data.bathrooms ? Number(data.bathrooms) : null,
+  livingRooms: data.livingRooms ? Number(data.livingRooms) : null,
 
-      tenantUserId: tenantUserId,
-      tenantNationalId: data.nationalId,
+  tenantUserId: tenantUserId,
+  tenantNationalId: data.nationalId,
 
-      tenantInfo: {
-        fullName: data.fullName,
-        phoneNumber: data.phone,
-        nationality: data.nationality,
-        tenantType: data.tenantType,
-      },
 
-      contract: {
+  currentContractId: finalContractId,
+  contractId: finalContractId, 
+
+  tenantInfo: {
+    fullName: data.fullName,
+    phoneNumber: data.phone,
+    nationality: data.nationality,
+    tenantType: data.tenantType,
+  },
+
+  contract: {
+    id: finalContractId,
         startDate: data.startDate,
         endDate: data.endDate,
         rentAmount: Number(data.rent),
@@ -1054,6 +962,7 @@ function resetForm() {
         insurancePaid: data.insurancePaid,
         meterNumber: data.meterNumber,
         notes: data.notes,
+
         brokerInfo: {
           name: data.brokerName || "",
           commercialRegister: data.brokerCommercialRegister || "",
@@ -1072,6 +981,7 @@ function resetForm() {
     return normalizeApartmentLeaseStatus(updatedApartment);
   }
 
+  
   function saveTenantLink(data) {
     const tenantUser = ensureTenantRoleByNationalId(data.nationalId);
     const tenantUserId = tenantUser ? tenantUser.id : null;
@@ -1098,7 +1008,10 @@ function resetForm() {
       elements.contractFile.files.length > 0
     ) {
       const file = elements.contractFile.files[0];
-      saveDocumentForApartment(file, aptId);
+      saveDocumentForApartment(file, aptId, {
+        contractId: savedApartment?.currentContractId || savedApartment?.contract?.id || null,
+        docType: "uploaded_lease_contract",
+      });
     }
   }
 
@@ -1202,6 +1115,12 @@ function resetForm() {
         syncInstallmentsCountWithPaymentCycle();
       });
     }
+
+    if (elements.startDate) {
+      elements.startDate.addEventListener("change", function () {
+        syncEndDateWithStartDate();
+      });
+    }
   }
 
   bindModalEvents();
@@ -1216,3 +1135,7 @@ function resetForm() {
     closeLinkTenantModalFn: closeModal,
   };
 }
+
+
+
+  

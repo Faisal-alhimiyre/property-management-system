@@ -166,7 +166,7 @@ document.addEventListener("DOMContentLoaded", () => {
       buildingId: buildingCode,
       buildingName: buildingName,
       number: aptNumber,
-      floorNumber,
+      floorNumber: Number(floorNumber) || 1,
 
       leaseStatus: "vacant",
       status: "فارغة",
@@ -191,33 +191,41 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   }
 
-  function generateApartmentsForBuilding(
-    buildingCode,
-    buildingName,
-    apartmentCount,
-    apartmentsPerFloor,
-    paymentDefaults = {},
-    apartmentDefaults = {}
-  ) {
-    const generatedApartments = [];
+ function generateApartmentsForBuilding(
+  buildingCode,
+  buildingName,
+  apartmentCount,
+  totalFloors,
+  apartmentsPerFloor,
+  paymentDefaults = {},
+  apartmentDefaults = {}
+) {
+  const generatedApartments = [];
+  let currentApartment = 1;
 
-    for (let i = 1; i <= apartmentCount; i++) {
-      const floorNumber = Math.floor((i - 1) / apartmentsPerFloor) + 1;
+  for (let floor = 1; floor <= totalFloors; floor++) {
+    for (let unit = 1; unit <= apartmentsPerFloor; unit++) {
+      if (currentApartment > apartmentCount) break;
 
       generatedApartments.push(
         buildApartmentRecord(
           buildingCode,
           buildingName,
-          i,
-          floorNumber,
+          currentApartment,
+          floor,
           paymentDefaults,
           apartmentDefaults
         )
       );
+
+      currentApartment++;
     }
 
-    return generatedApartments;
+    if (currentApartment > apartmentCount) break;
   }
+
+  return generatedApartments;
+}
 
   populateCities();
 
@@ -313,13 +321,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const expectedApartments = totalFloors * apartmentsPerFloor;
 
-    if (apartmentCount !== expectedApartments) {
-      showError(
-        `توزيع الشقق غير صحيح. 
-عدد الشقق يجب أن يكون ${expectedApartments} بناءً على الأدوار والشقق في كل دور`
-      );
-      return;
-    }
+ if (apartmentCount > totalFloors * apartmentsPerFloor) {
+  showError("عدد الشقق أكبر من السعة الممكنة");
+  return;
+}
 
     if (!defaultPaymentCycle) {
       showError("يرجى اختيار دورة الدفع الافتراضية");
@@ -400,15 +405,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
       showSuccess("تم تحديث العمارة بنجاح");
     } else {
-      const newApartments = generateApartmentsForBuilding(
-        buildingCode,
-        buildingName,
-        apartmentCount,
-        apartmentsPerFloor,
-        paymentDefaults,
-        apartmentDefaults
-      );
-
+  const newApartments = generateApartmentsForBuilding(
+  buildingCode,
+  buildingName,
+  apartmentCount,
+  totalFloors,
+  apartmentsPerFloor,
+  paymentDefaults,
+  apartmentDefaults
+);
       buildings.push(buildingPayload);
       apartments.push(...newApartments);
 

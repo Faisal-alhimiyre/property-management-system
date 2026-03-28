@@ -27,52 +27,60 @@
       aria-live="polite"
     ></section>
 
-    <section id="buildingsContainer" class="buildings-container">
-      <!-- buildings injected by JS -->
-    </section>
+    <div class="dashboard-content">
+      <aside class="legend-sidebar">
+        <section class="legend-card">
+          <h3 class="legend-title">معاني الألوان</h3>
 
-    <p id="emptyState" class="empty-state" style="display:none;">
-      لا توجد عمائر مضافة حتى الآن
-    </p>
+          <div class="legend-list">
+            <div class="legend-item">
+              <span>شقة فارغة</span>
+              <span class="legend-color none"></span>
+            </div>
 
-    <section class="legend">
-      <div class="legend">
-        <div class="legend-item">
-          <span class="legend-color none"></span>
-          <span>شقة فارغة</span>
-        </div>
+            <div class="legend-item">
+              <span>شقة مؤجرة</span>
+              <span class="legend-color rented"></span>
+            </div>
 
-        <div class="legend-item">
-          <span class="legend-color rented"></span>
-          <span>شقة مؤجرة</span>
-        </div>
+            <div class="legend-item">
+              <span>تأخر إيجار</span>
+              <span class="legend-color rent-overdue"></span>
+            </div>
 
-        <div class="legend-item">
-          <span class="legend-color rent-overdue"></span>
-          <span>تأخر إيجار</span>
-        </div>
+            <div class="legend-item">
+              <span>صيانة</span>
+              <span class="legend-color maintenance"></span>
+            </div>
 
-        <div class="legend-item">
-          <span class="legend-color maintenance"></span>
-          <span>صيانة</span>
-        </div>
+            <div class="legend-item">
+              <span>شكوى</span>
+              <span class="legend-color complaint"></span>
+            </div>
 
-        <div class="legend-item">
-          <span class="legend-color complaint"></span>
-          <span>شكوى</span>
-        </div>
+            <div class="legend-item">
+              <span>اقتراح</span>
+              <span class="legend-color suggestion"></span>
+            </div>
 
-        <div class="legend-item">
-          <span class="legend-color suggestion"></span>
-          <span>اقتراح</span>
-        </div>
+            <div class="legend-item">
+              <span>طلب</span>
+              <span class="legend-color request"></span>
+            </div>
+          </div>
+        </section>
+      </aside>
 
-        <div class="legend-item">
-          <span class="legend-color request"></span>
-          <span>طلب</span>
-        </div>
+      <div class="content-main">
+        <section id="buildingsContainer" class="buildings-container">
+          <!-- buildings injected by JS -->
+        </section>
+
+        <p id="emptyState" class="empty-state" style="display:none;">
+          لا توجد عمائر مضافة حتى الآن
+        </p>
       </div>
-    </section>
+    </div>
   </main>
 
   <script src="../js/main/nav.js"></script>

@@ -69,17 +69,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
-  data = normalizeApartmentLeaseStatus(data);
-  saveUpdatedApartment(data);
-
   const buildingData = buildings.find((b) => b.id === data.buildingId) || null;
-  const contract = data.contract || {};
-
-  let remainingDays = null;
-  if (contract.endDate) {
-    const todayStr = new Date().toISOString().slice(0, 10);
-    remainingDays = daysBetween(todayStr, contract.endDate);
-  }
 
   /* =========================
      4) HELPERS
@@ -105,7 +95,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     return labels[cycle] || "شهري";
   }
-
+   function getCurrentContractId() {
+  return (
+    data.currentContractId ||
+    data.contract?.id ||
+    data.contractId ||
+    null
+  );
+}
   function getCycleMonthsCount(cycle) {
     const monthsMap = {
       monthly: 1,
@@ -115,6 +112,74 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     return monthsMap[cycle] || 1;
+  }
+
+  function hasTenantData(apartmentData) {
+    return !!(
+      apartmentData?.tenantUserId ||
+      apartmentData?.tenantNationalId ||
+      apartmentData?.tenantInfo?.fullName ||
+      apartmentData?.tenantInfo?.phoneNumber ||
+      apartmentData?.tenantInfo?.nationality ||
+      apartmentData?.tenantInfo?.tenantType
+    );
+  }
+
+  function hasContractData(apartmentData) {
+    return !!(
+      apartmentData?.contract?.startDate ||
+      apartmentData?.contract?.endDate ||
+      apartmentData?.contract?.rentAmount ||
+      apartmentData?.contract?.paymentCycle ||
+      apartmentData?.contract?.meterNumber ||
+      apartmentData?.contract?.notes
+    );
+  }
+
+  function isApartmentOccupied(apartmentData) {
+    return hasTenantData(apartmentData) || hasContractData(apartmentData);
+  }
+
+  function getEffectiveLeaseStatus(apartmentData) {
+    return isApartmentOccupied(apartmentData) ? "active" : "vacant";
+  }
+
+  function buildNormalizedApartment(apartmentData) {
+    const occupied = isApartmentOccupied(apartmentData);
+    const updated = { ...apartmentData };
+
+    if (!occupied) {
+      updated.leaseStatus = "vacant";
+      updated.status = "فارغة";
+      return updated;
+    }
+
+    const normalized =
+      typeof normalizeApartmentLeaseStatus === "function"
+        ? normalizeApartmentLeaseStatus(updated)
+        : updated;
+
+    if (!normalized.leaseStatus || normalized.leaseStatus === "vacant") {
+      normalized.leaseStatus = "active";
+    }
+
+    if (!normalized.status || normalized.status === "فارغة") {
+      normalized.status = "نشط";
+    }
+
+    return normalized;
+  }
+
+  data = buildNormalizedApartment(data);
+  saveUpdatedApartment(data);
+
+  const contract = data.contract || {};
+  const effectiveLeaseStatus = getEffectiveLeaseStatus(data);
+
+  let remainingDays = null;
+  if (contract.endDate) {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    remainingDays = daysBetween(todayStr, contract.endDate);
   }
 
   function getMonthlyRent(contractData) {
@@ -175,20 +240,24 @@ document.addEventListener("DOMContentLoaded", () => {
       `${formatMoney(annualRent)} سنويًا • ${formatMoney(installmentAmount)} لكل دفعة (${cycleLabel})`;
   }
 
-  function getPaymentsForApartment(apartmentId) {
-    try {
-      const payments = JSON.parse(localStorage.getItem("walajna_payments") || "[]");
-      return Array.isArray(payments)
-        ? payments.filter((payment) => payment.apartmentId === apartmentId)
-        : [];
-    } catch (error) {
-      console.error("خطأ أثناء قراءة المدفوعات:", error);
-      return [];
-    }
+ function getPaymentsForApartment() {
+  try {
+    const contractId = getCurrentContractId();
+    if (!contractId) return [];
+
+    const payments = JSON.parse(localStorage.getItem("walajna_payments") || "[]");
+
+    return Array.isArray(payments)
+      ? payments.filter((payment) => payment.contractId === contractId)
+      : [];
+  } catch (error) {
+    console.error("خطأ أثناء قراءة المدفوعات:", error);
+    return [];
   }
+}
 
   function getNextDuePayment(apartmentId) {
-    const payments = getPaymentsForApartment(apartmentId);
+    const payments = getPaymentsForApartment();
 
     if (!payments.length) return null;
 
@@ -207,7 +276,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       return {
         ...payment,
-        status: normalizedStatus
+        status: normalizedStatus,
       };
     });
 
@@ -217,12 +286,75 @@ document.addEventListener("DOMContentLoaded", () => {
 
     return unpaidPayments[0] || null;
   }
+  function canEvictApartment(apartment) {
+  if (!apartment) {
+    return {
+      allowed: false,
+      message: "لم يتم العثور على بيانات الشقة",
+    };
+  }
 
+  const currentContractId =
+    apartment.currentContractId ||
+    apartment.contract?.id ||
+    apartment.contractId ||
+    null;
+
+  if (!currentContractId) {
+    return {
+      allowed: false,
+      message: "لا يمكن إخلاء شقة لا تحتوي على عقد حالي",
+    };
+  }
+
+  const contractStartValue = apartment.contract?.startDate || null;
+
+  if (!contractStartValue) {
+    return {
+      allowed: true,
+      message: "",
+    };
+  }
+
+  const contractStartDate = new Date(contractStartValue);
+  if (Number.isNaN(contractStartDate.getTime())) {
+    return {
+      allowed: true,
+      message: "",
+    };
+  }
+
+  contractStartDate.setHours(0, 0, 0, 0);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const diffMs = today.getTime() - contractStartDate.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 30) {
+    return {
+      allowed: false,
+      message: "لا يمكن إخلاء المستأجر قبل مرور 30 يومًا من بداية العقد",
+    };
+  }
+
+  return {
+    allowed: true,
+    message: "",
+  };
+}
   function updateNextPaymentInfo(apartmentId) {
     const dateEl = document.getElementById("nextPaymentDate");
     const amountEl = document.getElementById("nextPaymentAmount");
 
     if (!dateEl || !amountEl) return;
+
+    if (effectiveLeaseStatus === "vacant") {
+      dateEl.textContent = "";
+      amountEl.textContent = "لا يوجد دفعات";
+      return;
+    }
 
     const nextPayment = getNextDuePayment(apartmentId);
 
@@ -411,8 +543,82 @@ document.addEventListener("DOMContentLoaded", () => {
       contract: { ...(apartmentData.contract || {}) },
 
       archivedAt: new Date().toISOString(),
-      archiveReason: "vacated"
+      archiveReason: "vacated",
     };
+  }
+
+  function hideActionButtons() {
+    hideElement(mainActionBtn);
+    hideElement(paymentsBtn);
+    hideElement(documentsBtn);
+    hideElement(viewRequestsBtn);
+    hideElement(renewContractBtn);
+    hideElement(evictTenantBtn);
+    hideElement(tenantPayBtn);
+    hideElement(viewCostsBtn);
+  }
+
+  function applyTenantPayStyle() {
+    if (!tenantPayBtn) return;
+
+    tenantPayBtn.style.background = "#111827";
+    tenantPayBtn.style.color = "#fff";
+    tenantPayBtn.style.border = "none";
+  }
+
+  function applyActionVisibility() {
+    hideActionButtons();
+
+    if (activeRole === "owner") {
+      if (effectiveLeaseStatus === "vacant") {
+        if (mainActionBtn) {
+          mainActionBtn.textContent = "ربط مستأجر";
+          showElement(mainActionBtn);
+        }
+        return;
+      }
+
+      if (mainActionBtn) {
+        mainActionBtn.textContent = "تعديل بيانات الشقة";
+        showElement(mainActionBtn);
+      }
+
+      showElement(paymentsBtn);
+      showElement(documentsBtn);
+      showElement(viewRequestsBtn);
+      showElement(evictTenantBtn);
+      showElement(viewCostsBtn);
+
+      if (renewContractBtn) {
+        showElement(renewContractBtn);
+        renewContractBtn.disabled = !(
+          remainingDays !== null &&
+          remainingDays <= 30 &&
+          remainingDays >= 0
+        );
+      }
+
+      hideElement(tenantPayBtn);
+      return;
+    }
+
+    if (effectiveLeaseStatus === "vacant") {
+      return;
+    }
+
+    if (mainActionBtn) {
+      mainActionBtn.textContent = "طلب صيانة";
+      showElement(mainActionBtn);
+    }
+
+    showElement(paymentsBtn);
+    showElement(documentsBtn);
+    showElement(viewRequestsBtn);
+
+    if (tenantPayBtn) {
+      showElement(tenantPayBtn);
+      applyTenantPayStyle();
+    }
   }
 
   /* =========================
@@ -427,6 +633,10 @@ document.addEventListener("DOMContentLoaded", () => {
   fillOwnerInfoForTenantOnly();
   updateNextPaymentInfo(aptId);
 
+  if (status) {
+    status.textContent = effectiveLeaseStatus === "vacant" ? "فارغة" : (data.status || "نشط");
+  }
+
   if (roleLabel) {
     roleLabel.textContent = activeRole === "owner" ? "عرض المالك" : "عرض المستأجر";
   }
@@ -435,96 +645,35 @@ document.addEventListener("DOMContentLoaded", () => {
      6) INIT FEATURES
      ========================= */
   initDocumentsSystem(aptId);
-  initRequestsSystem(aptId, activeRole, currentUser, data.leaseStatus);
+  initRequestsSystem(aptId, activeRole, currentUser, effectiveLeaseStatus);
   const linkTenantSystem = initLinkTenantSystem(aptId, currentUser);
-
-  /* =========================
-     OPEN EDIT / LINK MODAL
-     ========================= */
-  if (mainActionBtn) {
-    mainActionBtn.addEventListener("click", () => {
-      if (activeRole !== "owner") return;
-
-      if (data.leaseStatus === "vacant") {
-        linkTenantSystem.openLinkTenantModal();
-      } else {
-        linkTenantSystem.openEditTenantModal();
-      }
-    });
-  }
 
   /* =========================
      7) BUTTONS BY ROLE + STATE
      ========================= */
-  if (activeRole === "owner") {
-    if (data.leaseStatus === "vacant") {
-      if (mainActionBtn) mainActionBtn.textContent = "ربط مستأجر";
-
-      showElement(mainActionBtn);
-      hideElement(renewContractBtn);
-      hideElement(evictTenantBtn);
-      hideElement(viewRequestsBtn);
-      hideElement(paymentsBtn);
-      hideElement(documentsBtn);
-      hideElement(viewCostsBtn);
-
-      if (tenantPayBtn) hideElement(tenantPayBtn);
-    } else {
-      if (mainActionBtn) {
-        mainActionBtn.textContent = "تعديل بيانات الشقة";
-      }
-
-      showElement(mainActionBtn);
-      showElement(renewContractBtn);
-      showElement(evictTenantBtn);
-      showElement(viewRequestsBtn);
-      showElement(paymentsBtn);
-      showElement(documentsBtn);
-      showElement(viewCostsBtn);
-
-      if (tenantPayBtn) hideElement(tenantPayBtn);
-
-      if (renewContractBtn) {
-        renewContractBtn.disabled = !(
-          remainingDays !== null &&
-          remainingDays <= 30 &&
-          remainingDays >= 0
-        );
-      }
-    }
-  } else {
-    if (mainActionBtn) mainActionBtn.textContent = "طلب صيانة";
-
-    showElement(mainActionBtn);
-    hideElement(renewContractBtn);
-    hideElement(evictTenantBtn);
-    showElement(viewRequestsBtn);
-    showElement(paymentsBtn);
-    showElement(documentsBtn);
-    hideElement(viewCostsBtn);
-
-    if (tenantPayBtn) {
-      showElement(tenantPayBtn);
-      tenantPayBtn.style.background = "#111827";
-      tenantPayBtn.style.color = "#fff";
-      tenantPayBtn.style.border = "none";
-    }
-
-    if (data.leaseStatus === "vacant") {
-      hideElement(mainActionBtn);
-      hideElement(viewRequestsBtn);
-      hideElement(paymentsBtn);
-      hideElement(documentsBtn);
-      hideElement(viewCostsBtn);
-
-      if (tenantPayBtn) hideElement(tenantPayBtn);
-    }
-  }
-
+  applyActionVisibility();
   ensureHistoryButton();
 
   /* =========================
-     8) PAYMENTS
+     8) MAIN ACTION
+     ========================= */
+  if (mainActionBtn) {
+    mainActionBtn.addEventListener("click", () => {
+      if (activeRole === "owner") {
+        if (effectiveLeaseStatus === "vacant") {
+          linkTenantSystem.openLinkTenantModal();
+        } else {
+          linkTenantSystem.openEditTenantModal();
+        }
+        return;
+      }
+
+      // للمستأجر: نظام الطلبات مربوط أصلًا على نفس الزر من ملف requests
+    });
+  }
+
+  /* =========================
+     9) PAYMENTS
      ========================= */
   if (paymentsBtn) {
     paymentsBtn.addEventListener("click", goToPaymentsPage);
@@ -532,17 +681,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (tenantPayBtn) {
     tenantPayBtn.addEventListener("click", goToPaymentOptionsPage);
-  }
-
-  /* =========================
-     9) OWNER MAIN ACTION
-     ========================= */
-  if (activeRole === "owner" && mainActionBtn) {
-    mainActionBtn.addEventListener("click", () => {
-      if (data.leaseStatus === "vacant") {
-        linkTenantSystem.openLinkTenantModal();
-      }
-    });
   }
 
   /* =========================
@@ -576,46 +714,72 @@ document.addEventListener("DOMContentLoaded", () => {
   /* =========================
      12) EVICT TENANT
      ========================= */
-  if (evictTenantBtn) {
-    evictTenantBtn.addEventListener("click", () => {
-      if (!confirm("هل أنت متأكد من إخلاء المستأجر؟ سيتم حفظه في سجل الشقة.")) return;
+ if (evictTenantBtn) {
+  evictTenantBtn.addEventListener("click", () => {
+    const evictionCheck = canEvictApartment(data);
+    if (!evictionCheck.allowed) {
+      alert(evictionCheck.message);
+      return;
+    }
 
-      const updatedApartments = getApartments().map((apt) => {
-        if (apt.id !== aptId) return apt;
+    const allRequests = JSON.parse(localStorage.getItem("walajna_requests") || "[]");
 
-        const hasTenantData =
-          !!apt.tenantUserId ||
-          !!apt.tenantNationalId ||
-          !!apt.tenantInfo?.fullName ||
-          !!apt.contract?.startDate ||
-          !!apt.contract?.endDate;
+    const currentContractId =
+      data.currentContractId ||
+      data.contract?.id ||
+      data.contractId ||
+      null;
 
-        const tenantHistory = Array.isArray(apt.tenantHistory)
-          ? [...apt.tenantHistory]
-          : [];
+    const openRequests = currentContractId
+      ? allRequests.filter((req) => {
+          return req.contractId === currentContractId && req.status !== "resolved";
+        })
+      : [];
 
-        if (hasTenantData) {
-          tenantHistory.push(buildTenantHistoryEntry(apt));
-        }
+    if (openRequests.length > 0) {
+      alert("لا يمكن إخلاء المستأجر قبل معالجة جميع الطلبات المفتوحة");
+      return;
+    }
 
-        return {
-          ...apt,
-          tenantHistory,
-          tenantUserId: null,
-          tenantNationalId: null,
-          tenantInfo: {},
-          contract: {},
-          leaseStatus: "vacant",
-          status: "فارغة"
-        };
-      });
+    if (!confirm("هل أنت متأكد من إخلاء المستأجر؟ سيتم حفظه في سجل الشقة.")) return;
 
-      saveApartments(updatedApartments);
+    const updatedApartments = getApartments().map((apt) => {
+      if (apt.id !== aptId) return apt;
 
-      alert("تم إخلاء المستأجر وحفظه في سجل الشقة");
-      window.location.reload();
+      const apartmentHasTenantData =
+        !!apt.tenantUserId ||
+        !!apt.tenantNationalId ||
+        !!apt.tenantInfo?.fullName ||
+        !!apt.contract?.startDate ||
+        !!apt.contract?.endDate;
+
+      const tenantHistory = Array.isArray(apt.tenantHistory)
+        ? [...apt.tenantHistory]
+        : [];
+
+      if (apartmentHasTenantData) {
+        tenantHistory.push(buildTenantHistoryEntry(apt));
+      }
+
+      return {
+        ...apt,
+        tenantHistory,
+        tenantUserId: null,
+        tenantNationalId: null,
+        tenantInfo: {},
+        contract: {},
+        currentContractId: null,
+        leaseStatus: "vacant",
+        status: "فارغة",
+      };
     });
-  }
+
+    saveApartments(updatedApartments);
+
+    alert("تم إخلاء المستأجر وحفظه في سجل الشقة");
+    window.location.reload();
+  });
+}
 
   /* =========================
      13) CLICKABLE CARDS (GLOBAL)
