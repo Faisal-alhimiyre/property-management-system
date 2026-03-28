@@ -18,6 +18,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const messagesList = document.getElementById("messagesList");
   const emptyState = document.getElementById("emptyState");
   const emptyText = document.getElementById("emptyText");
+  const replyAlertsBadge = document.getElementById("replyAlertsBadge");
 
   const searchInput = document.getElementById("searchInput");
   const typeFilter = document.getElementById("typeFilter");
@@ -126,13 +127,25 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     filtered.sort((a, b) => {
-      const dateA = new Date(a.dateSent || a.createdAt || 0).getTime();
-      const dateB = new Date(b.dateSent || b.createdAt || 0).getTime();
-      return sortValue === "oldest" ? dateA - dateB : dateB - dateA;
+      const aHasPriority = a.hasReplyAlert ? 1 : 0;
+      const bHasPriority = b.hasReplyAlert ? 1 : 0;
+
+      if (aHasPriority !== bHasPriority) {
+        return bHasPriority - aHasPriority;
+      }
+
+      const aPriorityDate = new Date(a.repliedAt || a.dateSent || a.createdAt || 0).getTime();
+      const bPriorityDate = new Date(b.repliedAt || b.dateSent || b.createdAt || 0).getTime();
+
+      return sortValue === "oldest"
+        ? aPriorityDate - bPriorityDate
+        : bPriorityDate - aPriorityDate;
     });
 
     visibleMessages = filtered;
     messagesList.innerHTML = "";
+
+    updateReplyAlertsBadge(filtered);
 
     if (!filtered.length) {
       emptyState.classList.remove("hidden");
@@ -147,18 +160,37 @@ document.addEventListener("DOMContentLoaded", () => {
 
     filtered.forEach(msg => {
       const card = document.createElement("article");
-      card.className = `message-card ${msg.type || ""} ${msg.sourceType === "request" ? "request-notification" : ""}`;
+      card.className = `message-card ${msg.type || ""} ${msg.sourceType === "request" ? "request-notification" : ""} ${msg.hasReplyAlert ? "has-reply-highlight" : ""}`;
+      card.style.position = "relative";
 
       const sourceBadge = msg.sourceType === "request"
         ? `<span class="type-badge ${escapeHtml(msg.type || "")}">تنبيه طلب</span>`
         : `<span class="type-badge ${escapeHtml(msg.type || "")}">${getTypeLabel(msg.type)}</span>`;
 
-      const replyAlertBadge = msg.hasReplyAlert
-        ? `<span class="reply-alert-dot" aria-label="يوجد رد جديد"></span>`
+      const globalReplyAlert = msg.hasReplyAlert
+        ? `
+          <span
+            title="يوجد رد جديد"
+            style="
+              position:absolute;
+              top:14px;
+              left:14px;
+              width:16px;
+              height:16px;
+              background:#ff3b30;
+              border-radius:50%;
+              border:2px solid #ffffff;
+              box-shadow:0 0 10px rgba(255,59,48,0.75);
+              z-index:9999;
+              display:block;
+            "
+          ></span>
+        `
         : "";
 
       card.innerHTML = `
         <div class="message-color-bar"></div>
+        ${globalReplyAlert}
 
         <div class="message-content">
           <div class="message-top">
@@ -168,7 +200,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
             <div class="message-badges">
               ${sourceBadge}
-              ${replyAlertBadge}
               <span class="status-badge ${escapeHtml(msg.status || "unread")}">
                 ${msg.status === "read" ? "مقروء" : "غير مقروء"}
               </span>
@@ -218,6 +249,20 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     bindCardButtons();
+  }
+
+  function updateReplyAlertsBadge(messages) {
+    if (!replyAlertsBadge) return;
+
+    const count = messages.filter(msg => msg.hasReplyAlert).length;
+
+    if (count > 0) {
+      replyAlertsBadge.textContent = String(count);
+      replyAlertsBadge.classList.remove("hidden");
+    } else {
+      replyAlertsBadge.textContent = "0";
+      replyAlertsBadge.classList.add("hidden");
+    }
   }
 
   function bindCardButtons() {
@@ -279,7 +324,6 @@ document.addEventListener("DOMContentLoaded", () => {
             <span class="type-badge ${escapeHtml(message.type || "")}">
               ${message.sourceType === "request" ? "تنبيه طلب" : getTypeLabel(message.type)}
             </span>
-            ${message.hasReplyAlert ? `<span class="reply-alert-dot" aria-label="يوجد رد جديد"></span>` : ""}
             <span class="status-badge ${escapeHtml(message.status || "unread")}">
               ${message.status === "read" ? "مقروء" : "غير مقروء"}
             </span>
@@ -459,12 +503,21 @@ document.addEventListener("DOMContentLoaded", () => {
         ? !!req.ownerSeen
         : !!req.tenantSeen;
 
+      const hasReplyAlert =
+        activeRole === "tenant" &&
+        (
+          !!req.ownerReply ||
+          req.status === "replied" ||
+          req.status === "resolved"
+        ) &&
+        !req.tenantSeen;
+
       const requestStatusLabel =
         req.status === "resolved"
           ? "تمت المعالجة"
           : req.status === "replied"
-          ? "تم الرد"
-          : "جديد";
+            ? "تم الرد"
+            : "جديد";
 
       return {
         id: String(req.id),
@@ -473,7 +526,11 @@ document.addEventListener("DOMContentLoaded", () => {
         subject:
           activeRole === "landlord"
             ? `تنبيه طلب: ${req.typeTitle || getTypeLabel(req.typeId || "request")}`
-            : `تم إرسال طلب: ${req.typeTitle || getTypeLabel(req.typeId || "request")}`,
+            : (
+                hasReplyAlert
+                  ? `تم الرد على طلب: ${req.typeTitle || getTypeLabel(req.typeId || "request")}`
+                  : `تم إرسال طلب: ${req.typeTitle || getTypeLabel(req.typeId || "request")}`
+              ),
         body: req.message || "",
         buildingName: req.buildingName || "-",
         buildingNumber: resolvedBuildingNumber,
@@ -511,11 +568,7 @@ document.addEventListener("DOMContentLoaded", () => {
         resolvedAt: req.resolvedAt || "",
         rawRequestStatus: req.status || "new",
         requestStatusLabel,
-
-        hasReplyAlert:
-          activeRole === "tenant" &&
-          !!req.ownerReply &&
-          !req.tenantSeen
+        hasReplyAlert
       };
     });
   }
@@ -544,7 +597,11 @@ document.addEventListener("DOMContentLoaded", () => {
         return { ...req, ownerSeen: true };
       }
 
-      return { ...req, tenantSeen: true };
+      return {
+        ...req,
+        tenantSeen: true,
+        tenantSeenAt: new Date().toISOString()
+      };
     });
 
     saveRequests(updated);
@@ -659,7 +716,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!dateString) return "-";
 
     const date = new Date(dateString);
-    if (isNaN(date.getTime())) return dateString;
+    if (Number.isNaN(date.getTime())) return dateString;
 
     return new Intl.DateTimeFormat("ar-SA", {
       year: "numeric",
