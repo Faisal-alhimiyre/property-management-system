@@ -286,7 +286,64 @@ document.addEventListener("DOMContentLoaded", () => {
 
     return unpaidPayments[0] || null;
   }
+  function canEvictApartment(apartment) {
+  if (!apartment) {
+    return {
+      allowed: false,
+      message: "لم يتم العثور على بيانات الشقة",
+    };
+  }
 
+  const currentContractId =
+    apartment.currentContractId ||
+    apartment.contract?.id ||
+    apartment.contractId ||
+    null;
+
+  if (!currentContractId) {
+    return {
+      allowed: false,
+      message: "لا يمكن إخلاء شقة لا تحتوي على عقد حالي",
+    };
+  }
+
+  const contractStartValue = apartment.contract?.startDate || null;
+
+  if (!contractStartValue) {
+    return {
+      allowed: true,
+      message: "",
+    };
+  }
+
+  const contractStartDate = new Date(contractStartValue);
+  if (Number.isNaN(contractStartDate.getTime())) {
+    return {
+      allowed: true,
+      message: "",
+    };
+  }
+
+  contractStartDate.setHours(0, 0, 0, 0);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const diffMs = today.getTime() - contractStartDate.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 30) {
+    return {
+      allowed: false,
+      message: "لا يمكن إخلاء المستأجر قبل مرور 30 يومًا من بداية العقد",
+    };
+  }
+
+  return {
+    allowed: true,
+    message: "",
+  };
+}
   function updateNextPaymentInfo(apartmentId) {
     const dateEl = document.getElementById("nextPaymentDate");
     const amountEl = document.getElementById("nextPaymentAmount");
@@ -657,8 +714,14 @@ document.addEventListener("DOMContentLoaded", () => {
   /* =========================
      12) EVICT TENANT
      ========================= */
-  if (evictTenantBtn) {
+ if (evictTenantBtn) {
   evictTenantBtn.addEventListener("click", () => {
+    const evictionCheck = canEvictApartment(data);
+    if (!evictionCheck.allowed) {
+      alert(evictionCheck.message);
+      return;
+    }
+
     const allRequests = JSON.parse(localStorage.getItem("walajna_requests") || "[]");
 
     const currentContractId =

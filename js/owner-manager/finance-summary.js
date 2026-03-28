@@ -11,7 +11,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const payments = JSON.parse(localStorage.getItem("walajna_payments") || "[]");
 
   const building = buildings.find((b) => normalizeId(b.id) === buildingId);
-  const buildingApartments = apartments.filter((a) => normalizeId(a.buildingId) === buildingId);
+  const buildingApartments = apartments.filter(
+    (a) => normalizeId(a.buildingId) === buildingId
+  );
 
   const buildingNameEl = document.getElementById("buildingName");
   const periodSelect = document.getElementById("periodSelect");
@@ -42,11 +44,13 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function isApartmentOccupied(apartment) {
-    return (
-      apartment.leaseStatus !== "vacant" ||
-      !!apartment.tenantUserId ||
-      !!apartment.tenantNationalId ||
-      !!apartment.tenantInfo?.fullName
+    return !!(
+      apartment?.leaseStatus !== "vacant" ||
+      apartment?.tenantUserId ||
+      apartment?.tenantNationalId ||
+      apartment?.tenantInfo?.fullName ||
+      apartment?.currentContractId ||
+      apartment?.contract?.id
     );
   }
 
@@ -56,6 +60,17 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     return `<span class="finance-status-badge vacant">فارغة</span>`;
+  }
+
+  function getApartmentCurrentContractId(apartment) {
+    if (!apartment) return null;
+
+    return (
+      apartment.currentContractId ||
+      apartment.contract?.id ||
+      apartment.contractId ||
+      null
+    );
   }
 
   function getCycleMonths(paymentCycle) {
@@ -78,7 +93,15 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function endOfMonth(date) {
-    return new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999);
+    return new Date(
+      date.getFullYear(),
+      date.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999
+    );
   }
 
   function addMonths(date, monthsToAdd) {
@@ -145,13 +168,27 @@ document.addEventListener("DOMContentLoaded", () => {
     return apartment?.contract?.notes || "—";
   }
 
-  function getApartmentCostsForRange(apartmentId, start, end) {
+  function getApartmentCostsForRange(apartment, start, end) {
+    if (!apartment) return 0;
+
+    const currentContractId = getApartmentCurrentContractId(apartment);
+
     return costs
       .filter((cost) => {
-        if (cost.apartmentId !== apartmentId) return false;
-        if (!cost.date) return false;
+        if (normalizeId(cost.apartmentId) !== normalizeId(apartment.id)) {
+          return false;
+        }
 
-        const costDate = new Date(cost.date);
+        if (cost.contractId && currentContractId) {
+          if (normalizeId(cost.contractId) !== normalizeId(currentContractId)) {
+            return false;
+          }
+        }
+
+        const rawDate = cost.date || cost.createdAt;
+        if (!rawDate) return false;
+
+        const costDate = new Date(rawDate);
         if (Number.isNaN(costDate.getTime())) return false;
 
         return costDate >= start && costDate <= end;
@@ -159,17 +196,43 @@ document.addEventListener("DOMContentLoaded", () => {
       .reduce((sum, cost) => sum + Number(cost.amount || 0), 0);
   }
 
-function getPaymentCoverageStart(payment) {
-  const rawDate = payment.dueDate;
-  const date = rawDate ? new Date(rawDate) : null;
+  function getPaymentCoverageStart(payment) {
+    const rawDate =
+      payment.coverageStartDate ||
+      payment.contractStartDate ||
+      payment.dueDate ||
+      payment.paidAt;
 
-  if (!date || Number.isNaN(date.getTime())) return null;
+    const date = rawDate ? new Date(rawDate) : null;
+    if (!date || Number.isNaN(date.getTime())) return null;
 
-  return date;
-}
-  function getApartmentRealizedIncomeForRange(apartmentId, rangeStart, rangeEnd) {
+    return date;
+  }
+
+  function getApartmentRealizedIncomeForRange(apartment, rangeStart, rangeEnd) {
+    if (!apartment) return 0;
+
+    const apartmentId = apartment.id;
+    const currentContractId = getApartmentCurrentContractId(apartment);
+
+    if (!apartmentId || !currentContractId) {
+      return 0;
+    }
+
     const apartmentPayments = payments.filter((payment) => {
-      return payment.apartmentId === apartmentId && payment.status === "paid";
+      if (normalizeId(payment.apartmentId) !== normalizeId(apartmentId)) {
+        return false;
+      }
+
+      if (normalizeId(payment.contractId) !== normalizeId(currentContractId)) {
+        return false;
+      }
+
+      if (payment.status !== "paid") {
+        return false;
+      }
+
+      return true;
     });
 
     let income = 0;
@@ -178,7 +241,10 @@ function getPaymentCoverageStart(payment) {
       const coverageStartDate = getPaymentCoverageStart(payment);
       if (!coverageStartDate) return;
 
-      const cycleMonths = getCycleMonths(payment.paymentCycle);
+      const cycleMonths = getCycleMonths(
+        payment.paymentCycle || apartment.contract?.paymentCycle
+      );
+
       const monthlyAmount =
         Number(payment.monthlyRentAmount || 0) ||
         (cycleMonths > 0 ? Number(payment.amount || 0) / cycleMonths : 0);
@@ -252,46 +318,28 @@ function getPaymentCoverageStart(payment) {
     return income;
   }
 
-  function getApartmentExpectedIncomeUntil(apartment, endDate) {
-    if (!isApartmentOccupied(apartment)) return 0;
-
-    const monthlyRent = getApartmentContractMonthlyRent(apartment);
-    if (!monthlyRent) return 0;
-
-    const contractStart = getApartmentContractStart(apartment);
-    const contractEnd = getApartmentContractEnd(apartment);
-
-    if (!contractStart || !contractEnd) return 0;
-    if (endDate < contractStart) return 0;
-
-    const effectiveEnd = contractEnd < endDate ? contractEnd : endDate;
-
-    let income = 0;
-    let cursor = startOfMonth(contractStart);
-    const finalMonth = startOfMonth(effectiveEnd);
-
-    while (cursor <= finalMonth) {
-      const monthStart = startOfMonth(cursor);
-      const monthEnd = endOfMonth(cursor);
-
-      if (rangesOverlap(monthStart, monthEnd, contractStart, effectiveEnd)) {
-        income += monthlyRent;
-      }
-
-      cursor = addMonths(cursor, 1);
-    }
-
-    return income;
-  }
-
-  function getApartmentRealizedIncomeUntil(apartmentId, endDate) {
+  function getApartmentRealizedIncomeUntil(apartment, endDate) {
     const earliest = new Date(2000, 0, 1);
-    return getApartmentRealizedIncomeForRange(apartmentId, earliest, endDate);
+    return getApartmentRealizedIncomeForRange(apartment, earliest, endDate);
   }
 
   function getApartmentLateAmount(apartment, rangeEnd) {
-    const expectedUntilNow = getApartmentExpectedIncomeUntil(apartment, rangeEnd);
-    const realizedUntilNow = getApartmentRealizedIncomeUntil(apartment.id, rangeEnd);
+    if (!apartment || !isApartmentOccupied(apartment)) {
+      return 0;
+    }
+
+    const currentContractId = getApartmentCurrentContractId(apartment);
+    if (!currentContractId) {
+      return 0;
+    }
+
+    const expectedUntilNow = getApartmentExpectedIncomeForRange(
+      apartment,
+      getApartmentContractStart(apartment) || new Date(2000, 0, 1),
+      rangeEnd
+    );
+
+    const realizedUntilNow = getApartmentRealizedIncomeUntil(apartment, rangeEnd);
     const lateAmount = expectedUntilNow - realizedUntilNow;
 
     return lateAmount > 0 ? lateAmount : 0;
@@ -301,7 +349,7 @@ function getPaymentCoverageStart(payment) {
     const tr = document.createElement("tr");
 
     tr.innerHTML = `
-      <td>شقة ${apartment.number || "—"}</td>
+      <td>شقة ${apartment.number || apartment.apartmentNumber || "—"}</td>
       <td>${apartment?.tenantInfo?.fullName || "بدون مستأجر"}</td>
       <td>${getApartmentStatusHtml(apartment)}</td>
       <td>${formatMoney(income)}</td>
@@ -339,8 +387,8 @@ function getPaymentCoverageStart(payment) {
       `;
     } else {
       buildingApartments.forEach((apartment) => {
-        const income = getApartmentRealizedIncomeForRange(apartment.id, start, end);
-        const apartmentCosts = getApartmentCostsForRange(apartment.id, start, end);
+        const income = getApartmentRealizedIncomeForRange(apartment, start, end);
+        const apartmentCosts = getApartmentCostsForRange(apartment, start, end);
         const lateAmount = getApartmentLateAmount(apartment, end);
         const profit = income - apartmentCosts;
 
@@ -373,7 +421,10 @@ function getPaymentCoverageStart(payment) {
 
   if (periodDateInput) {
     const today = new Date();
-    periodDateInput.value = today.toISOString().split("T")[0];
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const day = String(today.getDate()).padStart(2, "0");
+    periodDateInput.value = `${year}-${month}-${day}`;
   }
 
   if (periodSelect) {

@@ -1,6 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   const params = new URLSearchParams(window.location.search);
   const apartmentId = params.get("id");
+  const forcedContractId = params.get("contractId");
 
   if (!apartmentId) {
     alert("تعذر تحديد الشقة");
@@ -55,16 +56,20 @@ document.addEventListener("DOMContentLoaded", () => {
     return apartments.find((apt) => apt.id === apartmentId) || null;
   }
 
-  function getCurrentContractId(apartment) {
-    if (!apartment) return null;
-
-    return (
-      apartment.currentContractId ||
-      apartment.contract?.id ||
-      apartment.contractId ||
-      null
-    );
+ function getCurrentContractId(apartment) {
+  if (forcedContractId) {
+    return forcedContractId;
   }
+
+  if (!apartment) return null;
+
+  return (
+    apartment.currentContractId ||
+    apartment.contract?.id ||
+    apartment.contractId ||
+    null
+  );
+}
 
   function getCosts() {
     return JSON.parse(localStorage.getItem(COSTS_KEY) || "[]");

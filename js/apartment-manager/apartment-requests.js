@@ -39,7 +39,26 @@ function initRequestsSystem(aptId, activeRole, currentUser, leaseStatus) {
   /* =========================
      Helpers
      ========================= */
+function normalizeApartmentContract(apartment) {
+  if (!apartment) return apartment;
 
+  const resolved =
+    apartment.currentContractId ||
+    apartment.contract?.id ||
+    apartment.contractId ||
+    
+    null;
+
+  if (resolved) {
+    apartment.currentContractId = resolved;
+    apartment.contractId = resolved;
+
+    if (!apartment.contract) apartment.contract = {};
+    apartment.contract.id = resolved;
+  }
+
+  return apartment;
+}
   function getLocalArray(key) {
     try {
       return JSON.parse(localStorage.getItem(key) || "[]");
@@ -48,14 +67,16 @@ function initRequestsSystem(aptId, activeRole, currentUser, leaseStatus) {
     }
   }
 
-  function getApartmentById() {
-    const apartments =
-      typeof getApartments === "function"
-        ? getApartments()
-        : getLocalArray("walajna_apartments");
+function getApartmentById() {
+  const apartments =
+    typeof getApartments === "function"
+      ? getApartments()
+      : getLocalArray("walajna_apartments");
 
-    return apartments.find((a) => a.id === aptId) || null;
-  }
+  const apartment = apartments.find((a) => a.id === aptId) || null;
+
+  return normalizeApartmentContract(apartment);
+}
 
   function getBuildingById(buildingId) {
     const buildings = getLocalArray("walajna_buildings");

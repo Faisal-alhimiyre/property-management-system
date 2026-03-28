@@ -4,6 +4,10 @@
     const activeRole =
       config?.activeRole || localStorage.getItem("activeRole") || "owner";
 
+    const mode = config?.mode || "current";
+    const historyId = config?.historyId || null;
+    const historyContractId = config?.historyContractId || null;
+
     if (!apartment || !apartment.id) {
       console.warn("تعذر تهيئة نظام المدفوعات: بيانات الشقة غير موجودة");
       return;
@@ -38,27 +42,61 @@
 
     let selectedPaymentId = null;
 
-   function getSortedApartmentPayments() {
-  const contractId = utils.generateContractId(apartment);
+    function getHistoryEntry() {
+      if (mode !== "history" || !historyId) return null;
 
-  if (!contractId) {
-    return [];
-  }
+      const historyList = Array.isArray(apartment.tenantHistory)
+        ? apartment.tenantHistory
+        : [];
 
-  const originalPayments = storage.getPaymentsByContractId(contractId);
-  const normalizedPayments = utils.normalizePaymentStatuses(originalPayments);
+      return (
+        historyList.find((item) => String(item.historyId) === String(historyId)) || null
+      );
+    }
 
-  const hasChanges =
-    JSON.stringify(originalPayments) !== JSON.stringify(normalizedPayments);
+    function getHistoricalContractIdFromEntry(historyEntry) {
+      if (!historyEntry) return null;
 
-  if (hasChanges) {
-    persistNormalizedPayments(normalizedPayments);
-  }
+      return (
+        historyEntry.contractId ||
+        historyEntry.contract?.id ||
+        historyEntry.currentContractId ||
+        null
+      );
+    }
 
-  return normalizedPayments.sort((a, b) =>
-    a.dueDate.localeCompare(b.dueDate)
-  );
-}
+    function getEffectiveContractId() {
+      if (mode === "history") {
+        return (
+          historyContractId ||
+          getHistoricalContractIdFromEntry(getHistoryEntry()) ||
+          null
+        );
+      }
+
+      return utils.generateContractId(apartment);
+    }
+
+    function getSortedApartmentPayments() {
+      const contractId = getEffectiveContractId();
+
+      if (!contractId) {
+        return [];
+      }
+
+      const originalPayments = storage.getPaymentsByContractId(contractId);
+      const normalizedPayments = utils.normalizePaymentStatuses(originalPayments);
+
+      const hasChanges =
+        JSON.stringify(originalPayments) !== JSON.stringify(normalizedPayments);
+
+      if (hasChanges) {
+        persistNormalizedPayments(normalizedPayments);
+      }
+
+      return normalizedPayments.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+    }
+
     function persistNormalizedPayments(normalizedPayments) {
       const allPayments = storage.getPayments();
       const normalizedMap = new Map(
@@ -73,13 +111,19 @@
     }
 
     function ensureScheduleForCurrentContract() {
+      if (mode === "history") {
+        return;
+      }
+
       const contract = apartment.contract || {};
 
       if (!contract.startDate || !contract.endDate) {
         return;
       }
 
-      const contractId = utils.generateContractId(apartment);
+      const contractId = getEffectiveContractId();
+
+      if (!contractId) return;
 
       if (storage.hasPaymentsForContract(contractId)) {
         return;
@@ -106,6 +150,7 @@
 
     function openOwnerRecordModal(payment) {
       if (!payment) return;
+      if (mode === "history") return;
 
       selectedPaymentId = payment.id;
       ui.fillPaymentRecordForm(payment, utils);
@@ -119,6 +164,11 @@
 
     function renderReminder(payments) {
       if (!elements.reminderContainer) return;
+
+      if (mode === "history") {
+        elements.reminderContainer.innerHTML = "";
+        return;
+      }
 
       const reminder = utils.buildPaymentReminder(payments, 3);
 
@@ -144,15 +194,39 @@
     }
 
     function getContractInfo() {
-      const contract = apartment.contract || {};
-      const tenantInfo = apartment.tenantInfo || {};
+      const historyEntry = getHistoryEntry();
+      const historyContract = historyEntry?.contract || {};
+
+      const contract =
+        mode === "history"
+          ? historyContract
+          : apartment.contract || {};
+
+      const tenantInfo =
+        mode === "history"
+          ? historyEntry?.tenantInfo || {}
+          : apartment.tenantInfo || {};
+
       const tenant = apartment.tenant || {};
 
-      const monthlyRent = utils.getMonthlyRentAmount(apartment);
-      const effectiveSettings = utils.getEffectivePaymentSettings(apartment);
+      const monthlyRent =
+        mode === "history"
+          ? Number(historyContract.rentAmount || apartment.rent || 0)
+          : utils.getMonthlyRentAmount(apartment);
+
+      const effectiveSettings =
+        mode === "history"
+          ? {
+              paymentCycle:
+                historyContract.paymentCycle ||
+                apartment?.paymentDefaults?.paymentCycle ||
+                "monthly",
+            }
+          : utils.getEffectivePaymentSettings(apartment);
 
       const paymentCycle = effectiveSettings.paymentCycle || "monthly";
-      const installmentAmount = utils.getInstallmentAmount(apartment);
+      const installmentAmount =
+        monthlyRent * utils.getCycleMonths(paymentCycle);
 
       const tenantName =
         tenantInfo.fullName ||
@@ -192,7 +266,7 @@
 
       ui.renderPaymentsTable(elements.tableContainer, payments, {
         utils,
-        activeRole,
+        activeRole: mode === "history" ? "history" : activeRole,
       });
     }
 
@@ -206,6 +280,10 @@
     }
 
     function bindTableActions(payments) {
+      if (mode === "history") {
+        return;
+      }
+
       const ownerButtons = document.querySelectorAll('[data-pay-action="record"]');
       ownerButtons.forEach((button) => {
         button.addEventListener("click", function () {
@@ -266,7 +344,16 @@
     }
 
     function saveRecordedPayment() {
+      if (mode === "history") return;
       if (!selectedPaymentId) return;
+
+      const payments = getSortedApartmentPayments();
+      const selectedPayment = payments.find((item) => item.id === selectedPaymentId);
+
+      if (!selectedPayment) {
+        alert("تعذر العثور على الدفعة المحددة");
+        return;
+      }
 
       const formData = readPaymentFormData();
       const validationMessage = validatePaymentFormData(formData);
@@ -276,8 +363,19 @@
         return;
       }
 
+      const originalAmount =
+        Number(selectedPayment.originalAmount || selectedPayment.amount || 0);
+
+      const hasOwnerOverride = Number(formData.amount) !== originalAmount;
+
       storage.updatePayment(selectedPaymentId, {
         amount: formData.amount,
+        originalAmount,
+        overriddenAmount: formData.amount,
+        overriddenByOwner: hasOwnerOverride,
+        overrideType: hasOwnerOverride ? "owner_manual_adjustment" : null,
+        overrideAt: hasOwnerOverride ? new Date().toISOString() : null,
+
         paymentMethod: formData.paymentMethod,
         paidAt: formData.paidAt,
         notes: formData.notes,
@@ -289,6 +387,8 @@
     }
 
     function bindPaymentForm() {
+      if (mode === "history") return;
+
       if (elements.closePaymentBtn) {
         elements.closePaymentBtn.addEventListener("click", closeOwnerRecordModal);
       }

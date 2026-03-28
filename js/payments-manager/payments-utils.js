@@ -1,5 +1,4 @@
 (function () {
-
   function generatePaymentId() {
     return "PAY_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
   }
@@ -47,21 +46,31 @@
 
   function getPaymentStatusLabel(status) {
     switch (status) {
-      case "paid": return "مدفوع";
-      case "pending": return "مستحق";
-      case "overdue": return "متأخر";
-      case "cancelled": return "ملغي";
-      default: return "غير معروف";
+      case "paid":
+        return "مدفوع";
+      case "pending":
+        return "مستحق";
+      case "overdue":
+        return "متأخر";
+      case "cancelled":
+        return "ملغي";
+      default:
+        return "غير معروف";
     }
   }
 
   function getPaymentStatusClass(status) {
     switch (status) {
-      case "paid": return "payment-badge paid";
-      case "pending": return "payment-badge pending";
-      case "overdue": return "payment-badge overdue";
-      case "cancelled": return "payment-badge cancelled";
-      default: return "payment-badge";
+      case "paid":
+        return "payment-badge paid";
+      case "pending":
+        return "payment-badge pending";
+      case "overdue":
+        return "payment-badge overdue";
+      case "cancelled":
+        return "payment-badge cancelled";
+      default:
+        return "payment-badge";
     }
   }
 
@@ -85,7 +94,6 @@
     d.setMonth(d.getMonth() + monthsToAdd);
 
     const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
-
     d.setDate(Math.min(originalDay, lastDay));
 
     return d;
@@ -93,21 +101,29 @@
 
   function getCycleMonths(paymentCycle) {
     switch (paymentCycle) {
-      case "quarterly": return 3;
-      case "semi_annual": return 6;
-      case "annual": return 12;
+      case "quarterly":
+        return 3;
+      case "semi_annual":
+        return 6;
+      case "annual":
+        return 12;
       case "monthly":
-      default: return 1;
+      default:
+        return 1;
     }
   }
 
   function getPaymentCycleLabel(paymentCycle) {
     switch (paymentCycle) {
-      case "quarterly": return "ربع سنوي";
-      case "semi_annual": return "نصف سنوي";
-      case "annual": return "سنوي";
+      case "quarterly":
+        return "ربع سنوي";
+      case "semi_annual":
+        return "نصف سنوي";
+      case "annual":
+        return "سنوي";
       case "monthly":
-      default: return "شهري";
+      default:
+        return "شهري";
     }
   }
 
@@ -120,7 +136,7 @@
     const defaults = apartment?.paymentDefaults || {};
 
     return {
-      paymentCycle: defaults.paymentCycle || "monthly"
+      paymentCycle: defaults.paymentCycle || "monthly",
     };
   }
 
@@ -129,7 +145,7 @@
     const defaults = getApartmentPaymentDefaults(apartment);
 
     return {
-      paymentCycle: contract.paymentCycle || defaults.paymentCycle || "monthly"
+      paymentCycle: contract.paymentCycle || defaults.paymentCycle || "monthly",
     };
   }
 
@@ -166,8 +182,25 @@
     return monthlyRent * cycleMonths;
   }
 
-  function generateCycleBasedSchedule(apartment) {
+  function getDaysRemainingInMonthInclusive(dateInput) {
+    const date = new Date(dateInput);
+    if (Number.isNaN(date.getTime())) return 0;
 
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+
+    return lastDayOfMonth - date.getDate() + 1;
+  }
+
+  function getFirstDayOfNextMonth(dateInput) {
+    const date = new Date(dateInput);
+    if (Number.isNaN(date.getTime())) return null;
+
+    return new Date(date.getFullYear(), date.getMonth() + 1, 1);
+  }
+
+  function generateCycleBasedSchedule(apartment) {
     const contract = apartment?.contract || {};
     const startDate = contract.startDate;
     const endDate = contract.endDate;
@@ -178,16 +211,88 @@
     if (!startDate || !endDate || !monthlyRent) return [];
 
     const contractId = generateContractId(apartment);
+    const cycleMonths = getCycleMonths(paymentCycle);
 
-    const monthsStep = getCycleMonths(paymentCycle);
-    const installmentAmount = monthlyRent * monthsStep;
-
-    let current = new Date(startDate);
+    const start = new Date(startDate);
     const end = new Date(endDate);
+
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return [];
 
     const payments = [];
 
-    while (current < end) {
+    // أول دفعة جزئية فقط إذا كانت البداية ليست يوم 1
+    const startsMidMonth = start.getDate() !== 1;
+
+    if (startsMidMonth) {
+      const partialDays = getDaysRemainingInMonthInclusive(start);
+      const partialAmount = Math.round((monthlyRent / 30) * partialDays);
+
+      payments.push({
+        id: generatePaymentId(),
+        apartmentId: apartment.id,
+        tenantUserId: apartment.tenantUserId || null,
+        contractId,
+
+        dueDate: toDateOnlyString(start),
+        amount: partialAmount,
+
+        status: "pending",
+        paymentMethod: null,
+        paidAt: null,
+
+        createdAt: new Date().toISOString(),
+
+        notes: "الدفعة الأولى الجزئية",
+        receiptDocumentId: null,
+
+        paymentCycle,
+        cycleLabel: getPaymentCycleLabel(paymentCycle),
+        monthlyRentAmount: monthlyRent,
+        isPartialFirstPayment: true,
+        originalAmount: partialAmount,
+      });
+
+      let current = getFirstDayOfNextMonth(start);
+
+      while (current && current <= end) {
+        const cycleAmount = monthlyRent * cycleMonths;
+
+        payments.push({
+          id: generatePaymentId(),
+          apartmentId: apartment.id,
+          tenantUserId: apartment.tenantUserId || null,
+          contractId,
+
+          dueDate: toDateOnlyString(current),
+          amount: cycleAmount,
+
+          status: "pending",
+          paymentMethod: null,
+          paidAt: null,
+
+          createdAt: new Date().toISOString(),
+
+          notes: "",
+          receiptDocumentId: null,
+
+          paymentCycle,
+          cycleLabel: getPaymentCycleLabel(paymentCycle),
+          monthlyRentAmount: monthlyRent,
+          isPartialFirstPayment: false,
+          originalAmount: cycleAmount,
+        });
+
+        current = addMonthsSafe(current, cycleMonths);
+      }
+
+      return payments;
+    }
+
+    // إذا البداية يوم 1 يمشي طبيعي
+    let current = new Date(start);
+
+    while (current <= end) {
+      const cycleAmount = monthlyRent * cycleMonths;
 
       payments.push({
         id: generatePaymentId(),
@@ -196,7 +301,7 @@
         contractId,
 
         dueDate: toDateOnlyString(current),
-        amount: installmentAmount,
+        amount: cycleAmount,
 
         status: "pending",
         paymentMethod: null,
@@ -209,17 +314,18 @@
 
         paymentCycle,
         cycleLabel: getPaymentCycleLabel(paymentCycle),
-        monthlyRentAmount: monthlyRent
+        monthlyRentAmount: monthlyRent,
+        isPartialFirstPayment: false,
+        originalAmount: cycleAmount,
       });
 
-      current = addMonthsSafe(current, monthsStep);
+      current = addMonthsSafe(current, cycleMonths);
     }
 
     return payments;
   }
 
   function generateScheduleFromContract(apartment) {
-
     const contract = apartment?.contract || {};
 
     if (!contract.startDate || !contract.endDate || !getMonthlyRentAmount(apartment)) {
@@ -228,46 +334,53 @@
 
     return generateCycleBasedSchedule(apartment);
   }
-  
+
   function calculatePaymentsSummary(payments) {
+  const normalized = normalizePaymentStatuses(payments);
 
-    const normalized = normalizePaymentStatuses(payments);
+  let annualOriginalTotal = 0;   // الأصل قبل أي خصم
+  let adjustedTotal = 0;         // بعد الخصومات والتعديلات
+  let paid = 0;
+  let overdue = 0;
+  let pending = 0;
+  let discountsTotal = 0;
+  let upcomingCount = 0;
 
-    let total = 0;
-    let paid = 0;
-    let overdue = 0;
-    let pending = 0;
-    let upcomingCount = 0;
+  const today = getTodayDateString();
 
-    const today = getTodayDateString();
+  normalized.forEach((payment) => {
+    const currentAmount = Number(payment.amount || 0);
+    const originalAmount = Number(
+      payment.originalAmount || payment.amount || 0
+    );
 
-    normalized.forEach((payment) => {
+    annualOriginalTotal += originalAmount;
+    adjustedTotal += currentAmount;
 
-      const amount = Number(payment.amount || 0);
+    if (originalAmount > currentAmount) {
+      discountsTotal += originalAmount - currentAmount;
+    }
 
-      total += amount;
+    if (payment.status === "paid") paid += currentAmount;
+    if (payment.status === "overdue") overdue += currentAmount;
+    if (payment.status === "pending") pending += currentAmount;
 
-      if (payment.status === "paid") paid += amount;
-      if (payment.status === "overdue") overdue += amount;
-      if (payment.status === "pending") pending += amount;
+    if (payment.status === "pending" && payment.dueDate >= today) {
+      upcomingCount += 1;
+    }
+  });
 
-      if (payment.status === "pending" && payment.dueDate >= today) {
-        upcomingCount += 1;
-      }
-
-    });
-
-    return {
-      total,
-      paid,
-      overdue,
-      pending,
-      upcomingCount
-    };
-  }
-
+  return {
+    annualOriginalTotal,
+    adjustedTotal,
+    paid,
+    overdue,
+    pending,
+    discountsTotal,
+    upcomingCount
+  };
+}
   function daysUntil(dueDate) {
-
     if (!dueDate) return null;
 
     const today = new Date(getTodayDateString());
@@ -279,7 +392,6 @@
   }
 
   function getNextPendingPayment(payments) {
-
     const normalized = normalizePaymentStatuses(payments);
 
     const pendingPayments = normalized
@@ -290,7 +402,6 @@
   }
 
   function buildPaymentReminder(payments, daysBefore = 3) {
-
     const normalized = normalizePaymentStatuses(payments);
     const nextPayment = getNextPendingPayment(normalized);
 
@@ -300,7 +411,7 @@
       return {
         type: "overdue",
         payment: nextPayment,
-        message: `يوجد دفعة متأخرة منذ ${formatDate(nextPayment.dueDate)} بمبلغ ${formatCurrency(nextPayment.amount)}`
+        message: `يوجد دفعة متأخرة منذ ${formatDate(nextPayment.dueDate)} بمبلغ ${formatCurrency(nextPayment.amount)}`,
       };
     }
 
@@ -312,7 +423,7 @@
       return {
         type: "upcoming",
         payment: nextPayment,
-        message: `تذكير: توجد دفعة قادمة بتاريخ ${formatDate(nextPayment.dueDate)} بمبلغ ${formatCurrency(nextPayment.amount)}`
+        message: `تذكير: توجد دفعة قادمة بتاريخ ${formatDate(nextPayment.dueDate)} بمبلغ ${formatCurrency(nextPayment.amount)}`,
       };
     }
 
@@ -341,7 +452,6 @@
     calculatePaymentsSummary,
     daysUntil,
     getNextPendingPayment,
-    buildPaymentReminder
+    buildPaymentReminder,
   };
-
 })();

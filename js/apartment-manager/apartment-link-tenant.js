@@ -68,7 +68,6 @@ function initLinkTenantSystem(aptId, currentUser) {
     if (field) field.value = value ?? "";
   }
 
-  function getCheckboxOrSelectValue(field, defaultValue = "") {
 
   function getCheckboxOrSelectValue(field, defaultValue = "") {
     if (!field) return defaultValue;
@@ -152,29 +151,28 @@ function initLinkTenantSystem(aptId, currentUser) {
     return "CONTRACT_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
   }
 
-  function calculateAutoEndDate(startDateStr) {
-    if (!startDateStr) return "";
+ function calculateAutoEndDate(startDateStr) {
+  if (!startDateStr) return "";
 
-    const startDate = new Date(startDateStr);
-    if (Number.isNaN(startDate.getTime())) return "";
+  const startDate = new Date(startDateStr);
+  if (Number.isNaN(startDate.getTime())) return "";
 
-    const endDate = new Date(startDate);
-    endDate.setFullYear(endDate.getFullYear() + 1);
+  const endDate = new Date(startDate);
+  endDate.setFullYear(endDate.getFullYear() + 1);
 
-    return toInputDate(endDate);
+  return toInputDate(endDate);
+}
+function syncEndDateWithStartDate(force = false) {
+  if (!elements.startDate || !elements.endDate) return;
+  if (!elements.startDate.value) return;
+
+  if (!force && currentMode !== "create") return;
+
+  const nextEndDate = calculateAutoEndDate(elements.startDate.value);
+  if (nextEndDate) {
+    elements.endDate.value = nextEndDate;
   }
-
-  function syncEndDateWithStartDate(force = false) {
-    if (!elements.startDate || !elements.endDate) return;
-    if (!elements.startDate.value) return;
-
-    if (!force && currentMode !== "create") return;
-
-    const nextEndDate = calculateAutoEndDate(elements.startDate.value);
-    if (nextEndDate) {
-      elements.endDate.value = nextEndDate;
-    }
-  }
+}
 
   function getCycleMonths(paymentCycle) {
     switch (paymentCycle) {
@@ -838,7 +836,7 @@ function resetForm() {
           : Number(
               apartmentDefaults.installmentsCount ||
               getDefaultInstallmentsCount(paymentCycle)
-              getDefaultInstallmentsCount(paymentCycle)
+            
             ),
 
       floorNumber: getFieldValue(elements.floorNumber),
@@ -918,9 +916,11 @@ function resetForm() {
   }
 
   function buildUpdatedApartment(apartment, tenantUserId, data) {
-    const existingContractId =
-      apartment?.currentContractId ||
-      apartment?.contract?.id ||
+    existingContractId =
+  apartment?.currentContractId ||
+  apartment?.contract?.id;
+  apartment?.contractId ||
+  
       null;
 
     const finalContractId =
@@ -929,28 +929,31 @@ function resetForm() {
         : generateContractId();
 
     const updatedApartment = {
-      ...apartment,
-      ownerId: currentUser?.id || null,
-      rent: data.rent ? Number(data.rent) : "",
+  ...apartment,
+  ownerId: currentUser?.id || null,
+  rent: data.rent ? Number(data.rent) : "",
 
-      floorNumber: data.floorNumber ? Number(data.floorNumber) : null,
-      bedrooms: data.bedrooms ? Number(data.bedrooms) : null,
-      bathrooms: data.bathrooms ? Number(data.bathrooms) : null,
-      livingRooms: data.livingRooms ? Number(data.livingRooms) : null,
+  floorNumber: data.floorNumber ? Number(data.floorNumber) : null,
+  bedrooms: data.bedrooms ? Number(data.bedrooms) : null,
+  bathrooms: data.bathrooms ? Number(data.bathrooms) : null,
+  livingRooms: data.livingRooms ? Number(data.livingRooms) : null,
 
-      tenantUserId: tenantUserId,
-      tenantNationalId: data.nationalId,
-      currentContractId: finalContractId,
+  tenantUserId: tenantUserId,
+  tenantNationalId: data.nationalId,
 
-      tenantInfo: {
-        fullName: data.fullName,
-        phoneNumber: data.phone,
-        nationality: data.nationality,
-        tenantType: data.tenantType,
-      },
 
-      contract: {
-        id: finalContractId,
+  currentContractId: finalContractId,
+  contractId: finalContractId, 
+
+  tenantInfo: {
+    fullName: data.fullName,
+    phoneNumber: data.phone,
+    nationality: data.nationality,
+    tenantType: data.tenantType,
+  },
+
+  contract: {
+    id: finalContractId,
         startDate: data.startDate,
         endDate: data.endDate,
         rentAmount: Number(data.rent),
@@ -978,7 +981,7 @@ function resetForm() {
     return normalizeApartmentLeaseStatus(updatedApartment);
   }
 
-  function saveTenantLink(data) {
+  
   function saveTenantLink(data) {
     const tenantUser = ensureTenantRoleByNationalId(data.nationalId);
     const tenantUserId = tenantUser ? tenantUser.id : null;
@@ -1132,3 +1135,7 @@ function resetForm() {
     closeLinkTenantModalFn: closeModal,
   };
 }
+
+
+
+  

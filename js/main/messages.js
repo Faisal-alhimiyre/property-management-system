@@ -91,7 +91,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function setupRoleView() {
-    if (activeRole === "landlord") {
+    if (activeRole === "owner") {
       pageTitle.textContent = "صندوق رسائل المالك";
       pageSubtitle.textContent = "استعراض الرسائل والتنبيهات الواردة من المستأجرين حسب العقار والوحدة";
     } else {
@@ -177,8 +177,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
           <div class="message-meta">
             <div class="meta-item">
-              <span class="meta-label">${activeRole === "landlord" ? "من" : "إلى"}</span>
-              <span class="meta-value">${escapeHtml(activeRole === "landlord" ? msg.senderName : msg.receiverName)}</span>
+              <span class="meta-label">${activeRole === "owner" ? "من" : "إلى"}</span>
+              <span class="meta-value">${escapeHtml(activeRole === "owner" ? msg.senderName : msg.receiverName)}</span>
             </div>
 
             <div class="meta-item">
@@ -288,8 +288,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         <div class="details-meta">
           <div class="meta-item">
-            <span class="meta-label">${activeRole === "landlord" ? "المرسل" : "المرسل إليه"}</span>
-            <span class="meta-value">${escapeHtml(activeRole === "landlord" ? message.senderName : message.receiverName)}</span>
+            <span class="meta-label">${activeRole === "owner" ? "المرسل" : "المرسل إليه"}</span>
+            <span class="meta-value">${escapeHtml(activeRole === "owner" ? message.senderName : message.receiverName)}</span>
           </div>
 
           <div class="meta-item">
@@ -349,7 +349,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (sidebarUserRole) {
       sidebarUserRole.textContent =
-        activeRole === "landlord" ? "مالك" : "مستأجر";
+        activeRole === "owner" ? "مالك" : "مستأجر";
     }
   }
 
@@ -357,7 +357,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const currentId = String(getUserIdentifier(currentUser) || "");
     const currentName = String(getUserDisplayName(currentUser) || "");
 
-    if (activeRole === "landlord") {
+    if (activeRole === "owner") {
       return allMessages
         .filter(msg => {
           const receiverId = String(msg.receiverId || "");
@@ -455,7 +455,7 @@ document.addEventListener("DOMContentLoaded", () => {
         matchedApartment?.tenantInfo?.fullName ||
         "المستأجر";
 
-      const seen = activeRole === "landlord"
+      const seen = activeRole === "owner"
         ? !!req.ownerSeen
         : !!req.tenantSeen;
 
@@ -471,7 +471,7 @@ document.addEventListener("DOMContentLoaded", () => {
         sourceType: "request",
         type: req.typeId || "request",
         subject:
-          activeRole === "landlord"
+          activeRole === "owner"
             ? `تنبيه طلب: ${req.typeTitle || getTypeLabel(req.typeId || "request")}`
             : `تم إرسال طلب: ${req.typeTitle || getTypeLabel(req.typeId || "request")}`,
         body: req.message || "",
@@ -481,27 +481,27 @@ document.addEventListener("DOMContentLoaded", () => {
         apartmentId: req.apartmentId || "",
 
         senderId:
-          activeRole === "landlord"
+          activeRole === "owner"
             ? String(req.tenantNationalId || "")
             : "system",
 
         senderName:
-          activeRole === "landlord"
+          activeRole === "owner"
             ? tenantDisplayName
             : landlordName,
 
         senderRole:
-          activeRole === "landlord"
+          activeRole === "owner"
             ? "tenant"
             : "landlord",
 
         receiverId:
-          activeRole === "landlord"
+          activeRole === "owner"
             ? getUserIdentifier(currentUser)
             : String(matchedBuilding?.ownerId || ""),
 
         receiverName: landlordName,
-        receiverRole: "landlord",
+        receiverRole: "owner",
 
         status: seen ? "read" : "unread",
         createdAt: req.createdAt,
@@ -540,7 +540,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const updated = requests.map(req => {
       if (String(req.id) !== String(requestId)) return req;
 
-      if (activeRole === "landlord") {
+      if (activeRole === "owner") {
         return { ...req, ownerSeen: true };
       }
 
@@ -636,14 +636,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function normalizeRole(role) {
-    const r = String(role || "").trim().toLowerCase();
+function normalizeRole(role) {
+  const r = String(role || "").trim().toLowerCase();
 
-    if (r === "landlord" || r === "owner" || r === "مالك" || r === "مؤجر") return "landlord";
-    if (r === "tenant" || r === "renter" || r === "مستأجر") return "tenant";
+  if (r === "landlord" || r === "owner" || r === "مالك" || r === "مؤجر") return "owner";
+  if (r === "tenant" || r === "renter" || r === "مستأجر") return "tenant";
 
-    return r;
-  }
+  return r;
+}
 
   function getTypeLabel(type) {
     switch (type) {

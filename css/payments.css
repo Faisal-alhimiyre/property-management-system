@@ -99,12 +99,13 @@ body{
   border-color:#18c7c3;
   box-shadow:0 0 0 4px rgba(24,199,195,0.12);
 }
+
 /* Summary */
 .pay-summary{
-  margin-top: 0;
+  margin-top:0;
   display:grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap:12px;
 }
 
 .sum-card{

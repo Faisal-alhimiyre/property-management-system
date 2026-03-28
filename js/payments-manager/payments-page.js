@@ -1,27 +1,36 @@
 document.addEventListener("DOMContentLoaded", function () {
-  const activeRole = localStorage.getItem("activeRole") || "owner";
   const params = new URLSearchParams(window.location.search);
-  const apartmentId = params.get("id");
+
+  const apartmentId =
+    params.get("id") ||
+    params.get("apartmentId");
+
+  const historyId = params.get("historyId");
+  const mode = params.get("mode");
+  const historyContractId = params.get("contractId");
 
   if (!apartmentId) {
-    console.error("لم يتم العثور على id في الرابط");
+    console.warn("لم يتم تمرير apartmentId إلى صفحة المدفوعات");
     return;
   }
 
-  const apartments = typeof getApartments === "function" ? getApartments() : [];
-  const apartment = apartments.find((item) => String(item.id) === String(apartmentId));
+  const apartments = JSON.parse(localStorage.getItem("walajna_apartments") || "[]");
+  const apartment = apartments.find((apt) => String(apt.id) === String(apartmentId));
 
   if (!apartment) {
-    console.error("لم يتم العثور على بيانات الشقة");
+    console.warn("تعذر العثور على الشقة المطلوبة");
     return;
   }
 
-  if (typeof initApartmentPaymentsSystem === "function") {
-    initApartmentPaymentsSystem({
+  const activeRole = localStorage.getItem("activeRole") || "owner";
+
+  if (typeof window.initApartmentPaymentsSystem === "function") {
+    window.initApartmentPaymentsSystem({
       apartment,
-      activeRole
+      activeRole,
+      mode,
+      historyId,
+      historyContractId,
     });
-  } else {
-    console.error("initApartmentPaymentsSystem غير موجود");
   }
 });

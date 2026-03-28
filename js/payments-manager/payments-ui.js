@@ -361,59 +361,57 @@
     `;
   }
 
-  function renderSummary(container, summary, utils, contractInfo = null) {
-    if (!container) return;
+ function renderSummary(container, summary, utils, contractInfo = null) {
+  if (!container) return;
 
-    const contractCards = contractInfo
-      ? `
-        <div class="payments-summary-card">
-          <span class="label">المستأجر</span>
-          <span class="value">${contractInfo.tenantName || "—"}</span>
-        </div>
-
-        <div class="payments-summary-card">
-          <span class="label">الإيجار الشهري</span>
-          <span class="value">${utils.formatCurrency(contractInfo.monthlyRent)}</span>
-        </div>
-
-        <div class="payments-summary-card">
-          <span class="label">دورة الدفع</span>
-          <span class="value">${contractInfo.paymentCycleLabel || "—"}</span>
-        </div>
-
-        <div class="payments-summary-card">
-          <span class="label">قيمة الدفعة</span>
-          <span class="value">${utils.formatCurrency(contractInfo.installmentAmount)}</span>
-        </div>
-      `
-      : "";
-
-    container.innerHTML = `
-      <div class="payments-summary-grid">
-        ${contractCards}
-
-        <div class="payments-summary-card">
-          <span class="label">إجمالي الجدول</span>
-          <span class="value">${utils.formatCurrency(summary.total)}</span>
-        </div>
-
-        <div class="payments-summary-card">
-          <span class="label">تم دفعه</span>
-          <span class="value">${utils.formatCurrency(summary.paid)}</span>
-        </div>
-
-        <div class="payments-summary-card">
-          <span class="label">المتبقي</span>
-          <span class="value">${utils.formatCurrency(summary.pending)}</span>
-        </div>
-
-        <div class="payments-summary-card">
-          <span class="label">المتأخر</span>
-          <span class="value">${utils.formatCurrency(summary.overdue)}</span>
-        </div>
+  const contractCards = contractInfo
+    ? `
+      <div class="payments-summary-card compact">
+        <span class="label">المستأجر</span>
+        <span class="value">${contractInfo.tenantName || "—"}</span>
       </div>
-    `;
-  }
+
+      <div class="payments-summary-card compact">
+        <span class="label">الإيجار الشهري</span>
+        <span class="value">${utils.formatCurrency(contractInfo.monthlyRent)}</span>
+      </div>
+
+      <div class="payments-summary-card compact">
+        <span class="label">دورة الدفع</span>
+        <span class="value">${contractInfo.paymentCycleLabel || "—"}</span>
+      </div>
+    `
+    : "";
+
+  container.innerHTML = `
+    <div class="payments-summary-grid clean-layout">
+      ${contractCards}
+
+      <div class="payments-summary-card strong-card">
+        <span class="label">الإيجار السنوي</span>
+        <span class="value">${utils.formatCurrency(summary.annualOriginalTotal)}</span>
+      </div>
+
+      <div class="payments-summary-card compact">
+        <span class="label">إجمالي الخصومات</span>
+        <span class="value">${utils.formatCurrency(summary.discountsTotal)}</span>
+      </div>
+
+      <div class="payments-summary-card compact">
+        <span class="label">المتبقي</span>
+        <span class="value">${utils.formatCurrency(summary.pending)}</span>
+      </div>
+
+      <div class="payments-summary-card compact paid-card">
+        <span class="label">تم دفعه</span>
+        <span class="value">${utils.formatCurrency(summary.paid)}</span>
+        <small class="sub-value">
+          من أصل ${utils.formatCurrency(summary.adjustedTotal)}
+        </small>
+      </div>
+    </div>
+  `;
+}
 
   function renderPaymentsTable(container, payments, options = {}) {
     const { utils, activeRole } = options;
