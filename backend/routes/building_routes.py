@@ -1,4 +1,4 @@
-import logging
+﻿import logging
 from fastapi import APIRouter, Depends, HTTPException
 from models import Building, BuildingResponse
 from config import supabase
@@ -72,7 +72,7 @@ def _build_apartment_seed_rows(building_row: dict) -> list[dict]:
     if owner_id < 1:
         raise ValueError("owner_id missing from inserted building row")
 
-    building_name = building_row.get("name") or "عمارة"
+    building_name = building_row.get("name") or "Ø¹Ù…Ø§Ø±Ø©"
 
     for current_apartment in range(1, apartments_count + 1):
         floor_number = ((current_apartment - 1) // apartments_per_floor) + 1
@@ -87,7 +87,7 @@ def _build_apartment_seed_rows(building_row: dict) -> list[dict]:
                 "apartment_number": apartment_number,
                 "floor_number": floor_number,
                 "lease_status": "vacant",
-                "address": f"{building_name} - شقة {apartment_number}",
+                "address": f"{building_name} - Ø´Ù‚Ø© {apartment_number}",
                 "description": f"Apartment {apartment_number} in building {building_id}",
                 "rent": 0,
             }
@@ -216,7 +216,7 @@ async def get_buildings(current_user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Only owners can list buildings")
 
     result = supabase.table("buildings").select("*").eq("owner_id", current_user["id"]).execute()
-    return [BuildingResponse(**b) for b in result.data]
+    return [BuildingResponse(**b) for b in (result.data or [])]
 
 @router.patch("/buildings/{building_id}", response_model=BuildingResponse)
 async def update_building(building_id: int, building: Building, current_user: dict = Depends(get_current_user)):
@@ -271,3 +271,4 @@ async def seed_building_apartments(building_id: int, current_user: dict = Depend
     except Exception as seed_error:
         logger.exception("Seed endpoint failed for building_id=%s", building_id)
         raise HTTPException(status_code=500, detail=str(seed_error))
+
