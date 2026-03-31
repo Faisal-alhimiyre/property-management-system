@@ -43,6 +43,96 @@ body {
   background-attachment: fixed;
 }
 
+/* Dark mode overrides */
+body.dark-mode {
+  background:
+    radial-gradient(circle at top right, rgba(34,211,238,0.16), transparent 55%),
+    radial-gradient(circle at bottom left, rgba(15,23,42,0.85), #020617);
+  color: var(--wl-text-primary);
+}
+
+body.dark-mode .owner-dashboard {
+  max-width: 1500px;
+  margin: 40px auto 70px;
+  padding: 0 28px;
+}
+
+body.dark-mode .page-head {
+  background: var(--wl-surface-card);
+  border-color: var(--wl-border-subtle);
+  box-shadow: var(--wl-shadow-soft);
+}
+
+body.dark-mode .page-title {
+  color: var(--wl-text-primary);
+}
+
+body.dark-mode .add-building-btn {
+  background: radial-gradient(circle at top left, var(--wl-accent), #0369a1);
+  color: var(--wl-text-on-accent);
+  box-shadow: var(--wl-shadow-elevated);
+}
+
+body.dark-mode .global-requests-alert {
+  background: rgba(127, 29, 29, 0.16);
+  color: #fecaca;
+  border-color: rgba(248, 113, 113, 0.45);
+}
+
+body.dark-mode .buildings-container {
+  gap: 18px;
+}
+
+body.dark-mode .building-card {
+  background: #101825;
+  border-color: var(--wl-border-subtle);
+  box-shadow: var(--wl-shadow-soft);
+}
+
+body.dark-mode .building-card:hover {
+  box-shadow: var(--wl-shadow-elevated);
+}
+
+body.dark-mode .building-count {
+  background: rgba(15, 23, 42, 0.9);
+  color: var(--wl-text-secondary);
+}
+
+body.dark-mode .legend-card {
+  background: #0b111c;
+  border-color: var(--wl-border-subtle);
+  box-shadow: var(--wl-shadow-soft);
+}
+
+body.dark-mode .legend-title {
+  color: var(--wl-text-primary);
+}
+
+body.dark-mode .legend-item {
+  color: var(--wl-text-secondary);
+}
+
+body.dark-mode .building-more-btn {
+  background: #020617;
+  border-color: rgba(15, 23, 42, 0.6);
+  color: var(--wl-text-primary);
+}
+
+body.dark-mode .building-card-menu {
+  background: #020617;
+  border-color: rgba(15, 23, 42, 0.7);
+}
+
+body.dark-mode .building-card-menu button {
+  background: transparent;
+  color: var(--wl-text-primary);
+}
+
+body.dark-mode .building-card-menu button:hover {
+  background: rgba(15, 23, 42, 0.9);
+}
+
+
 /* container */
 
 .owner-dashboard {

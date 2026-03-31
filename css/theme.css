@@ -1,0 +1,140 @@
+/* Global theme tokens only.
+   IMPORTANT: these tokens should NOT force dark mode by default.
+*/
+
+:root {
+  --wl-bg-body: #050811;
+  --wl-surface-card: #101825;
+  --wl-surface-card-soft: #121a27;
+  --wl-surface-muted: #0d1521;
+
+  --wl-border-subtle: rgba(148, 163, 184, 0.24);
+  --wl-border-soft: rgba(148, 163, 184, 0.18);
+
+  --wl-text-primary: #e5edf7;
+  --wl-text-secondary: #dbe5f4;
+  --wl-text-muted: #c3d0e4;
+  --wl-text-placeholder: #c7d4e8;
+  --wl-text-on-light: #0b1220;
+  --wl-text-on-dark: #f8fafc;
+  --wl-placeholder-on-light: #475569;
+  --wl-placeholder-on-dark: #c7d4e8;
+  --wl-text-on-accent: #f9fafb;
+
+  --wl-accent: #22d3ee;
+  --wl-accent-strong: #06b6d4;
+
+  --wl-danger: #f97373;
+  --wl-shadow-soft: 0 18px 40px rgba(15, 23, 42, 0.45);
+  --wl-shadow-elevated: 0 24px 60px rgba(15, 23, 42, 0.68);
+  --wl-font-family: system-ui, -apple-system, "Segoe UI", "Tahoma", sans-serif;
+}
+
+html { scroll-behavior: smooth; }
+
+body.dark-mode {
+  color: var(--wl-text-primary);
+  background-color: var(--wl-bg-body);
+  font-family: var(--wl-font-family);
+}
+
+/* ===== Global contrast rule ===== */
+/* Light backgrounds -> dark text */
+body:not(.dark-mode){
+  color: var(--wl-text-on-light);
+}
+
+body:not(.dark-mode) :is(
+  h1,h2,h3,h4,h5,h6,p,span,li,label,strong,b,th,td,
+  input,textarea,select,option
+){
+  color: var(--wl-text-on-light);
+}
+
+body:not(.dark-mode) :is(input,textarea)::placeholder{
+  color: var(--wl-placeholder-on-light);
+  opacity: 1;
+}
+
+/* Dark backgrounds -> light text */
+body.dark-mode,
+body.dark-mode :is(
+  h1,h2,h3,h4,h5,h6,p,span,li,label,strong,b,th,td,
+  .title,.card-title,.section-title,.page-title,.modal-title,
+  .subtitle,.description,.helper-text,.label,.value,.muted,
+  .meta,.meta-label,.meta-value,.timestamp,.message-date,.note,.hint
+){
+  color: var(--wl-text-on-dark) !important;
+  opacity: 1;
+}
+
+body.dark-mode :is(input,textarea,select){
+  color: var(--wl-text-on-dark) !important;
+  -webkit-text-fill-color: var(--wl-text-on-dark);
+}
+
+body.dark-mode :is(input,textarea)::placeholder{
+  color: var(--wl-placeholder-on-dark) !important;
+  opacity: 1;
+}
+
+/* Keep dropdown text always readable */
+body.dark-mode select option{
+  background: #0f172a;
+  color: #f8fafc;
+}
+
+body:not(.dark-mode) select option{
+  background: #ffffff;
+  color: #0b1220;
+}
+
+/* Disabled controls readable in both modes */
+body.dark-mode :is(input,textarea,select):disabled{
+  color: #e2e8f0 !important;
+  -webkit-text-fill-color: #e2e8f0;
+  opacity: 1;
+}
+
+body:not(.dark-mode) :is(input,textarea,select):disabled{
+  color: #334155;
+  opacity: 1;
+}
+
+/* Buttons and badges readable */
+body.dark-mode :is(button,.btn,.action-btn,.badge,.status-badge,.type-badge){
+  color: #f8fafc !important;
+}
+
+/* Text on bright primary buttons */
+body.dark-mode :is(.btn-primary,.wl-btn--primary,.record-btn,.send){
+  color: #052626 !important;
+}
+
+/* Global control icons visibility (date/number only) */
+
+body.dark-mode input[type="date"]::-webkit-calendar-picker-indicator{
+  filter:invert(1) brightness(1.15);
+  opacity:1;
+  cursor:pointer;
+}
+
+body:not(.dark-mode) input[type="date"]::-webkit-calendar-picker-indicator{
+  filter: brightness(0) saturate(100%);
+  opacity:1;
+  cursor:pointer;
+}
+
+body.dark-mode input[type="number"]::-webkit-inner-spin-button,
+body.dark-mode input[type="number"]::-webkit-outer-spin-button{
+  opacity:1;
+  filter:invert(1) brightness(1.2);
+}
+
+body:not(.dark-mode) input[type="number"]::-webkit-inner-spin-button,
+body:not(.dark-mode) input[type="number"]::-webkit-outer-spin-button{
+  opacity:.8;
+  filter:none;
+  background:transparent;
+}
+

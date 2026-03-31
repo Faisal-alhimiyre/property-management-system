@@ -2,20 +2,21 @@
 *{ box-sizing: border-box; }
 body{
   margin: 0;
-  font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+  font-family: var(--wl-font-family, system-ui, -apple-system, "Segoe UI", Arial, sans-serif);
   direction: rtl;
   height: 100vh;
   overflow: hidden;
+  color: #ffffff;
 }
 
-/* Background split like the screenshot */
+/* Background */
 .login-bg{
   position: fixed;
   inset: 0;
   background: linear-gradient(to bottom,
-    #45d7e6 0%,     /* top turquoise */
+    #45d7e6 0%,
     #45d7e6 50%,
-    #294e68 50%,    /* bottom dark blue */
+    #294e68 50%,
     #294e68 100%
   );
   z-index: -1;
@@ -44,6 +45,11 @@ body{
   width: min(520px, 92vw);
   display: grid;
   gap: 18px;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }
 
 /* Each row: label on right, input on left (like picture) */
@@ -63,15 +69,29 @@ body{
   white-space: nowrap;
 }
 
-/* Inputs with black border + strong shadow */
+/* Inputs */
 .row input{
-  height: 52px;
+  height: 50px;
   border-radius: 10px;
   border: 2px solid #0b0f14;
   background: #ffffff;
   outline: none;
   padding: 10px 14px;
   font-size: 16px;
+  color: #0f172a;
+  box-shadow: 4px 6px 0 rgba(0,0,0,.75);
+  transition:
+    border-color .16s ease-out,
+    box-shadow .16s ease-out,
+    background-color .16s ease-out;
+}
+
+.row input::placeholder{
+  color: #9ca3af;
+}
+
+.row input:focus{
+  border-color: #0b0f14;
   box-shadow: 4px 6px 0 rgba(0,0,0,.75);
 }
 
@@ -88,6 +108,10 @@ body{
   font-size: 18px;
   background: linear-gradient(90deg, #4ee7e7, #1c63c7);
   box-shadow: 0 10px 20px rgba(0,0,0,.18);
+  transition:
+    transform .18s ease-out,
+    box-shadow .18s ease-out,
+    filter .18s ease-out;
 }
 
 .login-btn:hover{
@@ -121,6 +145,57 @@ body{
   color: #ffffff;
   text-decoration: underline;
 }
+
+/* ===== Dark mode only ===== */
+body.dark-mode{
+  background:
+    radial-gradient(circle at top right, rgba(34,211,238,0.28), transparent 52%),
+    linear-gradient(to bottom, #020617 0%, #020617 45%, #020617 100%);
+  color: #e5edf7;
+}
+
+body.dark-mode .login-bg{
+  background: radial-gradient(circle at top left, rgba(15,23,42,0.9), #020617);
+}
+
+body.dark-mode .logo img{
+  height: 150px;
+}
+
+body.dark-mode .login-form{
+  padding: 28px 26px 26px;
+  border-radius: 24px;
+  background: linear-gradient(155deg, rgba(15,23,42,0.98), rgba(15,23,42,0.9));
+  border: 1px solid rgba(148,163,184,0.3);
+  box-shadow: 0 26px 80px rgba(15,23,42,0.95);
+}
+
+body.dark-mode .row label{ color: #e5edf7; }
+body.dark-mode .row input{
+  border: 1px solid rgba(148,163,184,0.35);
+  background: #020617;
+  color: #e5edf7;
+  box-shadow: 0 0 0 1px rgba(15,23,42,0.9);
+}
+body.dark-mode .row input::placeholder{ color:#6b7280; }
+body.dark-mode .row input:focus{
+  border-color: #06b6d4;
+  box-shadow: 0 0 0 1px rgba(34,211,238,0.6);
+}
+body.dark-mode .login-btn{
+  color:#f9fafb;
+  background: radial-gradient(circle at top left, #22d3ee, #0369a1);
+  box-shadow: 0 20px 50px rgba(8,47,73,0.95);
+}
+body.dark-mode .login-btn:hover{
+  transform: translateY(-1px);
+  filter: brightness(1.02);
+  box-shadow: 0 26px 70px rgba(8,47,73,1);
+}
+body.dark-mode .error{ color:#f97373; }
+body.dark-mode .forgot-link,
+body.dark-mode .footer{ color:#9ca9bf; }
+body.dark-mode .footer a{ color:#06b6d4; }
 /* Mobile tweaks */
 @media (max-width: 560px){
   .row{

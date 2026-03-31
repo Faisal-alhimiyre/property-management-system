@@ -545,3 +545,149 @@ body{
     padding:16px;
   }
 }
+
+/* ===== Dark mode ===== */
+body.dark-mode{
+  background:
+    radial-gradient(circle at top right, rgba(34,211,238,0.16), transparent 55%),
+    radial-gradient(circle at bottom left, rgba(15,23,42,0.85), #020617);
+  color:#e5edf7;
+}
+
+body.dark-mode .pay-header,
+body.dark-mode .sum-card,
+body.dark-mode .costs-table-wrap,
+body.dark-mode .table-total-footer,
+body.dark-mode .payments-inline-note{
+  background:#101825;
+  border-color:rgba(148,163,184,.35);
+  box-shadow:0 18px 40px rgba(15,23,42,.7);
+}
+
+body.dark-mode .pay-header h2,
+body.dark-mode .sum-value,
+body.dark-mode .table-total-value,
+body.dark-mode .count-label{
+  color:#e5edf7;
+}
+
+body.dark-mode .pay-header p,
+body.dark-mode .sum-label,
+body.dark-mode .table-total-label,
+body.dark-mode .payments-inline-note{
+  color:#9ca9bf;
+}
+
+body.dark-mode .pay-search input,
+body.dark-mode .payments-field input,
+body.dark-mode .payments-field select,
+body.dark-mode .payments-field textarea{
+  background:#020617;
+  border-color:rgba(148,163,184,.35);
+  color:#e5edf7;
+}
+
+body.dark-mode .pay-search input::placeholder,
+body.dark-mode .payments-field textarea::placeholder{
+  color:#6b7280;
+}
+
+body.dark-mode .pay-search input:focus,
+body.dark-mode .payments-field input:focus,
+body.dark-mode .payments-field select:focus,
+body.dark-mode .payments-field textarea:focus{
+  border-color:#06b6d4;
+  box-shadow:0 0 0 1px rgba(34,211,238,.5);
+}
+
+body.dark-mode .costs-table{
+  background:#0b111c;
+}
+
+body.dark-mode .costs-table th{
+  background:#020617;
+  color:#cbd5e1;
+  border-bottom:1px solid rgba(148,163,184,.25);
+}
+
+body.dark-mode .costs-table td{
+  color:#e5edf7;
+  border-bottom:1px solid rgba(148,163,184,.18);
+}
+
+body.dark-mode .costs-table tbody tr{
+  background:#101825;
+}
+
+body.dark-mode .costs-table tbody tr:hover{
+  background:#0f1724;
+}
+
+body.dark-mode .record-btn{
+  background:linear-gradient(135deg, #22d3ee, #0ea5a2);
+  color:#053433;
+}
+
+body.dark-mode .wl-modal__panel{
+  background:#101825;
+  border:1px solid rgba(148,163,184,.35);
+  box-shadow:0 24px 60px rgba(15,23,42,.82);
+}
+
+body.dark-mode .wl-modal__header{
+  border-bottom:1px solid rgba(148,163,184,.2);
+  background:linear-gradient(135deg, rgba(15,23,42,.75), rgba(15,23,42,.42));
+}
+
+body.dark-mode .wl-modal__footer{
+  border-top:1px solid rgba(148,163,184,.2);
+  background:#0b111c;
+}
+
+body.dark-mode .wl-modal__title{
+  color:#e5edf7;
+}
+
+body.dark-mode .wl-modal__subtitle,
+body.dark-mode .payments-field label{
+  color:#9ca9bf;
+}
+
+body.dark-mode .wl-btn--primary{
+  background:linear-gradient(135deg, #22d3ee, #0ea5a2);
+  color:#053433;
+}
+
+body.dark-mode .wl-btn--ghost{
+  background:#0b111c;
+  color:#e5edf7;
+}
+
+/* Fix costs status/delete controls visibility */
+body.dark-mode .costs-table .badge.approved{
+  background:rgba(21,128,61,.35);
+  color:#dcfce7 !important;
+  border:1px solid rgba(34,197,94,.35);
+}
+
+body.dark-mode .costs-table .badge.pending{
+  background:rgba(180,83,9,.35);
+  color:#fef3c7 !important;
+  border:1px solid rgba(245,158,11,.35);
+}
+
+body.dark-mode .costs-table .badge.cancelled{
+  background:rgba(185,28,28,.35);
+  color:#fee2e2 !important;
+  border:1px solid rgba(239,68,68,.35);
+}
+
+body.dark-mode .costs-table .delete-btn{
+  background:#dc2626;
+  color:#ffffff !important;
+  border:1px solid rgba(248,113,113,.35);
+}
+
+body.dark-mode .costs-table .delete-btn:hover{
+  background:#b91c1c;
+}

@@ -41,6 +41,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   myApartments.forEach((apt) => {
     const building = buildings.find(b => b.id === apt.buildingId);
+    const buildingName = (building?.name || "Building").trim();
+    const apartmentNumber = apt.number ?? "-";
+    const cardTitle = `${buildingName} - شقة ${apartmentNumber}`;
 
     const card = document.createElement("div");
     card.className = "building-card clickable-card";
@@ -48,9 +51,11 @@ document.addEventListener("DOMContentLoaded", () => {
     card.dataset.id = apt.id;
 
     card.innerHTML = `
-      <img src="../pics/logo.png" alt="Apartment">
+      <div class="building-card__media" aria-hidden="true">
+        <img src="../pics/tenant-house-icon.png" alt="">
+      </div>
       <p>
-        ${building ? building.name : "شقة"} ${apt.number}
+        ${cardTitle}
       </p>
     `;
 

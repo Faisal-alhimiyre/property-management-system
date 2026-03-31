@@ -3,13 +3,13 @@
   margin:0;
   padding:0;
   box-sizing:border-box;
-  font-family: "Tahoma", "Segoe UI", sans-serif;
+  font-family: var(--wl-font-family, "Tahoma","Segoe UI",sans-serif);
 }
 
 :root{
-  --top:#33cfe6;      /* turquoise */
-  --bottom:#2f5672;   /* dark blue */
-  --accent:#042d53;   /* bright accent */
+  --top:#33cfe6;
+  --bottom:#2f5672;
+  --accent:#042d53;
   --white:#ffffff;
 }
 
@@ -280,6 +280,60 @@ body{
 .to-top:hover{
   text-decoration:underline;
 }
+
+/* ===== Dark mode only ===== */
+body.dark-mode{
+  background:
+    radial-gradient(circle at top right, rgba(34,211,238,0.26), transparent 55%),
+    radial-gradient(circle at bottom left, rgba(15,23,42,0.9), #020617);
+  color: #e5edf7;
+}
+
+body.dark-mode .brand__name{ color:#e5edf7; }
+body.dark-mode .nav__link{ color:#9ca9bf; }
+body.dark-mode .nav__link:hover{ color:#e5edf7; }
+body.dark-mode .btn--primary{
+  color:#f9fafb;
+  background: radial-gradient(circle at top left, #22d3ee, #0369a1);
+  box-shadow:0 18px 50px rgba(8,47,73,0.9);
+}
+body.dark-mode .btn--ghost{
+  border:1px solid rgba(148,163,184,.35);
+  color:#e5edf7;
+  background:rgba(15,23,42,0.6);
+}
+body.dark-mode .btn--ghost:hover{
+  background:rgba(15,23,42,0.9);
+  color:#e5edf7;
+}
+body.dark-mode .badge{
+  background: rgba(15,23,42,0.85);
+  border:1px solid rgba(148,163,184,0.45);
+  backdrop-filter: blur(18px);
+}
+body.dark-mode .accent{ color:#06b6d4; }
+body.dark-mode .hero__subtitle,
+body.dark-mode .stat__label{ color:#9ca9bf; opacity:1; }
+body.dark-mode .hero__image{ filter: drop-shadow(0 26px 40px rgba(15,23,42,0.9)); }
+body.dark-mode .wave path{ fill:#020617; }
+body.dark-mode .section{
+  background:radial-gradient(circle at top, rgba(15,23,42,0.95), #020617);
+  color:#e5edf7;
+}
+body.dark-mode .muted{ color:#9ca9bf; opacity:1; }
+body.dark-mode .card{
+  border-radius:20px;
+  box-shadow:0 18px 40px rgba(15,23,42,0.45);
+  border:1px solid rgba(148,163,184,.24);
+  background:linear-gradient(140deg, rgba(15,23,42,0.96), rgba(15,23,42,0.85));
+}
+body.dark-mode .card p{ color:#9ca9bf; opacity:1; }
+body.dark-mode .footer{
+  background:#020617;
+  color:#9ca9bf;
+  border-top:1px solid rgba(15,23,42,0.8);
+}
+body.dark-mode .to-top{ color:#06b6d4; }
 
 /* RESPONSIVE */
 @media (max-width: 980px){

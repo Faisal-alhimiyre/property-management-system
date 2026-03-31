@@ -363,3 +363,71 @@ body{
     height:40px;
   }
 }
+
+/* ===== Dark mode ===== */
+body.dark-mode{
+  background:
+    radial-gradient(circle at top right, rgba(34,211,238,0.16), transparent 55%),
+    radial-gradient(circle at bottom left, rgba(15,23,42,0.85), #020617);
+  color:#e5edf7;
+}
+
+body.dark-mode .payment-options-header,
+body.dark-mode .payment-summary-box,
+body.dark-mode .payment-method-card{
+  background:#101825;
+  border-color:rgba(148,163,184,.35);
+  box-shadow:0 18px 40px rgba(15,23,42,.7);
+}
+
+body.dark-mode .payment-options-header h2,
+body.dark-mode .payment-summary-value,
+body.dark-mode .payment-method-head h3{
+  color:#f8fafc;
+}
+
+body.dark-mode .payment-options-header p,
+body.dark-mode .payment-summary-label,
+body.dark-mode .payment-method-card p{
+  color:#cbd5e1;
+}
+
+body.dark-mode .payment-summary-row + .payment-summary-row{
+  border-top:1px solid rgba(148,163,184,.2);
+}
+
+body.dark-mode .back-link{
+  background:#0b111c;
+  color:#f8fafc;
+  border:1px solid rgba(148,163,184,.35);
+}
+
+body.dark-mode .back-link:hover{
+  background:#172033;
+}
+
+body.dark-mode .payment-method-card::before{
+  opacity:.95;
+}
+
+body.dark-mode .payment-method-card.tamara{
+  border-color:rgba(139,92,246,.5);
+}
+
+body.dark-mode .payment-method-card.tabby{
+  border-color:rgba(37,99,235,.5);
+}
+
+body.dark-mode .payment-method-card.apple-pay{
+  border-color:rgba(148,163,184,.45);
+}
+
+body.dark-mode .payment-method-card.bank-card{
+  border-color:rgba(234,88,12,.45);
+}
+
+body.dark-mode .payment-method-badge{
+  background:#0b111c;
+  border-color:rgba(148,163,184,.35);
+  color:#e5edf7;
+}

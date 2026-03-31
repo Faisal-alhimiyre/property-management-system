@@ -280,3 +280,39 @@ body{
     justify-content:center;
   }
 }
+
+/* ===== Dark mode ===== */
+body.dark-mode{
+  background:
+    radial-gradient(circle at top right, rgba(34,211,238,0.16), transparent 55%),
+    radial-gradient(circle at bottom left, rgba(15,23,42,0.85), #020617);
+  color:#e5edf7;
+}
+
+body.dark-mode .form-card{
+  background:rgba(16,24,37,0.92);
+  border-color:rgba(148,163,184,.35);
+  box-shadow:0 20px 48px rgba(15,23,42,.75);
+}
+
+body.dark-mode .form-title{ color:#e5edf7; }
+body.dark-mode .form-subtitle{ color:#9ca9bf; }
+body.dark-mode .form-group label{ color:#cbd5e1; }
+
+body.dark-mode .form-group input,
+body.dark-mode .form-group textarea,
+body.dark-mode .form-group select{
+  background:#020617;
+  border-color:rgba(148,163,184,.35);
+  color:#e5edf7;
+}
+
+body.dark-mode .form-group input::placeholder,
+body.dark-mode .form-group textarea::placeholder{
+  color:#6b7280;
+}
+
+body.dark-mode .save-btn{
+  background:radial-gradient(circle at top left, #22d3ee, #0369a1);
+  color:#f9fafb;
+}

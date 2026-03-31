@@ -38,6 +38,51 @@ padding:24px 8%;
 min-height:100vh;
 }
 
+/* Dark mode overrides */
+body.dark-mode{
+  background:
+    radial-gradient(circle at top right, rgba(34,211,238,0.18), transparent 55%),
+    radial-gradient(circle at bottom left, rgba(15,23,42,0.85), #020617);
+  color: var(--wl-text-primary);
+}
+
+body.dark-mode .glass-card{
+  background: rgba(15,23,42,0.9);
+  border-color: rgba(148,163,184,0.35);
+  box-shadow: var(--wl-shadow-soft);
+}
+
+body.dark-mode .search-box input,
+body.dark-mode .filters select{
+  background:#020617;
+  border-color: rgba(148,163,184,0.45);
+  color: var(--wl-text-primary);
+}
+
+body.dark-mode .search-box input::placeholder{
+  color: var(--wl-text-placeholder);
+}
+
+body.dark-mode .message-card{
+  background:#101825;
+  border-color: rgba(148,163,184,0.35);
+}
+
+body.dark-mode .meta-item{
+  background:#0b111c;
+  border-color: rgba(148,163,184,0.35);
+}
+
+body.dark-mode .modal-backdrop{
+  background: rgba(15,23,42,0.9);
+}
+
+body.dark-mode .modal-dialog{
+  background:#101825;
+  border-color: rgba(148,163,184,0.35);
+}
+
+
 /* glass cards */
 
 .glass-card{

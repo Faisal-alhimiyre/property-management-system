@@ -184,11 +184,12 @@ body{
   gap:8px;
   padding:8px 14px;
   border-radius:999px;
-  border:1px solid #d5dce5;
-  background:#f3f4f6;
+  border:1px solid #cbd5e1;
+  background:#e5e7eb;
   font-weight:900;
   font-size:14px;
   min-width:72px;
+  color:#0f172a;
 }
 
 #leaseStatus.ok{
@@ -549,9 +550,9 @@ body{
   font-weight:900;
   padding:6px 10px;
   border-radius:999px;
-  border:1px solid #e2e8f0;
-  background:#f8fafc;
-  color:var(--muted);
+  border:1px solid #cbd5e1;
+  background:#e2e8f0;
+  color:#0f172a;
   white-space:nowrap;
 }
 
@@ -561,6 +562,25 @@ body{
   margin-top:16px;
   border-top:1px solid #edf1f5;
   padding-top:16px;
+}
+
+/* Resolve request action button inside requests modal */
+.resolve-request-btn{
+  border:1px solid #16a34a;
+  background:#ecfdf3;
+  color:#166534;
+  border-radius:10px;
+  padding:8px 12px;
+  font-size:12px;
+  font-weight:900;
+  font-family:inherit;
+  cursor:pointer;
+  transition:all .15s ease;
+}
+
+.resolve-request-btn:hover{
+  background:#dcfce7;
+  transform:translateY(-1px);
 }
 
 .wl-label{
@@ -641,6 +661,25 @@ body{
   padding:20px;
 }
 
+/* Keep modal scrollbars clean in light mode too */
+#linkTenantModal .wl-modal__body::-webkit-scrollbar,
+.wl-list::-webkit-scrollbar{
+  width:10px;
+}
+
+#linkTenantModal .wl-modal__body::-webkit-scrollbar-track,
+.wl-list::-webkit-scrollbar-track{
+  background:#e2e8f0;
+  border-radius:999px;
+}
+
+#linkTenantModal .wl-modal__body::-webkit-scrollbar-thumb,
+.wl-list::-webkit-scrollbar-thumb{
+  background:#94a3b8;
+  border-radius:999px;
+  border:2px solid #e2e8f0;
+}
+
 #linkTenantModal .wl-icon-btn{
   width:44px;
   height:44px;
@@ -654,6 +693,36 @@ body{
   padding:16px 20px;
   border-top:1px solid #e5e7eb;
   background:#fff;
+}
+
+/* Better date + file controls */
+#linkTenantModal input[type="date"]{
+  cursor:pointer;
+}
+
+#linkTenantModal input[type="date"]::-webkit-calendar-picker-indicator{
+  opacity:1;
+  cursor:pointer;
+}
+
+#linkTenantModal input[type="file"]{
+  padding:8px 10px;
+  min-height:44px;
+  background:#ffffff;
+  color:#0f172a;
+  border:1px solid #dbe3ec;
+  border-radius:12px;
+}
+
+#linkTenantModal input[type="file"]::file-selector-button{
+  border:none;
+  border-radius:10px;
+  padding:8px 12px;
+  margin-inline-end:10px;
+  font-weight:800;
+  background:#e2e8f0;
+  color:#0f172a;
+  cursor:pointer;
 }
 
 /* documents */
@@ -695,4 +764,259 @@ body{
   .wl-list{
     max-height:240px;
   }
+}
+
+/* ===== Dark mode ===== */
+body.dark-mode{
+  background:
+    radial-gradient(circle at top right, rgba(34,211,238,0.16), transparent 55%),
+    radial-gradient(circle at bottom left, rgba(15,23,42,0.85), #020617);
+  color:#e5edf7;
+}
+
+body.dark-mode .header,
+body.dark-mode .details-card{
+  background:#101825;
+  border-color:rgba(148,163,184,.35);
+  box-shadow:0 18px 40px rgba(15,23,42,.7);
+}
+
+body.dark-mode #aptTitle,
+body.dark-mode .section-title,
+body.dark-mode .value{
+  color:#e5edf7;
+}
+
+body.dark-mode .page-role-label,
+body.dark-mode .label{
+  color:#9ca9bf;
+}
+
+body.dark-mode .item{
+  background:#0b111c;
+  border-color:rgba(148,163,184,.22);
+  box-shadow:none;
+}
+
+body.dark-mode .item:hover{
+  border-color:rgba(34,211,238,.34);
+  box-shadow:0 12px 24px rgba(15,23,42,.45);
+}
+
+body.dark-mode .details-grid input.value,
+body.dark-mode .details-grid textarea.value,
+body.dark-mode .details-grid select.value,
+body.dark-mode #linkTenantModal input,
+body.dark-mode #linkTenantModal textarea,
+body.dark-mode #linkTenantModal select{
+  background:#020617;
+  border-color:rgba(148,163,184,.35);
+  color:#e5edf7;
+}
+
+body.dark-mode .details-grid input.value:focus,
+body.dark-mode .details-grid textarea.value:focus,
+body.dark-mode .details-grid select.value:focus,
+body.dark-mode #linkTenantModal input:focus,
+body.dark-mode #linkTenantModal textarea:focus,
+body.dark-mode #linkTenantModal select:focus{
+  border-color:#06b6d4;
+  box-shadow:0 0 0 1px rgba(34,211,238,.5);
+}
+
+body.dark-mode .action-btn.secondary{
+  background:#0b111c;
+  color:#e5edf7;
+  border-color:rgba(148,163,184,.35);
+}
+
+body.dark-mode .wl-modal__panel{
+  background:#101825;
+  border-color:rgba(148,163,184,.35);
+  box-shadow:0 24px 60px rgba(15,23,42,.82);
+}
+
+body.dark-mode .wl-modal__header{
+  border-bottom:1px solid rgba(148,163,184,.2);
+  background:linear-gradient(135deg, rgba(15,23,42,.75), rgba(15,23,42,.42));
+}
+
+body.dark-mode .wl-modal__title,
+body.dark-mode .wl-item__title,
+body.dark-mode .wl-label{
+  color:#e5edf7;
+}
+
+body.dark-mode .wl-modal__subtitle,
+body.dark-mode .wl-item__desc,
+body.dark-mode .wl-char-counter{
+  color:#9ca9bf;
+}
+
+body.dark-mode .wl-icon-btn{
+  background:#020617;
+  border-color:rgba(148,163,184,.35);
+  color:#e5edf7;
+}
+
+body.dark-mode .wl-modal__footer{
+  border-top:1px solid rgba(148,163,184,.2);
+  background:#0b111c;
+}
+
+body.dark-mode .wl-btn{
+  background:#0b111c;
+  border-color:rgba(148,163,184,.35);
+  color:#e5edf7;
+}
+
+body.dark-mode .wl-btn--primary{
+  background:linear-gradient(135deg, #22d3ee, #0ea5a2);
+  color:#053433;
+  border:none;
+}
+
+body.dark-mode .wl-search input,
+body.dark-mode .wl-message-box textarea{
+  background:#020617;
+  border-color:rgba(148,163,184,.35);
+  color:#e5edf7;
+}
+
+body.dark-mode .wl-item{
+  background:#0b111c;
+  border-color:rgba(148,163,184,.25);
+}
+
+body.dark-mode .wl-item:hover{
+  background:#0f1724;
+}
+
+body.dark-mode .wl-badge{
+  background:#1e293b;
+  border-color:rgba(148,163,184,.35);
+  color:#f8fafc !important;
+}
+
+body.dark-mode .resolve-request-btn{
+  background:rgba(34,197,94,.2);
+  border-color:rgba(34,197,94,.5);
+  color:#dcfce7;
+}
+
+body.dark-mode .resolve-request-btn:hover{
+  background:rgba(34,197,94,.3);
+}
+
+/* Fix white scrollbar strip on left inside request lists */
+body.dark-mode .wl-list::-webkit-scrollbar{
+  width:10px;
+}
+
+body.dark-mode .wl-list::-webkit-scrollbar-track{
+  background:#0b111c;
+  border-radius:999px;
+}
+
+body.dark-mode .wl-list::-webkit-scrollbar-thumb{
+  background:#334155;
+  border-radius:999px;
+  border:2px solid #0b111c;
+}
+
+/* Fix lease status badge visibility in dark mode */
+body.dark-mode #leaseStatus{
+  background:#0f172a;
+  border-color:rgba(148,163,184,.35);
+  color:#f8fafc !important;
+}
+
+body.dark-mode #leaseStatus.ok{
+  background:rgba(34,197,94,.25);
+  border-color:rgba(34,197,94,.45);
+  color:#dcfce7 !important;
+}
+
+body.dark-mode #leaseStatus.warn{
+  background:rgba(245,158,11,.25);
+  border-color:rgba(245,158,11,.45);
+  color:#fef3c7 !important;
+}
+
+body.dark-mode #leaseStatus.danger{
+  background:rgba(239,68,68,.25);
+  border-color:rgba(239,68,68,.45);
+  color:#fee2e2 !important;
+}
+
+/* Link tenant modal dark fixes (date icon, file input, white strips) */
+body.dark-mode #linkTenantModal .wl-modal__panel{
+  background:#101825;
+}
+
+body.dark-mode #linkTenantModal .wl-modal__body{
+  background:#101825;
+}
+
+body.dark-mode #linkTenantModal .wl-modal__footer{
+  background:#0b111c;
+  border-top:1px solid rgba(148,163,184,.2);
+}
+
+body.dark-mode #linkTenantModal input[type="date"]::-webkit-calendar-picker-indicator{
+  filter:invert(1) brightness(1.15);
+  opacity:1;
+  cursor:pointer;
+}
+
+/* Keep select arrow visible all the time */
+body.dark-mode #linkTenantModal select,
+body.dark-mode .details-grid select.value{
+  appearance:none;
+  -webkit-appearance:none;
+  -moz-appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23e2e8f0' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;
+  background-position:left 12px center;
+  background-size:14px 14px;
+  padding-left:34px;
+}
+
+/* Keep number input arrows visible */
+body.dark-mode #linkTenantModal input[type="number"]::-webkit-inner-spin-button,
+body.dark-mode #linkTenantModal input[type="number"]::-webkit-outer-spin-button{
+  opacity:1;
+  filter:invert(1) brightness(1.2);
+}
+
+body.dark-mode #linkTenantModal input[type="file"]{
+  background:#020617;
+  color:#e5edf7;
+  border-color:rgba(148,163,184,.35);
+}
+
+body.dark-mode #linkTenantModal input[type="file"]::file-selector-button{
+  background:#1e293b;
+  color:#f8fafc;
+  border:1px solid rgba(148,163,184,.35);
+}
+
+body.dark-mode #linkTenantModal input[type="file"]::file-selector-button:hover{
+  background:#334155;
+}
+
+/* Remove bright scrollbar strip in modal body */
+body.dark-mode #linkTenantModal .wl-modal__body::-webkit-scrollbar{
+  width:10px;
+}
+
+body.dark-mode #linkTenantModal .wl-modal__body::-webkit-scrollbar-track{
+  background:#0b111c;
+  border-radius:999px;
+}
+
+body.dark-mode #linkTenantModal .wl-modal__body::-webkit-scrollbar-thumb{
+  background:#334155;
+  border-radius:999px;
+  border:2px solid #0b111c;
 }

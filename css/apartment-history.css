@@ -310,3 +310,53 @@ body {
     padding: 15px;
   }
 }
+
+/* ===== Dark mode ===== */
+body.dark-mode{
+  background:
+    radial-gradient(circle at top right, rgba(34,211,238,0.16), transparent 55%),
+    radial-gradient(circle at bottom left, rgba(15,23,42,0.85), #020617);
+  color:#e5edf7;
+}
+
+body.dark-mode .page-head,
+body.dark-mode .sidebar,
+body.dark-mode .section-head,
+body.dark-mode .card,
+body.dark-mode .info-box{
+  background:#101825;
+  border-color:rgba(148,163,184,.35);
+  box-shadow:0 18px 40px rgba(15,23,42,.7);
+}
+
+body.dark-mode .page-title,
+body.dark-mode .sidebar-title,
+body.dark-mode .card-header h3,
+body.dark-mode .info-box strong{
+  color:#e5edf7;
+}
+
+body.dark-mode .page-subtitle,
+body.dark-mode .label{
+  color:#9ca9bf;
+}
+
+body.dark-mode .sidebar-btn{
+  background:#0b111c;
+  border-color:rgba(148,163,184,.3);
+  color:#e5edf7;
+}
+
+body.dark-mode .sidebar-btn.active{
+  background:linear-gradient(135deg, #22d3ee, #0ea5a2);
+  color:#053433;
+}
+
+body.dark-mode .back-btn{
+  background:linear-gradient(135deg, #22d3ee, #0ea5a2);
+  color:#053433;
+}
+
+body.dark-mode .card::after{
+  background:linear-gradient(180deg, #22d3ee 0%, #0891b2 100%);
+}

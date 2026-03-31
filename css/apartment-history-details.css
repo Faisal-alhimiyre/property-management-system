@@ -563,3 +563,88 @@ body {
     align-items: flex-start;
   }
 }
+
+/* ===== Dark mode ===== */
+body.dark-mode{
+  background:
+    radial-gradient(circle at top right, rgba(34,211,238,0.16), transparent 55%),
+    radial-gradient(circle at bottom left, rgba(15,23,42,0.85), #020617);
+  color:#e5edf7;
+}
+
+body.dark-mode .history-hero,
+body.dark-mode .hero-stat,
+body.dark-mode .info-card,
+body.dark-mode .info-item,
+body.dark-mode .request-item,
+body.dark-mode .request-box,
+body.dark-mode .request-description,
+body.dark-mode .history-modal__panel,
+body.dark-mode .history-request-card,
+body.dark-mode .history-request-box,
+body.dark-mode .history-request-note{
+  background:#101825;
+  border-color:rgba(148,163,184,.35);
+  box-shadow:0 18px 40px rgba(15,23,42,.7);
+}
+
+body.dark-mode .page-title,
+body.dark-mode .section-title,
+body.dark-mode .request-title,
+body.dark-mode .history-request-card__title,
+body.dark-mode .info-item strong,
+body.dark-mode .history-request-box strong,
+body.dark-mode .history-request-note strong{
+  color:#e5edf7;
+}
+
+body.dark-mode .page-subtitle,
+body.dark-mode .hero-stat__label,
+body.dark-mode .label,
+body.dark-mode .helper-text,
+body.dark-mode .request-box span,
+body.dark-mode .request-description span,
+body.dark-mode .history-request-box span,
+body.dark-mode .history-request-note span,
+body.dark-mode .history-modal__subtitle{
+  color:#9ca9bf;
+}
+
+body.dark-mode .back-btn{
+  background:linear-gradient(135deg, #22d3ee, #0ea5a2);
+  color:#053433;
+}
+
+body.dark-mode .history-badge{
+  background:rgba(34,211,238,.14);
+  color:#67e8f9;
+  border-color:rgba(34,211,238,.32);
+}
+
+body.dark-mode .history-note{
+  background:rgba(15,23,42,.75);
+  color:#9ca9bf;
+  border-color:rgba(148,163,184,.3);
+}
+
+body.dark-mode .action-btn.secondary{
+  background:#0b111c;
+  color:#e5edf7;
+  border-color:rgba(148,163,184,.35);
+}
+
+body.dark-mode .history-modal__backdrop{
+  background:rgba(15,23,42,.86);
+}
+
+body.dark-mode .history-modal__close{
+  background:#020617;
+  color:#e5edf7;
+}
+
+body.dark-mode .request-empty,
+body.dark-mode .history-request-empty{
+  background:#0b111c;
+  border-color:rgba(148,163,184,.35);
+  color:#9ca9bf;
+}

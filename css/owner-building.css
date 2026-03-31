@@ -804,3 +804,133 @@ body{
     margin-bottom:12px;
   }
 }
+
+/* ===== Dark mode ===== */
+body.dark-mode{
+  background:
+    radial-gradient(circle at top right, rgba(34,211,238,0.16), transparent 55%),
+    radial-gradient(circle at bottom left, rgba(15,23,42,0.85), #020617);
+  color:#e5edf7;
+}
+
+body.dark-mode .finance-card,
+body.dark-mode .expense-breakdown-card,
+body.dark-mode .building-shell,
+body.dark-mode .apartment-card,
+body.dark-mode .apartment-edit-modal__panel{
+  background:#101825;
+  border-color:rgba(148,163,184,.35);
+  box-shadow:0 18px 40px rgba(15,23,42,.7);
+}
+
+body.dark-mode .finance-label,
+body.dark-mode .apartment-meta,
+body.dark-mode .apartment-subtitle,
+body.dark-mode .expense-breakdown-card .label{
+  color:#9ca9bf;
+}
+
+body.dark-mode .finance-card strong,
+body.dark-mode .expense-breakdown-card strong,
+body.dark-mode #buildingTitle,
+body.dark-mode .floor-title,
+body.dark-mode .apartment-title{
+  color:#e5edf7;
+}
+
+body.dark-mode .finance-summary-btn{
+  background:radial-gradient(circle at top left, #22d3ee, #0369a1);
+  color:#f9fafb;
+}
+
+body.dark-mode .apartment-edit-modal__backdrop{
+  background:rgba(15,23,42,.86);
+}
+
+body.dark-mode .apartment-edit-modal .item input,
+body.dark-mode .apartment-edit-modal .item select,
+body.dark-mode .apartment-edit-modal .item textarea{
+  background:#020617;
+  border-color:rgba(148,163,184,.35);
+  color:#e5edf7;
+}
+
+body.dark-mode .building-stat-item,
+body.dark-mode .floor-title,
+body.dark-mode .floor-apartments,
+body.dark-mode .apartment-card-menu,
+body.dark-mode .apartment-card-menu button,
+body.dark-mode .apartment-more-btn{
+  background:#0b111c;
+  border-color:rgba(148,163,184,.35);
+}
+
+body.dark-mode .building-stat-label,
+body.dark-mode .finance-summary-note,
+body.dark-mode .apartment-edit-modal__subtitle,
+body.dark-mode .apartment-edit-modal .label{
+  color:#cbd5e1;
+}
+
+body.dark-mode .building-stat-item strong,
+body.dark-mode .apartment-number,
+body.dark-mode .apartment-tenant,
+body.dark-mode .apartment-edit-modal__title,
+body.dark-mode .apartment-edit-modal__body,
+body.dark-mode .apartment-card-menu button{
+  color:#f8fafc;
+}
+
+body.dark-mode .apartment-card.none{
+  background:linear-gradient(180deg, #0f172a 0%, #0b1220 100%);
+  border-color:rgba(148,163,184,.35);
+}
+
+body.dark-mode .apartment-card.complaint{
+  background:linear-gradient(180deg, #facc15 0%, #eab308 100%);
+}
+
+body.dark-mode .apartment-card.complaint .apartment-number,
+body.dark-mode .apartment-card.complaint .apartment-tenant{
+  color:#111827;
+}
+
+body.dark-mode .apartment-badge{
+  background:#111827;
+  border-color:rgba(148,163,184,.35);
+  color:#f8fafc;
+}
+
+body.dark-mode .rented-badge{
+  background:rgba(34,197,94,.2);
+  border-color:rgba(34,197,94,.35);
+  color:#dcfce7;
+}
+
+body.dark-mode .apartment-card-menu button:hover{
+  background:#172033;
+}
+
+body.dark-mode .apartment-more-btn{
+  color:#f8fafc;
+}
+
+body.dark-mode .apartment-more-btn:hover{
+  background:#172033;
+}
+
+body.dark-mode .apartment-edit-btn.ghost{
+  background:#0b111c;
+  color:#f8fafc;
+}
+
+body.dark-mode .apartment-edit-modal__close{
+  background:#0b111c;
+  color:#f8fafc;
+}
+
+body.dark-mode .apartment-edit-modal .item input::placeholder,
+body.dark-mode .apartment-edit-modal .item textarea::placeholder{
+  color:#94a3b8;
+  opacity:1;
+}
