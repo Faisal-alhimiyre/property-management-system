@@ -144,13 +144,29 @@ document.addEventListener("DOMContentLoaded", () => {
     return isApartmentOccupied(apartmentData) ? "active" : "vacant";
   }
 
+  function getLeaseStatusLabel(leaseStatus) {
+    switch (leaseStatus) {
+      case "ending_soon":
+        return "قريب الانتهاء";
+      case "ended":
+        return "منتهي";
+      case "overdue":
+        return "متأخرة";
+      case "occupied":
+      case "active":
+        return "مؤجرة";
+      case "vacant":
+      default:
+        return "فارغة";
+    }
+  }
+
   function buildNormalizedApartment(apartmentData) {
     const occupied = isApartmentOccupied(apartmentData);
     const updated = { ...apartmentData };
 
     if (!occupied) {
       updated.leaseStatus = "vacant";
-      updated.status = "فارغة";
       return updated;
     }
 
@@ -161,10 +177,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!normalized.leaseStatus || normalized.leaseStatus === "vacant") {
       normalized.leaseStatus = "active";
-    }
-
-    if (!normalized.status || normalized.status === "فارغة") {
-      normalized.status = "نشط";
     }
 
     return normalized;
@@ -634,7 +646,7 @@ document.addEventListener("DOMContentLoaded", () => {
   updateNextPaymentInfo(aptId);
 
   if (status) {
-    status.textContent = effectiveLeaseStatus === "vacant" ? "فارغة" : (data.status || "نشط");
+    status.textContent = getLeaseStatusLabel(data.leaseStatus || effectiveLeaseStatus);
   }
 
   if (roleLabel) {

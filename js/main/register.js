@@ -2,6 +2,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("registerForm");
   const errorBox = document.getElementById("errorBox");
 
+  const API_BASE = 'http://127.0.0.1:8002';
+
   function showError(msg) {
     errorBox.textContent = msg;
   }
@@ -25,23 +27,18 @@ document.addEventListener("DOMContentLoaded", () => {
     return sum % 10 === 0;
   }
 
-  function generateUserId() {
-    return "U" + Date.now();
-  }
-
-  form.addEventListener("submit", (e) => {
+  form.addEventListener("submit", async (e) => {
     e.preventDefault();
     showError("");
 
     const fullName = form.fullName.value.trim();
-    const username = form.username.value.trim();
     const email = form.email.value.trim();
-    const phoneNumber = form.phoneNumber.value.trim();
-    const nationalId = form.nationalId.value.trim();
     const password = form.password.value;
     const confirmPassword = form.confirmPassword.value;
+    const nationalId = form.nationalId.value.trim();
+    const phoneNumber = form.phoneNumber.value.trim();
 
-    if (!fullName || !username || !email || !nationalId || !phoneNumber || !password || !confirmPassword) {
+    if (!fullName || !email || !password || !confirmPassword || !nationalId || !phoneNumber) {
       showError("الرجاء تعبئة جميع الحقول.");
       return;
     }
@@ -51,45 +48,37 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    if (!/^05\d{8}$/.test(phoneNumber)) {
-      showError("رقم الجوال غير صحيح.");
-      return;
-    }
-
     if (password !== confirmPassword) {
       showError("كلمتا المرور غير متطابقتين.");
       return;
     }
 
-    const users = JSON.parse(localStorage.getItem("walajna_users") || "[]");
+    try {
+      const response = await fetch(`${API_BASE}/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: fullName,
+          email,
+          password,
+          national_id: nationalId,
+          phone: phoneNumber,
+          role: 'owner'  // Default to owner, can be changed later
+        }),
+      });
 
-    const exists = users.some(
-      (u) =>
-        u.username?.toLowerCase() === username.toLowerCase() ||
-        u.email?.toLowerCase() === email.toLowerCase() ||
-        u.nationalId === nationalId
-    );
+      if (!response.ok) {
+        const error = await response.json();
+        showError(error.detail || "خطأ في إنشاء الحساب.");
+        return;
+      }
 
-    if (exists) {
-      showError("اسم المستخدم أو البريد أو رقم الهوية مستخدم بالفعل.");
-      return;
+      alert("تم إنشاء الحساب بنجاح");
+      window.location.href = "login.html";
+    } catch (error) {
+      showError("خطأ في الشبكة. حاول مرة أخرى.");
     }
-
-    const newUser = {
-      id: generateUserId(),
-      fullName,
-      username,
-      email,
-      phoneNumber,
-      nationalId,
-      password,
-      roles: []
-    };
-
-    users.push(newUser);
-    localStorage.setItem("walajna_users", JSON.stringify(users));
-
-    alert("تم إنشاء الحساب بنجاح");
-    window.location.href = "login.html";
   });
 });

@@ -6,7 +6,6 @@
   <title>اختيار الواجهة - ولجنا</title>
 
   <link rel="stylesheet" href="../css/register.css">
-  <link rel="stylesheet" href="../css/choose_role.css">
 </head>
 
 <body>
@@ -31,7 +30,9 @@
   </div>
 </main>
 
+<script src="../js/main/auth.js"></script>
 <script>
+requireAuth();
 
 const currentUser = JSON.parse(localStorage.getItem("walajna_current_user"));
 let users = JSON.parse(localStorage.getItem("walajna_users") || "[]");
