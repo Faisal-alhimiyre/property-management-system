@@ -23,9 +23,11 @@
     <div class="buildings-grid" id="tenantApartments"></div>
   </section>
 
-  <script src="../js/main/theme.js"></script>
   <script src="../js/main/nav.js"></script>
   <script src="../js/tenant-manager/tenant-home.js"></script>
+  <script src="../js/main/auth.js"></script>
+  <script>requireAuth(); requireRole('tenant'); ensureRoleSetup();</script>
+  <script src="../js/main/theme.js"></script>
 </body>
 
 </html>

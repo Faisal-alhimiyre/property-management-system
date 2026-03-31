@@ -14,12 +14,12 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   const buildings = JSON.parse(localStorage.getItem("walajna_buildings") || "[]");
-  const apartments = JSON.parse(localStorage.getItem("walajna_apartments") || "[]");
+  let apartments = JSON.parse(localStorage.getItem("walajna_apartments") || "[]");
   const requests = JSON.parse(localStorage.getItem("walajna_requests") || "[]");
   const payments = JSON.parse(localStorage.getItem("walajna_payments") || "[]");
   const costs = JSON.parse(localStorage.getItem("walajna_costs") || "[]");
 
-  const building = buildings.find((b) => b.id === buildingId);
+  const building = buildings.find((b) => String(b.id) === String(buildingId));
 
   if (building && title) {
     title.textContent = building.name;
@@ -36,7 +36,64 @@ document.addEventListener("DOMContentLoaded", () => {
     financeBtn.addEventListener("click", openFinanceSummary);
   }
 
-  const buildingApartments = apartments.filter((a) => a.buildingId === buildingId);
+  function getBuildingApartments(allApartments) {
+    const target = String(buildingId);
+    const code = building?.code ? String(building.code) : null;
+    return allApartments.filter((a) => {
+      const apartmentBuildingId = String(a.buildingId ?? "");
+      return apartmentBuildingId === target || (code && apartmentBuildingId === code);
+    });
+  }
+
+  function buildGeneratedApartment(apartmentNumber, floorNumber) {
+    return {
+      id: `${buildingId}-A${apartmentNumber}`,
+      buildingId: String(buildingId),
+      buildingName: building?.name || "",
+      number: String(apartmentNumber),
+      floorNumber: Number(floorNumber) || 1,
+      leaseStatus: "vacant",
+      status: "فارغة",
+      rent: "",
+      tenantUserId: null,
+      tenantNationalId: null,
+      tenantInfo: null,
+      contract: null,
+      tenantHistory: [],
+      createdAt: new Date().toISOString(),
+    };
+  }
+
+  function ensureApartmentsExist() {
+    let current = getBuildingApartments(apartments);
+    if (current.length > 0) return current;
+
+    const apartmentCount = Number(building?.apartmentCount ?? building?.apartments_count ?? 0);
+    const totalFloors = Number(building?.totalFloors ?? building?.total_floors ?? 0);
+    if (!apartmentCount || !totalFloors) return current;
+
+    const apartmentsPerFloor = Math.ceil(apartmentCount / totalFloors);
+    const generated = [];
+    let currentApartment = 1;
+
+    for (let floor = 1; floor <= totalFloors; floor++) {
+      for (let unit = 1; unit <= apartmentsPerFloor; unit++) {
+        if (currentApartment > apartmentCount) break;
+        generated.push(buildGeneratedApartment(currentApartment, floor));
+        currentApartment += 1;
+      }
+    }
+
+    if (generated.length) {
+      apartments = [...apartments, ...generated];
+      localStorage.setItem("walajna_apartments", JSON.stringify(apartments));
+      current = getBuildingApartments(apartments);
+    }
+
+    return current;
+  }
+
+  const buildingApartments = ensureApartmentsExist();
 
   let selectedApartmentId = null;
 

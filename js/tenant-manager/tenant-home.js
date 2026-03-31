@@ -1,37 +1,72 @@
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   const container = document.getElementById("tenantApartments");
 
   if (!container) return;
 
-  function getLocalArray(key) {
+  async function getApartments() {
     try {
-      return JSON.parse(localStorage.getItem(key) || "[]");
+      const response = await fetch(`${WalajnaAuth.API_BASE}/api/apartments`, {
+        headers: WalajnaAuth.getAuthHeaders()
+      });
+      if (response.ok) {
+        return await response.json();
+      } else {
+        return [];
+      }
     } catch {
       return [];
     }
   }
 
-  function getCurrentUser() {
+  async function getCurrentUser() {
     try {
-      return JSON.parse(localStorage.getItem("walajna_current_user") || "null");
+      const response = await fetch(`${WalajnaAuth.API_BASE}/users/me`, {
+        headers: WalajnaAuth.getAuthHeaders()
+      });
+      if (response.ok) {
+        return await response.json();
+      } else {
+        return null;
+      }
     } catch {
       return null;
     }
   }
 
-  const currentUser = getCurrentUser();
-  const apartments = getLocalArray("walajna_apartments");
-  const buildings = getLocalArray("walajna_buildings");
+  const currentUser = await getCurrentUser();
+  const apartments = await getApartments();
 
   if (!currentUser) {
     container.innerHTML = `<p>لم يتم العثور على المستخدم الحالي</p>`;
     return;
   }
 
-  const myApartments = apartments.filter(
-    apt =>
-      apt.tenantNationalId &&
-      apt.tenantNationalId === currentUser.nationalId
+  function toStr(value) {
+    return String(value ?? "").trim();
+  }
+
+  function isApartmentLinkedToCurrentUser(apartment, user) {
+    if (!apartment || !user) return false;
+
+    const apartmentTenantUserId = apartment.tenant_user_id ?? apartment.tenantUserId ?? null;
+    const apartmentTenantNationalId = apartment.tenant_national_id ?? apartment.tenantNationalId ?? null;
+
+    const userId = user.id;
+    const userNationalId = user.national_id ?? user.nationalId ?? null;
+
+    if (apartmentTenantUserId != null && userId != null && Number(apartmentTenantUserId) === Number(userId)) {
+      return true;
+    }
+
+    if (userNationalId && apartmentTenantNationalId && toStr(apartmentTenantNationalId) === toStr(userNationalId)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  const myApartments = (Array.isArray(apartments) ? apartments : []).filter((apt) =>
+    isApartmentLinkedToCurrentUser(apt, currentUser)
   );
 
   if (myApartments.length === 0) {
@@ -41,9 +76,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   myApartments.forEach((apt) => {
     const building = buildings.find(b => b.id === apt.buildingId);
-    const buildingName = (building?.name || "Building").trim();
-    const apartmentNumber = apt.number ?? "-";
-    const cardTitle = `${buildingName} - شقة ${apartmentNumber}`;
 
     const card = document.createElement("div");
     card.className = "building-card clickable-card";
@@ -55,7 +87,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <img src="../pics/tenant-house-icon.png" alt="">
       </div>
       <p>
-        ${cardTitle}
+        ${building ? building.name : "شقة"} ${apt.number}
       </p>
     `;
 

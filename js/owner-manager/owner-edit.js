@@ -253,7 +253,71 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  form.addEventListener("submit", (e) => {
+  requireAuth();
+  requireRole('owner');
+  ensureRoleSetup();
+
+  const API_BASE = WalajnaAuth.API_BASE;
+
+  async function syncApartmentsToServer(apartmentsToSync, buildingInfo, ownerId) {
+    if (!Number.isFinite(Number(ownerId))) return;
+
+    try {
+      const listRes = await fetch(`${API_BASE}/api/apartments`, {
+        headers: WalajnaAuth.getAuthHeaders(),
+      });
+
+      const existing = listRes.ok ? await listRes.json() : [];
+      const existingKeys = new Set();
+
+      existing.forEach((apt) => {
+        const description = String(apt.description || "");
+        if (!description.startsWith("WALAJNA_META:")) return;
+
+        const metaRaw = description.replace("WALAJNA_META:", "");
+        try {
+          const meta = JSON.parse(metaRaw);
+          existingKeys.add(`${String(meta.buildingId)}:${String(meta.apartmentNumber)}`);
+        } catch {
+          // Ignore malformed old records.
+        }
+      });
+
+      for (const apartment of apartmentsToSync) {
+        const apartmentNumber = String(apartment.number || apartment.id || "");
+        const dedupeKey = `${String(buildingInfo.id)}:${apartmentNumber}`;
+        if (existingKeys.has(dedupeKey)) continue;
+
+        const meta = {
+          buildingId: String(buildingInfo.id),
+          buildingCode: buildingInfo.code || null,
+          apartmentNumber,
+          floorNumber: Number(apartment.floorNumber || 1),
+        };
+
+        const payload = {
+          owner_id: Number(ownerId),
+          address: `${buildingInfo.name} - شقة ${apartmentNumber}`,
+          description: `WALAJNA_META:${JSON.stringify(meta)}`,
+          rent: Number(apartment.rent || 0),
+        };
+
+        const createRes = await fetch(`${API_BASE}/api/apartments`, {
+          method: "POST",
+          headers: WalajnaAuth.getAuthHeaders(),
+          body: JSON.stringify(payload),
+        });
+
+        if (createRes.ok) {
+          existingKeys.add(dedupeKey);
+        }
+      }
+    } catch (error) {
+      console.warn("Could not sync apartments to server", error);
+    }
+  }
+
+  form.addEventListener("submit", async (e) => {
     e.preventDefault();
 
     showError("");
@@ -334,15 +398,20 @@ document.addEventListener("DOMContentLoaded", () => {
     const buildings = getLocalArray("walajna_buildings");
     const apartments = getLocalArray("walajna_apartments");
 
+    const normalizeLower = (value) => String(value || "").trim().toLowerCase();
+
     const buildingExists = buildings.some((b) => {
+      const existingCode = normalizeLower(b.code || b.id);
+      const currentCode = normalizeLower(buildingCode);
+
       if (isEditMode) {
         return (
-          b.id.toLowerCase() === buildingCode.toLowerCase() &&
+          existingCode === currentCode &&
           b.id !== editBuildingId
         );
       }
 
-      return b.id.toLowerCase() === buildingCode.toLowerCase();
+      return existingCode === currentCode;
     });
 
     if (buildingExists) {
@@ -379,6 +448,48 @@ document.addEventListener("DOMContentLoaded", () => {
         : new Date().toISOString(),
     };
 
+    let apiSucceeded = false;
+    const payload = {
+      name: buildingName,
+      city: buildingCity,
+      code: buildingCode,
+      total_floors: totalFloors,
+      apartments_count: apartmentCount,
+      apartments_per_floor: apartmentsPerFloor,
+      apartment_defaults: apartmentDefaults,
+      payment_defaults: paymentDefaults,
+    };
+
+    const buildingApiId = isEditMode ? (buildingToEdit?.id || editBuildingId) : null;
+    const endpoint = isEditMode
+      ? `${API_BASE}/api/buildings/${buildingApiId}`
+      : `${API_BASE}/api/buildings`;
+
+    try {
+      const apiResponse = await fetch(endpoint, {
+        method: isEditMode ? "PATCH" : "POST",
+        headers: WalajnaAuth.getAuthHeaders(),
+        body: JSON.stringify(payload),
+      });
+
+      if (apiResponse.ok) {
+        const serverRecord = await apiResponse.json();
+        apiSucceeded = true;
+        if (!isEditMode) {
+          buildingPayload.id = serverRecord.id;
+        }
+        showSuccess(isEditMode ? "تم تحديث العمارة بنجاح" : "تم حفظ العمارة بنجاح");
+      } else {
+        const err = await apiResponse.json().catch(() => ({}));
+        console.warn("Building API response error", err);
+        showError("حدث خطأ أثناء الحفظ في الخادم، سيتم حفظ البيانات محليًا.");
+      }
+    } catch (ex) {
+      console.warn("Buildings API error", ex);
+      showError("تعذر التواصل مع الخادم، سيتم حفظ البيانات محليًا.");
+    }
+
+    // Local fallback for now
     if (isEditMode) {
       const updatedBuildings = buildings.map((building) =>
         building.id === editBuildingId ? buildingPayload : building
@@ -403,36 +514,43 @@ document.addEventListener("DOMContentLoaded", () => {
       saveLocalArray("walajna_buildings", updatedBuildings);
       saveLocalArray("walajna_apartments", updatedApartments);
 
-      showSuccess("تم تحديث العمارة بنجاح");
+      if (!apiSucceeded) {
+        showSuccess("تم تحديث العمارة في وضع عدم الاتصال (محليًا)");
+      }
     } else {
-  const newApartments = generateApartmentsForBuilding(
-  buildingCode,
-  buildingName,
-  apartmentCount,
-  totalFloors,
-  apartmentsPerFloor,
-  paymentDefaults,
-  apartmentDefaults
-);
+      const apartmentBuildingId = buildingPayload.id;
+
+      const newApartments = generateApartmentsForBuilding(
+        apartmentBuildingId,
+        buildingName,
+        apartmentCount,
+        totalFloors,
+        apartmentsPerFloor,
+        paymentDefaults,
+        apartmentDefaults
+      );
+
       buildings.push(buildingPayload);
       apartments.push(...newApartments);
 
       saveLocalArray("walajna_buildings", buildings);
       saveLocalArray("walajna_apartments", apartments);
 
-      showSuccess("تم حفظ العمارة بنجاح");
+      // Backend create-building already seeds apartments.
+      // Keep local state for rendering, but do not re-insert apartments via /api/apartments.
+
+      if (!apiSucceeded) {
+        showSuccess("تم حفظ العمارة محليًا لأن الخادم غير متاح");
+      }
 
       form.reset();
-
       if (buildingCodeInput) {
         buildingCodeInput.value = generateUniqueBuildingCode(buildings);
         buildingCodeInput.readOnly = true;
       }
-
       if (defaultPaymentCycleInput) {
         defaultPaymentCycleInput.value = "monthly";
       }
-
       if (buildingCitySelect) {
         buildingCitySelect.value = "";
       }

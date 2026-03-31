@@ -982,17 +982,247 @@ function resetForm() {
   }
 
   
-  function saveTenantLink(data) {
-    const tenantUser = ensureTenantRoleByNationalId(data.nationalId);
+  async function resolveServerApartmentId(savedApartment, apiBase, headers) {
+    const directId = parseInt(savedApartment?.apiId, 10);
+    if (Number.isFinite(directId) && directId > 0) {
+      console.log("[assign-tenant] Resolved apartment id directly:", directId);
+      return directId;
+    }
+
+    const localBuildingId = savedApartment.buildingId ?? savedApartment.building_id ?? null;
+    const localApartmentNumber = savedApartment.number ?? savedApartment.apartmentNumber ?? savedApartment.apartment_number ?? null;
+
+    console.log("[assign-tenant] Resolving server apartment id from API using local identifiers:", {
+      localId: savedApartment.id,
+      localBuildingId,
+      localApartmentNumber,
+    });
+
+    const listUrl = `${apiBase}/api/apartments`;
+    const listRes = await fetch(listUrl, {
+      method: "GET",
+      headers,
+    });
+
+    const listRawText = await listRes.text();
+    let apartments = [];
+    try {
+      apartments = JSON.parse(listRawText || "[]");
+    } catch {
+      apartments = [];
+    }
+
+    console.log("[assign-tenant] Apartment list lookup status:", listRes.status);
+    if (!listRes.ok) {
+      throw new Error(`Could not fetch apartments list (status=${listRes.status}) raw=${listRawText}`);
+    }
+
+    const normalizedBuildingId = String(localBuildingId ?? "").trim();
+    const normalizedApartmentNumber = String(localApartmentNumber ?? "").trim();
+
+    const match = apartments.find((apt) => {
+      const aptBuildingId = String(apt.building_id ?? "").trim();
+      const aptApartmentNumber = String(apt.apartment_number ?? "").trim();
+
+      if (
+        normalizedBuildingId &&
+        normalizedApartmentNumber &&
+        aptBuildingId === normalizedBuildingId &&
+        aptApartmentNumber === normalizedApartmentNumber
+      ) {
+        return true;
+      }
+
+      // Backward compatibility: some rows are saved with WALAJNA_META in description.
+      const desc = String(apt.description ?? "");
+      if (!desc.startsWith("WALAJNA_META:")) return false;
+
+      try {
+        const meta = JSON.parse(desc.replace("WALAJNA_META:", ""));
+        const metaBuildingId = String(meta?.buildingId ?? "").trim();
+        const metaApartmentNumber = String(meta?.apartmentNumber ?? "").trim();
+        return (
+          normalizedBuildingId &&
+          normalizedApartmentNumber &&
+          metaBuildingId === normalizedBuildingId &&
+          metaApartmentNumber === normalizedApartmentNumber
+        );
+      } catch {
+        return false;
+      }
+    });
+
+    if (!match || !match.id) {
+      if (!normalizedBuildingId || !normalizedApartmentNumber) {
+        throw new Error(
+          `Could not resolve server apartment id for local apartment id=${savedApartment.id}, missing buildingId/apartmentNumber`
+        );
+      }
+
+      const createPayload = {
+        owner_id: Number(currentUser?.id || 0),
+        building_id: Number(localBuildingId),
+        apartment_number: normalizedApartmentNumber,
+        floor_number: Number(savedApartment?.floorNumber || 1),
+        address: `${savedApartment?.buildingName || `Building ${normalizedBuildingId}`} - شقة ${normalizedApartmentNumber}`,
+        description: `WALAJNA_META:${JSON.stringify({
+          buildingId: normalizedBuildingId,
+          apartmentNumber: normalizedApartmentNumber,
+          floorNumber: Number(savedApartment?.floorNumber || 1),
+        })}`,
+        rent: Number(savedApartment?.rent || 0),
+      };
+
+      console.log("[assign-tenant] No server apartment match found, creating one:", createPayload);
+      const createRes = await fetch(`${apiBase}/api/apartments`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(createPayload),
+      });
+
+      const createRawText = await createRes.text();
+      let createdApartment = null;
+      try {
+        createdApartment = createRawText ? JSON.parse(createRawText) : null;
+      } catch {
+        createdApartment = null;
+      }
+
+      if (!createRes.ok || !createdApartment?.id) {
+        throw new Error(
+          `Could not create server apartment for local apartment id=${savedApartment.id} (status=${createRes.status}) raw=${createRawText}`
+        );
+      }
+
+      console.log("[assign-tenant] Created server apartment id:", createdApartment.id);
+      return Number(createdApartment.id);
+    }
+
+    console.log("[assign-tenant] Resolved apartment id from API:", match.id);
+    return Number(match.id);
+  }
+
+  async function sendTenantLinkToApi(savedApartment, formData) {
+    const apiBase = window.API_BASE || "http://127.0.0.1:8002";
+    const headers = (typeof WalajnaAuth !== "undefined"
+      ? WalajnaAuth.getAuthHeaders()
+      : { "Content-Type": "application/json" });
+
+    console.log("[assign-tenant] Function entered: sendTenantLinkToApi", {
+      localApartmentId: savedApartment?.id,
+      localApartmentApiId: savedApartment?.apiId,
+    });
+
+    const numericId = await resolveServerApartmentId(savedApartment, apiBase, headers);
+
+    // Map camelCase frontend fields -> snake_case API fields.
+    // Normalize national ID from all possible sources and enforce a clean string value.
+    const tenantNationalIdValue = (
+      formData?.nationalId ||
+      savedApartment?.tenantNationalId ||
+      formData?.tenantNationalId ||
+      ""
+    ).toString().trim();
+    
+    const payload = {
+      tenant_user_id:     savedApartment?.tenantUserId ?? null,
+      tenant_national_id: tenantNationalIdValue || null,
+      tenant_info: {
+        fullName:    formData.fullName    ?? null,
+        phoneNumber: formData.phone       ?? null,
+        nationality: formData.nationality ?? null,
+        tenantType:  formData.tenantType  ?? null,
+        nationalId:  tenantNationalIdValue || null,
+      },
+      start_date: formData.startDate ?? null,
+      end_date:   formData.endDate   ?? null,
+      rent:       formData?.rent != null && formData?.rent !== "" ? Number(formData.rent) : (savedApartment.rent != null ? Number(savedApartment.rent) : null),
+      notes:      formData.notes     ?? null,
+    };
+
+    const url = `${apiBase}/api/apartments/${numericId}/assign-tenant`;
+    console.log("[assign-tenant] Request URL:", url);
+    console.log("[assign-tenant] Request method:", "PATCH");
+    console.log("[assign-tenant] Request body:", JSON.stringify(payload, null, 2));
+    console.log("[assign-tenant] Tenant national ID in payload:", tenantNationalIdValue, "(length=" + tenantNationalIdValue.length + ")");
+
+    const response = await fetch(url, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify(payload),
+    });
+
+    const rawText = await response.text();
+    let responseJson = null;
+    try {
+      responseJson = rawText ? JSON.parse(rawText) : null;
+    } catch {
+      responseJson = null;
+    }
+
+    console.log("[assign-tenant] Raw response status:", response.status);
+    console.log("[assign-tenant] Raw response text:", rawText);
+    console.log("[assign-tenant] Parsed response JSON:", responseJson);
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error("انتهت الجلسة أو التوكن غير صالح. سجل خروج ثم دخول مرة أخرى.");
+      }
+      if (
+        response.status === 400 &&
+        (
+          rawText.includes("tenant_user_id is required") ||
+          rawText.includes("tenant_national_id is required")
+        )
+      ) {
+        throw new Error("لا يمكن ربط المستأجر بدون رقم هوية. أدخل رقم الهوية الوطنية للمستأجر ثم أعد المحاولة.");
+      }
+      throw new Error(`assign-tenant failed (status=${response.status}) raw=${rawText}`);
+    }
+
+    return responseJson;
+  }
+
+  async function saveTenantLink(data) {
+    console.log("[assign-tenant] Function entered: saveTenantLink", data);
+    console.log("[assign-tenant] National ID from form data:", data?.nationalId, "(length=", data?.nationalId?.length, ")");
+    const tenantUser = ensureTenantRoleByNationalId(data?.nationalId);
     const tenantUserId = tenantUser ? tenantUser.id : null;
 
     const apartments = getApartments();
-    let savedApartment = null;
+    const currentApartment = apartments.find((apt) => apt.id === aptId) || null;
 
+    if (!currentApartment) {
+      throw new Error("Could not locate apartment in local storage before sending assign-tenant API request");
+    }
+
+    // First call backend. Only persist local changes after a successful API response.
+    const apiResponse = await sendTenantLinkToApi(
+      {
+        ...currentApartment,
+        tenantUserId,
+        tenantNationalId: data.nationalId,
+      },
+      data
+    );
+
+    let savedApartment = null;
     const updatedApartments = apartments.map((apt) => {
       if (apt.id !== aptId) return apt;
 
       savedApartment = buildUpdatedApartment(apt, tenantUserId, data);
+
+      if (apiResponse) {
+        const serverContractId = apiResponse.current_contract_id ?? savedApartment.currentContractId;
+        savedApartment.apiId = apiResponse.id ?? savedApartment.apiId;
+        savedApartment.currentContractId = serverContractId;
+        savedApartment.leaseStatus = apiResponse.lease_status ?? savedApartment.leaseStatus;
+        savedApartment.contract = {
+          ...(savedApartment.contract || {}),
+          id: serverContractId,
+        };
+      }
+
       return savedApartment;
     });
 
@@ -1013,9 +1243,12 @@ function resetForm() {
         docType: "uploaded_lease_contract",
       });
     }
+
+    return apiResponse;
   }
 
-  function handleSaveTenant() {
+  async function handleSaveTenant() {
+    console.log("[assign-tenant] Function entered: handleSaveTenant");
     const formData = readFormData();
     const validationMessage = validateFormData(formData);
 
@@ -1026,15 +1259,20 @@ function resetForm() {
       return;
     }
 
-    saveTenantLink(formData);
+    try {
+      await saveTenantLink(formData);
 
-    closeModal();
-    alert(
-      currentMode === "edit"
-        ? "تم حفظ التعديلات بنجاح ✅"
-        : "تم ربط المستأجر بالشقة بنجاح ✅"
-    );
-    window.location.reload();
+      closeModal();
+      alert(
+        currentMode === "edit"
+          ? "تم حفظ التعديلات بنجاح ✅"
+          : "تم ربط المستأجر بالشقة بنجاح ✅"
+      );
+      window.location.reload();
+    } catch (error) {
+      console.error("[assign-tenant] handleSaveTenant failed:", error);
+      showError(error?.message || "فشل ربط المستأجر. راجع وحدة التحكم (Console) لمعرفة الخطأ.");
+    }
   }
 
   function handleExtractContract() {

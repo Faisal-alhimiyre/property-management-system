@@ -1,7 +1,65 @@
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  requireAuth();
+  requireRole('owner');
+  ensureRoleSetup();
+
   const container = document.getElementById("buildingsContainer");
   const emptyState = document.getElementById("emptyState");
   const globalRequestsAlert = document.getElementById("globalRequestsAlert");
+
+  async function getServerBuildings() {
+    try {
+      const response = await fetch(`${WalajnaAuth.API_BASE}/api/buildings`, {
+        headers: WalajnaAuth.getAuthHeaders()
+      });
+      if (response.ok) {
+        const serverBuildings = await response.json();
+        const localBuildings = getLocalArray("walajna_buildings");
+
+        // Normalize snake_case (API) and camelCase (local) into one shape used by the dashboard.
+        const normalized = serverBuildings.map((building) => {
+          const localMatch = localBuildings.find(
+            (item) => String(item.id) === String(building.id)
+          );
+
+          return {
+            ...localMatch,
+            ...building,
+            ownerId: building.ownerId ?? building.owner_id ?? localMatch?.ownerId ?? null,
+            createdAt: building.createdAt ?? building.created_at ?? localMatch?.createdAt ?? null,
+            apartmentCount:
+              building.apartmentCount ?? building.apartments_count ?? localMatch?.apartmentCount ?? 0,
+            totalFloors:
+              building.totalFloors ?? building.total_floors ?? localMatch?.totalFloors ?? null,
+            id: building.id,
+            name: building.name,
+            city: building.city,
+            code: building.code ?? localMatch?.code ?? null,
+          };
+        });
+
+        setLocalArray("walajna_buildings", normalized);
+        return normalized;
+      }
+    } catch (e) {
+      console.warn("Could not fetch server buildings", e);
+    }
+    return getLocalArray("walajna_buildings");
+  }
+
+  async function ensureServerApartmentsSeeded(buildings) {
+    for (const building of buildings) {
+      try {
+        await fetch(`${WalajnaAuth.API_BASE}/api/buildings/${building.id}/seed-apartments`, {
+          method: "POST",
+          headers: WalajnaAuth.getAuthHeaders(),
+        });
+      } catch (error) {
+        console.warn("Could not seed server apartments for building", building.id, error);
+      }
+    }
+  }
+
 
   if (!container) return;
 
@@ -22,6 +80,72 @@ document.addEventListener("DOMContentLoaded", () => {
       return JSON.parse(localStorage.getItem("walajna_current_user") || "null");
     } catch {
       return null;
+    }
+  }
+
+  async function syncApartmentsToServer(apartmentsToSync, buildingInfo, ownerId) {
+    if (!Number.isFinite(Number(ownerId))) return;
+
+    try {
+      const listRes = await fetch(`${WalajnaAuth.API_BASE}/api/apartments`, {
+        headers: WalajnaAuth.getAuthHeaders(),
+      });
+
+      const existing = listRes.ok ? await listRes.json() : [];
+      const existingKeys = new Set();
+
+      existing.forEach((apt) => {
+        const description = String(apt.description || "");
+        if (!description.startsWith("WALAJNA_META:")) return;
+
+        const metaRaw = description.replace("WALAJNA_META:", "");
+        try {
+          const meta = JSON.parse(metaRaw);
+          existingKeys.add(`${String(meta.buildingId)}:${String(meta.apartmentNumber)}`);
+        } catch {
+          // Ignore malformed records.
+        }
+      });
+
+      for (const apartment of apartmentsToSync) {
+        const apartmentNumber = String(apartment.number || apartment.id || "");
+        const dedupeKey = `${String(buildingInfo.id)}:${apartmentNumber}`;
+        if (existingKeys.has(dedupeKey)) continue;
+
+        const meta = {
+          buildingId: String(buildingInfo.id),
+          buildingCode: buildingInfo.code || null,
+          apartmentNumber,
+          floorNumber: Number(apartment.floorNumber || 1),
+        };
+
+        const payload = {
+          owner_id: Number(ownerId),
+          address: `${buildingInfo.name} - شقة ${apartmentNumber}`,
+          description: `WALAJNA_META:${JSON.stringify(meta)}`,
+          rent: Number(apartment.rent || 0),
+        };
+
+        const createRes = await fetch(`${WalajnaAuth.API_BASE}/api/apartments`, {
+          method: "POST",
+          headers: WalajnaAuth.getAuthHeaders(),
+          body: JSON.stringify(payload),
+        });
+
+        if (createRes.ok) {
+          existingKeys.add(dedupeKey);
+        }
+      }
+    } catch (error) {
+      console.warn("Could not sync backfilled apartments to server", error);
+    }
+  }
+
+  async function syncAllLocalApartmentsToServer(buildings, allApartments, ownerId) {
+    for (const building of buildings) {
+      const buildingApartments = getApartmentsForBuilding(building.id, allApartments);
+      if (!buildingApartments.length) continue;
+      await syncApartmentsToServer(buildingApartments, building, ownerId);
     }
   }
 
@@ -136,7 +260,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function editBuilding(buildingId) {
-    window.location.href = `../owners/owner_edit.html?buildingId=${encodeURIComponent(
+    window.location.href = `owner_edit.html?buildingId=${encodeURIComponent(
       buildingId
     )}&mode=edit`;
   }
@@ -225,7 +349,68 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function getApartmentsForBuilding(buildingId, allApartments) {
-    return allApartments.filter((apartment) => apartment.buildingId === buildingId);
+    const target = String(buildingId);
+    const building = allBuildings.find((item) => String(item.id) === target);
+    const buildingCode = building?.code ? String(building.code) : null;
+
+    // Support both old local linkage (building code) and new linkage (building numeric id).
+    return allApartments.filter((apartment) => {
+      const apartmentBuildingId = String(apartment.buildingId ?? "");
+      return apartmentBuildingId === target || (buildingCode && apartmentBuildingId === buildingCode);
+    });
+  }
+
+  function buildGeneratedApartment(building, apartmentNumber, floorNumber) {
+    return {
+      id: `${building.id}-A${apartmentNumber}`,
+      buildingId: String(building.id),
+      buildingName: building.name,
+      number: String(apartmentNumber),
+      floorNumber: Number(floorNumber) || 1,
+      leaseStatus: "vacant",
+      status: "فارغة",
+      rent: "",
+      tenantUserId: null,
+      tenantNationalId: null,
+      tenantInfo: null,
+      contract: null,
+      tenantHistory: [],
+      createdAt: new Date().toISOString(),
+    };
+  }
+
+  async function backfillMissingApartmentsFromBuildings(buildings, allApartments, ownerId) {
+    const generated = [];
+
+    buildings.forEach((building) => {
+      const existing = getApartmentsForBuilding(building.id, allApartments);
+      if (existing.length > 0) return;
+
+      const apartmentCount = Number(building.apartmentCount ?? building.apartments_count ?? 0);
+      const totalFloors = Number(building.totalFloors ?? building.total_floors ?? 0);
+
+      if (!apartmentCount || apartmentCount < 1 || !totalFloors || totalFloors < 1) return;
+
+      const apartmentsPerFloor = Math.ceil(apartmentCount / totalFloors);
+      let currentApartment = 1;
+
+      for (let floor = 1; floor <= totalFloors; floor++) {
+        for (let unit = 1; unit <= apartmentsPerFloor; unit++) {
+          if (currentApartment > apartmentCount) break;
+          generated.push(buildGeneratedApartment(building, currentApartment, floor));
+          currentApartment += 1;
+        }
+      }
+    });
+
+    if (generated.length > 0) {
+      const merged = [...allApartments, ...generated];
+      setLocalArray("walajna_apartments", merged);
+
+      return merged;
+    }
+
+    return allApartments;
   }
 
   function isRequestNewForOwner(request) {
@@ -283,8 +468,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   const currentUser = getCurrentUser();
-  const allBuildings = getLocalArray("walajna_buildings");
-  const apartments = getLocalArray("walajna_apartments");
+  const allBuildings = await getServerBuildings();
+  let apartments = getLocalArray("walajna_apartments");
   const requests = getLocalArray("walajna_requests");
   const payments = getLocalArray("walajna_payments");
 
@@ -297,7 +482,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   const buildings = allBuildings
-    .filter((building) => building.ownerId === currentUser.id)
+    .filter(
+      (building) => String(building.ownerId ?? building.owner_id ?? "") === String(currentUser.id)
+    )
     .sort((a, b) => {
       const aPinned = !!a.isPinned;
       const bPinned = !!b.isPinned;
@@ -320,6 +507,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       return (b.createdAt || "").localeCompare(a.createdAt || "");
     });
+
+  apartments = await backfillMissingApartmentsFromBuildings(buildings, apartments, currentUser.id);
 
   if (!buildings.length) {
     if (emptyState) {
@@ -344,9 +533,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   container.innerHTML = buildings
     .map((building) => {
-      const buildingApartments = apartments.filter(
-        (apartment) => apartment.buildingId === building.id
-      );
+      const buildingApartments = getApartmentsForBuilding(building.id, apartments);
 
       const newRequestsCount = getNewRequestsCountForBuilding(
         building.id,
