@@ -18,6 +18,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
+  async function getBuildings() {
+    try {
+      const response = await fetch(`${WalajnaAuth.API_BASE}/api/buildings`, {
+        headers: WalajnaAuth.getAuthHeaders()
+      });
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch {
+      /* ignore */
+    }
+    return [];
+  }
+
   async function getCurrentUser() {
     try {
       const response = await fetch(`${WalajnaAuth.API_BASE}/users/me`, {
@@ -35,6 +49,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const currentUser = await getCurrentUser();
   const apartments = await getApartments();
+  const buildings = await getBuildings();
+
+  const buildingById = new Map(
+    (Array.isArray(buildings) ? buildings : []).map((b) => {
+      const id = b.id ?? b.building_id;
+      return [Number(id), b];
+    })
+  );
 
   if (!currentUser) {
     container.innerHTML = `<p>لم يتم العثور على المستخدم الحالي</p>`;
@@ -43,6 +65,35 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function toStr(value) {
     return String(value ?? "").trim();
+  }
+
+  function buildingIdOf(apt) {
+    const raw = apt.building_id ?? apt.buildingId;
+    if (raw == null || raw === "") return null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function apartmentNumberOf(apt) {
+    const raw = apt.apartment_number ?? apt.apartmentNumber ?? apt.number;
+    if (raw == null || raw === "") return "-";
+    return String(raw);
+  }
+
+  function cardTitle(apt) {
+    const bid = buildingIdOf(apt);
+    const num = apartmentNumberOf(apt);
+    if (bid != null) {
+      const b = buildingById.get(bid);
+      const name = b && (b.name ?? b.building_name);
+      if (name) {
+        return `${name} - شقة ${num}`;
+      }
+    }
+    if (apt.address && toStr(apt.address)) {
+      return toStr(apt.address);
+    }
+    return `شقة ${num}`;
   }
 
   function isApartmentLinkedToCurrentUser(apartment, user) {
@@ -75,8 +126,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   myApartments.forEach((apt) => {
-    const building = buildings.find(b => b.id === apt.buildingId);
-
     const card = document.createElement("div");
     card.className = "building-card clickable-card";
     card.dataset.target = "../main/apartment_info.html";
@@ -87,7 +136,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         <img src="../pics/tenant-house-icon.png" alt="">
       </div>
       <p>
-        ${building ? building.name : "شقة"} ${apt.number}
+        ${cardTitle(apt)}
       </p>
     `;
 
