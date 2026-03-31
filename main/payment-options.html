@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>خيارات الدفع - ولجنا</title>
+  <link rel="stylesheet" href="../css/navstyle.css">
+  <link rel="stylesheet" href="../css/payment-options.css">
+</head>
+<body data-nav="user">
+
+  <div id="navbar-container"></div>
+
+  <main class="payment-options-wrap">
+    <section class="payment-options-header">
+      <div class="payment-options-header__content">
+        <h2>خيارات الدفع</h2>
+        <p>اختر طريقة الدفع المناسبة لإتمام العملية</p>
+        <a id="backToPaymentsLink" class="back-link" href="#">
+  ← العودة إلى صفحة المدفوعات
+</a>
+      </div>
+    </section>
+
+    <section id="paymentSummaryBox" class="payment-summary-box">
+      جارٍ تحميل بيانات الدفعة...
+    </section>
+
+    <section class="payment-methods-grid">
+      <div class="payment-method-card tamara" data-method="tamara">
+        <div class="payment-method-head">
+          <img src="../images/tamara.png" alt="Tamara" class="payment-method-logo">
+          <h3>تمارا</h3>
+        </div>
+        <p>ادفع الآن أو قسّط المبلغ حسب الخيارات المتاحة.</p>
+      </div>
+
+      <div class="payment-method-card tabby" data-method="tabby">
+        <div class="payment-method-head">
+          <img src="../images/tabby.png" alt="Tabby" class="payment-method-logo">
+          <h3>تابي</h3>
+        </div>
+        <p>خيار مناسب للدفع المرن على دفعات.</p>
+      </div>
+
+      <div class="payment-method-card apple-pay" data-method="apple_pay">
+        <div class="payment-method-head">
+          <img src="../images/apple-pay.png" alt="Apple Pay" class="payment-method-logo">
+          <h3>Apple Pay</h3>
+        </div>
+        <p>إتمام سريع وآمن لعملية الدفع.</p>
+      </div>
+
+      <div class="payment-method-card bank-card" data-method="card">
+        <div class="payment-method-head">
+          <img src="../images/mastercard.png" alt="MasterCard" class="payment-method-logo">
+          <h3>البطاقة</h3>
+        </div>
+        <p>الدفع باستخدام البطاقة البنكية مباشرة.</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="../js/main/nav.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const params = new URLSearchParams(window.location.search);
+      const apartmentId = params.get("id");
+      const paymentId = params.get("paymentId");
+
+      const payments = JSON.parse(localStorage.getItem("walajna_payments") || "[]");
+      const payment = payments.find((item) => String(item.id) === String(paymentId));
+
+      const summaryBox = document.getElementById("paymentSummaryBox");
+      const backLink = document.getElementById("backToPaymentsLink");
+
+      if (backLink && apartmentId) {
+        backLink.href = `../main/payments.html?id=${encodeURIComponent(apartmentId)}`;
+      }
+
+      if (summaryBox) {
+        if (!payment) {
+          summaryBox.textContent = "لم يتم العثور على الدفعة المحددة.";
+        } else {
+          summaryBox.innerHTML = `
+            <div class="payment-summary-row">
+              <span class="payment-summary-label">المبلغ</span>
+              <strong class="payment-summary-value">${Number(payment.amount || 0).toLocaleString("ar-SA")} ريال</strong>
+            </div>
+            <div class="payment-summary-row">
+              <span class="payment-summary-label">تاريخ الاستحقاق</span>
+              <strong class="payment-summary-value">${payment.dueDate || "—"}</strong>
+            </div>
+          `;
+        }
+      }
+
+      document.querySelectorAll(".payment-method-card").forEach((card) => {
+        card.addEventListener("click", function () {
+          const method = this.dataset.method;
+
+          if (!payment) {
+            alert("تعذر العثور على بيانات الدفعة");
+            return;
+          }
+
+          const updatedPayments = payments.map((item) => {
+            if (item.id !== payment.id) return item;
+
+            return {
+              ...item,
+              status: "paid",
+              paymentMethod: method,
+              paidAt: new Date().toISOString().slice(0, 10),
+              notes: "تم السداد من صفحة خيارات الدفع"
+            };
+          });
+
+          localStorage.setItem("walajna_payments", JSON.stringify(updatedPayments));
+
+          alert("تم تنفيذ الدفع بنجاح ✅");
+          window.location.href = `../main/payments.html?id=${encodeURIComponent(apartmentId)}`;
+        });
+      });
+    });
+  </script>
+
+</body>
+</html>

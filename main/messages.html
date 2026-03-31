@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Walajna | الرسائل</title>
+  <link rel="stylesheet" href="../css/messages.css" />
+</head>
+<body>
+  <div id="navbar-container"></div>
+
+  <div class="page-bg">
+    <div class="glow glow-1"></div>
+    <div class="glow glow-2"></div>
+    <div class="glow glow-3"></div>
+  </div>
+
+  <div class="messages-shell">
+    <!-- Sidebar -->
+    <aside class="sidebar glass-card">
+    <div class="brand-box">
+  
+  <div>
+    <h2 id="sidebarUserName">اسم المستخدم</h2>
+    <p id="sidebarUserRole">Walajna</p>
+  </div>
+</div>
+
+      <nav class="side-nav"></nav>
+
+      <div class="legend-box">
+        <h4>معاني الألوان</h4>
+        <div class="legend-item">
+          <span class="legend-dot complaint"></span>
+          <span>شكوى</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-dot maintenance"></span>
+          <span>صيانة</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-dot suggestion"></span>
+          <span>اقتراح</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-dot request"></span>
+          <span>طلب</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="messages-main">
+      <header class="page-header glass-card">
+        <div>
+          <h1 id="pageTitle">الرسائل</h1>
+          <p id="pageSubtitle">صندوق بريد منظم لإدارة الرسائل المتعلقة بالعقار</p>
+        </div>
+
+        <div class="header-actions"></div>
+      </header>
+
+      <section class="toolbar glass-card">
+        <div class="toolbar-row">
+          <div class="search-box">
+            <input id="searchInput" type="text" placeholder="ابحث باسم المبنى أو رقمه أو رقم الشقة..." />
+          </div>
+
+          <div class="filters">
+            <select id="typeFilter">
+              <option value="all">كل الأنواع</option>
+              <option value="complaint">شكوى</option>
+              <option value="maintenance">صيانة</option>
+              <option value="suggestion">اقتراح</option>
+              <option value="request">طلب</option>
+            </select>
+
+            <select id="statusFilter">
+              <option value="all">كل الحالات</option>
+              <option value="unread">غير مقروء</option>
+              <option value="read">مقروء</option>
+            </select>
+
+            <select id="sortFilter">
+              <option value="newest">الأحدث أولاً</option>
+              <option value="oldest">الأقدم أولاً</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <section class="messages-section">
+        <div id="messagesList" class="messages-list"></div>
+
+        <div id="emptyState" class="empty-state glass-card hidden">
+          <div class="empty-icon">✉</div>
+          <h3>لا توجد رسائل</h3>
+          <p id="emptyText">لا توجد رسائل مطابقة حالياً.</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Details Modal -->
+  <div id="detailsModal" class="modal">
+    <div class="modal-backdrop" data-close="detailsModal"></div>
+
+    <div class="modal-dialog glass-card modal-lg">
+      <div class="modal-header">
+        <div>
+          <h2>تفاصيل الرسالة</h2>
+          <p>عرض كامل للرسالة</p>
+        </div>
+        <button class="close-btn" data-close="detailsModal" type="button">×</button>
+      </div>
+
+      <div id="detailsContent" class="modal-body"></div>
+    </div>
+  </div>
+
+ 
+
+  <script src="../js/main/messages.js"></script>
+  <script src="../js/main/nav.js"></script>
+</body>
+</html>

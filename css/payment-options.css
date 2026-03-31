@@ -1,0 +1,365 @@
+:root{
+  --bg:#f3f4f6;
+  --card:#ffffff;
+  --text:#101828;
+  --muted:#667085;
+  --border:#e5e7eb;
+
+  --brand-1:#67d8d4;
+  --brand-2:#49c6d9;
+  --brand-3:#2f5d86;
+  --brand-4:#24496d;
+
+  --shadow-sm:0 8px 22px rgba(15,23,42,0.06);
+  --shadow-md:0 14px 34px rgba(15,23,42,0.10);
+  --shadow-lg:0 20px 46px rgba(15,23,42,0.14);
+
+  --radius-xl:30px;
+  --radius-lg:24px;
+  --radius-md:20px;
+}
+
+/* page */
+
+body{
+  margin:0;
+  min-height:100vh;
+  background:
+    linear-gradient(
+      to bottom,
+      var(--brand-1) 0%,
+      var(--brand-2) 28%,
+      var(--brand-3) 28%,
+      var(--brand-4) 100%
+    );
+  background-attachment:fixed;
+  font-family:inherit;
+  color:var(--text);
+}
+
+/* wrapper */
+
+.payment-options-wrap{
+  max-width:1180px;
+  margin:34px auto 56px;
+  padding:0 20px;
+}
+
+/* header */
+
+.payment-options-header{
+  background:rgba(255,255,255,0.78);
+  border:1px solid rgba(255,255,255,0.42);
+  border-radius:30px;
+  padding:30px 32px;
+  margin-bottom:22px;
+  box-shadow:0 14px 34px rgba(15,23,42,0.10);
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+}
+
+.payment-options-header__content{
+  max-width:560px;
+  margin-right:0;
+  margin-left:auto;
+  text-align:right;
+}
+
+.payment-options-header h2{
+  margin:0 0 10px;
+  font-size:48px;
+  line-height:1.15;
+  color:#0b2540;
+  font-weight:900;
+  letter-spacing:-0.8px;
+  text-align:right;
+}
+
+.payment-options-header p{
+  margin:0;
+  color:#64748b;
+  font-size:17px;
+  line-height:1.8;
+  font-weight:700;
+  text-align:right;
+}
+
+.back-link{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+
+  margin-top:18px;
+  padding:10px 16px;
+
+  background:#0f172a;
+  color:#fff;
+
+  text-decoration:none;
+  font-weight:900;
+  font-size:14px;
+
+  border-radius:12px;
+  box-shadow:0 6px 16px rgba(15,23,42,.15);
+
+  transition:all .15s ease;
+}
+
+.back-link:hover{
+  background:#020617;
+  transform:translateY(-1px);
+  box-shadow:0 10px 22px rgba(15,23,42,.22);
+}
+
+.back-link:active{
+  transform:translateY(0);
+  box-shadow:0 4px 10px rgba(15,23,42,.15);
+}
+
+/* summary */
+
+.payment-summary-box{
+  background:#ffffff;
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  padding:20px 22px;
+  margin-bottom:22px;
+  box-shadow:var(--shadow-sm);
+}
+
+.payment-summary-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+}
+
+.payment-summary-row + .payment-summary-row{
+  margin-top:14px;
+  padding-top:14px;
+  border-top:1px solid #edf1f5;
+}
+
+.payment-summary-label{
+  color:var(--muted);
+  font-weight:800;
+  font-size:14px;
+}
+
+.payment-summary-value{
+  color:#111827;
+  font-weight:900;
+  font-size:20px;
+}
+
+/* methods grid */
+
+.payment-methods-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+  gap:18px;
+}
+
+/* common card */
+
+.payment-method-card{
+  position:relative;
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:26px;
+  padding:24px 22px;
+  cursor:pointer;
+  transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+  box-shadow:var(--shadow-sm);
+  min-height:170px;
+  overflow:hidden;
+}
+
+.payment-method-card:hover{
+  transform:translateY(-4px);
+  box-shadow:var(--shadow-lg);
+  border-color:#d7dee7;
+}
+
+.payment-method-card::before{
+  content:"";
+  position:absolute;
+  top:0;
+  right:0;
+  left:0;
+  height:5px;
+  background:linear-gradient(90deg,#22d3ee,#14b8a6);
+}
+
+.payment-method-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:16px;
+}
+
+.payment-method-head h3{
+  margin:0;
+  font-size:24px;
+  line-height:1.25;
+  color:#111827;
+  font-weight:900;
+}
+
+.payment-method-card p{
+  margin:0;
+  color:#64748b;
+  line-height:1.9;
+  font-size:15px;
+  font-weight:700;
+}
+
+.payment-method-logo{
+  width:46px;
+  height:46px;
+  object-fit:contain;
+  flex-shrink:0;
+}
+
+/* Tamara */
+
+.payment-method-card.tamara{
+  background:linear-gradient(180deg,#ffffff 0%, #fcfaff 100%);
+  border-color:#eee3ff;
+}
+
+.payment-method-card.tamara::before{
+  background:#8b5cf6;
+}
+
+.payment-method-card.tamara h3{
+  color:#7c3aed;
+}
+
+/* Tabby */
+
+.payment-method-card.tabby{
+  background:linear-gradient(180deg,#ffffff 0%, #f8fbff 100%);
+  border-color:#dbeafe;
+}
+
+.payment-method-card.tabby::before{
+  background:#2563eb;
+}
+
+.payment-method-card.tabby h3{
+  color:#2563eb;
+}
+
+/* Apple Pay */
+
+.payment-method-card.apple-pay{
+  background:linear-gradient(180deg,#ffffff 0%, #fafafa 100%);
+  border-color:#e5e7eb;
+}
+
+.payment-method-card.apple-pay::before{
+  background:#111827;
+}
+
+.payment-method-card.apple-pay h3{
+  color:#111827;
+}
+
+/* Bank Card / Mastercard */
+
+.payment-method-card.bank-card{
+  background:linear-gradient(180deg,#ffffff 0%, #fff9f5 100%);
+  border-color:#fde7d8;
+}
+
+.payment-method-card.bank-card::before{
+  background:linear-gradient(90deg,#ea580c,#f59e0b);
+}
+
+.payment-method-card.bank-card h3{
+  color:#9a3412;
+}
+
+/* fallback badge if no image */
+
+.payment-method-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:44px;
+  height:44px;
+  padding:0 12px;
+  border-radius:999px;
+  background:#f8fafc;
+  border:1px solid #e5e7eb;
+  color:#475467;
+  font-size:12px;
+  font-weight:900;
+  white-space:nowrap;
+  flex-shrink:0;
+}
+
+/* mobile */
+
+@media (max-width:768px){
+  .payment-options-wrap{
+    margin:22px auto 40px;
+    padding:0 14px;
+  }
+
+  .payment-options-header{
+    padding:22px 18px;
+    border-radius:24px;
+  }
+
+  .payment-options-header h2{
+    font-size:32px;
+  }
+
+  .payment-options-header p{
+    font-size:14px;
+  }
+
+  .payment-summary-box{
+    border-radius:18px;
+    padding:16px;
+  }
+
+  .payment-summary-row{
+    flex-direction:column;
+    align-items:flex-start;
+    gap:6px;
+  }
+
+  .payment-methods-grid{
+    grid-template-columns:1fr;
+    gap:14px;
+  }
+
+  .payment-method-card{
+    min-height:auto;
+    padding:20px 18px;
+    border-radius:22px;
+  }
+
+  .payment-method-head h3{
+    font-size:22px;
+  }
+
+  .payment-method-card p{
+    font-size:14px;
+  }
+
+  .payment-method-logo{
+    width:40px;
+    height:40px;
+  }
+
+  .payment-method-badge{
+    min-width:40px;
+    height:40px;
+  }
+}

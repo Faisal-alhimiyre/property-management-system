@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>المدفوعات - ولجنا</title>
+
+  <link rel="stylesheet" href="../css/navstyle.css">
+  <link rel="stylesheet" href="../css/payments.css">
+</head>
+<body data-nav="user">
+
+  <div id="navbar-container"></div>
+
+  <main class="pay-wrap">
+    <div class="pay-header">
+      <div>
+        <h2 id="pageTitle">سجل المدفوعات</h2>
+        <p id="pageSub">عرض تاريخ المدفوعات للشقة</p>
+      </div>
+
+      <div class="pay-search">
+        <input
+          id="searchInput"
+          type="text"
+          placeholder="ابحث (مثال: فبراير، تحويل، 1500)"
+        />
+      </div>
+    </div>
+
+    <!-- التنبيه التلقائي -->
+    <div id="paymentsReminder"></div>
+
+    <!-- ملخص المدفوعات -->
+    <div id="paymentsSummary"></div>
+
+    <!-- جدول المدفوعات -->
+    <div id="paymentsTableContainer"></div>
+
+    
+  </main>
+
+  <!-- مودال تسجيل الدفعة -->
+  <div id="recordPaymentModal" class="wl-modal" aria-hidden="true">
+  <div class="wl-modal__backdrop" data-record-payment-close="true"></div>
+
+  <div class="wl-modal__panel" role="dialog" aria-modal="true" aria-labelledby="recordPaymentModalTitle">
+    <div class="wl-modal__header">
+      <div>
+        <h3 id="recordPaymentModalTitle" class="wl-modal__title">تسجيل دفعة</h3>
+        <p class="wl-modal__subtitle">أدخل تفاصيل الدفعة ثم احفظ</p>
+      </div>
+
+      <button id="closeRecordPaymentModal" class="wl-icon-btn" type="button" aria-label="إغلاق">✕</button>
+    </div>
+
+    <div class="wl-modal__body">
+      <div id="selectedPaymentInfo" class="payments-inline-note">—</div>
+
+      <div class="payments-form-grid">
+        <div class="payments-field">
+          <label for="paymentAmountInput">المبلغ</label>
+          <input id="paymentAmountInput" type="number" min="0" step="0.01" />
+        </div>
+
+        <div class="payments-field">
+          <label for="paymentMethodInput">طريقة الدفع</label>
+          <select id="paymentMethodInput">
+            <option value="">اختر</option>
+            <option value="cash">نقدًا</option>
+            <option value="bank_transfer">تحويل بنكي</option>
+            <option value="mada">مدى</option>
+            <option value="card">بطاقة</option>
+          </select>
+        </div>
+
+        <div class="payments-field">
+          <label for="paymentPaidAtInput">تاريخ الدفع</label>
+          <input id="paymentPaidAtInput" type="date" />
+        </div>
+
+        <div class="payments-field" style="grid-column:1/-1;">
+          <label for="paymentNotesInput">ملاحظات</label>
+          <textarea id="paymentNotesInput" placeholder="ملاحظات إضافية"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="wl-modal__footer">
+      <button id="savePaymentRecordBtn" class="wl-btn wl-btn--primary" type="button">حفظ الدفعة</button>
+      <button id="cancelRecordPaymentModal" class="wl-btn wl-btn--ghost" type="button">إلغاء</button>
+    </div>
+  </div>
+</div>
+ 
+  <script src="../js/main/nav.js"></script>
+  <script src="../js/apartment-manager/apartment-storage.js"></script>
+  <script src="../js/payments-manager/payments-storage.js"></script>
+  <script src="../js/payments-manager/payments-utils.js"></script>
+  <script src="../js/payments-manager/payments-ui.js"></script>
+  <script src="../js/payments-manager/apartment-payments.js"></script>
+  <script src="../js/payments-manager/payments-page.js"></script>
+
+</body>
+</html>

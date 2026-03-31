@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>المصروفات - ولجنا</title>
+
+  <link rel="stylesheet" href="../css/navstyle.css" />
+  <link rel="stylesheet" href="../css/costs.css" />
+</head>
+<body data-nav="user">
+
+  <div id="navbar-container"></div>
+
+  <main class="pay-wrap">
+    <div class="pay-header">
+      <div>
+        <h2 id="pageTitle">سجل المصروفات</h2>
+        <p id="pageSub">عرض مصروفات الشقة</p>
+      </div>
+
+      <div class="pay-search">
+        <input
+          id="searchInput"
+          type="text"
+          placeholder="ابحث (مثال: صيانة، إصلاح، تخفيض، 500)"
+        />
+      </div>
+    </div>
+
+    <div class="costs-topbar">
+      <div id="costsCount" class="count-label">عدد المصروفات: 0</div>
+      <button id="openCostModalBtn" class="record-btn" type="button">تسجيل مصروف</button>
+    </div>
+
+    <div id="costsSummary" class="pay-summary"></div>
+
+    <div id="costsTableContainer" class="costs-table-wrap"></div>
+  </main>
+
+  <div id="recordCostModal" class="wl-modal" aria-hidden="true">
+    <div class="wl-modal__backdrop" data-record-cost-close="true"></div>
+
+    <div class="wl-modal__panel" role="dialog" aria-modal="true" aria-labelledby="recordCostModalTitle">
+      <div class="wl-modal__header">
+        <div>
+          <h3 id="recordCostModalTitle" class="wl-modal__title">تسجيل مصروف</h3>
+          <p class="wl-modal__subtitle">أدخل تفاصيل المصروف ثم احفظ</p>
+        </div>
+
+        <button id="closeRecordCostModal" class="wl-icon-btn" type="button" aria-label="إغلاق">✕</button>
+      </div>
+
+      <div class="wl-modal__body">
+        <div id="selectedCostInfo" class="payments-inline-note">—</div>
+
+        <div class="payments-form-grid">
+          <div class="payments-field">
+            <label for="costTypeInput">النوع</label>
+            <select id="costTypeInput">
+              <option value="">اختر</option>
+              <option value="maintenance">صيانة</option>
+              <option value="repair">إصلاح</option>
+              <option value="discount">تخفيض</option>
+              <option value="adjustment">تعديل</option>
+              <option value="service">خدمة</option>
+              <option value="replacement">استبدال</option>
+              <option value="cleaning">تنظيف</option>
+              <option value="other">أخرى</option>
+            </select>
+          </div>
+
+          <div class="payments-field">
+            <label for="costAmountInput">المبلغ</label>
+            <input id="costAmountInput" type="number" min="0" step="0.01" />
+          </div>
+
+          <div class="payments-field">
+            <label for="costStatusInput">الحالة</label>
+            <select id="costStatusInput">
+              <option value="approved">معتمد</option>
+              <option value="pending">معلق</option>
+              <option value="cancelled">ملغي</option>
+            </select>
+          </div>
+
+          <div class="payments-field">
+            <label for="costDateInput">تاريخ المصروف</label>
+            <input id="costDateInput" type="date" />
+          </div>
+
+          <div class="payments-field" style="grid-column:1/-1;">
+            <label for="costNotesInput">ملاحظات</label>
+            <textarea id="costNotesInput" placeholder="ملاحظات إضافية"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="wl-modal__footer">
+        <button id="saveCostBtn" class="wl-btn wl-btn--primary" type="button">حفظ المصروف</button>
+        <button id="cancelRecordCostModal" class="wl-btn wl-btn--ghost" type="button">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/main/nav.js"></script>
+  <script src="../js/apartment-manager/apartment-storage.js"></script>
+  <script src="../js/apartment-manager/apartment-costs.js"></script>
+</body>
+</html>

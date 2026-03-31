@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>التحقق من الكود - ولجنا</title>
+
+<link rel="stylesheet" href="../css/register.css">
+
+</head>
+
+<body>
+
+<div class="register-bg"></div>
+
+<a href="../auth/login.html" class="logo">
+<img src="../pics/logo.png" class="brand-logo">
+</a>
+
+<main class="register-wrap">
+
+<form class="register-form" id="codeForm">
+
+<h2 class="title">ادخل رمز التحقق</h2>
+
+<div class="row">
+<label>رمز التحقق</label>
+<input id="code" type="text" maxlength="6" required>
+</div>
+
+<p id="codeMessage" class="error"></p>
+
+<button class="register-btn" type="submit">
+تحقق
+</button>
+
+<p class="footer">
+<a href="../auth/login.html">رجوع لتسجيل الدخول</a>
+</p>
+
+</form>
+
+</main>
+
+<script src="../js/main/verify-code.js"></script>
+
+</body>
+</html>

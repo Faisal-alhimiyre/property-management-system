@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ولاجنا | الإعدادات</title>
+  <link rel="stylesheet" href="../css/settings.css" />
+</head>
+<body>
+  <div id="navbar-container"></div>
+  <div class="page-bg"></div>
+
+  
+
+  <main class="settings-wrap">
+    <aside class="sidebar">
+      <button class="side-link active" data-section="profile">الملف الشخصي</button>
+      <button class="side-link" data-section="security">الأمان</button>
+      <button class="side-link" data-section="appearance">تفضيلات الواجهة</button>
+      <button class="side-link" data-section="support">الدعم</button>
+      <button class="side-link" data-section="privacy">الخصوصية</button>
+    </aside>
+
+    <section class="content">
+      <!-- Profile -->
+      <section id="profile" class="panel active">
+        <div class="panel-header">
+          <h2>الملف الشخصي</h2>
+          <p>بيانات الحساب الحالية</p>
+        </div>
+
+        <div class="profile-card">
+          <div class="avatar" id="avatarLetter">و</div>
+
+          <div class="profile-details">
+            <div class="detail-row">
+              <span class="label">الاسم الكامل</span>
+              <span class="value" id="p_fullName">—</span>
+            </div>
+
+            <div class="detail-row">
+              <span class="label">اسم المستخدم</span>
+              <span class="value" id="p_username">—</span>
+            </div>
+
+            <div class="detail-row">
+              <span class="label">البريد الإلكتروني</span>
+              <span class="value ltr" id="p_email">—</span>
+            </div>
+
+            <div class="detail-row">
+              <span class="label">رقم الجوال</span>
+              <span class="value ltr mono" id="p_phone">غير متوفر</span>
+            </div>
+
+            <div class="detail-row">
+              <span class="label">رقم الهوية الوطنية</span>
+              <span class="value ltr mono" id="p_nationalId">—</span>
+            </div>
+
+            <div class="detail-row">
+              <span class="label">نوع الحساب</span>
+              <span class="role-badge" id="p_role">—</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-actions">
+          <button type="button" class="btn btn-outline" id="openEditInfoModal">تعديل المعلومات</button>
+          <button type="button" class="btn btn-danger-outline" id="logoutBtn">تسجيل الخروج</button>
+        </div>
+
+        <p class="panel-note">
+          يتم عرض بيانات المستخدم الحالي من تسجيل الدخول. إذا لم يوجد مستخدم حالي، سيتم عرض آخر حساب تم إنشاؤه.
+        </p>
+      </section>
+
+      <!-- Security -->
+      <section id="security" class="panel">
+        <div class="panel-header">
+          <h2>الأمان</h2>
+          <p>إدارة كلمة المرور وخيارات الحماية</p>
+        </div>
+
+        <div class="form-card">
+          <div class="form-row">
+            <label for="currentPassword">كلمة المرور الحالية</label>
+            <input type="password" id="currentPassword" placeholder="أدخل كلمة المرور الحالية" />
+          </div>
+
+          <div class="form-row">
+            <label for="newPassword">كلمة المرور الجديدة</label>
+            <input type="password" id="newPassword" placeholder="أدخل كلمة المرور الجديدة" />
+          </div>
+
+          <div class="form-row">
+            <label for="confirmNewPassword">تأكيد كلمة المرور الجديدة</label>
+            <input type="password" id="confirmNewPassword" placeholder="أعد كتابة كلمة المرور الجديدة" />
+          </div>
+
+          <button type="button" class="btn btn-primary" id="savePasswordBtn">تحديث كلمة المرور</button>
+          <p class="message" id="passwordMessage"></p>
+        </div>
+      </section>
+
+      <!-- Appearance -->
+      <section id="appearance" class="panel">
+        <div class="panel-header">
+          <h2>تفضيلات الواجهة</h2>
+          <p>تخصيص شكل النظام</p>
+        </div>
+
+        <div class="settings-card">
+          <div class="setting-item">
+            <div>
+              <h3>الوضع الداكن</h3>
+              <p>تفعيل واجهة داكنة للتجربة البصرية</p>
+            </div>
+
+            <label class="switch">
+              <input type="checkbox" id="themeToggle" />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- Support -->
+      <section id="support" class="panel">
+        <div class="panel-header">
+          <h2>الدعم</h2>
+          <p>الوصول السريع إلى الدعم الفني</p>
+        </div>
+
+        <div class="support-card">
+          <div class="support-text">
+            <h3>تحتاج مساعدة؟</h3>
+            <p>
+              يمكنك التوجه إلى صفحة الدعم الفني للتواصل عبر المحادثة المباشرة والاطلاع على الردود الجاهزة للمشكلات الشائعة.
+            </p>
+          </div>
+
+          <a href="../main/support.html" class="btn btn-primary">فتح الدعم الفني</a>
+        </div>
+      </section>
+
+      <!-- Privacy -->
+      <section id="privacy" class="panel">
+        <div class="panel-header">
+          <h2>الخصوصية</h2>
+          <p>إدارة بيانات الحساب</p>
+        </div>
+
+        <div class="privacy-card">
+          <div class="privacy-box">
+            <h3>حذف الحساب</h3>
+            <p>
+              سيؤدي هذا الإجراء إلى حذف بيانات المستخدم الحالي من التخزين المحلي في النسخة التجريبية.
+            </p>
+            <button type="button" class="btn btn-danger" id="deleteAccountBtn">حذف الحساب</button>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <!-- Edit Info Modal -->
+  <div class="wl-modal" id="editInfoModal" aria-hidden="true">
+    <div class="wl-modal__backdrop" data-close="true"></div>
+
+    <div class="wl-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="editInfoTitle">
+      <button class="wl-modal__close" id="closeEditInfoModal" type="button" aria-label="إغلاق">×</button>
+
+      <div class="wl-modal__header">
+        <h3 id="editInfoTitle">تعديل المعلومات</h3>
+        <p>يمكنك تعديل البريد الإلكتروني أو رقم الجوال بعد التحقق برمز مؤقت.</p>
+      </div>
+
+      <div class="wl-tabs">
+        <button type="button" class="wl-tab is-active" data-tab="emailPanel">البريد الإلكتروني</button>
+        <button type="button" class="wl-tab" data-tab="phonePanel">رقم الجوال</button>
+      </div>
+
+      <div class="wl-panel is-active" id="emailPanel">
+        <label for="newEmail">البريد الإلكتروني الجديد</label>
+        <input type="email" id="newEmail" placeholder="example@email.com">
+
+        <button type="button" class="btn btn-primary wl-full" id="sendEmailCodeBtn">إرسال رمز التحقق</button>
+
+        <p class="wl-hint" id="emailCodeHint"></p>
+
+        <label for="emailCode">أدخل رمز التحقق</label>
+        <input type="text" id="emailCode" maxlength="6" placeholder="أدخل الرمز المكوّن من 6 أرقام">
+
+        <button type="button" class="btn btn-primary wl-full" id="verifyEmailBtn">تأكيد تعديل البريد</button>
+      </div>
+
+      <div class="wl-panel" id="phonePanel">
+        <label for="newPhone">رقم الجوال الجديد</label>
+        <input type="text" id="newPhone" maxlength="10" placeholder="05XXXXXXXX">
+
+        <button type="button" class="btn btn-primary wl-full" id="sendPhoneCodeBtn">إرسال رمز التحقق</button>
+
+        <p class="wl-hint" id="phoneCodeHint"></p>
+
+        <label for="phoneCode">أدخل رمز التحقق</label>
+        <input type="text" id="phoneCode" maxlength="6" placeholder="أدخل الرمز المكوّن من 6 أرقام">
+
+        <button type="button" class="btn btn-primary wl-full" id="verifyPhoneBtn">تأكيد تعديل الجوال</button>
+      </div>
+
+      <p class="message" id="editInfoMessage"></p>
+    </div>
+  </div>
+
+  <script src="../js/main/settings.js"></script>
+  <script src="../js/main/nav.js"></script>
+</body>
+</html>

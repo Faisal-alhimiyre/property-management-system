@@ -1,0 +1,585 @@
+:root {
+  --bg: #f4f6f8;
+
+  --card: #ffffff;
+  --text: #0f172a;
+  --muted: #64748b;
+  --border: #e2e8f0;
+
+  --brand: #18c7c3;
+  --brand-dark: #0ea5a2;
+
+  --none: #d9dee5;
+  --rent-overdue: #ef4444;
+  --maintenance: #f59e0b;
+  --complaint: #facc15;
+  --suggestion: #3b82f6;
+  --request: #22c55e;
+
+  --top1: #6ddad7;
+  --top2: #4fc8d7;
+  --bottom1: #274e74;
+  --bottom2: #355f86;
+
+  --shadow-soft: 0 10px 25px rgba(0, 0, 0, 0.08);
+  --shadow-hover: 0 18px 40px rgba(0, 0, 0, 0.15);
+}
+
+/* page */
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: Arial, sans-serif;
+  color: var(--text);
+  background:
+    linear-gradient(
+      to bottom,
+      var(--top1) 0%,
+      var(--top2) 32%,
+      var(--bottom1) 32%,
+      var(--bottom2) 100%
+    );
+  background-attachment: fixed;
+}
+
+/* container */
+
+.owner-dashboard {
+  max-width: 1500px;
+  margin: 40px auto 70px;
+  padding: 0 28px;
+}
+
+/* header */
+
+.page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 26px;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 22px;
+  padding: 20px 24px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-soft);
+}
+
+.page-title {
+  margin: 0;
+  font-size: 34px;
+  font-weight: 900;
+  letter-spacing: -0.4px;
+}
+
+/* add building button */
+
+.add-building-btn {
+  background: linear-gradient(135deg, #22d3ee, #0ea5a2);
+  color: white;
+  padding: 12px 20px;
+  font-weight: 800;
+  border-radius: 999px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.add-building-btn:hover {
+  transform: translateY(-2px);
+  text-decoration: none;
+}
+
+/* global alert */
+
+.global-requests-alert {
+  display: none;
+  width: fit-content;
+  max-width: calc(100% - 24px);
+  margin: 0 auto 20px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #b42318;
+  font-size: 15px;
+  font-weight: 900;
+  border: 1px solid rgba(180, 35, 24, 0.12);
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
+  text-align: center;
+}
+
+/* main dashboard content */
+
+.dashboard-content {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.legend-sidebar {
+  order: 1;
+  align-self: start;
+  position: sticky;
+  top: 140px;
+}
+
+.content-main {
+  order: 2;
+  min-width: 0;
+}
+
+/* buildings grid */
+
+.buildings-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 260px));
+  gap: 16px;
+  justify-content: start;
+  align-items: start;
+}
+
+/* building card */
+
+.building-card {
+  position: relative;
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  padding: 14px;
+  width: 100%;
+  max-width: 260px;
+  min-height: 220px;
+  height: 220px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.25s ease;
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.05),
+    0 12px 30px rgba(0, 0, 0, 0.08);
+  align-self: start;
+}
+
+.building-card:hover {
+  transform: translateY(-6px);
+  box-shadow:
+    0 10px 25px rgba(0, 0, 0, 0.12),
+    0 20px 45px rgba(0, 0, 0, 0.18);
+}
+
+.building-card.has-notifications {
+  border-color: rgba(255, 59, 48, 0.22);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.05),
+    0 12px 30px rgba(0, 0, 0, 0.08),
+    0 0 0 3px rgba(255, 59, 48, 0.08);
+}
+
+.building-card.is-pinned {
+  border: 2px solid #f59e0b;
+}
+
+.building-card.is-pinned .building-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* dynamic apartment sizes */
+
+.building-card.size-small .apartment-square {
+  width: 15px;
+  height: 15px;
+  border-radius: 3px;
+}
+
+.building-card.size-small .apartment-floor {
+  gap: 6px;
+}
+
+.building-card.size-small .apartments-grid {
+  gap: 6px;
+}
+
+.building-card.size-medium .apartment-square {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.building-card.size-medium .apartment-floor {
+  gap: 4px;
+}
+
+.building-card.size-medium .apartments-grid {
+  gap: 4px;
+}
+
+.building-card.size-large .apartment-square {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+.building-card.size-large .apartment-floor {
+  gap: 2px;
+}
+
+.building-card.size-large .apartments-grid {
+  gap: 2px;
+}
+/* badge */
+
+.building-notification-badge {
+  position: absolute;
+  top: -11px;
+  right: -11px;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #ff3b30;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 20px rgba(255, 59, 48, 0.35);
+  border: 3px solid #ffffff;
+  z-index: 35;
+}
+
+/* head */
+
+.building-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  margin-top: 4px;
+  margin-bottom: 14px;
+  padding-left: 0;
+  padding-right: 42px;
+}
+
+/* title */
+
+.building-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: -0.3px;
+}
+
+/* apartment count */
+
+.building-count {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--muted);
+  background: #f1f5f9;
+  padding: 6px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+/* apartment grid */
+
+.apartments-grid {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin-top: auto;
+  padding-top: 12px;
+  padding-bottom: 0;
+  align-items: center;
+  justify-content: flex-end;
+  overflow: hidden;
+}
+
+.apartment-floor {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: nowrap;  
+  max-width: 100%;    
+}
+
+.apartment-square {
+  width: 14px;        
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid #ffffff;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+/* colors */
+
+.apartment-square.none {
+  background: var(--none);
+}
+
+.apartment-square.rent-overdue {
+  background: var(--rent-overdue);
+}
+
+.apartment-square.maintenance {
+  background: var(--maintenance);
+}
+
+.apartment-square.complaint {
+  background: var(--complaint);
+}
+
+.apartment-square.suggestion {
+  background: var(--suggestion);
+}
+
+.apartment-square.request {
+  background: var(--request);
+}
+
+.apartment-square.rented {
+  box-shadow: 0 0 0 2px #22c55e inset;
+}
+
+/* legend */
+
+.legend-card {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 18px;
+  padding: 20px 18px;
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.legend-title {
+  margin: 0 0 18px;
+  font-size: 28px;
+  font-weight: 900;
+  color: var(--text);
+}
+
+.legend-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.legend-color {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.legend-color.none {
+  background: var(--none);
+}
+
+.legend-color.rented {
+  background: var(--none);
+  border: 3px solid #22c55e;
+  box-sizing: border-box;
+}
+
+.legend-color.rent-overdue {
+  background: var(--rent-overdue);
+}
+
+.legend-color.maintenance {
+  background: var(--maintenance);
+}
+
+.legend-color.complaint {
+  background: var(--complaint);
+}
+
+.legend-color.suggestion {
+  background: var(--suggestion);
+}
+
+.legend-color.request {
+  background: var(--request);
+}
+
+/* building menu */
+
+.building-menu-wrap {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 40;
+}
+
+.building-more-btn {
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.96);
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 20px;
+  line-height: 1;
+  color: #0f172a;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
+  transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.building-more-btn:hover {
+  background: #ffffff;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.18);
+  transform: translateY(-1px);
+}
+
+.building-more-btn:active {
+  transform: translateY(0);
+}
+
+.building-card-menu {
+  position: absolute;
+  top: 40px;
+  right: 0;
+  min-width: 150px;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.14);
+  padding: 6px;
+  display: none;
+}
+
+.building-card-menu.is-open {
+  display: block;
+}
+
+.building-card-menu button {
+  width: 100%;
+  border: none;
+  background: #fff;
+  text-align: right;
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.building-card-menu button:hover {
+  background: #f8fafc;
+}
+
+.building-card-menu .danger {
+  color: #b42318;
+}
+
+/* empty state */
+
+.empty-state {
+  margin-top: 24px;
+  text-align: center;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+/* responsive */
+.apartment-floor.wide-floor .apartment-square {
+  width: 16px;
+  height: 16px;
+}
+
+@media (max-width: 1200px) {
+  .dashboard-content {
+    grid-template-columns: 1fr;
+  }
+
+  .legend-sidebar {
+    order: 2;
+    position: static;
+  }
+
+  .content-main {
+    order: 1;
+  }
+
+  .legend-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  .owner-dashboard {
+    padding: 0 16px;
+  }
+
+  .page-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .page-title {
+    font-size: 28px;
+  }
+
+  .buildings-container {
+    grid-template-columns: 1fr;
+  }
+
+  .building-card {
+    max-width: 100%;
+    height: 220px;
+  }
+
+  .building-notification-badge {
+    top: -9px;
+    right: -9px;
+    min-width: 28px;
+    height: 28px;
+    font-size: 13px;
+  }
+
+  .legend-title {
+    font-size: 22px;
+  }
+
+  .legend-item {
+    font-size: 14px;
+  }
+
+  .legend-color {
+    width: 16px;
+    height: 16px;
+  }
+
+  .legend-list {
+    grid-template-columns: 1fr;
+  }
+}

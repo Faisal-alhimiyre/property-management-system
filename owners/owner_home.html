@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>عمائري - ولجنا</title>
+
+  <link rel="stylesheet" href="../css/navstyle.css">
+  <link rel="stylesheet" href="../css/owner.css">
+</head>
+<body data-nav="user">
+  <div id="navbar-container"></div>
+
+  <main class="owner-dashboard">
+    <div class="page-head">
+      <div>
+        <h2 class="page-title">عمائري</h2>
+      </div>
+
+      <a class="add-building-btn" href="owner_edit.html">+ إضافة عمارة</a>
+    </div>
+
+    <section
+      id="globalRequestsAlert"
+      class="global-requests-alert"
+      style="display:none;"
+      aria-live="polite"
+    ></section>
+
+    <div class="dashboard-content">
+      <aside class="legend-sidebar">
+        <section class="legend-card">
+          <h3 class="legend-title">معاني الألوان</h3>
+
+          <div class="legend-list">
+            <div class="legend-item">
+              <span>شقة فارغة</span>
+              <span class="legend-color none"></span>
+            </div>
+
+            <div class="legend-item">
+              <span>شقة مؤجرة</span>
+              <span class="legend-color rented"></span>
+            </div>
+
+            <div class="legend-item">
+              <span>تأخر إيجار</span>
+              <span class="legend-color rent-overdue"></span>
+            </div>
+
+            <div class="legend-item">
+              <span>صيانة</span>
+              <span class="legend-color maintenance"></span>
+            </div>
+
+            <div class="legend-item">
+              <span>شكوى</span>
+              <span class="legend-color complaint"></span>
+            </div>
+
+            <div class="legend-item">
+              <span>اقتراح</span>
+              <span class="legend-color suggestion"></span>
+            </div>
+
+            <div class="legend-item">
+              <span>طلب</span>
+              <span class="legend-color request"></span>
+            </div>
+          </div>
+        </section>
+      </aside>
+
+      <div class="content-main">
+        <section id="buildingsContainer" class="buildings-container">
+          <!-- buildings injected by JS -->
+        </section>
+
+        <p id="emptyState" class="empty-state" style="display:none;">
+          لا توجد عمائر مضافة حتى الآن
+        </p>
+      </div>
+    </div>
+  </main>
+
+  <script src="../js/main/nav.js"></script>
+  <script src="../js/owner-manager/owner.js"></script>
+</body>
+</html>
