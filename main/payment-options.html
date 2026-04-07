@@ -63,15 +63,14 @@
   </main>
 
   <script src="../js/main/theme.js"></script>
+  <script src="../js/main/auth.js"></script>
   <script src="../js/main/nav.js"></script>
   <script>
-    document.addEventListener("DOMContentLoaded", function () {
+    document.addEventListener("DOMContentLoaded", async function () {
       const params = new URLSearchParams(window.location.search);
       const apartmentId = params.get("id");
       const paymentId = params.get("paymentId");
-
-      const payments = JSON.parse(localStorage.getItem("walajna_payments") || "[]");
-      const payment = payments.find((item) => String(item.id) === String(paymentId));
+      const contractId = params.get("contractId");
 
       const summaryBox = document.getElementById("paymentSummaryBox");
       const backLink = document.getElementById("backToPaymentsLink");
@@ -80,10 +79,54 @@
         backLink.href = `../main/payments.html?id=${encodeURIComponent(apartmentId)}`;
       }
 
+      if (
+        !apartmentId ||
+        !paymentId ||
+        !contractId ||
+        !window.WalajnaAuth ||
+        typeof window.WalajnaAuth.fetchWithAuth !== "function"
+      ) {
+        if (summaryBox) {
+          summaryBox.textContent =
+            "بيانات الدفعة غير مكتملة. ارجع إلى صفحة المدفوعات واختر الدفعة من جديد.";
+        }
+        return;
+      }
+
+      await WalajnaAuth.hydrateSession();
+
+      const apiBase = window.WalajnaAuth.API_BASE;
+
+      let payment = null;
+      try {
+        const res = await WalajnaAuth.fetchWithAuth(
+          `${apiBase}/api/contracts/${encodeURIComponent(contractId)}/installments`,
+          { method: "GET" }
+        );
+        if (res.status === 401) {
+          if (typeof WalajnaAuth.handleUnauthorized === "function") {
+            WalajnaAuth.handleUnauthorized(
+              "انتهت الجلسة أو التوكن غير صالح. سجل الدخول مرة أخرى ثم أعد المحاولة."
+            );
+          }
+          return;
+        }
+        if (!res.ok) {
+          throw new Error("installments fetch failed");
+        }
+        const rows = await res.json();
+        payment = Array.isArray(rows)
+          ? rows.find((item) => String(item.id) === String(paymentId))
+          : null;
+      } catch (e) {
+        console.warn(e);
+      }
+
       if (summaryBox) {
         if (!payment) {
           summaryBox.textContent = "لم يتم العثور على الدفعة المحددة.";
         } else {
+          const due = (payment.due_date || "").toString().slice(0, 10);
           summaryBox.innerHTML = `
             <div class="payment-summary-row">
               <span class="payment-summary-label">المبلغ</span>
@@ -91,14 +134,14 @@
             </div>
             <div class="payment-summary-row">
               <span class="payment-summary-label">تاريخ الاستحقاق</span>
-              <strong class="payment-summary-value">${payment.dueDate || "—"}</strong>
+              <strong class="payment-summary-value">${due || "—"}</strong>
             </div>
           `;
         }
       }
 
       document.querySelectorAll(".payment-method-card").forEach((card) => {
-        card.addEventListener("click", function () {
+        card.addEventListener("click", async function () {
           const method = this.dataset.method;
 
           if (!payment) {
@@ -106,19 +149,34 @@
             return;
           }
 
-          const updatedPayments = payments.map((item) => {
-            if (item.id !== payment.id) return item;
-
-            return {
-              ...item,
-              status: "paid",
-              paymentMethod: method,
-              paidAt: new Date().toISOString().slice(0, 10),
-              notes: "تم السداد من صفحة خيارات الدفع"
-            };
-          });
-
-          localStorage.setItem("walajna_payments", JSON.stringify(updatedPayments));
+          try {
+            const patchRes = await WalajnaAuth.fetchWithAuth(
+              `${apiBase}/api/payment-installments/${encodeURIComponent(paymentId)}`,
+              {
+                method: "PATCH",
+                body: JSON.stringify({
+                  status: "paid",
+                  payment_method: method,
+                  notes: "تم السداد من صفحة خيارات الدفع",
+                }),
+              }
+            );
+            if (patchRes.status === 401) {
+              if (typeof WalajnaAuth.handleUnauthorized === "function") {
+                WalajnaAuth.handleUnauthorized();
+              }
+              return;
+            }
+            if (!patchRes.ok) {
+              const t = await patchRes.text();
+              alert("تعذر تسجيل الدفع: " + (t || patchRes.status));
+              return;
+            }
+          } catch (err) {
+            console.warn(err);
+            alert("حدث خطأ أثناء الاتصال بالخادم.");
+            return;
+          }
 
           alert("تم تنفيذ الدفع بنجاح ✅");
           window.location.href = `../main/payments.html?id=${encodeURIComponent(apartmentId)}`;

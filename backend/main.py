@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 
 # Check if the application is running
@@ -8,30 +9,28 @@ print("=== MAIN.PY LOADED ===")
 # Check if all imports are working
 try:
     from fastapi import FastAPI
-    from fastapi.middleware.cors import CORSMiddleware
     from fastapi import Request
-    from fastapi.responses import JSONResponse
+    from fastapi.responses import JSONResponse, Response
     import logging
     print("All imports are working correctly.")
 except Exception as e:
     print(f"Error during imports: {e}")
     sys.exit(1)
 
+_cors_raw = os.getenv(
+    "CORS_ORIGINS",
+    "http://127.0.0.1:5500,http://localhost:5500,"
+    "http://127.0.0.1:8002,http://localhost:8002,"
+    "http://127.0.0.1:3000,http://localhost:3000",
+)
+_cors_origins = [o.strip() for o in _cors_raw.split(",") if o.strip()]
+_cors_origin_regex = r"^http://(127\.0\.0\.1|localhost)(:\d+)?$"
+_dev_origin_re = re.compile(_cors_origin_regex)
 
 # Initialize the app
 try:
     app = FastAPI(title="Property Management API", version="1.0.0", debug=True)
     print("FastAPI app initialized successfully.")
-
-    # Add CORS middleware
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=False,
-        allow_methods=["*"],
-        allow_headers=["*"]
-    )
-    print("CORS middleware enabled for all origins (development mode)")
 except Exception as e:
     print(f"Error initializing FastAPI app: {e}")
     sys.exit(1)
@@ -50,11 +49,13 @@ except Exception as e:
 
 # Uncomment the router inclusions
 try:
-    from routes.auth_routes import router as auth_router
+    from routes.auth_routes import router as auth_router, login_handler, logout_handler
     print("Auth router imported successfully")
 except Exception as e:
     print(f"Error importing auth router: {e}")
     auth_router = None
+    login_handler = None
+    logout_handler = None
 
 try:
     from routes.user_routes import router as user_router
@@ -112,6 +113,17 @@ except Exception as e:
     print(f"Error importing notification router: {e}")
     notification_router = None
 
+# Bind login on the app before include_router so POST /login is never overridden by another layer.
+if login_handler is not None:
+    app.add_api_route("/login", login_handler, methods=["POST"], tags=["auth"])
+    app.add_api_route("/api/login", login_handler, methods=["POST"], tags=["auth"])
+    print("Login bound on app: POST /login, POST /api/login")
+
+if logout_handler is not None:
+    app.add_api_route("/logout", logout_handler, methods=["POST"], tags=["auth"])
+    app.add_api_route("/api/logout", logout_handler, methods=["POST"], tags=["auth"])
+    print("Logout bound on app: POST /logout, POST /api/logout")
+
 if auth_router:
     app.include_router(auth_router, prefix="", tags=["auth"])
     print("Auth router included - routes:", [route.path for route in auth_router.routes])
@@ -138,7 +150,6 @@ async def root():
 
 @app.options("/")
 async def options_root():
-    from fastapi.responses import Response
     response = Response(content='{"message": "OPTIONS handled"}', media_type="application/json")
     response.headers["Access-Control-Allow-Origin"] = "http://127.0.0.1:5500"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
@@ -160,4 +171,49 @@ async def test_get_endpoint():
 
 print("Test GET endpoint defined")
 
+
+@app.middleware("http")
+async def localhost_cors(request: Request, call_next):
+    """
+    Single CORS layer for local dev (Live Server + API on different ports).
+    Echoes the request Origin so credentialed fetch always gets a matching ACAO header.
+    """
+    origin = (request.headers.get("origin") or "").strip()
+    allowed = bool(origin and _dev_origin_re.match(origin))
+
+    if request.method == "OPTIONS" and allowed:
+        req_headers = request.headers.get("access-control-request-headers") or "*"
+        return Response(
+            status_code=204,
+            headers={
+                "Access-Control-Allow-Origin": origin,
+                "Access-Control-Allow-Credentials": "true",
+                "Access-Control-Allow-Methods": "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT",
+                "Access-Control-Allow-Headers": req_headers,
+                "Access-Control-Max-Age": "86400",
+            },
+        )
+
+    try:
+        response = await call_next(request)
+    except Exception:
+        logging.exception("Unhandled exception (CORS recovery path)")
+        if allowed:
+            return JSONResponse(
+                status_code=500,
+                content={"detail": "Internal server error"},
+                headers={
+                    "access-control-allow-origin": origin,
+                    "access-control-allow-credentials": "true",
+                },
+            )
+        raise
+
+    if allowed:
+        response.headers["access-control-allow-origin"] = origin
+        response.headers["access-control-allow-credentials"] = "true"
+    return response
+
+
+print("CORS (localhost echo) enabled; allowlist also:", _cors_origins)
 print("App routes:", [route.path for route in app.routes])

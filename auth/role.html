@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
@@ -34,58 +34,38 @@
 <script src="../js/main/auth.js"></script>
 <script src="../js/main/theme.js"></script>
 <script>
-requireAuth();
+(function () {
+  let currentUser = null;
 
-const currentUser = JSON.parse(localStorage.getItem("walajna_current_user"));
-let users = JSON.parse(localStorage.getItem("walajna_users") || "[]");
-
-if(!currentUser){
-  window.location.href = "../auth/login.html";
-}
-
-function saveUser(updatedUser){
-
-  users = users.map(user => {
-    if(user.nationalId === updatedUser.nationalId){
-      return updatedUser;
+  async function boot() {
+    await WalajnaAuth.hydrateSession();
+    requireAuth();
+    currentUser = WalajnaAuth.getCurrentUser();
+    if (!currentUser) {
+      window.location.href = "../auth/login.html";
+      return;
     }
-    return user;
-  });
 
-  localStorage.setItem("walajna_users", JSON.stringify(users));
-  localStorage.setItem("walajna_current_user", JSON.stringify(updatedUser));
-}
-
-function chooseRole(role){
-
-  let roles = currentUser.roles || [];
-
-  // إذا المستخدم لا يملك الدور يتم إضافته
-  if(!roles.includes(role)){
-    roles.push(role);
+    window.chooseRole = function (role) {
+      const roles = Array.isArray(currentUser.roles) ? [...currentUser.roles] : [];
+      if (!roles.includes(role)) {
+        roles.push(role);
+      }
+      const updatedUser = { ...currentUser, roles };
+      WalajnaAuth.setSession({ user: updatedUser });
+      sessionStorage.setItem("activeRole", role);
+      currentUser = updatedUser;
+      if (role === "owner") {
+        window.location.href = "../owners/owner_home.html";
+      }
+      if (role === "tenant") {
+        window.location.href = "../tenants/tenant_home.html";
+      }
+    };
   }
 
-  const updatedUser = {
-    ...currentUser,
-    roles
-  };
-
-  saveUser(updatedUser);
-
-  // حفظ الدور النشط
-  localStorage.setItem("activeRole", role);
-
-  // التوجيه حسب الدور
-  if(role === "owner"){
-    window.location.href = "../owners/owner_home.html";
-  }
-
-  if(role === "tenant"){
-    window.location.href = "../tenants/tenant_home.html";
-  }
-
-}
-
+  void boot();
+})();
 </script>
 
 </body>

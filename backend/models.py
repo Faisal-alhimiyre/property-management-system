@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional, List
 from datetime import datetime, date
 
@@ -14,16 +14,20 @@ class User(BaseModel):
 
 class Apartment(BaseModel):
     id: Optional[int] = None
-    owner_id: int
+    owner_id: Optional[int] = None  # set server-side on create
+    building_id: Optional[int] = None
+    apartment_number: Optional[str] = None
+    floor_number: Optional[int] = None
     address: str
     description: Optional[str] = None
     rent: float
+    status: Optional[str] = None
     created_at: Optional[datetime] = None
 
 class Tenant(BaseModel):
     id: Optional[int] = None
-    user_id: int
-    apartment_id: int
+    user_id: Optional[int] = None
+    apartment_id: Optional[int] = None
     lease_start: datetime
     lease_end: datetime
     created_at: Optional[datetime] = None
@@ -36,6 +40,18 @@ class Payment(BaseModel):
     status: str  # paid, pending, etc.
     created_at: Optional[datetime] = None
 
+
+class InstallmentUpdate(BaseModel):
+    status: Optional[str] = None
+    amount: Optional[float] = None
+    payment_method: Optional[str] = None
+    paid_at: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class GenerateInstallmentsBody(BaseModel):
+    payment_cycle: str = "monthly"
+
 class Message(BaseModel):
     id: Optional[int] = None
     sender_id: int
@@ -45,12 +61,11 @@ class Message(BaseModel):
 
 class Contract(BaseModel):
     id: Optional[int] = None
-    apartment_id: int
-    tenant_id: int
+    apartment_id: Optional[int] = None
+    tenant_id: Optional[int] = None
     start_date: date
     end_date: date
     terms: Optional[str] = None
-    status: str = "active"
     created_at: Optional[datetime] = None
 
 class Document(BaseModel):
@@ -97,12 +112,14 @@ class UserResponse(BaseModel):
     role: str
     name: str
     phone: Optional[str] = None
-    national_id: str
-    created_at: datetime
+    national_id: Optional[str] = None
+    created_at: Optional[datetime] = None
 
 class ApartmentResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     id: int
-    owner_id: int
+    owner_id: Optional[int] = None
     building_id: Optional[int] = None
     apartment_number: Optional[str] = None
     floor_number: Optional[int] = None
@@ -116,6 +133,9 @@ class ApartmentResponse(BaseModel):
     lease_status: Optional[str] = "vacant"
     status: Optional[str] = None
     created_at: Optional[datetime] = None
+    # Filled for tenants on GET /apartments/{id} only (linked tenant); not a DB column.
+    owner_public_name: Optional[str] = None
+    owner_public_national_id: Optional[str] = None
 
 class Building(BaseModel):
     id: Optional[int] = None

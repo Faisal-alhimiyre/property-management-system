@@ -982,7 +982,7 @@ function resetForm() {
   }
 
   
-  async function resolveServerApartmentId(savedApartment, apiBase, headers) {
+  async function resolveServerApartmentId(savedApartment, apiBase) {
     const directId = parseInt(savedApartment?.apiId, 10);
     if (Number.isFinite(directId) && directId > 0) {
       console.log("[assign-tenant] Resolved apartment id directly:", directId);
@@ -999,10 +999,14 @@ function resetForm() {
     });
 
     const listUrl = `${apiBase}/api/apartments`;
-    const listRes = await fetch(listUrl, {
-      method: "GET",
-      headers,
-    });
+    const listRes =
+      typeof WalajnaAuth !== "undefined" && WalajnaAuth.fetchWithAuth
+        ? await WalajnaAuth.fetchWithAuth(listUrl, { method: "GET" })
+        : await fetch(listUrl, {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+          });
 
     const listRawText = await listRes.text();
     let apartments = [];
@@ -1014,6 +1018,12 @@ function resetForm() {
 
     console.log("[assign-tenant] Apartment list lookup status:", listRes.status);
     if (!listRes.ok) {
+      if (listRes.status === 401) {
+        if (typeof WalajnaAuth !== "undefined" && typeof WalajnaAuth.handleUnauthorized === "function") {
+          WalajnaAuth.handleUnauthorized("انتهت الجلسة أو التوكن غير صالح. سجل الدخول مرة أخرى ثم أعد المحاولة.");
+        }
+        throw new Error("انتهت الجلسة أو التوكن غير صالح. سجل الدخول مرة أخرى ثم أعد المحاولة.");
+      }
       throw new Error(`Could not fetch apartments list (status=${listRes.status}) raw=${listRawText}`);
     }
 
@@ -1074,11 +1084,18 @@ function resetForm() {
       };
 
       console.log("[assign-tenant] No server apartment match found, creating one:", createPayload);
-      const createRes = await fetch(`${apiBase}/api/apartments`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(createPayload),
-      });
+      const createRes =
+        typeof WalajnaAuth !== "undefined" && WalajnaAuth.fetchWithAuth
+          ? await WalajnaAuth.fetchWithAuth(`${apiBase}/api/apartments`, {
+              method: "POST",
+              body: JSON.stringify(createPayload),
+            })
+          : await fetch(`${apiBase}/api/apartments`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify(createPayload),
+            });
 
       const createRawText = await createRes.text();
       let createdApartment = null;
@@ -1103,17 +1120,17 @@ function resetForm() {
   }
 
   async function sendTenantLinkToApi(savedApartment, formData) {
-    const apiBase = window.API_BASE || "http://127.0.0.1:8002";
-    const headers = (typeof WalajnaAuth !== "undefined"
-      ? WalajnaAuth.getAuthHeaders()
-      : { "Content-Type": "application/json" });
+    const apiBase =
+      (typeof WalajnaAuth !== "undefined" && WalajnaAuth.API_BASE) ||
+      window.API_BASE ||
+      "http://127.0.0.1:8002";
 
     console.log("[assign-tenant] Function entered: sendTenantLinkToApi", {
       localApartmentId: savedApartment?.id,
       localApartmentApiId: savedApartment?.apiId,
     });
 
-    const numericId = await resolveServerApartmentId(savedApartment, apiBase, headers);
+    const numericId = await resolveServerApartmentId(savedApartment, apiBase);
 
     // Map camelCase frontend fields -> snake_case API fields.
     // Normalize national ID from all possible sources and enforce a clean string value.
@@ -1146,11 +1163,18 @@ function resetForm() {
     console.log("[assign-tenant] Request body:", JSON.stringify(payload, null, 2));
     console.log("[assign-tenant] Tenant national ID in payload:", tenantNationalIdValue, "(length=" + tenantNationalIdValue.length + ")");
 
-    const response = await fetch(url, {
-      method: "PATCH",
-      headers,
-      body: JSON.stringify(payload),
-    });
+    const response =
+      typeof WalajnaAuth !== "undefined" && WalajnaAuth.fetchWithAuth
+        ? await WalajnaAuth.fetchWithAuth(url, {
+            method: "PATCH",
+            body: JSON.stringify(payload),
+          })
+        : await fetch(url, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify(payload),
+          });
 
     const rawText = await response.text();
     let responseJson = null;
@@ -1166,6 +1190,9 @@ function resetForm() {
 
     if (!response.ok) {
       if (response.status === 401) {
+        if (typeof WalajnaAuth !== "undefined" && typeof WalajnaAuth.handleUnauthorized === "function") {
+          WalajnaAuth.handleUnauthorized("انتهت الجلسة أو التوكن غير صالح. سجل الدخول مرة أخرى ثم أعد المحاولة.");
+        }
         throw new Error("انتهت الجلسة أو التوكن غير صالح. سجل خروج ثم دخول مرة أخرى.");
       }
       if (
@@ -1205,6 +1232,28 @@ function resetForm() {
       },
       data
     );
+
+    if (
+      apiResponse &&
+      apiResponse.current_contract_id != null &&
+      typeof WalajnaAuth !== "undefined" &&
+      WalajnaAuth.API_BASE &&
+      typeof WalajnaAuth.fetchWithAuth === "function"
+    ) {
+      try {
+        const cid = apiResponse.current_contract_id;
+        const cycle = data.paymentCycle || "monthly";
+        await WalajnaAuth.fetchWithAuth(
+          `${WalajnaAuth.API_BASE}/api/contracts/${encodeURIComponent(cid)}/installments/generate`,
+          {
+            method: "POST",
+            body: JSON.stringify({ payment_cycle: cycle }),
+          }
+        );
+      } catch (genErr) {
+        console.warn("[assign-tenant] installment generate request failed:", genErr);
+      }
+    }
 
     let savedApartment = null;
     const updatedApartments = apartments.map((apt) => {

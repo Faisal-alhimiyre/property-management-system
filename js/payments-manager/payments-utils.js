@@ -5,11 +5,20 @@
 
   function generateContractId(apartment) {
     const contract = apartment?.contract || {};
-    if (contract.id) return contract.id;
+    if (contract.id != null && contract.id !== "") {
+      return String(contract.id);
+    }
+    const linkedId =
+      apartment?.currentContractId ??
+      apartment?.contractId ??
+      null;
+    if (linkedId != null && linkedId !== "") {
+      return String(linkedId);
+    }
 
     const start = contract.startDate || "nostart";
     const end = contract.endDate || "noend";
-    return `CONTRACT_${apartment.id}_${start}_${end}`;
+    return `CONTRACT_${String(apartment?.id ?? "")}_${start}_${end}`;
   }
 
   function getTodayDateString() {

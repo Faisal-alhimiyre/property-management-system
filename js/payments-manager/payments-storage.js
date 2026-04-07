@@ -15,11 +15,17 @@
   }
 
   function getPaymentsByApartmentId(apartmentId) {
-    return getPayments().filter((payment) => payment.apartmentId === apartmentId);
+    const want = String(apartmentId ?? "");
+    return getPayments().filter(
+      (payment) => String(payment.apartmentId ?? "") === want
+    );
   }
 
   function getPaymentsByContractId(contractId) {
-    return getPayments().filter((payment) => payment.contractId === contractId);
+    const want = String(contractId ?? "");
+    return getPayments().filter(
+      (payment) => String(payment.contractId ?? "") === want
+    );
   }
 
   function addPayment(payment) {
@@ -50,7 +56,10 @@
   }
 
   function hasPaymentsForContract(contractId) {
-    return getPayments().some((payment) => payment.contractId === contractId);
+    const want = String(contractId ?? "");
+    return getPayments().some(
+      (payment) => String(payment.contractId ?? "") === want
+    );
   }
 
   window.WalajnaPaymentsStorage = {

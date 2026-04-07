@@ -1,4 +1,4 @@
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   const params = new URLSearchParams(window.location.search);
   const rawBuildingId = params.get("buildingId") || "";
 
@@ -10,10 +10,154 @@ document.addEventListener("DOMContentLoaded", () => {
   const costs = JSON.parse(localStorage.getItem("walajna_costs") || "[]");
   const payments = JSON.parse(localStorage.getItem("walajna_payments") || "[]");
 
-  const building = buildings.find((b) => normalizeId(b.id) === buildingId);
-  const buildingApartments = apartments.filter(
+  let building = buildings.find((b) => normalizeId(b.id) === buildingId) || null;
+  let buildingApartments = apartments.filter(
     (a) => normalizeId(a.buildingId) === buildingId
   );
+
+  /** contractId -> installment rows from API (paid income) */
+  let serverInstallmentsByContract = new Map();
+  let incomeFromApi = false;
+
+  function mapApiApartmentToFinance(api) {
+    if (!api) return null;
+    const rent = api.rent != null && api.rent !== "" ? Number(api.rent) : 0;
+    return {
+      id: String(api.id ?? ""),
+      apiId: api.id ?? null,
+      buildingId: String(api.building_id ?? ""),
+      number: String(api.apartment_number ?? ""),
+      floorNumber: api.floor_number != null ? Number(api.floor_number) : 0,
+      leaseStatus: api.lease_status || "vacant",
+      tenantUserId: api.tenant_user_id ?? null,
+      tenantNationalId: api.tenant_national_id ?? null,
+      tenantInfo: api.tenant_info || null,
+      currentContractId: api.current_contract_id ?? null,
+      contractId: api.current_contract_id ?? null,
+      contract: {
+        id: api.current_contract_id,
+        rentAmount: rent,
+        startDate: null,
+        endDate: null,
+        paymentCycle: "monthly",
+      },
+    };
+  }
+
+  function dedupeFinanceApartments(apartmentList, canonicalBuildingId) {
+    const canonical = canonicalBuildingId != null ? String(canonicalBuildingId) : "";
+    const byKey = new Map();
+    const score = (apt) => {
+      let s = 0;
+      const idStr = String(apt.id ?? "");
+      if (apt.apiId != null || /^\d+$/.test(idStr)) s += 5;
+      if (canonical && String(apt.buildingId ?? "") === canonical) s += 3;
+      if (apt.tenantUserId || apt.tenantNationalId) s += 2;
+      if (apt.currentContractId || apt.contract?.id) s += 1;
+      return s;
+    };
+    for (const apt of apartmentList) {
+      const num = String(apt.number ?? apt.apartment_number ?? "").trim();
+      const floor = String(apt.floorNumber ?? apt.floor_number ?? "").trim() || "0";
+      const key = num ? `${floor}::${num}` : `id:${String(apt.id ?? apt.apiId ?? "")}`;
+      if (!num && !apt.id && apt.apiId == null) continue;
+      const prev = byKey.get(key);
+      if (!prev || score(apt) > score(prev)) byKey.set(key, apt);
+    }
+    return Array.from(byKey.values());
+  }
+
+  async function loadInstallmentsForFinanceApartments(apts) {
+    serverInstallmentsByContract = new Map();
+    if (
+      typeof WalajnaAuth === "undefined" ||
+      !WalajnaAuth.fetchWithAuth ||
+      !apts?.length
+    ) {
+      return;
+    }
+    const cids = [
+      ...new Set(
+        apts
+          .map((a) => getApartmentCurrentContractId(a))
+          .filter((id) => id != null && String(id) !== "")
+      ),
+    ];
+    await Promise.all(
+      cids.map(async (cid) => {
+        const key = String(cid);
+        try {
+          const res = await WalajnaAuth.fetchWithAuth(
+            `${WalajnaAuth.API_BASE}/api/contracts/${encodeURIComponent(cid)}/installments`,
+            { method: "GET" }
+          );
+          if (!res.ok) {
+            serverInstallmentsByContract.set(key, []);
+            return;
+          }
+          const rows = await res.json();
+          serverInstallmentsByContract.set(
+            key,
+            Array.isArray(rows) ? rows : []
+          );
+        } catch {
+          serverInstallmentsByContract.set(key, []);
+        }
+      })
+    );
+  }
+
+  if (typeof WalajnaAuth !== "undefined" && WalajnaAuth.hydrateSession) {
+    await WalajnaAuth.hydrateSession();
+  }
+
+  if (
+    typeof WalajnaAuth !== "undefined" &&
+    WalajnaAuth.fetchWithAuth &&
+    typeof WalajnaAuth.getCurrentUser === "function" &&
+    WalajnaAuth.getCurrentUser()
+  ) {
+    try {
+      const [bRes, aRes] = await Promise.all([
+        WalajnaAuth.fetchWithAuth(`${WalajnaAuth.API_BASE}/api/buildings`, {
+          method: "GET",
+        }),
+        WalajnaAuth.fetchWithAuth(`${WalajnaAuth.API_BASE}/api/apartments`, {
+          method: "GET",
+        }),
+      ]);
+      if (bRes.ok) {
+        const blist = await bRes.json();
+        const raw = blist.find((b) => String(b.id) === String(buildingId));
+        if (raw) {
+          building = {
+            id: String(raw.id),
+            name: raw.name,
+            code: raw.code != null ? String(raw.code) : null,
+          };
+        }
+      }
+      if (aRes.ok) {
+        const all = await aRes.json();
+        const target = String(buildingId);
+        const code = building?.code ? String(building.code) : null;
+        const filtered = all.filter((a) => {
+          const bid = String(a.building_id ?? "");
+          return bid === target || (code && bid === code);
+        });
+        const mapped = filtered
+          .map(mapApiApartmentToFinance)
+          .filter(Boolean);
+        if (mapped.length) {
+          buildingApartments = dedupeFinanceApartments(mapped, buildingId);
+          incomeFromApi = true;
+          await loadInstallmentsForFinanceApartments(buildingApartments);
+        }
+      }
+    } catch (e) {
+      console.warn("finance-summary: API load failed, using local data", e);
+    }
+  }
 
   const buildingNameEl = document.getElementById("buildingName");
   const periodSelect = document.getElementById("periodSelect");
@@ -209,14 +353,50 @@ document.addEventListener("DOMContentLoaded", () => {
     return date;
   }
 
+  function calendarDayTime(d) {
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  }
+
+  function paymentAnchorInRange(anchorRaw, rangeStart, rangeEnd) {
+    if (!anchorRaw) return false;
+    const d = new Date(anchorRaw);
+    if (Number.isNaN(d.getTime())) return false;
+    const day = calendarDayTime(d);
+    return (
+      day >= calendarDayTime(rangeStart) && day <= calendarDayTime(rangeEnd)
+    );
+  }
+
   function getApartmentRealizedIncomeForRange(apartment, rangeStart, rangeEnd) {
     if (!apartment) return 0;
 
     const apartmentId = apartment.id;
+    const apiAptId =
+      apartment.apiId != null ? String(apartment.apiId) : String(apartmentId);
     const currentContractId = getApartmentCurrentContractId(apartment);
 
     if (!apartmentId || !currentContractId) {
       return 0;
+    }
+
+    if (incomeFromApi) {
+      const rows =
+        serverInstallmentsByContract.get(String(currentContractId)) || [];
+      let apiIncome = 0;
+      rows.forEach((row) => {
+        if (String(row.status || "").toLowerCase() !== "paid") return;
+        if (
+          row.apartment_id != null &&
+          String(row.apartment_id) !== apiAptId
+        ) {
+          return;
+        }
+        const anchor =
+          row.paid_at || row.paidAt || row.due_date || row.dueDate;
+        if (!paymentAnchorInRange(anchor, rangeStart, rangeEnd)) return;
+        apiIncome += Number(row.amount || 0);
+      });
+      return apiIncome;
     }
 
     const apartmentPayments = payments.filter((payment) => {
@@ -345,6 +525,22 @@ document.addEventListener("DOMContentLoaded", () => {
     return lateAmount > 0 ? lateAmount : 0;
   }
 
+  function compareApartmentsByUnitOrder(a, b) {
+    const fa = Number(a.floorNumber ?? a.floor_number ?? 0);
+    const fb = Number(b.floorNumber ?? b.floor_number ?? 0);
+    if (fa !== fb && !Number.isNaN(fa) && !Number.isNaN(fb)) {
+      return fa - fb;
+    }
+    const na = Number(String(a.number ?? a.apartmentNumber ?? "").replace(/\D/g, "") || NaN);
+    const nb = Number(String(b.number ?? b.apartmentNumber ?? "").replace(/\D/g, "") || NaN);
+    if (!Number.isNaN(na) && !Number.isNaN(nb) && na !== nb) {
+      return na - nb;
+    }
+    return String(a.number ?? "").localeCompare(String(b.number ?? ""), "ar", {
+      numeric: true,
+    });
+  }
+
   function renderTableRow(apartment, income, apartmentCosts, lateAmount, profit) {
     const tr = document.createElement("tr");
 
@@ -386,7 +582,8 @@ document.addEventListener("DOMContentLoaded", () => {
         </tr>
       `;
     } else {
-      buildingApartments.forEach((apartment) => {
+      const sortedUnits = [...buildingApartments].sort(compareApartmentsByUnitOrder);
+      sortedUnits.forEach((apartment) => {
         const income = getApartmentRealizedIncomeForRange(apartment, start, end);
         const apartmentCosts = getApartmentCostsForRange(apartment, start, end);
         const lateAmount = getApartmentLateAmount(apartment, end);

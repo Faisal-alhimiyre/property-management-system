@@ -1,13 +1,19 @@
 document.addEventListener("DOMContentLoaded", async () => {
+  await WalajnaAuth.hydrateSession();
+  requireAuth();
+  requireRole("tenant");
+  ensureRoleSetup();
+
   const container = document.getElementById("tenantApartments");
 
   if (!container) return;
 
   async function getApartments() {
     try {
-      const response = await fetch(`${WalajnaAuth.API_BASE}/api/apartments`, {
-        headers: WalajnaAuth.getAuthHeaders()
-      });
+      const response = await WalajnaAuth.fetchWithAuth(
+        `${WalajnaAuth.API_BASE}/api/apartments`,
+        { method: "GET" }
+      );
       if (response.ok) {
         return await response.json();
       } else {
@@ -20,9 +26,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   async function getBuildings() {
     try {
-      const response = await fetch(`${WalajnaAuth.API_BASE}/api/buildings`, {
-        headers: WalajnaAuth.getAuthHeaders()
-      });
+      const response = await WalajnaAuth.fetchWithAuth(
+        `${WalajnaAuth.API_BASE}/api/buildings`,
+        { method: "GET" }
+      );
       if (response.ok) {
         return await response.json();
       }
@@ -34,9 +41,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   async function getCurrentUser() {
     try {
-      const response = await fetch(`${WalajnaAuth.API_BASE}/users/me`, {
-        headers: WalajnaAuth.getAuthHeaders()
-      });
+      const response = await WalajnaAuth.fetchWithAuth(
+        `${WalajnaAuth.API_BASE}/users/me`,
+        { method: "GET" }
+      );
       if (response.ok) {
         return await response.json();
       } else {

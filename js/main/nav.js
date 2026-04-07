@@ -9,7 +9,13 @@ document.addEventListener("DOMContentLoaded", () => {
     })
     .then((html) => {
       container.innerHTML = html;
+      if (typeof WalajnaAuth !== "undefined" && typeof WalajnaAuth.hydrateSession === "function") {
+        return WalajnaAuth.hydrateSession().then(() => {
+          setupNavbar();
+        });
+      }
       setupNavbar();
+      return undefined;
     })
     .catch((err) => {
       console.error(err);
@@ -19,13 +25,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
 function setupNavbar() {
   const navType = document.body.dataset.nav || "user";
-  const activeRole = localStorage.getItem("activeRole");
+  const activeRole =
+    typeof WalajnaAuth !== "undefined" && typeof WalajnaAuth.getActiveRole === "function"
+      ? WalajnaAuth.getActiveRole()
+      : sessionStorage.getItem("activeRole");
 
-  let currentUser = null;
-  try {
-    currentUser = JSON.parse(localStorage.getItem("walajna_current_user") || "null");
-  } catch {
-    currentUser = null;
+  let currentUser =
+    typeof WalajnaAuth !== "undefined" && typeof WalajnaAuth.getCurrentUser === "function"
+      ? WalajnaAuth.getCurrentUser()
+      : null;
+  if (!currentUser) {
+    try {
+      currentUser = JSON.parse(sessionStorage.getItem("walajna_current_user") || "null");
+    } catch {
+      currentUser = null;
+    }
   }
 
   const roles = Array.isArray(currentUser?.roles) ? currentUser.roles : [];
@@ -98,16 +112,28 @@ function setupNavbar() {
   link4.textContent = "تسجيل الخروج";
   link4.href = "#";
   link4.addEventListener("click", (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  const confirmed = window.confirm("هل أنت متأكد أنك تريد تسجيل الخروج؟");
+    const confirmed = window.confirm("هل أنت متأكد أنك تريد تسجيل الخروج؟");
 
-  if (!confirmed) return;
+    if (!confirmed) return;
 
-  localStorage.removeItem("activeRole");
-  localStorage.removeItem("walajna_current_user");
-  window.location.href = "../auth/login.html";
- });
+    if (typeof WalajnaAuth !== "undefined") {
+      void WalajnaAuth.logoutOnServer();
+      WalajnaAuth.clearSession();
+    } else {
+      try {
+        sessionStorage.removeItem("activeRole");
+        sessionStorage.removeItem("walajna_current_user");
+        localStorage.removeItem("activeRole");
+        localStorage.removeItem("walajna_current_user");
+        localStorage.removeItem("access_token");
+      } catch {
+        /* ignore */
+      }
+    }
+    window.location.href = "../auth/login.html";
+  });
   
 
   logoLink.href = homeHref;
@@ -167,7 +193,11 @@ function insertRoleSwitcher({ roles, activeRole, afterElement }) {
 
     const newRole = select.value;
 
-    localStorage.setItem("activeRole", newRole);
+    try {
+      sessionStorage.setItem("activeRole", newRole);
+    } catch {
+      /* ignore */
+    }
 
     if (newRole === "owner") {
       window.location.href = "../owners/owner_home.html";

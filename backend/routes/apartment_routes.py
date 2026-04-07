@@ -77,21 +77,60 @@ def _parse_iso_date(value) -> date | None:
         return None
 
 
-def _derive_lease_status(start_date_value, tenant_national_id: str | None) -> str:
+def _derive_lease_status(_start_date_value, tenant_national_id: str | None) -> str:
+    """Assign-tenant: overdue is derived later from payment_installments during reconcile."""
     if not tenant_national_id:
         return "vacant"
-
-    start_date = _parse_iso_date(start_date_value)
-    today = date.today()
-
-    # If the contract started in the past and there is an active tenant, mark as overdue.
-    if start_date and start_date < today:
-        return "overdue"
-
     return "occupied"
 
 
-def _derive_apartment_lease_status_for_existing_row(apartment_row: dict) -> str:
+def _batch_contract_installment_lease_sets(contract_ids: list[int]) -> tuple[set[int], set[int]]:
+    """
+    Returns:
+      contracts_with_any_installment_row — contract has a generated schedule in DB
+      contracts_with_overdue_pending — at least one pending installment with due_date before today
+    """
+    with_rows: set[int] = set()
+    overdue: set[int] = set()
+    if not contract_ids:
+        return with_rows, overdue
+    try:
+        res = (
+            supabase.table("payment_installments")
+            .select("contract_id, status, due_date")
+            .in_("contract_id", contract_ids)
+            .execute()
+        )
+    except Exception:
+        logger.exception(
+            "payment_installments batch read failed; lease_status reconcile falls back to occupied"
+        )
+        return with_rows, overdue
+
+    today = date.today()
+    for row in getattr(res, "data", None) or []:
+        cid = row.get("contract_id")
+        if cid is None:
+            continue
+        try:
+            ic = int(cid)
+        except (TypeError, ValueError):
+            continue
+        with_rows.add(ic)
+        if str(row.get("status") or "").lower() != "pending":
+            continue
+        dd = _parse_iso_date(row.get("due_date"))
+        if dd and dd < today:
+            overdue.add(ic)
+
+    return with_rows, overdue
+
+
+def _derive_apartment_lease_status_for_existing_row(
+    apartment_row: dict,
+    contracts_with_installments: set[int],
+    contracts_with_overdue_installments: set[int],
+) -> str:
     tenant_user_id = apartment_row.get("tenant_user_id")
     tenant_national_id = apartment_row.get("tenant_national_id")
     tenant_info = apartment_row.get("tenant_info") or {}
@@ -105,36 +144,42 @@ def _derive_apartment_lease_status_for_existing_row(apartment_row: dict) -> str:
     if not has_tenant:
         return "vacant"
 
-    contract_start_date = None
     current_contract_id = apartment_row.get("current_contract_id")
-    if current_contract_id:
-        try:
-            contract_result = (
-                supabase.table("contracts")
-                .select("start_date")
-                .eq("id", current_contract_id)
-                .limit(1)
-                .execute()
-            )
-            if getattr(contract_result, "data", None):
-                contract_start_date = contract_result.data[0].get("start_date")
-        except Exception:
-            logger.exception("Failed to fetch contract start_date for contract_id=%s", current_contract_id)
+    if not current_contract_id:
+        return "occupied"
+    try:
+        cid = int(current_contract_id)
+    except (TypeError, ValueError):
+        return "occupied"
 
-    start_date = _parse_iso_date(contract_start_date)
-    today = date.today()
+    if cid in contracts_with_installments:
+        return "overdue" if cid in contracts_with_overdue_installments else "occupied"
 
-    if start_date and start_date < today:
-        return "overdue"
-
+    # No installment schedule yet — do not mark red based on contract start date alone.
     return "occupied"
 
 
 def _reconcile_owner_apartment_statuses(apartments_data: list[dict]) -> list[dict]:
+    contract_ids: list[int] = []
+    for apartment in apartments_data or []:
+        cid = apartment.get("current_contract_id")
+        if cid is None:
+            continue
+        try:
+            contract_ids.append(int(cid))
+        except (TypeError, ValueError):
+            continue
+    unique_cids = list(dict.fromkeys(contract_ids))
+    with_inst, overdue_inst = _batch_contract_installment_lease_sets(unique_cids)
+
     reconciled = []
 
     for apartment in apartments_data or []:
-        expected_lease_status = _derive_apartment_lease_status_for_existing_row(apartment)
+        expected_lease_status = _derive_apartment_lease_status_for_existing_row(
+            apartment,
+            with_inst,
+            overdue_inst,
+        )
 
         if apartment.get("lease_status") != expected_lease_status:
             update_payload = {
@@ -272,19 +317,64 @@ async def get_apartment(apartment_id: int, current_user: dict = Depends(get_curr
     if not apartment.data:
         raise HTTPException(status_code=404, detail="Apartment not found")
     apt = apartment.data[0]
-    if current_user["role"] == "owner" and apt["owner_id"] != current_user["id"]:
+
+    try:
+        viewer_id = int(current_user["id"])
+    except (TypeError, ValueError):
         raise HTTPException(status_code=403, detail="Not authorized")
-    if current_user["role"] == "tenant":
+
+    apt_owner_id = apt.get("owner_id")
+    try:
+        is_landlord = apt_owner_id is not None and int(apt_owner_id) == viewer_id
+    except (TypeError, ValueError):
+        is_landlord = False
+
+    if not is_landlord:
         current_national_id = current_user.get("national_id")
         is_linked_tenant = (
-            apt.get("tenant_user_id") == current_user["id"]
+            apt.get("tenant_user_id") == viewer_id
             or (current_national_id and apt.get("tenant_national_id") == current_national_id)
         )
         if not is_linked_tenant:
-            tenant = supabase.table("tenants").select("*").eq("user_id", current_user["id"]).eq("apartment_id", apartment_id).execute()
-            if not tenant.data:
+            tenant = (
+                supabase.table("tenants")
+                .select("id")
+                .eq("user_id", viewer_id)
+                .eq("apartment_id", apartment_id)
+                .limit(1)
+                .execute()
+            )
+            if not getattr(tenant, "data", None):
                 raise HTTPException(status_code=403, detail="Not authorized")
-    return ApartmentResponse(**apt)
+
+    row = dict(apt)
+    # Owner contact on the apartment row (same user may be owner_id and tenant_user_id in test data).
+    if row.get("owner_id") is not None:
+        try:
+            oid = int(row["owner_id"])
+            ures = (
+                supabase.table("users")
+                .select("*")
+                .eq("id", oid)
+                .limit(1)
+                .execute()
+            )
+            if getattr(ures, "data", None):
+                ou = ures.data[0]
+                row["owner_public_name"] = (
+                    ou.get("name")
+                    or ou.get("full_name")
+                    or ou.get("fullName")
+                )
+                row["owner_public_national_id"] = (
+                    ou.get("national_id") or ou.get("nationalId")
+                )
+        except Exception:
+            logger.exception(
+                "owner_public lookup failed for tenant apartment_id=%s", apartment_id
+            )
+
+    return ApartmentResponse(**row)
 
 
 @router.patch("/apartments/{apartment_id}/assign-tenant")
@@ -308,7 +398,8 @@ async def assign_tenant_to_apartment(
         if not apt_result.data:
             raise HTTPException(status_code=404, detail="Apartment not found")
         apartment = apt_result.data[0]
-        if int(apartment["owner_id"]) != int(current_user["id"]):
+        apt_owner = apartment.get("owner_id")
+        if apt_owner is None or int(apt_owner) != int(current_user["id"]):
             raise HTTPException(status_code=403, detail="Not authorized: apartment belongs to a different owner")
 
         tenant_user_id = _resolve_tenant_user_id(normalized_payload)
@@ -322,11 +413,19 @@ async def assign_tenant_to_apartment(
         logger.info("assign-tenant resolved tenant_user_id=%s", tenant_user_id)
         logger.info("assign-tenant tenant data payload: national_id=%s tenant_info=%s", tenant_national_id, normalized_payload.get("tenant_info"))
 
+        lease_start = normalized_payload.get("start_date")
+        lease_end = normalized_payload.get("end_date")
+        if not lease_start or not lease_end:
+            raise HTTPException(
+                status_code=400,
+                detail="start_date and end_date are required (maps to tenants.lease_start / lease_end and contract dates).",
+            )
+
         tenant_row = _get_or_create_tenant_row(
             tenant_user_id=tenant_user_id,
             apartment_id=apartment_id,
-            start_date=normalized_payload.get("start_date"),
-            end_date=normalized_payload.get("end_date"),
+            start_date=lease_start,
+            end_date=lease_end,
         )
         logger.info("assign-tenant tenant row used: %s", tenant_row)
 
@@ -334,8 +433,8 @@ async def assign_tenant_to_apartment(
         contract_data = {
             "apartment_id": apartment_id,
             "tenant_id": tenant_row.get("id"),
-            "start_date": normalized_payload.get("start_date"),
-            "end_date": normalized_payload.get("end_date"),
+            "start_date": lease_start,
+            "end_date": lease_end,
             "terms": normalized_payload.get("notes") or "",
         }
         contract_data = {k: v for k, v in contract_data.items() if v is not None}
