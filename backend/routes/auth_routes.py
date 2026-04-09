@@ -1,9 +1,12 @@
 try:
-    from fastapi import APIRouter, HTTPException, Depends
+    import json
+    from typing import Optional
+
+    from fastapi import APIRouter, HTTPException, Depends, Request
+    from fastapi.responses import JSONResponse
     from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
     from models import User, UserResponse
     from auth import get_password_hash, verify_password, create_access_token, verify_token
-    from pydantic import BaseModel
     from config import supabase
     from datetime import timedelta, datetime
     print("All auth imports successful")
@@ -12,7 +15,11 @@ except Exception as e:
     raise
 
 router = APIRouter()
-security = HTTPBearer()
+# auto_error=False so cookie-only clients work; token optional in Authorization header.
+security = HTTPBearer(auto_error=False)
+
+COOKIE_NAME = "walajna_session"
+ACCESS_MAX_AGE_SECONDS = 30 * 60
 
 print("Auth router created successfully")
 print("User model imported:", User)
@@ -116,24 +123,44 @@ async def register(user: User):
         raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
 
 
-# Pydantic model for login request
-class LoginRequest(BaseModel):
-    email: str
-    password: str
+def _login_from_json_dict(body: dict) -> dict:
+    raw_nid = body.get("national_id", body.get("nationalId"))
+    national_id = str(raw_nid).strip() if raw_nid is not None else ""
+    if national_id.lower() in ("none", "null", "undefined"):
+        national_id = ""
 
-@router.post("/login")
-async def login(request: LoginRequest):
-    email = request.email
-    password = request.password
-    result = supabase.table("users").select("*").eq("email", email).execute()
+    raw_email = body.get("email")
+    email = str(raw_email).strip() if raw_email is not None else ""
+    if email.lower() in ("none", "null", "undefined"):
+        email = ""
+
+    if body.get("password") is None:
+        raise HTTPException(status_code=400, detail="كلمة المرور مطلوبة")
+    password = str(body.get("password"))
+    if not password.strip():
+        raise HTTPException(status_code=400, detail="كلمة المرور مطلوبة")
+
+    if not national_id and not email:
+        raise HTTPException(
+            status_code=400,
+            detail="يجب إدخال رقم الهوية أو البريد الإلكتروني",
+        )
+
+    if national_id:
+        result = supabase.table("users").select("*").eq("national_id", national_id).execute()
+    else:
+        result = supabase.table("users").select("*").eq("email", email).execute()
 
     if not result.data or not verify_password(password, result.data[0]["password"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     user_data = result.data[0]
-    access_token = create_access_token(data={"sub": email}, expires_delta=timedelta(minutes=30))
+    access_token = create_access_token(
+        data={"sub": f"uid:{user_data['id']}"},
+        expires_delta=timedelta(minutes=30),
+    )
 
-    response_payload = {
+    return {
         "access_token": access_token,
         "token_type": "bearer",
         "user": {
@@ -142,20 +169,80 @@ async def login(request: LoginRequest):
             "name": user_data.get("name"),
             "role": user_data.get("role"),
             "phone": user_data.get("phone"),
-            "national_id": user_data.get("national_id")
-        }
+            "national_id": user_data.get("national_id"),
+        },
     }
 
-    return response_payload
+
+async def login_handler(request: Request):
+    """Registered on the FastAPI app in main.py (not on the router) so /login cannot be shadowed."""
+    raw = await request.body()
+    if not raw or not raw.strip():
+        raise HTTPException(
+            status_code=400,
+            detail='Body required: {"national_id":"...","password":"..."}',
+        )
+    try:
+        body = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="JSON body must be an object")
+    payload = _login_from_json_dict(body)
+    token = payload["access_token"]
+    response = JSONResponse(
+        content={
+            "user": payload["user"],
+            "token_type": payload["token_type"],
+        }
+    )
+    response.set_cookie(
+        key=COOKIE_NAME,
+        value=token,
+        httponly=True,
+        samesite="lax",
+        max_age=ACCESS_MAX_AGE_SECONDS,
+        path="/",
+    )
+    return response
+
+
+async def logout_handler():
+    response = JSONResponse(content={"ok": True})
+    response.delete_cookie(key=COOKIE_NAME, path="/")
+    return response
 
 print("Auth router routes after definitions:", [route.path for route in router.routes])
 
-def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    token = credentials.credentials
-    email = verify_token(token)
-    if not email:
+def get_current_user(
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+):
+    token = None
+    if credentials and credentials.credentials:
+        token = credentials.credentials
+    if not token:
+        token = request.cookies.get(COOKIE_NAME)
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    subject = verify_token(token)
+    if not subject:
         raise HTTPException(status_code=401, detail="Invalid token")
-    user = supabase.table("users").select("*").eq("email", email).execute()
+
+    if subject.startswith("uid:"):
+        try:
+            user_id = int(subject[4:])
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=401, detail="Invalid token")
+        user = supabase.table("users").select("*").eq("id", user_id).execute()
+        if not user.data:
+            raise HTTPException(status_code=401, detail="User not found")
+        return user.data[0]
+
+    if "@" in subject:
+        user = supabase.table("users").select("*").eq("email", subject).execute()
+    else:
+        user = supabase.table("users").select("*").eq("national_id", subject).execute()
     if not user.data:
         raise HTTPException(status_code=401, detail="User not found")
     return user.data[0]

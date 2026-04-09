@@ -235,6 +235,22 @@ async def update_building(building_id: int, building: Building, current_user: di
     return BuildingResponse(**updated.data[0])
 
 
+@router.delete("/buildings/{building_id}")
+async def delete_building(building_id: int, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "owner":
+        raise HTTPException(status_code=403, detail="Only owners can delete buildings")
+
+    existing = supabase.table("buildings").select("*").eq("id", building_id).execute()
+    if not existing.data:
+        raise HTTPException(status_code=404, detail="Building not found")
+    if int(existing.data[0]["owner_id"]) != int(current_user["id"]):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    supabase.table("apartments").delete().eq("building_id", building_id).execute()
+    supabase.table("buildings").delete().eq("id", building_id).execute()
+    return {"ok": True}
+
+
 @router.post("/buildings/{building_id}/seed-apartments")
 async def seed_building_apartments(building_id: int, current_user: dict = Depends(get_current_user)):
     if current_user["role"] != "owner":

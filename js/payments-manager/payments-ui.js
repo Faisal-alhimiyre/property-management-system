@@ -6,7 +6,8 @@
   }
 
   function ensurePaymentsStyles() {
-    if (document.getElementById("walajnaPaymentsStyles")) return;
+    const prev = document.getElementById("walajnaPaymentsStyles");
+    if (prev) prev.remove();
 
     const style = document.createElement("style");
     style.id = "walajnaPaymentsStyles";
@@ -178,57 +179,19 @@
       .apartment-payment-reminder-box{
         margin:16px 0;
       }
-      .wl-modal{
-        display:none;
-        position:fixed;
-        inset:0;
-        z-index:9999;
-      }
-      .wl-modal.is-open{
-        display:block;
-      }
-      .wl-modal__backdrop{
-        position:absolute;
-        inset:0;
-        background:rgba(15,23,42,.45);
-      }
-      .wl-modal__panel{
-        position:relative;
-        width:min(92vw, 680px);
-        margin:6vh auto 0;
-        background:#fff;
-        border-radius:20px;
-        padding:20px;
-        box-shadow:0 24px 48px rgba(0,0,0,.18);
-      }
-      .wl-modal__header{
-        display:flex;
-        align-items:flex-start;
-        justify-content:space-between;
-        gap:12px;
-        margin-bottom:18px;
-      }
-      .wl-modal__title{
+      /* #recordPaymentModal layout lives in payments.css (!important) so it wins over this injected sheet */
+      #recordPaymentModal .wl-modal__title{
         margin:0;
-        font-size:24px;
+        font-size:22px;
         font-weight:800;
         color:#0f172a;
       }
-      .wl-modal__subtitle{
+      #recordPaymentModal .wl-modal__subtitle{
         margin:6px 0 0;
         color:#64748b;
         font-size:14px;
       }
-      .wl-modal__body{
-        margin-bottom:18px;
-      }
-      .wl-modal__footer{
-        display:flex;
-        justify-content:flex-end;
-        gap:10px;
-        flex-wrap:wrap;
-      }
-      .wl-btn{
+      #recordPaymentModal .wl-btn{
         border:none;
         border-radius:12px;
         padding:10px 16px;
@@ -236,22 +199,13 @@
         font-size:14px;
         cursor:pointer;
       }
-      .wl-btn--primary{
+      #recordPaymentModal .wl-btn--primary{
         background:#111827;
         color:#fff;
       }
-      .wl-btn--ghost{
+      #recordPaymentModal .wl-btn--ghost{
         background:#f3f4f6;
         color:#111827;
-      }
-      .wl-icon-btn{
-        border:none;
-        background:#f3f4f6;
-        width:40px;
-        height:40px;
-        border-radius:12px;
-        cursor:pointer;
-        font-size:18px;
       }
     `;
     document.head.appendChild(style);

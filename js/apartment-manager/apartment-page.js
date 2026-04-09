@@ -1,9 +1,12 @@
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   const T = (k, p) =>
     window.walajna_language && window.walajna_language.t
       ? window.walajna_language.t(k, p)
       : k;
 
+  if (typeof WalajnaAuth !== "undefined" && WalajnaAuth.hydrateSession) {
+    await WalajnaAuth.hydrateSession();
+  }
   /* =========================
      1) PAGE ELEMENTS
      ========================= */
@@ -67,14 +70,87 @@ document.addEventListener("DOMContentLoaded", () => {
   const buildings = getBuildings();
   const users = typeof getUsers === "function" ? getUsers() : [];
 
-  let data = apartments.find((apt) => apt.id === aptId);
+  function sameId(a, b) {
+    return String(a ?? "") === String(b ?? "");
+  }
+
+  function mapApiApartmentToLocal(apiApartment) {
+    if (!apiApartment) return null;
+    return {
+      id: String(apiApartment.id ?? aptId),
+      apiId: apiApartment.id ?? null,
+      ownerId: apiApartment.owner_id ?? null,
+      ownerPublicName:
+        apiApartment.owner_public_name ?? apiApartment.ownerPublicName ?? null,
+      ownerPublicNationalId:
+        apiApartment.owner_public_national_id ??
+        apiApartment.ownerPublicNationalId ??
+        null,
+      buildingId:
+        apiApartment.building_id != null ? String(apiApartment.building_id) : null,
+      number:
+        apiApartment.apartment_number != null
+          ? String(apiApartment.apartment_number)
+          : null,
+      floorNumber:
+        apiApartment.floor_number != null
+          ? Number(apiApartment.floor_number)
+          : null,
+      address: apiApartment.address || "",
+      description: apiApartment.description || "",
+      rent:
+        apiApartment.rent != null && apiApartment.rent !== ""
+          ? Number(apiApartment.rent)
+          : "",
+      tenantUserId: apiApartment.tenant_user_id ?? null,
+      tenantNationalId: apiApartment.tenant_national_id ?? null,
+      tenantInfo: apiApartment.tenant_info || null,
+      currentContractId: apiApartment.current_contract_id ?? null,
+      leaseStatus: apiApartment.lease_status || "vacant",
+      status: apiApartment.status || null,
+    };
+  }
+
+  async function fetchFreshApartmentById(apartmentId) {
+    if (typeof WalajnaAuth === "undefined") return null;
+    try {
+      const response = await WalajnaAuth.fetchWithAuth(
+        `${WalajnaAuth.API_BASE}/api/apartments/${encodeURIComponent(apartmentId)}`,
+        { method: "GET" }
+      );
+      if (!response.ok) return null;
+      const apiApartment = await response.json();
+      return mapApiApartmentToLocal(apiApartment);
+    } catch {
+      return null;
+    }
+  }
+
+  let data = apartments.find((apt) => sameId(apt.id, aptId));
+
+  // Logged-in: always refetch once so owner_public_* / tenant fields are not stuck on stale localStorage.
+  const shouldRefreshFromApi = !data || Boolean(currentUser);
+  if (shouldRefreshFromApi) {
+    const freshApartment = await fetchFreshApartmentById(aptId);
+    if (freshApartment) {
+      data = freshApartment;
+
+      const existing = apartments.find((apt) => sameId(apt.id, aptId));
+      if (existing && typeof saveUpdatedApartment === "function") {
+        saveUpdatedApartment({ ...existing, ...freshApartment });
+      } else if (typeof saveApartments === "function") {
+        saveApartments([...apartments, freshApartment]);
+      }
+    }
+  }
 
   if (!data) {
     if (title) title.textContent = T("aptPage.notFound");
     return;
   }
 
-  const buildingData = buildings.find((b) => b.id === data.buildingId) || null;
+  const buildingData =
+    buildings.find((b) => sameId(b.id, data.buildingId)) || null;
 
   /* =========================
      4) HELPERS
@@ -315,6 +391,49 @@ document.addEventListener("DOMContentLoaded", () => {
 
     return unpaidPayments[0] || null;
   }
+
+  async function fetchNextUnpaidInstallmentFromApi(contractId) {
+    if (!contractId || typeof WalajnaAuth === "undefined") return null;
+    try {
+      const res = await WalajnaAuth.fetchWithAuth(
+        `${WalajnaAuth.API_BASE}/api/contracts/${encodeURIComponent(contractId)}/installments`,
+        { method: "GET" }
+      );
+      if (!res.ok) return null;
+      const rows = await res.json();
+      if (!Array.isArray(rows) || !rows.length) return null;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const sorted = [...rows].sort((a, b) =>
+        String(a.due_date || "").localeCompare(String(b.due_date || ""))
+      );
+      for (const r of sorted) {
+        if (r.status === "paid" || r.status === "cancelled") continue;
+        const dueStr = (r.due_date || "").toString().slice(0, 10);
+        const due = new Date(dueStr);
+        due.setHours(0, 0, 0, 0);
+        let st = r.status || "pending";
+        if (
+          st === "pending" &&
+          !Number.isNaN(due.getTime()) &&
+          due < today
+        ) {
+          st = "overdue";
+        }
+        if (st === "paid" || st === "cancelled") continue;
+        return {
+          id: String(r.id),
+          dueDate: dueStr,
+          amount: Number(r.amount ?? 0),
+          contractId: String(contractId),
+        };
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
   function canEvictApartment(apartment) {
   if (!apartment) {
     return {
@@ -373,7 +492,7 @@ document.addEventListener("DOMContentLoaded", () => {
     message: "",
   };
 }
-  function updateNextPaymentInfo(apartmentId) {
+  async function updateNextPaymentInfo(apartmentId) {
     const dateEl = document.getElementById("nextPaymentDate");
     const amountEl = document.getElementById("nextPaymentAmount");
 
@@ -385,7 +504,14 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const nextPayment = getNextDuePayment(apartmentId);
+    const contractId = getCurrentContractId();
+    let nextPayment =
+      contractId && typeof WalajnaAuth !== "undefined"
+        ? await fetchNextUnpaidInstallmentFromApi(contractId)
+        : null;
+    if (!nextPayment) {
+      nextPayment = getNextDuePayment(apartmentId);
+    }
 
     if (!nextPayment) {
       dateEl.textContent = "";
@@ -497,47 +623,90 @@ document.addEventListener("DOMContentLoaded", () => {
     if (notesEl) notesEl.textContent = contract.notes || "—";
   }
 
+  /**
+   * Show "معلومات المالك" for tenant-style viewing.
+   * Hide only for مالك mode when this user is the landlord but not the linked tenant (same-person test: still show).
+   */
+  function shouldShowLandlordCard() {
+    if (!data) return false;
+    if (activeRole !== "owner") return true;
+    const uid = currentUser ? String(currentUser.id ?? "") : "";
+    const tid =
+      data.tenantUserId != null ? String(data.tenantUserId) : "";
+    return Boolean(uid && tid && uid === tid);
+  }
+
   function fillOwnerInfoForTenantOnly() {
     if (!ownerInfoSection) return;
 
-    if (activeRole !== "tenant") {
-      ownerInfoSection.style.display = "none";
-      return;
-    }
-
-    const owner = users.find((u) => u.id === data.ownerId);
-
-    if (!owner) {
+    if (!shouldShowLandlordCard()) {
       ownerInfoSection.style.display = "none";
       return;
     }
 
     ownerInfoSection.style.display = "block";
 
-    if (ownerFullNameEl) {
-      ownerFullNameEl.textContent = owner.fullName || "—";
+    const fromApiName = String(
+      data.ownerPublicName || data.owner_public_name || ""
+    ).trim();
+    const fromApiNid = String(
+      data.ownerPublicNationalId || data.owner_public_national_id || ""
+    ).trim();
+
+    let name = fromApiName || null;
+    let nid = fromApiNid || null;
+
+    if (!name && !nid) {
+      const owner = users.find(
+        (u) => String(u.id ?? "") === String(data.ownerId ?? "")
+      );
+      if (owner) {
+        name =
+          owner.fullName || owner.name || owner.username || null;
+        nid = owner.nationalId || owner.national_id || null;
+      }
     }
 
+    if (ownerFullNameEl) {
+      ownerFullNameEl.textContent = name || "—";
+    }
     if (ownerNationalIdEl) {
-      ownerNationalIdEl.textContent = owner.nationalId || "—";
+      ownerNationalIdEl.textContent = nid || "—";
     }
   }
 
   function goToPaymentsPage() {
-    window.location.href = `../main/payments.html?id=${encodeURIComponent(aptId)}`;
+    const idParam = encodeURIComponent(data.apiId ?? data.id ?? aptId);
+    window.location.href = `../main/payments.html?id=${idParam}`;
   }
 
-  function goToPaymentOptionsPage() {
-    const nextPayment = getNextDuePayment(aptId);
+  async function goToPaymentOptionsPage() {
+    const contractId = getCurrentContractId();
+    let nextPayment =
+      contractId && typeof WalajnaAuth !== "undefined"
+        ? await fetchNextUnpaidInstallmentFromApi(contractId)
+        : null;
+    if (!nextPayment) {
+      nextPayment = getNextDuePayment(aptId);
+    }
 
     if (!nextPayment) {
       alert(T("aptPage.noDuePayments"));
       return;
     }
 
-    window.location.href =
-      `../main/payment-options.html?id=${encodeURIComponent(aptId)}` +
+    const cid =
+      contractId ||
+      (nextPayment.contractId != null ? String(nextPayment.contractId) : null);
+
+    const aptParam = encodeURIComponent(data.apiId ?? data.id ?? aptId);
+    let href =
+      `../main/payment-options.html?id=${aptParam}` +
       `&paymentId=${encodeURIComponent(nextPayment.id)}`;
+    if (cid != null && cid !== "") {
+      href += `&contractId=${encodeURIComponent(cid)}`;
+    }
+    window.location.href = href;
   }
 
   function ensureHistoryButton() {
@@ -664,6 +833,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  /* Owner/tenant bottom actions before any slow payment API — avoids ~2s flash of wrong buttons */
+  applyActionVisibility();
+  ensureHistoryButton();
+
   /* =========================
      5) FILL UI
      ========================= */
@@ -674,7 +847,7 @@ document.addEventListener("DOMContentLoaded", () => {
   fillTenantInfo();
   fillAdditionalInfo();
   fillOwnerInfoForTenantOnly();
-  updateNextPaymentInfo(aptId);
+  await updateNextPaymentInfo(aptId);
 
   if (status) {
     status.textContent = getLeaseStatusLabel(data.leaseStatus || effectiveLeaseStatus);
@@ -685,16 +858,19 @@ document.addEventListener("DOMContentLoaded", () => {
       activeRole === "owner" ? T("aptPage.viewOwner") : T("aptPage.viewTenant");
   }
 
+  const uiRoleForWidgets =
+    activeRole === "owner" || activeRole === "tenant"
+      ? activeRole
+      : currentUser?.role || "tenant";
+
   /* =========================
      6) INIT FEATURES
      ========================= */
   initDocumentsSystem(aptId);
-  initRequestsSystem(aptId, activeRole, currentUser, effectiveLeaseStatus);
+  initRequestsSystem(aptId, uiRoleForWidgets, currentUser, effectiveLeaseStatus);
   const linkTenantSystem = initLinkTenantSystem(aptId, currentUser);
 
-  /* =========================
-     7) BUTTONS BY ROLE + STATE
-     ========================= */
+  /* Renew button state may depend on payment fetch — refresh actions once */
   applyActionVisibility();
   ensureHistoryButton();
 
@@ -724,7 +900,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   if (tenantPayBtn) {
-    tenantPayBtn.addEventListener("click", goToPaymentOptionsPage);
+    tenantPayBtn.addEventListener("click", () => {
+      void goToPaymentOptionsPage();
+    });
   }
 
   /* =========================

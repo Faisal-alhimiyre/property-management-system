@@ -26,37 +26,38 @@
 
   <script src="../js/main/auth.js"></script>
   <script>
-    requireAuth();
+    (async function () {
+      await WalajnaAuth.hydrateSession();
+      requireAuth();
 
-    const currentUser = JSON.parse(localStorage.getItem("walajna_current_user"));
-    let users = JSON.parse(localStorage.getItem("walajna_users") || "[]");
+      let currentUser = WalajnaAuth.getCurrentUser();
+      if (!currentUser) {
+        window.location.href = "../auth/login.html";
+        return;
+      }
 
-    if (!currentUser) {
-      window.location.href = "../auth/login.html";
-    }
+      function chooseRole(role) {
+        const roles = Array.isArray(currentUser.roles) ? [...currentUser.roles] : [];
+        if (!roles.includes(role)) roles.push(role);
+        const updatedUser = { ...currentUser, roles };
+        WalajnaAuth.setSession({ user: updatedUser });
+        try {
+          sessionStorage.setItem("activeRole", role);
+          localStorage.setItem("activeRole", role);
+        } catch {
+          /* ignore */
+        }
+        currentUser = updatedUser;
+        if (role === "owner") window.location.href = "../owners/owner_home.html";
+        if (role === "tenant") window.location.href = "../tenants/tenant_home.html";
+      }
 
-    function saveUser(updatedUser) {
-      users = users.map((user) => {
-        if (user.nationalId === updatedUser.nationalId) return updatedUser;
-        return user;
+      window.chooseRole = chooseRole;
+
+      document.querySelectorAll("[data-role]").forEach((btn) => {
+        btn.addEventListener("click", () => chooseRole(btn.getAttribute("data-role")));
       });
-      localStorage.setItem("walajna_users", JSON.stringify(users));
-      localStorage.setItem("walajna_current_user", JSON.stringify(updatedUser));
-    }
-
-    function chooseRole(role) {
-      let roles = currentUser.roles || [];
-      if (!roles.includes(role)) roles.push(role);
-      const updatedUser = { ...currentUser, roles };
-      saveUser(updatedUser);
-      localStorage.setItem("activeRole", role);
-      if (role === "owner") window.location.href = "../owners/owner_home.html";
-      if (role === "tenant") window.location.href = "../tenants/tenant_home.html";
-    }
-
-    document.querySelectorAll("[data-role]").forEach((btn) => {
-      btn.addEventListener("click", () => chooseRole(btn.getAttribute("data-role")));
-    });
+    })();
   </script>
 </body>
 </html>

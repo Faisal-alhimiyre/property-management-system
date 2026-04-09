@@ -1,4 +1,4 @@
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   const T = (k, p) =>
     window.walajna_language && window.walajna_language.t
       ? window.walajna_language.t(k, p)
@@ -287,6 +287,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  await WalajnaAuth.hydrateSession();
+
   refreshFormChrome();
   document.addEventListener("walajna:i18n-applied", () => {
     populateCities();
@@ -306,8 +308,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!Number.isFinite(Number(ownerId))) return;
 
     try {
-      const listRes = await fetch(`${API_BASE}/api/apartments`, {
-        headers: WalajnaAuth.getAuthHeaders(),
+      const listRes = await WalajnaAuth.fetchWithAuth(`${API_BASE}/api/apartments`, {
+        method: "GET",
       });
 
       const existing = listRes.ok ? await listRes.json() : [];
@@ -348,9 +350,8 @@ document.addEventListener("DOMContentLoaded", () => {
           rent: Number(apartment.rent || 0),
         };
 
-        const createRes = await fetch(`${API_BASE}/api/apartments`, {
+        const createRes = await WalajnaAuth.fetchWithAuth(`${API_BASE}/api/apartments`, {
           method: "POST",
-          headers: WalajnaAuth.getAuthHeaders(),
           body: JSON.stringify(payload),
         });
 
@@ -512,9 +513,8 @@ document.addEventListener("DOMContentLoaded", () => {
       : `${API_BASE}/api/buildings`;
 
     try {
-      const apiResponse = await fetch(endpoint, {
+      const apiResponse = await WalajnaAuth.fetchWithAuth(endpoint, {
         method: isEditMode ? "PATCH" : "POST",
-        headers: WalajnaAuth.getAuthHeaders(),
         body: JSON.stringify(payload),
       });
 

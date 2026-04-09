@@ -687,3 +687,103 @@ body.dark-mode #recordPaymentModal .wl-icon-btn{
 body.dark-mode #recordPaymentModal .wl-icon-btn:hover{
   background:#172033 !important;
 }
+
+/* Record-payment modal — full layout here so JS-injected styles cannot override (RTL / Live Server safe). */
+#recordPaymentModal.wl-modal{
+  display:none !important;
+  position:fixed !important;
+  inset:0 !important;
+  z-index:10000 !important;
+  margin:0 !important;
+  padding:0 !important;
+  box-sizing:border-box !important;
+}
+
+#recordPaymentModal.wl-modal.is-open{
+  display:block !important;
+}
+
+#recordPaymentModal .wl-modal__backdrop{
+  position:absolute !important;
+  inset:0 !important;
+  background:rgba(15,23,42,0.5) !important;
+  backdrop-filter:blur(6px) !important;
+  -webkit-backdrop-filter:blur(6px) !important;
+}
+
+/* Fixed to viewport so parent/RTL/flex cannot collapse width */
+#recordPaymentModal .wl-modal__panel{
+  position:fixed !important;
+  left:50% !important;
+  top:50% !important;
+  right:auto !important;
+  bottom:auto !important;
+  transform:translate(-50%, -50%) !important;
+  z-index:10001 !important;
+  width:min(680px, calc(100vw - 32px)) !important;
+  min-width:260px !important;
+  max-width:calc(100vw - 32px) !important;
+  max-height:min(90vh, 920px) !important;
+  overflow:auto !important;
+  margin:0 !important;
+  box-sizing:border-box !important;
+  background:#fff !important;
+  border-radius:20px !important;
+  box-shadow:0 24px 56px rgba(15,23,42,0.28) !important;
+}
+
+#recordPaymentModal .wl-modal__header{
+  display:flex !important;
+  justify-content:space-between !important;
+  align-items:flex-start !important;
+  gap:12px !important;
+  padding:18px 20px 14px !important;
+  border-bottom:1px solid #e2e8f0 !important;
+}
+
+#recordPaymentModal .wl-modal__body{
+  padding:16px 20px !important;
+}
+
+#recordPaymentModal .wl-modal__footer{
+  display:flex !important;
+  flex-wrap:wrap !important;
+  justify-content:flex-start !important;
+  gap:10px !important;
+  padding:14px 20px 18px !important;
+  border-top:1px solid #e2e8f0 !important;
+}
+
+#recordPaymentModal .payments-form-grid{
+  display:grid !important;
+  grid-template-columns:repeat(2, minmax(0, 1fr)) !important;
+  gap:12px !important;
+  width:100% !important;
+}
+
+#recordPaymentModal .payments-field input,
+#recordPaymentModal .payments-field select,
+#recordPaymentModal .payments-field textarea{
+  width:100% !important;
+  max-width:100% !important;
+  box-sizing:border-box !important;
+}
+
+@media (max-width: 560px){
+  #recordPaymentModal .payments-form-grid{
+    grid-template-columns:1fr !important;
+  }
+}
+
+body.dark-mode #recordPaymentModal .wl-modal__panel{
+  background:#101825 !important;
+  border:1px solid rgba(148,163,184,0.35) !important;
+}
+
+body.dark-mode #recordPaymentModal .wl-modal__header{
+  border-bottom-color:rgba(148,163,184,0.2) !important;
+}
+
+body.dark-mode #recordPaymentModal .wl-modal__footer{
+  border-top-color:rgba(148,163,184,0.2) !important;
+}

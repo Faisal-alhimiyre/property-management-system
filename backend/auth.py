@@ -5,6 +5,9 @@ from datetime import datetime, timedelta
 from typing import Optional
 import os
 from jose import JWTError, jwt
+from dotenv import load_dotenv
+
+load_dotenv()
 
 SECRET_KEY = os.getenv("SECRET_KEY", "your_secret_key_here")
 ALGORITHM = "HS256"

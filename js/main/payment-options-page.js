@@ -1,4 +1,4 @@
-document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener("DOMContentLoaded", async function () {
   const T = (k, p) =>
     window.walajna_language && window.walajna_language.t
       ? window.walajna_language.t(k, p)
@@ -7,9 +7,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const params = new URLSearchParams(window.location.search);
   const apartmentId = params.get("id");
   const paymentId = params.get("paymentId");
-
-  const payments = JSON.parse(localStorage.getItem("walajna_payments") || "[]");
-  const payment = payments.find((item) => String(item.id) === String(paymentId));
+  const contractId = params.get("contractId");
 
   const summaryBox = document.getElementById("paymentSummaryBox");
   const backLink = document.getElementById("backToPaymentsLink");
@@ -18,6 +16,68 @@ document.addEventListener("DOMContentLoaded", function () {
     window.walajna_language && window.walajna_language.get() === "en"
       ? "en-SA"
       : "ar-SA";
+
+  const payments = JSON.parse(localStorage.getItem("walajna_payments") || "[]");
+
+  /** Unified shape: { id, amount, dueDate } */
+  let payment = null;
+  let payViaApi = false;
+
+  function escapeHtml(s) {
+    return String(s || "").replace(/[&<>"']/g, (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[
+        c
+      ])
+    );
+  }
+
+  if (
+    contractId &&
+    paymentId &&
+    window.WalajnaAuth &&
+    typeof WalajnaAuth.fetchWithAuth === "function"
+  ) {
+    payViaApi = true;
+    await WalajnaAuth.hydrateSession();
+    const apiBase = WalajnaAuth.API_BASE;
+    try {
+      const res = await WalajnaAuth.fetchWithAuth(
+        `${apiBase}/api/contracts/${encodeURIComponent(contractId)}/installments`,
+        { method: "GET" }
+      );
+      if (res.status === 401) {
+        if (typeof WalajnaAuth.handleUnauthorized === "function") {
+          WalajnaAuth.handleUnauthorized();
+        }
+      } else if (res.ok) {
+        const rows = await res.json();
+        const row = Array.isArray(rows)
+          ? rows.find((item) => String(item.id) === String(paymentId))
+          : null;
+        if (row) {
+          payment = {
+            id: String(row.id),
+            amount: Number(row.amount || 0),
+            dueDate: (row.due_date || "").toString().slice(0, 10),
+          };
+        }
+      }
+    } catch (e) {
+      console.warn(e);
+    }
+  }
+
+  if (!payment && paymentId) {
+    const local = payments.find((item) => String(item.id) === String(paymentId));
+    if (local) {
+      payment = {
+        id: String(local.id),
+        amount: Number(local.amount || 0),
+        dueDate: local.dueDate || "",
+      };
+      payViaApi = false;
+    }
+  }
 
   function renderSummary() {
     if (!summaryBox) return;
@@ -39,14 +99,6 @@ document.addEventListener("DOMContentLoaded", function () {
     `;
   }
 
-  function escapeHtml(s) {
-    return String(s || "").replace(/[&<>"']/g, (c) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[
-        c
-      ])
-    );
-  }
-
   if (backLink && apartmentId) {
     backLink.href = `../main/payments.html?id=${encodeURIComponent(apartmentId)}`;
   }
@@ -58,7 +110,7 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 
   document.querySelectorAll(".payment-method-card").forEach((card) => {
-    card.addEventListener("click", function () {
+    card.addEventListener("click", async function () {
       const method = this.dataset.method;
 
       if (!payment) {
@@ -66,15 +118,49 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
       }
 
+      if (payViaApi && contractId && window.WalajnaAuth?.fetchWithAuth) {
+        try {
+          const patchRes = await WalajnaAuth.fetchWithAuth(
+            `${WalajnaAuth.API_BASE}/api/payment-installments/${encodeURIComponent(paymentId)}`,
+            {
+              method: "PATCH",
+              body: JSON.stringify({
+                status: "paid",
+                payment_method: method,
+                notes: T("paymentOpt.paidNote"),
+              }),
+            }
+          );
+          if (patchRes.status === 401) {
+            if (typeof WalajnaAuth.handleUnauthorized === "function") {
+              WalajnaAuth.handleUnauthorized();
+            }
+            return;
+          }
+          if (!patchRes.ok) {
+            const t = await patchRes.text();
+            alert(T("paymentOpt.patchFailPrefix") + (t || patchRes.status));
+            return;
+          }
+        } catch (err) {
+          console.warn(err);
+          alert(T("paymentOpt.networkErr"));
+          return;
+        }
+        alert(T("paymentOpt.success"));
+        window.location.href = `../main/payments.html?id=${encodeURIComponent(apartmentId)}`;
+        return;
+      }
+
       const updatedPayments = payments.map((item) => {
-        if (item.id !== payment.id) return item;
+        if (String(item.id) !== String(payment.id)) return item;
 
         return {
           ...item,
           status: "paid",
           paymentMethod: method,
           paidAt: new Date().toISOString().slice(0, 10),
-          notes: T("paymentOpt.paidNote")
+          notes: T("paymentOpt.paidNote"),
         };
       });
 

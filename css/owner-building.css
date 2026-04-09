@@ -360,9 +360,10 @@ body{
 }
 
 .rented-badge{
-  background:#ecfdf5;
-  color:#047857;
-  border:1px solid #a7f3d0;
+  background:#16a34a;
+  color:#fff;
+  border:1px solid #15803d;
+  box-shadow:0 1px 2px rgba(0,0,0,0.12);
 }
 
 .badge-dot{
@@ -816,10 +817,14 @@ body.dark-mode{
 body.dark-mode .finance-card,
 body.dark-mode .expense-breakdown-card,
 body.dark-mode .building-shell,
-body.dark-mode .apartment-card,
 body.dark-mode .apartment-edit-modal__panel{
   background:#101825;
   border-color:rgba(148,163,184,.35);
+  box-shadow:0 18px 40px rgba(15,23,42,.7);
+}
+
+/* Apartment cards: state backgrounds (maintenance / request / overdue) must not be flattened to #101825 */
+body.dark-mode .apartment-card{
   box-shadow:0 18px 40px rgba(15,23,42,.7);
 }
 
@@ -910,6 +915,26 @@ body.dark-mode .apartment-card.none{
   border-color:rgba(148,163,184,.35);
 }
 
+body.dark-mode .apartment-card.rent-overdue{
+  background:linear-gradient(180deg, #b91c1c 0%, #7f1d1d 100%);
+  border-color:rgba(248,113,113,.45);
+}
+
+body.dark-mode .apartment-card.maintenance{
+  background:linear-gradient(180deg, #c2410c 0%, #9a3412 100%);
+  border-color:rgba(251,191,36,.42);
+}
+
+body.dark-mode .apartment-card.request{
+  background:linear-gradient(180deg, #15803d 0%, #14532d 100%);
+  border-color:rgba(74,222,128,.4);
+}
+
+body.dark-mode .apartment-card.suggestion{
+  background:linear-gradient(180deg, #1d4ed8 0%, #1e3a8a 100%);
+  border-color:rgba(96,165,250,.45);
+}
+
 body.dark-mode .apartment-card.complaint{
   background:linear-gradient(180deg, #facc15 0%, #eab308 100%);
 }
@@ -926,9 +951,10 @@ body.dark-mode .apartment-badge{
 }
 
 body.dark-mode .rented-badge{
-  background:rgba(34,197,94,.2);
-  border-color:rgba(34,197,94,.35);
-  color:#dcfce7;
+  background:#16a34a;
+  border-color:#14532d;
+  color:#fff;
+  box-shadow:0 1px 3px rgba(0,0,0,0.35);
 }
 
 body.dark-mode .apartment-card-menu button:hover{

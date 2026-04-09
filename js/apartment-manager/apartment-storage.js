@@ -284,6 +284,16 @@ function getPaymentsForApartmentContext(aptId) {
 ========================= */
 
 function getCurrentUser() {
+  if (typeof WalajnaAuth !== "undefined" && typeof WalajnaAuth.getCurrentUser === "function") {
+    const u = WalajnaAuth.getCurrentUser();
+    if (u) return u;
+  }
+  try {
+    const raw = sessionStorage.getItem(StorageKeys.CURRENT_USER);
+    if (raw) return JSON.parse(raw);
+  } catch {
+    /* ignore */
+  }
   return readJson(StorageKeys.CURRENT_USER, null);
 }
 
@@ -292,12 +302,26 @@ function saveCurrentUser(user) {
 }
 
 function getActiveRole() {
-  return (
+  if (typeof WalajnaAuth !== "undefined" && typeof WalajnaAuth.getActiveRole === "function") {
+    const r = WalajnaAuth.getActiveRole();
+    if (r) return r;
+  }
+  try {
+    const sr = sessionStorage.getItem(StorageKeys.ACTIVE_ROLE);
+    if (sr) return sr;
+  } catch {
+    /* ignore */
+  }
+  const fromStorage =
     localStorage.getItem(StorageKeys.ACTIVE_ROLE) ||
     localStorage.getItem("activerole") ||
-    localStorage.getItem("role") ||
-    "tenant"
-  );
+    localStorage.getItem("role");
+  if (fromStorage) return fromStorage;
+  const u = getCurrentUser();
+  if (u && (u.role || (u.roles && u.roles[0]))) {
+    return u.role || u.roles[0];
+  }
+  return "tenant";
 }
 
 function saveActiveRole(role) {

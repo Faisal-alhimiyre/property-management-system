@@ -1,4 +1,4 @@
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   const T = (k, p) =>
     window.walajna_language && window.walajna_language.t
       ? window.walajna_language.t(k, p)
@@ -55,13 +55,131 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
-  const buildings = JSON.parse(localStorage.getItem("walajna_buildings") || "[]");
-  let apartments = JSON.parse(localStorage.getItem("walajna_apartments") || "[]");
-  const requests = JSON.parse(localStorage.getItem("walajna_requests") || "[]");
+  let building = null;
+  let apartments = [];
+  let maintenanceRows = [];
+  let apartmentsFromApi = false;
+
+  const REQUEST_STORAGE_CANDIDATES = [
+    "walajna_requests",
+    "walajna_apartment_requests",
+    "apartment_requests",
+    "requests",
+  ];
+
+  function detectRequestStorageKey() {
+    for (const key of REQUEST_STORAGE_CANDIDATES) {
+      try {
+        const data = JSON.parse(localStorage.getItem(key) || "null");
+        if (Array.isArray(data)) return key;
+      } catch {
+        /* ignore */
+      }
+    }
+    return REQUEST_STORAGE_CANDIDATES[0];
+  }
+
+  const tenantRequestStorageKey = detectRequestStorageKey();
+
+  function loadStoredTenantRequests() {
+    try {
+      const data = JSON.parse(localStorage.getItem(tenantRequestStorageKey) || "[]");
+      return Array.isArray(data) ? data : [];
+    } catch {
+      return [];
+    }
+  }
+
+  let requests = loadStoredTenantRequests();
   const payments = JSON.parse(localStorage.getItem("walajna_payments") || "[]");
   const costs = JSON.parse(localStorage.getItem("walajna_costs") || "[]");
 
-  const building = buildings.find((b) => String(b.id) === String(buildingId));
+  function mapApiApartmentToLocal(apt) {
+    const id = apt.id;
+    return {
+      id: String(id),
+      apiId: id,
+      buildingId: String(apt.building_id ?? ""),
+      number: String(apt.apartment_number ?? ""),
+      floorNumber: Number(apt.floor_number ?? 0),
+      leaseStatus: apt.lease_status || "vacant",
+      rent: apt.rent,
+      tenantUserId: apt.tenant_user_id ?? null,
+      tenantNationalId: apt.tenant_national_id ?? null,
+      tenantInfo: apt.tenant_info || null,
+      currentContractId: apt.current_contract_id ?? null,
+      contractId: apt.current_contract_id ?? null,
+      contract: apt.current_contract_id ? { id: apt.current_contract_id } : null,
+      status: apt.status || null,
+    };
+  }
+
+  if (typeof WalajnaAuth !== "undefined" && WalajnaAuth.hydrateSession) {
+    await WalajnaAuth.hydrateSession();
+  }
+  if (typeof requireAuth === "function") requireAuth();
+  if (typeof requireRole === "function") requireRole("owner");
+
+  function expectedSlotsFromBuilding(b) {
+    if (!b) return 0;
+    return Number(b.apartments_count ?? b.apartmentCount ?? 0);
+  }
+
+  try {
+    const [bRes, aRes, mRes] = await Promise.all([
+      WalajnaAuth.fetchWithAuth(`${WalajnaAuth.API_BASE}/api/buildings`, { method: "GET" }),
+      WalajnaAuth.fetchWithAuth(`${WalajnaAuth.API_BASE}/api/apartments`, { method: "GET" }),
+      WalajnaAuth.fetchWithAuth(`${WalajnaAuth.API_BASE}/api/maintenance`, { method: "GET" }),
+    ]);
+
+    if (bRes.ok) {
+      const buildings = await bRes.json();
+      const raw = buildings.find((b) => String(b.id) === String(buildingId)) || null;
+      if (raw) {
+        building = {
+          ...raw,
+          apartmentCount: raw.apartmentCount ?? raw.apartments_count ?? 0,
+          totalFloors: raw.totalFloors ?? raw.total_floors ?? null,
+        };
+      }
+    }
+
+    if (aRes.ok) {
+      const all = await aRes.json();
+      apartments = all
+        .filter((a) => String(a.building_id) === String(buildingId))
+        .map(mapApiApartmentToLocal);
+      apartmentsFromApi = true;
+    }
+
+    if (mRes.ok) {
+      maintenanceRows = await mRes.json();
+    }
+
+    const expectedUnits = expectedSlotsFromBuilding(building);
+    if (apartments.length === 0 && building && expectedUnits > 0) {
+      await WalajnaAuth.fetchWithAuth(
+        `${WalajnaAuth.API_BASE}/api/buildings/${encodeURIComponent(buildingId)}/seed-apartments`,
+        { method: "POST" }
+      );
+      const aRes2 = await WalajnaAuth.fetchWithAuth(
+        `${WalajnaAuth.API_BASE}/api/apartments`,
+        { method: "GET" }
+      );
+      if (aRes2.ok) {
+        const all = await aRes2.json();
+        apartments = all
+          .filter((a) => String(a.building_id) === String(buildingId))
+          .map(mapApiApartmentToLocal);
+        apartmentsFromApi = true;
+      }
+    }
+  } catch (e) {
+    console.warn("owner-building API load failed, falling back to local storage", e);
+    const buildings = JSON.parse(localStorage.getItem("walajna_buildings") || "[]");
+    apartments = JSON.parse(localStorage.getItem("walajna_apartments") || "[]");
+    building = buildings.find((b) => String(b.id) === String(buildingId)) || null;
+  }
 
   if (building && title) {
     title.textContent = building.name;
@@ -78,13 +196,46 @@ document.addEventListener("DOMContentLoaded", () => {
     financeBtn.addEventListener("click", openFinanceSummary);
   }
 
-  function getBuildingApartments(allApartments) {
+  /**
+   * Same building can have apartments linked twice: numeric DB id and legacy `code`.
+   * That doubles the list; keep one row per physical unit (floor + number).
+   */
+  function dedupeApartmentsByUnit(apartmentList, canonicalBuildingId) {
+    const canonical = canonicalBuildingId != null ? String(canonicalBuildingId) : "";
+    const byKey = new Map();
+
+    const score = (apt) => {
+      let s = 0;
+      const idStr = String(apt.id ?? "");
+      if (apt.apiId != null || /^\d+$/.test(idStr)) s += 5;
+      if (canonical && String(apt.buildingId ?? "") === canonical) s += 3;
+      if (apt.tenantUserId || apt.tenantNationalId) s += 2;
+      if (apt.currentContractId || apt.contract?.id) s += 1;
+      return s;
+    };
+
+    for (const apt of apartmentList) {
+      const num = String(apt.number ?? apt.apartment_number ?? "").trim();
+      const floor = String(apt.floorNumber ?? apt.floor_number ?? "").trim() || "0";
+      const key = num ? `${floor}::${num}` : `id:${String(apt.id ?? apt.apiId ?? "")}`;
+      if (!num && !apt.id && apt.apiId == null) continue;
+
+      const prev = byKey.get(key);
+      if (!prev || score(apt) > score(prev)) {
+        byKey.set(key, apt);
+      }
+    }
+    return Array.from(byKey.values());
+  }
+
+  function getBuildingApartments() {
     const target = String(buildingId);
     const code = building?.code ? String(building.code) : null;
-    return allApartments.filter((a) => {
+    const filtered = apartments.filter((a) => {
       const apartmentBuildingId = String(a.buildingId ?? "");
       return apartmentBuildingId === target || (code && apartmentBuildingId === code);
     });
+    return dedupeApartmentsByUnit(filtered, target);
   }
 
   function buildGeneratedApartment(apartmentNumber, floorNumber) {
@@ -107,7 +258,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function ensureApartmentsExist() {
-    let current = getBuildingApartments(apartments);
+    let current = getBuildingApartments();
     if (current.length > 0) return current;
 
     const apartmentCount = Number(building?.apartmentCount ?? building?.apartments_count ?? 0);
@@ -128,14 +279,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (generated.length) {
       apartments = [...apartments, ...generated];
-      localStorage.setItem("walajna_apartments", JSON.stringify(apartments));
-      current = getBuildingApartments(apartments);
+      current = getBuildingApartments();
     }
 
     return current;
   }
 
   const buildingApartments = ensureApartmentsExist();
+
+  /** contractId -> installment rows from GET /api/contracts/:id/installments (paid income for summary) */
+  let serverInstallmentsByContract = new Map();
 
   let selectedApartmentId = null;
 
@@ -188,32 +341,144 @@ document.addEventListener("DOMContentLoaded", () => {
     );
   }
 
-  function getOpenRequests(apartment) {
-    const currentContractId = getApartmentCurrentContractId(apartment);
+  function getOpenMaintenanceForApartment(apartment) {
+    const aid = String(apartment.apiId ?? apartment.id ?? "");
+    if (!aid) return [];
+    return (maintenanceRows || []).filter((m) => {
+      if (String(m.apartment_id) !== aid) return false;
+      const st = String(m.status || "").toLowerCase();
+      return st !== "resolved" && st !== "closed";
+    });
+  }
 
-    if (currentContractId) {
-      return requests.filter((request) => {
-        return request.contractId === currentContractId && request.status !== "resolved";
-      });
+  function tenantRequestTypeTitle(req) {
+    if (req.typeTitle) return req.typeTitle;
+    const map = {
+      maintenance: "صيانة",
+      complaint: "شكوى",
+      suggestion: "اقتراح",
+      request: "طلب",
+    };
+    return map[req.typeId] || "طلب";
+  }
+
+  function isStoredTenantRequestOpen(req) {
+    const st = String(req.status || "new").toLowerCase();
+    return st !== "resolved" && st !== "closed";
+  }
+
+  /** Matches rows saved by apartment-requests.js (apartmentId / buildingId + unit number). */
+  function apartmentMatchesStoredRequest(apartment, req) {
+    const ids = new Set(
+      [apartment.apiId, apartment.id]
+        .filter((x) => x != null && String(x) !== "")
+        .map((x) => String(x))
+    );
+    if (req.apartmentId != null && req.apartmentId !== "" && ids.has(String(req.apartmentId))) {
+      return true;
     }
+    const bReq = String(req.buildingId ?? "");
+    const bCur = String(buildingId);
+    if (bReq && bReq === bCur) {
+      const n1 = String(req.apartmentNumber ?? "").trim();
+      const n2 = String(apartment.number ?? "").trim();
+      if (n1 && n2 && n1 === n2) return true;
+    }
+    const bn = building?.name ? String(building.name).trim() : "";
+    if (bn && String(req.buildingName ?? "").trim() === bn) {
+      const n1 = String(req.apartmentNumber ?? "").trim();
+      const n2 = String(apartment.number ?? "").trim();
+      if (n1 && n2 && n1 === n2) return true;
+    }
+    return false;
+  }
 
-    return [];
+  /** Clears owner-home ring badge + marks inbox requests seen for this building (same as clicking a card on عمائري). */
+  function markOwnerAcknowledgedBuildingOnHome() {
+    try {
+      const SEEN_MAINT_BUILDINGS_KEY = "walajna_owner_cleared_maint_buildings";
+      const raw = sessionStorage.getItem(SEEN_MAINT_BUILDINGS_KEY) || "[]";
+      const arr = JSON.parse(raw);
+      const set = new Set(Array.isArray(arr) ? arr.map(String) : []);
+      set.add(String(buildingId));
+      sessionStorage.setItem(SEEN_MAINT_BUILDINGS_KEY, JSON.stringify([...set]));
+    } catch {
+      /* ignore */
+    }
+    const list = loadStoredTenantRequests();
+    let changed = false;
+    const next = list.map((req) => {
+      const match =
+        String(req.buildingId) === String(buildingId) ||
+        buildingApartments.some((apt) => apartmentMatchesStoredRequest(apt, req));
+      if (!match || req.ownerSeen) return req;
+      changed = true;
+      return {
+        ...req,
+        ownerSeen: true,
+        ownerSeenAt: new Date().toISOString(),
+      };
+    });
+    if (changed) {
+      localStorage.setItem(tenantRequestStorageKey, JSON.stringify(next));
+      requests = next;
+    }
+  }
+
+  markOwnerAcknowledgedBuildingOnHome();
+
+  function getOpenStoredRequestsForApartment(apartment) {
+    return (requests || [])
+      .filter((req) => isStoredTenantRequestOpen(req) && apartmentMatchesStoredRequest(apartment, req))
+      .map((req) => ({
+        typeId: req.typeId || "request",
+        typeTitle: tenantRequestTypeTitle(req),
+        typeColor: req.typeColor || "#94a3b8",
+        status: req.status,
+      }));
+  }
+
+  function getOpenRequests(apartment) {
+    const fromMaint = getOpenMaintenanceForApartment(apartment).map((m) => ({
+      typeId: "maintenance",
+      typeTitle: m.title || "صيانة",
+      typeColor: "#f59e0b",
+      status: m.status,
+    }));
+    const fromStored = getOpenStoredRequestsForApartment(apartment);
+    const byType = new Map();
+    [...fromMaint, ...fromStored].forEach((r) => {
+      if (!byType.has(r.typeId)) byType.set(r.typeId, r);
+    });
+    return Array.from(byType.values()).sort(
+      (a, b) => getRequestPriority(a.typeId) - getRequestPriority(b.typeId)
+    );
   }
 
   function getHighestPriorityRequest(apartment) {
-    const openRequests = getOpenRequests(apartment);
-
-    if (!openRequests.length) return null;
-
-    return [...openRequests].sort(
+    const open = getOpenRequests(apartment);
+    if (!open.length) return null;
+    return [...open].sort(
       (a, b) => getRequestPriority(a.typeId) - getRequestPriority(b.typeId)
     )[0];
   }
 
   function isApartmentRentOverdue(apartment) {
+    const ls = String(
+      apartment.leaseStatus ?? apartment.lease_status ?? ""
+    ).toLowerCase();
+    if (ls === "overdue") {
+      return true;
+    }
+
     const currentContractId = getApartmentCurrentContractId(apartment);
 
     if (!currentContractId) return false;
+
+    // API apartments use server-reconciled lease_status + payment_installments; ignore stale localStorage.
+    if (apartmentsFromApi) {
+      return false;
+    }
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -256,8 +521,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function openEditModal(apartmentId) {
-    const allApartments = JSON.parse(localStorage.getItem("walajna_apartments") || "[]");
-    const apartment = allApartments.find((item) => item.id === apartmentId);
+    const apartment = apartments.find(
+      (item) => String(item.id) === String(apartmentId)
+    );
 
     if (!apartment) return;
 
@@ -373,10 +639,8 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const allApartments = JSON.parse(localStorage.getItem("walajna_apartments") || "[]");
-
-    const updatedApartments = allApartments.map((apt) => {
-      if (apt.id !== selectedApartmentId) return apt;
+    const updatedApartments = apartments.map((apt) => {
+      if (String(apt.id) !== String(selectedApartmentId)) return apt;
 
       const oldContract = apt.contract || {};
       const oldTenantInfo = apt.tenantInfo || {};
@@ -421,12 +685,25 @@ document.addEventListener("DOMContentLoaded", () => {
       };
     });
 
-    localStorage.setItem("walajna_apartments", JSON.stringify(updatedApartments));
+    apartments = updatedApartments;
+    try {
+      const rest = JSON.parse(
+        localStorage.getItem("walajna_apartments") || "[]"
+      ).filter((a) => !updatedApartments.some((x) => String(x.id) === String(a.id)));
+      localStorage.setItem(
+        "walajna_apartments",
+        JSON.stringify([...rest, ...updatedApartments])
+      );
+    } catch {
+      /* ignore */
+    }
     closeEditModal();
     window.location.reload();
   }
 function evictApartment(apartmentId) {
-  const apartment = apartments.find((item) => item.id === apartmentId);
+  const apartment = apartments.find(
+    (item) => String(item.id) === String(apartmentId)
+  );
   if (!apartment) return;
 
   const evictionCheck = canEvictApartment(apartment);
@@ -446,7 +723,7 @@ function evictApartment(apartmentId) {
   if (!confirmed) return;
 
   const updatedApartments = apartments.map((item) => {
-    if (item.id !== apartmentId) return item;
+    if (String(item.id) !== String(apartmentId)) return item;
 
     return {
       ...item,
@@ -461,7 +738,18 @@ function evictApartment(apartmentId) {
     };
   });
 
-  localStorage.setItem("walajna_apartments", JSON.stringify(updatedApartments));
+  apartments = updatedApartments;
+  try {
+    const rest = JSON.parse(
+      localStorage.getItem("walajna_apartments") || "[]"
+    ).filter((a) => !updatedApartments.some((x) => String(x.id) === String(a.id)));
+    localStorage.setItem(
+      "walajna_apartments",
+      JSON.stringify([...rest, ...updatedApartments])
+    );
+  } catch {
+    /* ignore */
+  }
   window.location.reload();
 }
     function getCycleMonths(paymentCycle) {
@@ -576,14 +864,50 @@ function evictApartment(apartmentId) {
   };
 }
 
+  function calendarDayTime(d) {
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  }
+
+  function paymentAnchorInRange(anchorRaw, rangeStart, rangeEnd) {
+    if (!anchorRaw) return false;
+    const d = new Date(anchorRaw);
+    if (Number.isNaN(d.getTime())) return false;
+    const day = calendarDayTime(d);
+    return (
+      day >= calendarDayTime(rangeStart) && day <= calendarDayTime(rangeEnd)
+    );
+  }
+
   function getApartmentRealizedIncomeForRange(apartment, rangeStart, rangeEnd) {
     if (!apartment) return 0;
 
     const apartmentId = apartment.id;
+    const apiAptId =
+      apartment.apiId != null ? String(apartment.apiId) : String(apartmentId);
     const currentContractId = getApartmentCurrentContractId(apartment);
 
     if (!apartmentId || !currentContractId) {
       return 0;
+    }
+
+    if (apartmentsFromApi) {
+      const rows =
+        serverInstallmentsByContract.get(String(currentContractId)) || [];
+      let apiIncome = 0;
+      rows.forEach((row) => {
+        if (String(row.status || "").toLowerCase() !== "paid") return;
+        if (
+          row.apartment_id != null &&
+          String(row.apartment_id) !== apiAptId
+        ) {
+          return;
+        }
+        const anchor =
+          row.paid_at || row.paidAt || row.due_date || row.dueDate;
+        if (!paymentAnchorInRange(anchor, rangeStart, rangeEnd)) return;
+        apiIncome += Number(row.amount || 0);
+      });
+      return apiIncome;
     }
 
     const apartmentPayments = payments.filter((payment) => {
@@ -726,6 +1050,49 @@ function evictApartment(apartmentId) {
     }
   }
 
+  async function loadInstallmentsForBuildingSummary() {
+    serverInstallmentsByContract = new Map();
+    if (
+      !apartmentsFromApi ||
+      typeof WalajnaAuth === "undefined" ||
+      !WalajnaAuth.fetchWithAuth
+    ) {
+      return;
+    }
+    const cids = [
+      ...new Set(
+        buildingApartments
+          .map((a) => getApartmentCurrentContractId(a))
+          .filter((id) => id != null && String(id) !== "")
+      ),
+    ];
+    await Promise.all(
+      cids.map(async (cid) => {
+        const key = String(cid);
+        try {
+          const res = await WalajnaAuth.fetchWithAuth(
+            `${WalajnaAuth.API_BASE}/api/contracts/${encodeURIComponent(cid)}/installments`,
+            { method: "GET" }
+          );
+          if (!res.ok) {
+            serverInstallmentsByContract.set(key, []);
+            return;
+          }
+          const rows = await res.json();
+          serverInstallmentsByContract.set(
+            key,
+            Array.isArray(rows) ? rows : []
+          );
+        } catch {
+          serverInstallmentsByContract.set(key, []);
+        }
+      })
+    );
+  }
+
+  await loadInstallmentsForBuildingSummary();
+  renderBuildingFinancialSummary();
+
   function deleteApartment(apartmentId) {
     const confirmed = confirm(T("building.confirmDeleteApt"));
     if (!confirmed) return;
@@ -739,7 +1106,7 @@ function evictApartment(apartmentId) {
     const updatedDocuments = documents.filter((document) => document.apartmentId !== apartmentId);
 
     localStorage.setItem("walajna_apartments", JSON.stringify(updatedApartments));
-    localStorage.setItem("walajna_requests", JSON.stringify(updatedRequests));
+    localStorage.setItem(tenantRequestStorageKey, JSON.stringify(updatedRequests));
     localStorage.setItem("walajna_payments", JSON.stringify(updatedPayments));
     localStorage.setItem("walajna_costs", JSON.stringify(updatedCosts));
     localStorage.setItem("walajna_documents", JSON.stringify(updatedDocuments));

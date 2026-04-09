@@ -7,11 +7,33 @@
 
     const apartment = config?.apartment;
     const activeRole =
-      config?.activeRole || localStorage.getItem("activeRole") || "owner";
+      config?.activeRole ||
+      (typeof WalajnaAuth !== "undefined" &&
+        typeof WalajnaAuth.getActiveRole === "function" &&
+        WalajnaAuth.getActiveRole()) ||
+      "owner";
 
     const mode = config?.mode || "current";
     const historyId = config?.historyId || null;
     const historyContractId = config?.historyContractId || null;
+
+    const paymentsFromApi = Boolean(config?.paymentsFromApi);
+    const serverContractNumericId =
+      config?.contractIdForServer != null && config.contractIdForServer !== ""
+        ? config.contractIdForServer
+        : null;
+    const serverMode =
+      mode !== "history" &&
+      Boolean(
+        config?.serverMode &&
+          serverContractNumericId != null &&
+          config?.serverPaymentsRef
+      );
+    const serverPaymentsRef = config?.serverPaymentsRef;
+    const reloadServerPayments =
+      typeof config?.reloadServerPayments === "function"
+        ? config.reloadServerPayments
+        : null;
 
     if (!apartment || !apartment.id) {
       console.warn(wt("console.paymentsInitData"));
@@ -83,13 +105,39 @@
     }
 
     function getSortedApartmentPayments() {
+      if (serverMode && serverPaymentsRef) {
+        const list = Array.isArray(serverPaymentsRef.current)
+          ? serverPaymentsRef.current
+          : [];
+        const normalizedPayments = utils.normalizePaymentStatuses(list);
+        return normalizedPayments.sort((a, b) =>
+          String(a.dueDate).localeCompare(String(b.dueDate))
+        );
+      }
+
+      if (paymentsFromApi && !serverMode) {
+        return [];
+      }
+
       const contractId = getEffectiveContractId();
 
       if (!contractId) {
         return [];
       }
 
-      const originalPayments = storage.getPaymentsByContractId(contractId);
+      let originalPayments = storage.getPaymentsByContractId(contractId);
+      if (!originalPayments.length && apartment?.id != null) {
+        const byApt = storage.getPaymentsByApartmentId(
+          apartment.apiId ?? apartment.id
+        );
+        const want = String(contractId);
+        const sameContract = byApt.filter(
+          (p) => String(p.contractId ?? "") === want
+        );
+        if (sameContract.length) {
+          originalPayments = sameContract;
+        }
+      }
       const normalizedPayments = utils.normalizePaymentStatuses(originalPayments);
 
       const hasChanges =
@@ -116,6 +164,10 @@
     }
 
     function ensureScheduleForCurrentContract() {
+      if (serverMode || paymentsFromApi) {
+        return;
+      }
+
       if (mode === "history") {
         return;
       }
@@ -148,9 +200,13 @@
     }
 
     function goToTenantPaymentOptions(paymentId) {
-      window.location.href =
-        `../main/payment-options.html?id=${encodeURIComponent(apartment.id)}` +
-        `&paymentId=${encodeURIComponent(paymentId)}`;
+      const aptParam = encodeURIComponent(apartment.apiId ?? apartment.id);
+      const pid = encodeURIComponent(paymentId);
+      let href = `../main/payment-options.html?id=${aptParam}&paymentId=${pid}`;
+      if (serverMode && serverContractNumericId != null) {
+        href += `&contractId=${encodeURIComponent(serverContractNumericId)}`;
+      }
+      window.location.href = href;
     }
 
     function openOwnerRecordModal(payment) {
@@ -279,6 +335,16 @@
       const payments = getSortedApartmentPayments();
 
       renderReminder(payments);
+      if (config?.installmentsApiError && elements.reminderContainer) {
+        const warn = document.createElement("div");
+        warn.className = "payments-alert overdue";
+        warn.setAttribute("role", "alert");
+        warn.textContent = config.installmentsApiError;
+        elements.reminderContainer.insertBefore(
+          warn,
+          elements.reminderContainer.firstChild
+        );
+      }
       renderSummary(payments);
       renderTable(payments);
       bindTableActions(payments);
@@ -295,7 +361,9 @@
       ownerButtons.forEach((button) => {
         button.addEventListener("click", function () {
           const paymentId = this.getAttribute("data-pay-id");
-          const payment = payments.find((item) => item.id === paymentId);
+          const payment = payments.find(
+            (item) => String(item.id) === String(paymentId)
+          );
 
           if (!payment) return;
           openOwnerRecordModal(payment);
@@ -350,12 +418,19 @@
       return "";
     }
 
-    function saveRecordedPayment() {
+    async function saveRecordedPayment() {
       if (mode === "history") return;
       if (!selectedPaymentId) return;
 
+      if (paymentsFromApi && !serverMode) {
+        alert("لا يوجد عقد نشط لهذه الشقة؛ لا يمكن تسجيل دفعات.");
+        return;
+      }
+
       const payments = getSortedApartmentPayments();
-      const selectedPayment = payments.find((item) => item.id === selectedPaymentId);
+      const selectedPayment = payments.find(
+        (item) => String(item.id) === String(selectedPaymentId)
+      );
 
       if (!selectedPayment) {
         alert(wt("apartmentPay.payNotFound"));
@@ -374,6 +449,45 @@
         Number(selectedPayment.originalAmount || selectedPayment.amount || 0);
 
       const hasOwnerOverride = Number(formData.amount) !== originalAmount;
+
+      if (serverMode) {
+        if (!window.WalajnaAuth?.API_BASE || typeof window.WalajnaAuth.fetchWithAuth !== "function") {
+          alert("تعذر الاتصال بالخادم.");
+          return;
+        }
+        const apiBase = window.WalajnaAuth.API_BASE;
+        const body = {
+          status: "paid",
+          amount: formData.amount,
+          payment_method: formData.paymentMethod,
+          paid_at: formData.paidAt,
+          notes: formData.notes || null,
+        };
+        const res = await WalajnaAuth.fetchWithAuth(
+          `${apiBase}/api/payment-installments/${encodeURIComponent(selectedPaymentId)}`,
+          {
+            method: "PATCH",
+            body: JSON.stringify(body),
+          }
+        );
+        if (res.status === 401 && typeof WalajnaAuth.handleUnauthorized === "function") {
+          WalajnaAuth.handleUnauthorized(
+            "انتهت الجلسة أو التوكن غير صالح. سجل الدخول مرة أخرى ثم أعد المحاولة."
+          );
+          return;
+        }
+        if (!res.ok) {
+          const t = await res.text();
+          alert("فشل حفظ الدفعة: " + (t || res.status));
+          return;
+        }
+        if (reloadServerPayments) {
+          await reloadServerPayments();
+        }
+        closeOwnerRecordModal();
+        renderPaymentsPage();
+        return;
+      }
 
       storage.updatePayment(selectedPaymentId, {
         amount: formData.amount,
