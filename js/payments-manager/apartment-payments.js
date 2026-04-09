@@ -1,5 +1,10 @@
 (function () {
   function initApartmentPaymentsSystem(config) {
+    const wt = (k, p) =>
+      window.walajna_language && window.walajna_language.t
+        ? window.walajna_language.t(k, p)
+        : k;
+
     const apartment = config?.apartment;
     const activeRole =
       config?.activeRole || localStorage.getItem("activeRole") || "owner";
@@ -9,7 +14,7 @@
     const historyContractId = config?.historyContractId || null;
 
     if (!apartment || !apartment.id) {
-      console.warn("تعذر تهيئة نظام المدفوعات: بيانات الشقة غير موجودة");
+      console.warn(wt("console.paymentsInitData"));
       return;
     }
 
@@ -18,7 +23,7 @@
     const ui = window.WalajnaPaymentsUI;
 
     if (!storage || !utils || !ui) {
-      console.error("ملفات المدفوعات غير محملة بشكل كامل");
+      console.error(wt("console.paymentsFiles"));
       return;
     }
 
@@ -279,6 +284,8 @@
       bindTableActions(payments);
     }
 
+    window.renderPayments = renderPaymentsPage;
+
     function bindTableActions(payments) {
       if (mode === "history") {
         return;
@@ -309,7 +316,7 @@
           const nextPayment = getNextPendingPayment(payments);
 
           if (!nextPayment) {
-            alert("لا توجد دفعات مستحقة حاليًا");
+            alert(wt("apartmentPay.noDue"));
             return;
           }
 
@@ -329,15 +336,15 @@
 
     function validatePaymentFormData(data) {
       if (!data.amount || data.amount <= 0) {
-        return "أدخل مبلغًا صحيحًا";
+        return wt("apartmentPay.amountInvalid");
       }
 
       if (!data.paymentMethod) {
-        return "اختر طريقة الدفع";
+        return wt("apartmentPay.pickMethod");
       }
 
       if (!data.paidAt) {
-        return "اختر تاريخ الدفع";
+        return wt("apartmentPay.pickDate");
       }
 
       return "";
@@ -351,7 +358,7 @@
       const selectedPayment = payments.find((item) => item.id === selectedPaymentId);
 
       if (!selectedPayment) {
-        alert("تعذر العثور على الدفعة المحددة");
+        alert(wt("apartmentPay.payNotFound"));
         return;
       }
 
@@ -409,6 +416,8 @@
     ensureScheduleForCurrentContract();
     renderPaymentsPage();
     bindPaymentForm();
+
+    document.addEventListener("walajna:i18n-applied", renderPaymentsPage);
 
     return {
       renderPaymentsPage,

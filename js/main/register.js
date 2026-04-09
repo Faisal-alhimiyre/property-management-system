@@ -2,7 +2,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("registerForm");
   const errorBox = document.getElementById("errorBox");
 
-  const API_BASE = 'http://127.0.0.1:8002';
+  const API_BASE = 'http://127.0.0.1:8000';
 
   function showError(msg) {
     errorBox.textContent = msg;
@@ -38,18 +38,20 @@ document.addEventListener("DOMContentLoaded", () => {
     const nationalId = form.nationalId.value.trim();
     const phoneNumber = form.phoneNumber.value.trim();
 
+    const T = (k, p) => (window.walajna_language && window.walajna_language.t(k, p)) || k;
+
     if (!fullName || !email || !password || !confirmPassword || !nationalId || !phoneNumber) {
-      showError("الرجاء تعبئة جميع الحقول.");
+      showError(T("register.fillAll"));
       return;
     }
 
     if (!isValidSaudiId(nationalId)) {
-      showError("رقم الهوية الوطنية غير صحيح.");
+      showError(T("register.nationalIdBad"));
       return;
     }
 
     if (password !== confirmPassword) {
-      showError("كلمتا المرور غير متطابقتين.");
+      showError(T("register.passwordMismatch"));
       return;
     }
 
@@ -71,14 +73,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (!response.ok) {
         const error = await response.json();
-        showError(error.detail || "خطأ في إنشاء الحساب.");
+        showError(error.detail || T("register.createError"));
         return;
       }
 
-      alert("تم إنشاء الحساب بنجاح");
-      window.location.href = "login.html";
+      alert(T("register.success"));
+      window.location.href = "../auth/login.html";
     } catch (error) {
-      showError("خطأ في الشبكة. حاول مرة أخرى.");
+      showError(T("login.network"));
     }
   });
 });

@@ -1,4 +1,10 @@
 (function () {
+  function wt(k, p) {
+    return window.walajna_language && window.walajna_language.t
+      ? window.walajna_language.t(k, p)
+      : k;
+  }
+
   function ensurePaymentsStyles() {
     if (document.getElementById("walajnaPaymentsStyles")) return;
 
@@ -296,8 +302,8 @@
     const onSuccess = options.onSuccess || null;
 
     if (typeof getPayments !== "function" || typeof savePayments !== "function") {
-      console.error("getPayments أو savePayments غير معرفة");
-      alert("تعذر تنفيذ الدفع: نظام التخزين غير جاهز");
+      console.error(wt("console.payStorageUndefined"));
+      alert(wt("paymentsUi.storageMissing"));
       return false;
     }
 
@@ -305,29 +311,29 @@
     const payment = payments.find((p) => p.id === paymentId);
 
     if (!payment) {
-      alert("الدفعة غير موجودة");
+      alert(wt("paymentsUi.payNotFound"));
       return false;
     }
 
     if (payment.status === "paid") {
-      alert("هذه الدفعة مدفوعة مسبقًا");
+      alert(wt("paymentsUi.alreadyPaid"));
       return false;
     }
 
     if (payment.status === "cancelled") {
-      alert("لا يمكن دفع دفعة ملغية");
+      alert(wt("paymentsUi.cancelledPay"));
       return false;
     }
 
     if (!canPay(payment, payments)) {
-      alert("يجب دفع الدفعات السابقة أولاً");
+      alert(wt("paymentsUi.payPreviousFirst"));
       return false;
     }
 
     payment.status = "paid";
     payment.paidAt = new Date().toISOString();
     payment.paymentMethod = payment.paymentMethod || "manual";
-    payment.notes = payment.notes || "تم السداد من صفحة خيارات الدفع";
+    payment.notes = payment.notes || wt("paymentsUi.paidFromOptions");
 
     savePayments(payments);
 
@@ -350,8 +356,12 @@
 
     const isOwner = activeRole === "owner";
     const actionButton = isOwner
-      ? `<button id="quickPayReminderBtn" class="payments-action-btn primary" type="button">تسجيل دفعة</button>`
-      : `<button id="tenantPayReminderBtn" class="payments-action-btn primary" type="button">دفع الآن</button>`;
+      ? `<button id="quickPayReminderBtn" class="payments-action-btn primary" type="button">${wt(
+          "paymentsUi.recordPay"
+        )}</button>`
+      : `<button id="tenantPayReminderBtn" class="payments-action-btn primary" type="button">${wt(
+          "paymentsUi.payNow"
+        )}</button>`;
 
     container.innerHTML = `
       <div class="payments-alert ${reminder.type}">
@@ -367,17 +377,17 @@
   const contractCards = contractInfo
     ? `
       <div class="payments-summary-card compact">
-        <span class="label">المستأجر</span>
+        <span class="label">${wt("paymentsUi.tenant")}</span>
         <span class="value">${contractInfo.tenantName || "—"}</span>
       </div>
 
       <div class="payments-summary-card compact">
-        <span class="label">الإيجار الشهري</span>
+        <span class="label">${wt("paymentsUi.monthlyRent")}</span>
         <span class="value">${utils.formatCurrency(contractInfo.monthlyRent)}</span>
       </div>
 
       <div class="payments-summary-card compact">
-        <span class="label">دورة الدفع</span>
+        <span class="label">${wt("paymentsUi.payCycle")}</span>
         <span class="value">${contractInfo.paymentCycleLabel || "—"}</span>
       </div>
     `
@@ -388,25 +398,25 @@
       ${contractCards}
 
       <div class="payments-summary-card strong-card">
-        <span class="label">الإيجار السنوي</span>
+        <span class="label">${wt("paymentsUi.annualRent")}</span>
         <span class="value">${utils.formatCurrency(summary.annualOriginalTotal)}</span>
       </div>
 
       <div class="payments-summary-card compact">
-        <span class="label">إجمالي الخصومات</span>
+        <span class="label">${wt("paymentsUi.discounts")}</span>
         <span class="value">${utils.formatCurrency(summary.discountsTotal)}</span>
       </div>
 
       <div class="payments-summary-card compact">
-        <span class="label">المتبقي</span>
+        <span class="label">${wt("paymentsUi.remaining")}</span>
         <span class="value">${utils.formatCurrency(summary.pending)}</span>
       </div>
 
       <div class="payments-summary-card compact paid-card">
-        <span class="label">تم دفعه</span>
+        <span class="label">${wt("paymentsUi.paid")}</span>
         <span class="value">${utils.formatCurrency(summary.paid)}</span>
         <small class="sub-value">
-          من أصل ${utils.formatCurrency(summary.adjustedTotal)}
+          ${wt("paymentsUi.ofTotal", { a: utils.formatCurrency(summary.adjustedTotal) })}
         </small>
       </div>
     </div>
@@ -419,27 +429,27 @@
     if (!container) return;
 
     if (!payments.length) {
-      container.innerHTML = `<div class="payments-empty">لا توجد مدفوعات مرتبطة بهذه الشقة حاليًا</div>`;
+      container.innerHTML = `<div class="payments-empty">${wt("paymentsUi.empty")}</div>`;
       return;
     }
 
     const isOwner = activeRole === "owner";
     container.innerHTML = `
       <div class="payments-toolbar">
-        <div>عدد الدفعات: <strong>${payments.length}</strong></div>
+        <div>${wt("paymentsUi.count", { n: payments.length })}</div>
       </div>
 
       <div class="payments-table-wrap">
         <table class="payments-table">
           <thead>
             <tr>
-              <th>تاريخ الاستحقاق</th>
-              <th>المبلغ</th>
-              <th>الحالة</th>
-              <th>طريقة الدفع</th>
-              <th>تاريخ الدفع</th>
-              <th>ملاحظات</th>
-              <th>إجراء</th>
+              <th>${wt("paymentsUi.th.due")}</th>
+              <th>${wt("paymentsUi.th.amount")}</th>
+              <th>${wt("paymentsUi.th.status")}</th>
+              <th>${wt("paymentsUi.th.method")}</th>
+              <th>${wt("paymentsUi.th.paidAt")}</th>
+              <th>${wt("paymentsUi.th.notes")}</th>
+              <th>${wt("paymentsUi.th.action")}</th>
             </tr>
           </thead>
           <tbody>
@@ -450,11 +460,17 @@
 
               if (payment.status !== "paid" && payment.status !== "cancelled") {
                 if (!payAllowed) {
-                  actionHtml = `<button class="payments-action-btn ghost" type="button" disabled>سدّد السابق أولاً</button>`;
+                  actionHtml = `<button class="payments-action-btn ghost" type="button" disabled>${wt(
+                    "paymentsUi.payPrevFirstBtn"
+                  )}</button>`;
                 } else if (isOwner) {
-                  actionHtml = `<button class="payments-action-btn primary" data-pay-action="record" data-pay-id="${payment.id}">تسجيل دفعة</button>`;
+                  actionHtml = `<button class="payments-action-btn primary" data-pay-action="record" data-pay-id="${payment.id}">${wt(
+                    "paymentsUi.recordPay"
+                  )}</button>`;
                 } else {
-                  actionHtml = `<button class="payments-action-btn primary" data-pay-action="tenant-pay" data-pay-id="${payment.id}">دفع الآن</button>`;
+                  actionHtml = `<button class="payments-action-btn primary" data-pay-action="tenant-pay" data-pay-id="${payment.id}">${wt(
+                    "paymentsUi.payNow"
+                  )}</button>`;
                 }
               }
 
@@ -484,7 +500,10 @@
     const notesInput = document.getElementById("paymentNotesInput");
 
     if (info) {
-      info.textContent = `الدفعة المحددة: ${utils.formatCurrency(payment.amount)} | تاريخ الاستحقاق: ${utils.formatDate(payment.dueDate)}`;
+      info.textContent = wt("paymentsUi.selectedPay", {
+        a: utils.formatCurrency(payment.amount),
+        d: utils.formatDate(payment.dueDate),
+      });
     }
 
     if (amountInput) amountInput.value = payment.amount || "";

@@ -1,120 +1,115 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
+  <script>(function(){try{var l=localStorage.getItem("walajna_language")||"ar";document.documentElement.setAttribute("lang",l==="en"?"en":"ar");document.documentElement.setAttribute("dir",l==="en"?"ltr":"rtl");}catch(e){}})();</script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ولاجنا | الإعدادات</title>
+  <title data-i18n="meta.settingsTitle"></title>
   <link rel="stylesheet" href="../css/theme.css" />
   <link rel="stylesheet" href="../css/settings.css" />
+  <script src="../js/main/walajna-i18n.js"></script>
 </head>
-<body>
+<body data-nav="user" data-wl-bc="settings">
   <div id="navbar-container"></div>
-
-  
 
   <main class="settings-wrap">
     <aside class="sidebar">
-      <button class="side-link active" data-section="profile">الملف الشخصي</button>
-      <button class="side-link" data-section="security">الأمان</button>
-      <button class="side-link" data-section="appearance">تفضيلات الواجهة</button>
-      <button class="side-link" data-section="support">الدعم</button>
-      <button class="side-link" data-section="privacy">الخصوصية</button>
+      <button type="button" class="side-link active" data-section="profile" data-i18n="settings.sidebar.profile"></button>
+      <button type="button" class="side-link" data-section="security" data-i18n="settings.sidebar.security"></button>
+      <button type="button" class="side-link" data-section="appearance" data-i18n="settings.sidebar.appearance"></button>
+      <button type="button" class="side-link" data-section="support" data-i18n="settings.sidebar.support"></button>
+      <button type="button" class="side-link" data-section="privacy" data-i18n="settings.sidebar.privacy"></button>
     </aside>
 
     <section class="content">
-      <!-- Profile -->
       <section id="profile" class="panel active">
         <div class="panel-header">
-          <h2>الملف الشخصي</h2>
-          <p>بيانات الحساب الحالية</p>
+          <h2 data-i18n="settings.profile.title"></h2>
+          <p data-i18n="settings.profile.subtitle"></p>
         </div>
 
         <div class="profile-card">
-          <div class="avatar" id="avatarLetter">و</div>
+          <div class="avatar" id="avatarLetter">W</div>
 
           <div class="profile-details">
             <div class="detail-row">
-              <span class="label">الاسم الكامل</span>
+              <span class="label" data-i18n="settings.label.fullName"></span>
               <span class="value" id="p_fullName">—</span>
             </div>
 
             <div class="detail-row">
-              <span class="label">اسم المستخدم</span>
+              <span class="label" data-i18n="settings.label.username"></span>
               <span class="value" id="p_username">—</span>
             </div>
 
             <div class="detail-row">
-              <span class="label">البريد الإلكتروني</span>
+              <span class="label" data-i18n="settings.label.email"></span>
               <span class="value ltr" id="p_email">—</span>
             </div>
 
             <div class="detail-row">
-              <span class="label">رقم الجوال</span>
-              <span class="value ltr mono" id="p_phone">غير متوفر</span>
+              <span class="label" data-i18n="settings.label.phone"></span>
+              <span class="value ltr mono" id="p_phone">—</span>
             </div>
 
             <div class="detail-row">
-              <span class="label">رقم الهوية الوطنية</span>
+              <span class="label" data-i18n="settings.label.nationalId"></span>
               <span class="value ltr mono" id="p_nationalId">—</span>
             </div>
 
             <div class="detail-row">
-              <span class="label">نوع الحساب</span>
+              <span class="label" data-i18n="settings.label.accountType"></span>
               <span class="role-badge" id="p_role">—</span>
             </div>
           </div>
         </div>
 
         <div class="panel-actions">
-          <button type="button" class="btn btn-outline" id="openEditInfoModal">تعديل المعلومات</button>
-          <button type="button" class="btn btn-danger-outline" id="logoutBtn">تسجيل الخروج</button>
+          <button type="button" class="btn btn-outline" id="openEditInfoModal" data-i18n="settings.editInfo"></button>
+          <button type="button" class="btn btn-danger-outline" id="logoutBtn" data-i18n="settings.logout"></button>
         </div>
 
-        <p class="panel-note">
-          يتم عرض بيانات المستخدم الحالي من تسجيل الدخول. إذا لم يوجد مستخدم حالي، سيتم عرض آخر حساب تم إنشاؤه.
-        </p>
+        <p class="panel-note" data-i18n="settings.profileNote"></p>
       </section>
 
-      <!-- Security -->
       <section id="security" class="panel">
         <div class="panel-header">
-          <h2>الأمان</h2>
-          <p>إدارة كلمة المرور وخيارات الحماية</p>
+          <h2 data-i18n="settings.security.title"></h2>
+          <p data-i18n="settings.security.subtitle"></p>
         </div>
 
         <div class="form-card">
           <div class="form-row">
-            <label for="currentPassword">كلمة المرور الحالية</label>
-            <input type="password" id="currentPassword" placeholder="أدخل كلمة المرور الحالية" />
+            <label for="currentPassword" data-i18n="settings.currentPassword"></label>
+            <input type="password" id="currentPassword" data-i18n-placeholder="settings.ph.currentPassword" placeholder="" />
           </div>
 
           <div class="form-row">
-            <label for="newPassword">كلمة المرور الجديدة</label>
-            <input type="password" id="newPassword" placeholder="أدخل كلمة المرور الجديدة" />
+            <label for="newPassword" data-i18n="settings.newPassword"></label>
+            <input type="password" id="newPassword" data-i18n-placeholder="settings.ph.newPassword" placeholder="" />
           </div>
 
           <div class="form-row">
-            <label for="confirmNewPassword">تأكيد كلمة المرور الجديدة</label>
-            <input type="password" id="confirmNewPassword" placeholder="أعد كتابة كلمة المرور الجديدة" />
+            <label for="confirmNewPassword" data-i18n="settings.confirmNewPassword"></label>
+            <input type="password" id="confirmNewPassword" data-i18n-placeholder="settings.ph.confirmNewPassword" placeholder="" />
           </div>
 
-          <button type="button" class="btn btn-primary" id="savePasswordBtn">تحديث كلمة المرور</button>
+          <button type="button" class="btn btn-primary" id="savePasswordBtn" data-i18n="settings.updatePassword"></button>
           <p class="message" id="passwordMessage"></p>
         </div>
       </section>
 
-      <!-- Appearance -->
       <section id="appearance" class="panel">
         <div class="panel-header">
-          <h2>تفضيلات الواجهة</h2>
-          <p>تخصيص شكل النظام</p>
+          <h2 data-i18n="settings.appearance.title"></h2>
+          <p data-i18n="settings.appearance.subtitle"></p>
         </div>
 
         <div class="settings-card">
           <div class="setting-item">
             <div>
-              <h3>الوضع الداكن</h3>
-              <p>تفعيل واجهة داكنة للتجربة البصرية</p>
+              <h3 data-i18n="settings.darkMode"></h3>
+              <p data-i18n="settings.darkModeDesc"></p>
             </div>
 
             <label class="switch">
@@ -123,90 +118,96 @@
             </label>
           </div>
         </div>
+
+        <div class="settings-card">
+          <div class="setting-item">
+            <div>
+              <h3 data-i18n="settings.lang.title"></h3>
+              <p data-i18n="settings.lang.subtitle"></p>
+            </div>
+            <select id="walajnaLangSelect" class="nav-role-switcher__select" aria-label="">
+              <option value="ar" data-i18n-label="settings.lang.ar"></option>
+              <option value="en" data-i18n-label="settings.lang.en"></option>
+            </select>
+          </div>
+        </div>
       </section>
 
-      <!-- Support -->
       <section id="support" class="panel">
         <div class="panel-header">
-          <h2>الدعم</h2>
-          <p>الوصول السريع إلى الدعم الفني</p>
+          <h2 data-i18n="settings.supportPanel.title"></h2>
+          <p data-i18n="settings.supportPanel.subtitle"></p>
         </div>
 
         <div class="support-card">
           <div class="support-text">
-            <h3>تحتاج مساعدة؟</h3>
-            <p>
-              يمكنك التوجه إلى صفحة الدعم الفني للتواصل عبر المحادثة المباشرة والاطلاع على الردود الجاهزة للمشكلات الشائعة.
-            </p>
+            <h3 data-i18n="settings.supportNeedHelp"></h3>
+            <p data-i18n="settings.supportDesc"></p>
           </div>
 
-          <a href="../main/support.html" class="btn btn-primary">فتح الدعم الفني</a>
+          <a href="../main/support.html" class="btn btn-primary" data-i18n="settings.openSupport"></a>
         </div>
       </section>
 
-      <!-- Privacy -->
       <section id="privacy" class="panel">
         <div class="panel-header">
-          <h2>الخصوصية</h2>
-          <p>إدارة بيانات الحساب</p>
+          <h2 data-i18n="settings.privacy.title"></h2>
+          <p data-i18n="settings.privacy.subtitle"></p>
         </div>
 
         <div class="privacy-card">
           <div class="privacy-box">
-            <h3>حذف الحساب</h3>
-            <p>
-              سيؤدي هذا الإجراء إلى حذف بيانات المستخدم الحالي من التخزين المحلي في النسخة التجريبية.
-            </p>
-            <button type="button" class="btn btn-danger" id="deleteAccountBtn">حذف الحساب</button>
+            <h3 data-i18n="settings.deleteAccount.title"></h3>
+            <p data-i18n="settings.deleteAccount.desc"></p>
+            <button type="button" class="btn btn-danger" id="deleteAccountBtn" data-i18n="settings.deleteAccount.btn"></button>
           </div>
         </div>
       </section>
     </section>
   </main>
 
-  <!-- Edit Info Modal -->
   <div class="wl-modal" id="editInfoModal" aria-hidden="true">
     <div class="wl-modal__backdrop" data-close="true"></div>
 
     <div class="wl-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="editInfoTitle">
-      <button class="wl-modal__close" id="closeEditInfoModal" type="button" aria-label="إغلاق">×</button>
+      <button class="wl-modal__close" id="closeEditInfoModal" type="button" data-i18n-aria-label="common.close" aria-label="">×</button>
 
       <div class="wl-modal__header">
-        <h3 id="editInfoTitle">تعديل المعلومات</h3>
-        <p>يمكنك تعديل البريد الإلكتروني أو رقم الجوال بعد التحقق برمز مؤقت.</p>
+        <h3 id="editInfoTitle" data-i18n="settings.modal.editTitle"></h3>
+        <p data-i18n="settings.modal.editDesc"></p>
       </div>
 
       <div class="wl-tabs">
-        <button type="button" class="wl-tab is-active" data-tab="emailPanel">البريد الإلكتروني</button>
-        <button type="button" class="wl-tab" data-tab="phonePanel">رقم الجوال</button>
+        <button type="button" class="wl-tab is-active" data-tab="emailPanel" data-i18n="settings.tab.email"></button>
+        <button type="button" class="wl-tab" data-tab="phonePanel" data-i18n="settings.tab.phone"></button>
       </div>
 
       <div class="wl-panel is-active" id="emailPanel">
-        <label for="newEmail">البريد الإلكتروني الجديد</label>
-        <input type="email" id="newEmail" placeholder="example@email.com">
+        <label for="newEmail" data-i18n="settings.newEmail"></label>
+        <input type="email" id="newEmail" placeholder="example@email.com" />
 
-        <button type="button" class="btn btn-primary wl-full" id="sendEmailCodeBtn">إرسال رمز التحقق</button>
+        <button type="button" class="btn btn-primary wl-full" id="sendEmailCodeBtn" data-i18n="settings.sendEmailCode"></button>
 
         <p class="wl-hint" id="emailCodeHint"></p>
 
-        <label for="emailCode">أدخل رمز التحقق</label>
-        <input type="text" id="emailCode" maxlength="6" placeholder="أدخل الرمز المكوّن من 6 أرقام">
+        <label for="emailCode" data-i18n="settings.enterCode"></label>
+        <input type="text" id="emailCode" maxlength="6" data-i18n-placeholder="settings.ph.code6" placeholder="" />
 
-        <button type="button" class="btn btn-primary wl-full" id="verifyEmailBtn">تأكيد تعديل البريد</button>
+        <button type="button" class="btn btn-primary wl-full" id="verifyEmailBtn" data-i18n="settings.verifyEmail"></button>
       </div>
 
       <div class="wl-panel" id="phonePanel">
-        <label for="newPhone">رقم الجوال الجديد</label>
-        <input type="text" id="newPhone" maxlength="10" placeholder="05XXXXXXXX">
+        <label for="newPhone" data-i18n="settings.newPhone"></label>
+        <input type="text" id="newPhone" maxlength="10" data-i18n-placeholder="settings.ph.phoneNew" placeholder="" />
 
-        <button type="button" class="btn btn-primary wl-full" id="sendPhoneCodeBtn">إرسال رمز التحقق</button>
+        <button type="button" class="btn btn-primary wl-full" id="sendPhoneCodeBtn" data-i18n="settings.sendPhoneCode"></button>
 
         <p class="wl-hint" id="phoneCodeHint"></p>
 
-        <label for="phoneCode">أدخل رمز التحقق</label>
-        <input type="text" id="phoneCode" maxlength="6" placeholder="أدخل الرمز المكوّن من 6 أرقام">
+        <label for="phoneCode" data-i18n="settings.enterCode"></label>
+        <input type="text" id="phoneCode" maxlength="6" data-i18n-placeholder="settings.ph.code6" placeholder="" />
 
-        <button type="button" class="btn btn-primary wl-full" id="verifyPhoneBtn">تأكيد تعديل الجوال</button>
+        <button type="button" class="btn btn-primary wl-full" id="verifyPhoneBtn" data-i18n="settings.verifyPhone"></button>
       </div>
 
       <p class="message" id="editInfoMessage"></p>
@@ -215,6 +216,8 @@
 
   <script src="../js/main/theme.js"></script>
   <script src="../js/main/settings.js"></script>
+  <script src="../js/main/breadcrumbs.js"></script>
+  <script src="../js/main/global-back.js"></script>
   <script src="../js/main/nav.js"></script>
 </body>
 </html>

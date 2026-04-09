@@ -26,7 +26,6 @@ body{
 min-height:100vh;
 background:linear-gradient(to bottom,var(--top) 0%,var(--top) 35%,var(--bottom) 35%,var(--bottom) 100%);
 color:#fff;
-direction:rtl;
 overflow-x:hidden;
 }
 

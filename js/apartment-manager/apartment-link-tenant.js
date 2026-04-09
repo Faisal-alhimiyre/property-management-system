@@ -3,6 +3,11 @@
    ======================================== */
 
 function initLinkTenantSystem(aptId, currentUser) {
+  const T = (k, p) =>
+    window.walajna_language && window.walajna_language.t
+      ? window.walajna_language.t(k, p)
+      : k;
+
   const elements = {
     modal: document.getElementById("linkTenantModal"),
     modalTitle: document.getElementById("linkTenantModalTitle"),
@@ -88,42 +93,50 @@ function initLinkTenantSystem(aptId, currentUser) {
       .replace(/'/g, "&#039;");
   }
 
-  function formatDateAr(dateStr) {
-    if (!dateStr) return "—";
+  function formatLeaseDate(dateStr) {
+    if (!dateStr) return T("common.dash");
     const date = new Date(dateStr);
     if (Number.isNaN(date.getTime())) return dateStr;
-    return date.toLocaleDateString("ar-SA");
+    const loc =
+      window.walajna_language && window.walajna_language.get() === "en"
+        ? "en-GB"
+        : "ar-SA";
+    return date.toLocaleDateString(loc);
   }
 
   function formatCurrency(value) {
     const number = Number(value || 0);
-    if (!number) return "0 ريال";
-    return `${number.toLocaleString("en-US")} ريال`;
+    if (!number) return T("common.sarZero");
+    const loc =
+      window.walajna_language && window.walajna_language.get() === "en"
+        ? "en-SA"
+        : "ar-SA";
+    return `${number.toLocaleString(loc)} ${T("common.sar")}`;
   }
 
-  function getArabicPaymentCycleLabel(cycle) {
+  function getPaymentCycleLabel(cycle) {
     switch (cycle) {
       case "monthly":
-        return "شهري";
+        return T("lease.payment.monthly");
       case "quarterly":
-        return "ربع سنوي";
+        return T("lease.payment.quarterly");
       case "semi_annual":
-        return "نصف سنوي";
+        return T("lease.payment.semi");
       case "annual":
-        return "سنوي";
+        return T("lease.payment.annual");
       default:
-        return "—";
+        return T("common.dash");
     }
   }
 
   function getIncludedLabel(value) {
     return value === true || value === "yes" || value === "included"
-      ? "يشمل"
-      : "لا يشمل";
+      ? T("lease.include")
+      : T("lease.exclude");
   }
 
   function getServiceTypeLabel(value) {
-    return value === "central" ? "مركزي" : "غير متوفر";
+    return value === "central" ? T("lease.central") : T("lease.utilNone");
   }
 
   function addMonths(date, months) {
@@ -202,40 +215,56 @@ function syncEndDateWithStartDate(force = false) {
 
     return Array.from({ length: count }).map((_, index) => {
       const dueDate = addMonths(startDate, index * cycleMonths);
+      const loc =
+        window.walajna_language && window.walajna_language.get() === "en"
+          ? "en-SA"
+          : "ar-SA";
+      const amt = Math.round(installmentAmount);
+      const amountStr =
+        amt === 0
+          ? T("common.sarZero")
+          : `${amt.toLocaleString(loc)} ${T("common.sar")}`;
       return {
         number: index + 1,
-        dueDate: formatDateAr(dueDate.toISOString()),
-        amount: `${Math.round(installmentAmount).toLocaleString("en-US")} ريال`,
+        dueDate: formatLeaseDate(dueDate.toISOString()),
+        amount: amountStr,
       };
     });
   }
 
   function getCurrentOwnerInfo() {
+    const dash = T("common.dash");
     return {
       fullName:
         currentUser?.fullName ||
         currentUser?.name ||
         currentUser?.username ||
-        "—",
+        dash,
       nationalId:
         currentUser?.nationalId ||
         currentUser?.idNumber ||
-        "—",
+        dash,
       phoneNumber:
         currentUser?.phoneNumber ||
         currentUser?.phone ||
         currentUser?.mobile ||
-        "—",
+        dash,
     };
   }
 
   function buildLeaseContractHtml(apartment, data) {
+    const leaseLang =
+      window.walajna_language && window.walajna_language.get() === "en"
+        ? "en"
+        : "ar";
+    const leaseDir = leaseLang === "en" ? "ltr" : "rtl";
+    const dash = T("common.dash");
     const owner = getCurrentOwnerInfo();
 
     const brokerInfo = {
-      name: data.brokerName || "—",
-      commercialRegister: data.brokerCommercialRegister || "—",
-      phone: data.brokerPhone || "—",
+      name: data.brokerName || dash,
+      commercialRegister: data.brokerCommercialRegister || dash,
+      phone: data.brokerPhone || dash,
     };
 
     const services = {
@@ -257,40 +286,39 @@ function syncEndDateWithStartDate(force = false) {
       )
       .join("");
 
-    const buildingName = apartment?.buildingName || "—";
-    const apartmentNumber = apartment?.number || "—";
+    const buildingName = apartment?.buildingName || dash;
+    const apartmentNumber = apartment?.number || dash;
 
-    const apartmentBedrooms =
-      data.bedrooms ??
-      apartment?.bedrooms ??
-      apartment?.roomsCount ??
-      "—";
+    const servicesSentenceHtml = T("lease.servicesSentence", {
+      el: escapeHtml(services.electricity),
+      wa: escapeHtml(services.water),
+      ga: escapeHtml(services.gas),
+      ac: escapeHtml(services.ac),
+    });
 
-    const apartmentBathrooms =
-      data.bathrooms ??
-      apartment?.bathrooms ??
-      apartment?.bathroomsCount ??
-      "—";
-
-    const apartmentLivingRooms =
-      data.livingRooms ??
-      apartment?.livingRooms ??
-      apartment?.livingRoomsCount ??
-      "—";
+    const periodSummaryHtml = T("lease.periodText", {
+      start: `<strong>${escapeHtml(formatLeaseDate(data.startDate))}</strong>`,
+      end: `<strong>${escapeHtml(formatLeaseDate(data.endDate))}</strong>`,
+    });
 
     return `
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="${leaseLang}" dir="${leaseDir}">
 <head>
   <meta charset="UTF-8" />
-  <title>عقد إيجار - ${escapeHtml(buildingName)} - شقة ${escapeHtml(apartmentNumber)}</title>
+  <title>${escapeHtml(
+    T("lease.title", {
+      building: buildingName,
+      apt: apartmentNumber,
+    })
+  )}</title>
   <style>
     @page { size: A4; margin: 18mm; }
     * { box-sizing: border-box; }
     body {
       margin: 0;
       font-family: Arial, sans-serif;
-      direction: rtl;
+      direction: ${leaseDir};
       background: #eef2f7;
       color: #0f172a;
       line-height: 1.8;
@@ -387,7 +415,7 @@ function syncEndDateWithStartDate(force = false) {
     }
     th { background: #f8fafc; font-weight: 800; }
     .terms {
-      padding-right: 20px;
+      padding-inline-start: 20px;
       margin: 0;
     }
     .terms li { margin-bottom: 10px; }
@@ -429,74 +457,71 @@ function syncEndDateWithStartDate(force = false) {
 <body>
   <section class="page">
     <div class="header">
-      <h1 class="title">عقد إيجار وحدة سكنية</h1>
-      <div class="subtitle">تم إنشاء هذه النسخة تلقائيًا عبر نظام ولجنا</div>
+      <h1 class="title">${escapeHtml(T("lease.docTitle"))}</h1>
+      <div class="subtitle">${escapeHtml(T("lease.autoGen"))}</div>
     </div>
 
     <div class="section">
-      <div class="section-title">أطراف العقد</div>
+      <div class="section-title">${escapeHtml(T("lease.parties"))}</div>
       <div class="section-body">
         <div class="grid">
-          <div class="field"><div class="label">اسم المؤجر</div><div class="value">${escapeHtml(owner.fullName)}</div></div>
-          <div class="field"><div class="label">هوية المؤجر</div><div class="value">${escapeHtml(owner.nationalId)}</div></div>
-          <div class="field"><div class="label">جوال المؤجر</div><div class="value">${escapeHtml(owner.phoneNumber)}</div></div>
-          <div class="field"><div class="label">اسم المستأجر</div><div class="value">${escapeHtml(data.fullName)}</div></div>
-          <div class="field"><div class="label">هوية / إقامة المستأجر</div><div class="value">${escapeHtml(data.nationalId)}</div></div>
-          <div class="field"><div class="label">جوال المستأجر</div><div class="value">${escapeHtml(data.phone)}</div></div>
-          <div class="field"><div class="label">جنسية المستأجر</div><div class="value">${escapeHtml(data.nationality || "—")}</div></div>
-          <div class="field"><div class="label">نوع السكن</div><div class="value">${escapeHtml(data.tenantType || "—")}</div></div>
+          <div class="field"><div class="label">${escapeHtml(T("lease.ownerName"))}</div><div class="value">${escapeHtml(owner.fullName)}</div></div>
+          <div class="field"><div class="label">${escapeHtml(T("lease.ownerId"))}</div><div class="value">${escapeHtml(owner.nationalId)}</div></div>
+          <div class="field"><div class="label">${escapeHtml(T("lease.ownerPhone"))}</div><div class="value">${escapeHtml(owner.phoneNumber)}</div></div>
+          <div class="field"><div class="label">${escapeHtml(T("lease.tenantName"))}</div><div class="value">${escapeHtml(data.fullName)}</div></div>
+          <div class="field"><div class="label">${escapeHtml(T("lease.tenantId"))}</div><div class="value">${escapeHtml(data.nationalId)}</div></div>
+          <div class="field"><div class="label">${escapeHtml(T("lease.tenantPhone"))}</div><div class="value">${escapeHtml(data.phone)}</div></div>
+          <div class="field"><div class="label">${escapeHtml(T("lease.tenantNationality"))}</div><div class="value">${escapeHtml(data.nationality || dash)}</div></div>
+          <div class="field"><div class="label">${escapeHtml(T("lease.tenantType"))}</div><div class="value">${escapeHtml(data.tenantType || dash)}</div></div>
         </div>
       </div>
     </div>
 
     <div class="section">
-      <div class="section-title">بيانات الوسيط</div>
+      <div class="section-title">${escapeHtml(T("lease.broker"))}</div>
       <div class="section-body">
         <div class="grid">
-          <div class="field"><div class="label">اسم الوسيط</div><div class="value">${escapeHtml(brokerInfo.name)}</div></div>
-          <div class="field"><div class="label">السجل التجاري</div><div class="value">${escapeHtml(brokerInfo.commercialRegister)}</div></div>
-          <div class="field"><div class="label">جوال الوسيط</div><div class="value">${escapeHtml(brokerInfo.phone)}</div></div>
-          <div class="field"><div class="label">ملاحظات الوسيط</div><div class="value">${brokerInfo.name === "—" ? "—" : "تم إدراج بيانات الوسيط في هذا العقد"}</div></div>
+          <div class="field"><div class="label">${escapeHtml(T("lease.brokerName"))}</div><div class="value">${escapeHtml(brokerInfo.name)}</div></div>
+          <div class="field"><div class="label">${escapeHtml(T("lease.brokerCr"))}</div><div class="value">${escapeHtml(brokerInfo.commercialRegister)}</div></div>
+          <div class="field"><div class="label">${escapeHtml(T("lease.brokerPhone"))}</div><div class="value">${escapeHtml(brokerInfo.phone)}</div></div>
+          <div class="field"><div class="label">${escapeHtml(T("lease.brokerNotes"))}</div><div class="value">${brokerInfo.name === dash ? escapeHtml(dash) : escapeHtml(T("lease.brokerFilled"))}</div></div>
         </div>
       </div>
     </div>
 
     <div class="section">
-      <div class="section-title">بيانات العقار والوحدة</div>
+      <div class="section-title">${escapeHtml(T("lease.property"))}</div>
       <div class="section-body">
         <div class="grid">
-          <div class="field"><div class="label">اسم العمارة</div><div class="value">${escapeHtml(buildingName)}</div></div>
-          <div class="field"><div class="label">رقم الشقة</div><div class="value">${escapeHtml(apartmentNumber)}</div></div>
-          <div class="field"><div class="label">الدور</div><div class="value">${escapeHtml(data.floorNumber || apartment?.floorNumber || "—")}</div></div>
-          <div class="field"><div class="label">عدد الغرف</div><div class="value">${escapeHtml(data.roomsCount || apartment?.roomsCount || "—")}</div></div>
-          <div class="field"><div class="label">عدد الحمامات</div><div class="value">${escapeHtml(data.bathroomsCount || apartment?.bathroomsCount || "—")}</div></div>
-          <div class="field"><div class="label">عدد الصالات</div><div class="value">${escapeHtml(data.livingRoomsCount || apartment?.livingRoomsCount || "—")}</div></div>
-          <div class="field"><div class="label">رقم العداد</div><div class="value">${escapeHtml(data.meterNumber || "—")}</div></div>
-          <div class="field"><div class="label">فترة العقد</div><div class="value">${formatDateAr(data.startDate)} — ${formatDateAr(data.endDate)}</div></div>
+          <div class="field"><div class="label">${escapeHtml(T("lease.buildingName"))}</div><div class="value">${escapeHtml(buildingName)}</div></div>
+          <div class="field"><div class="label">${escapeHtml(T("lease.aptNumber"))}</div><div class="value">${escapeHtml(apartmentNumber)}</div></div>
+          <div class="field"><div class="label">${escapeHtml(T("lease.floor"))}</div><div class="value">${escapeHtml(data.floorNumber || apartment?.floorNumber || dash)}</div></div>
+          <div class="field"><div class="label">${escapeHtml(T("lease.rooms"))}</div><div class="value">${escapeHtml(data.roomsCount || apartment?.roomsCount || dash)}</div></div>
+          <div class="field"><div class="label">${escapeHtml(T("lease.bathrooms"))}</div><div class="value">${escapeHtml(data.bathroomsCount || apartment?.bathroomsCount || dash)}</div></div>
+          <div class="field"><div class="label">${escapeHtml(T("lease.living"))}</div><div class="value">${escapeHtml(data.livingRoomsCount || apartment?.livingRoomsCount || dash)}</div></div>
+          <div class="field"><div class="label">${escapeHtml(T("lease.meter"))}</div><div class="value">${escapeHtml(data.meterNumber || dash)}</div></div>
+          <div class="field"><div class="label">${escapeHtml(T("lease.period"))}</div><div class="value">${escapeHtml(formatLeaseDate(data.startDate))} ${escapeHtml(T("common.dash"))} ${escapeHtml(formatLeaseDate(data.endDate))}</div></div>
         </div>
       </div>
     </div>
 
     <div class="section">
-      <div class="section-title">البيانات المالية والخدمات</div>
+      <div class="section-title">${escapeHtml(T("lease.financial"))}</div>
       <div class="section-body">
         <div class="grid">
-          <div class="field"><div class="label">قيمة الإيجار</div><div class="value">${formatCurrency(data.rent)}</div></div>
-          <div class="field"><div class="label">مبلغ التأمين</div><div class="value">${formatCurrency(data.insurancePaid)}</div></div>
-          <div class="field"><div class="label">دورة السداد</div><div class="value">${escapeHtml(getArabicPaymentCycleLabel(data.paymentCycle))}</div></div>
-          <div class="field"><div class="label">عدد الدفعات</div><div class="value">${escapeHtml(data.installmentsCount)}</div></div>
-          <div class="field"><div class="label">الكهرباء</div><div class="value">${escapeHtml(services.electricity)}</div></div>
-          <div class="field"><div class="label">الماء</div><div class="value">${escapeHtml(services.water)}</div></div>
-          <div class="field"><div class="label">الغاز</div><div class="value">${escapeHtml(services.gas)}</div></div>
-          <div class="field"><div class="label">التكييف</div><div class="value">${escapeHtml(services.ac)}</div></div>
+          <div class="field"><div class="label">${escapeHtml(T("lease.rentValue"))}</div><div class="value">${escapeHtml(formatCurrency(data.rent))}</div></div>
+          <div class="field"><div class="label">${escapeHtml(T("lease.insurance"))}</div><div class="value">${escapeHtml(formatCurrency(data.insurancePaid))}</div></div>
+          <div class="field"><div class="label">${escapeHtml(T("lease.payCycle"))}</div><div class="value">${escapeHtml(getPaymentCycleLabel(data.paymentCycle))}</div></div>
+          <div class="field"><div class="label">${escapeHtml(T("lease.installments"))}</div><div class="value">${escapeHtml(data.installmentsCount)}</div></div>
+          <div class="field"><div class="label">${escapeHtml(T("lease.electricity"))}</div><div class="value">${escapeHtml(services.electricity)}</div></div>
+          <div class="field"><div class="label">${escapeHtml(T("lease.water"))}</div><div class="value">${escapeHtml(services.water)}</div></div>
+          <div class="field"><div class="label">${escapeHtml(T("lease.gas"))}</div><div class="value">${escapeHtml(services.gas)}</div></div>
+          <div class="field"><div class="label">${escapeHtml(T("lease.ac"))}</div><div class="value">${escapeHtml(services.ac)}</div></div>
           <div class="field full">
-            <div class="label">وصف الخدمات</div>
-            <div class="value">
-              الإيجار ${escapeHtml(services.electricity)} الكهرباء، و${escapeHtml(services.water)} الماء،
-              والغاز ${escapeHtml(services.gas)}، والتكييف ${escapeHtml(services.ac)}.
-            </div>
+            <div class="label">${escapeHtml(T("lease.servicesDesc"))}</div>
+            <div class="value">${servicesSentenceHtml}</div>
           </div>
-          <div class="field full"><div class="label">ملاحظات إضافية</div><div class="value">${escapeHtml(data.notes || "—")}</div></div>
+          <div class="field full"><div class="label">${escapeHtml(T("lease.extraNotes"))}</div><div class="value">${escapeHtml(data.notes || dash)}</div></div>
         </div>
       </div>
     </div>
@@ -504,69 +529,67 @@ function syncEndDateWithStartDate(force = false) {
 
   <section class="page">
     <div class="header">
-      <h2 class="title" style="font-size:22px;">جدول الدفعات وأهم البنود</h2>
-      <div class="subtitle">نسخة أولية من العقد - صفحة ثانية</div>
+      <h2 class="title" style="font-size:22px;">${escapeHtml(T("lease.page2Title"))}</h2>
+      <div class="subtitle">${escapeHtml(T("lease.page2Sub"))}</div>
     </div>
 
     <div class="section">
-      <div class="section-title">جدول سداد الدفعات</div>
+      <div class="section-title">${escapeHtml(T("lease.scheduleTitle"))}</div>
       <div class="section-body">
         <table>
           <thead>
             <tr>
-              <th>م</th>
-              <th>تاريخ الاستحقاق</th>
-              <th>قيمة الدفعة</th>
+              <th>${escapeHtml(T("lease.th.no"))}</th>
+              <th>${escapeHtml(T("lease.th.due"))}</th>
+              <th>${escapeHtml(T("lease.th.amount"))}</th>
             </tr>
           </thead>
           <tbody>
-            ${scheduleRows || `<tr><td colspan="3">لا توجد دفعات متاحة</td></tr>`}
+            ${scheduleRows || `<tr><td colspan="3">${escapeHtml(T("lease.noPayments"))}</td></tr>`}
           </tbody>
         </table>
 
         <div class="summary-box">
-          تبدأ مدة العقد من <strong>${formatDateAr(data.startDate)}</strong>
-          وتنتهي في <strong>${formatDateAr(data.endDate)}</strong>،
-          ويقر الطرفان بصحة البيانات المدخلة أعلاه.
+          ${periodSummaryHtml}
         </div>
       </div>
     </div>
 
     <div class="section">
-      <div class="section-title">أهم البنود الأساسية</div>
+      <div class="section-title">${escapeHtml(T("lease.clausesTitle"))}</div>
       <div class="section-body">
         <ol class="terms">
-          <li>أقر الطرفان بأن البيانات المثبتة في هذا العقد صحيحة وتمت بإرادتهما.</li>
-          <li>يلتزم المستأجر بسداد الدفعات في مواعيدها المحددة وفق جدول السداد المبين في هذا العقد.</li>
-          <li>يلتزم المستأجر بالمحافظة على الوحدة وعدم استخدامها بما يخالف الأنظمة أو يسبب ضررًا للعقار.</li>
-          <li>يلتزم المؤجر بتمكين المستأجر من الانتفاع بالوحدة خلال مدة العقد وفق البنود المتفق عليها.</li>
-          <li>يتم التعامل مع الخدمات المذكورة أعلاه وفق الحالة الموضحة أمام كل خدمة في هذا العقد.</li>
-          <li>أي ملاحق أو اتفاقات لاحقة بين الطرفين تعد جزءًا مكملًا لهذا العقد إذا تم اعتمادها من الطرفين.</li>
+          <li>${escapeHtml(T("lease.clause1"))}</li>
+          <li>${escapeHtml(T("lease.clause2"))}</li>
+          <li>${escapeHtml(T("lease.clause3"))}</li>
+          <li>${escapeHtml(T("lease.clause4"))}</li>
+          <li>${escapeHtml(T("lease.clause5"))}</li>
+          <li>${escapeHtml(T("lease.clause6"))}</li>
         </ol>
       </div>
     </div>
 
     <div class="section">
-      <div class="section-title">الإقرار والتوقيع</div>
+      <div class="section-title">${escapeHtml(T("lease.signSection"))}</div>
       <div class="section-body">
         <div class="signatures">
           <div class="sign-box">
-            <div class="sign-title">توقيع المؤجر</div>
-            <div>الاسم: ${escapeHtml(owner.fullName)}</div>
-            <div>التوقيع: ____________________</div>
-            <div>التاريخ: ____________________</div>
+            <div class="sign-title">${escapeHtml(T("lease.signOwner"))}</div>
+            <div>${escapeHtml(T("lease.nameLabel", { name: owner.fullName }))}</div>
+            <div>${escapeHtml(T("lease.signLine"))}</div>
+            <div>${escapeHtml(T("lease.dateLine"))}</div>
           </div>
 
           <div class="sign-box">
-            <div class="sign-title">توقيع المستأجر</div>
-            <div>الاسم: ${escapeHtml(data.fullName)}</div>
-            <div>التوقيع: ____________________</div>
-            <div>التاريخ: ____________________</div>
+            <div class="sign-title">${escapeHtml(T("lease.signTenant"))}</div>
+            <div>${escapeHtml(T("lease.nameLabel", { name: data.fullName }))}</div>
+            <div>${escapeHtml(T("lease.signLine"))}</div>
+            <div>${escapeHtml(T("lease.dateLine"))}</div>
           </div>
         </div>
 
         <div class="footer-note">
-          هذه الوثيقة تم توليدها تلقائيًا من نظام ولجنا، ويمكن تطويرها لاحقًا إلى نسخة عقد كاملة متعددة الصفحات.
+          ${escapeHtml(T("lease.footerNote"))}
         </div>
       </div>
     </div>
@@ -580,8 +603,8 @@ function syncEndDateWithStartDate(force = false) {
     if (typeof upsertHtmlDocumentForApartment !== "function") return;
 
     const html = buildLeaseContractHtml(apartment, data);
-    const apartmentNo = apartment?.number || "—";
-    const fileName = `عقد إيجار - شقة ${apartmentNo}.html`;
+    const apartmentNo = apartment?.number || T("common.dash");
+    const fileName = T("lease.fileName", { n: apartmentNo });
 
     upsertHtmlDocumentForApartment(
       html,
@@ -649,15 +672,15 @@ function syncEndDateWithStartDate(force = false) {
     if (elements.modalTitle) {
       elements.modalTitle.textContent =
         currentMode === "edit"
-          ? "تعديل بيانات الشقة"
-          : "ربط مستأجر بالشقة";
+          ? T("linkModal.modeTitleEdit")
+          : T("linkModal.modeTitleCreate");
     }
 
     if (elements.saveBtn) {
       elements.saveBtn.textContent =
         currentMode === "edit"
-          ? "حفظ التعديلات"
-          : "حفظ وربط المستأجر";
+          ? T("linkModal.saveEdit")
+          : T("linkModal.saveCreate");
     }
   }
 
@@ -853,32 +876,32 @@ function resetForm() {
   }
 
   function validateFormData(data) {
-    if (!data.fullName) return "أدخل الاسم الكامل";
-    if (!data.nationalId) return "أدخل رقم الهوية / الإقامة";
-    if (!data.nationality) return "أدخل الجنسية";
-    if (!data.tenantType) return "اختر أفراد أو عوائل";
-    if (!data.phone) return "أدخل رقم الجوال";
-    if (!data.rent) return "أدخل الإيجار الشهري";
-    if (!data.paymentCycle) return "اختر دورة الدفع";
+    if (!data.fullName) return T("linkModal.val.fullName");
+    if (!data.nationalId) return T("linkModal.val.nationalId");
+    if (!data.nationality) return T("linkModal.val.nationality");
+    if (!data.tenantType) return T("linkModal.val.tenantType");
+    if (!data.phone) return T("linkModal.val.phone");
+    if (!data.rent) return T("linkModal.val.rent");
+    if (!data.paymentCycle) return T("linkModal.val.paymentCycle");
 
     if (!data.installmentsCount || Number(data.installmentsCount) < 1) {
-      return "أدخل عدد دفعات صحيح";
+      return T("linkModal.val.installments");
     }
 
     if (!data.startDate || !data.endDate) {
-      return "أدخل تاريخ بداية ونهاية العقد";
+      return T("linkModal.val.dates");
     }
 
     if (!/^\d{10}$/.test(data.nationalId)) {
-      return "رقم الهوية / الإقامة يجب أن يكون 10 أرقام";
+      return T("linkModal.val.nationalIdDigits");
     }
 
     if (!/^05\d{8}$/.test(data.phone)) {
-      return "رقم الجوال غير صحيح";
+      return T("linkModal.val.phoneFormat");
     }
 
     if (data.endDate < data.startDate) {
-      return "تاريخ نهاية العقد يجب أن يكون بعد تاريخ البداية";
+      return T("linkModal.val.endAfterStart");
     }
 
     return "";
@@ -1064,7 +1087,10 @@ function resetForm() {
         building_id: Number(localBuildingId),
         apartment_number: normalizedApartmentNumber,
         floor_number: Number(savedApartment?.floorNumber || 1),
-        address: `${savedApartment?.buildingName || `Building ${normalizedBuildingId}`} - شقة ${normalizedApartmentNumber}`,
+        address: T("linkModal.apiAddress", {
+          building: savedApartment?.buildingName || `Building ${normalizedBuildingId}`,
+          apt: normalizedApartmentNumber,
+        }),
         description: `WALAJNA_META:${JSON.stringify({
           buildingId: normalizedBuildingId,
           apartmentNumber: normalizedApartmentNumber,
@@ -1103,7 +1129,7 @@ function resetForm() {
   }
 
   async function sendTenantLinkToApi(savedApartment, formData) {
-    const apiBase = window.API_BASE || "http://127.0.0.1:8002";
+    const apiBase = window.API_BASE || "http://127.0.0.1:8000";
     const headers = (typeof WalajnaAuth !== "undefined"
       ? WalajnaAuth.getAuthHeaders()
       : { "Content-Type": "application/json" });
@@ -1166,7 +1192,7 @@ function resetForm() {
 
     if (!response.ok) {
       if (response.status === 401) {
-        throw new Error("انتهت الجلسة أو التوكن غير صالح. سجل خروج ثم دخول مرة أخرى.");
+        throw new Error(T("linkModal.err401"));
       }
       if (
         response.status === 400 &&
@@ -1175,7 +1201,7 @@ function resetForm() {
           rawText.includes("tenant_national_id is required")
         )
       ) {
-        throw new Error("لا يمكن ربط المستأجر بدون رقم هوية. أدخل رقم الهوية الوطنية للمستأجر ثم أعد المحاولة.");
+        throw new Error(T("linkModal.err400NationalId"));
       }
       throw new Error(`assign-tenant failed (status=${response.status}) raw=${rawText}`);
     }
@@ -1265,19 +1291,19 @@ function resetForm() {
       closeModal();
       alert(
         currentMode === "edit"
-          ? "تم حفظ التعديلات بنجاح ✅"
-          : "تم ربط المستأجر بالشقة بنجاح ✅"
+          ? T("linkModal.successEdit")
+          : T("linkModal.successCreate")
       );
       window.location.reload();
     } catch (error) {
       console.error("[assign-tenant] handleSaveTenant failed:", error);
-      showError(error?.message || "فشل ربط المستأجر. راجع وحدة التحكم (Console) لمعرفة الخطأ.");
+      showError(error?.message || T("linkModal.failGeneric"));
     }
   }
 
   function handleExtractContract() {
     if (!elements.contractFile || elements.contractFile.files.length === 0) {
-      alert("اختر ملف العقد أولاً");
+      alert(T("linkModal.pickContractFirst"));
       return;
     }
 
@@ -1298,7 +1324,7 @@ function resetForm() {
         elements.phoneNumber.value = phoneMatch[0];
       }
 
-      alert("تم استخراج بعض البيانات من العقد");
+      alert(T("linkModal.extractPartial"));
     };
 
     reader.readAsText(file);

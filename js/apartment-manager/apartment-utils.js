@@ -3,21 +3,21 @@
    ======================================== */
 
 function getStatusLabel(leaseStatus) {
+  const T = (k, p) =>
+    window.walajna_language && window.walajna_language.t
+      ? window.walajna_language.t(k, p)
+      : k;
   switch (leaseStatus) {
     case "vacant":
-      return "فارغة";
-
+      return T("lease.status.vacant");
     case "active":
-      return "نشط";
-
+      return T("lease.status.active");
     case "ending_soon":
-      return "قريب الانتهاء";
-
+      return T("lease.status.ending");
     case "ended":
-      return "منتهي";
-
+      return T("lease.status.ended");
     default:
-      return "—";
+      return T("common.dash");
   }
 }
 
@@ -65,7 +65,7 @@ function normalizeApartmentLeaseStatus(apartment) {
   if (!updated.tenantNationalId || !updated.contract?.endDate) {
 
     updated.leaseStatus = "vacant";
-    updated.status = "فارغة";
+    updated.status = getStatusLabel("vacant");
 
     return updated;
   }

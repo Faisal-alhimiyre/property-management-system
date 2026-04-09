@@ -1,92 +1,62 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
+  <script>(function(){try{var l=localStorage.getItem("walajna_language")||"ar";document.documentElement.setAttribute("lang",l==="en"?"en":"ar");document.documentElement.setAttribute("dir",l==="en"?"ltr":"rtl");}catch(e){}})();</script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>اختيار الواجهة - ولجنا</title>
-
-  <link rel="stylesheet" href="../css/theme.css">
-  <link rel="stylesheet" href="../css/register.css">
+  <title data-i18n="meta.roleChoose"></title>
+  <link rel="stylesheet" href="../css/theme.css" />
+  <link rel="stylesheet" href="../css/register.css" />
+  <script src="../js/main/walajna-i18n.js"></script>
 </head>
+<body data-global-back="false">
+  <script src="../js/main/theme.js"></script>
+  <div class="register-bg"></div>
 
-<body>
+  <a href="../auth/login.html" class="logo logo-center" data-i18n-aria-label="common.logo" aria-label="">
+    <img src="../pics/logo.png" data-i18n-alt="meta.app" alt="" class="choose-logo" />
+  </a>
 
-<div class="register-bg"></div>
+  <main class="choose-wrap">
+    <div class="choose-actions">
+      <button type="button" class="choose-btn owner" data-role="owner" data-i18n="role.chooseOwner"></button>
+      <button type="button" class="choose-btn tenant" data-role="tenant" data-i18n="role.chooseTenant"></button>
+    </div>
+  </main>
 
-<a href="../auth/login.html" class="logo logo-center" aria-label="الشعار">
-  <img src="../pics/logo.png" alt="Walajna" class="choose-logo">
-</a>
+  <script src="../js/main/auth.js"></script>
+  <script>
+    requireAuth();
 
-<main class="choose-wrap">
-  <div class="choose-actions">
+    const currentUser = JSON.parse(localStorage.getItem("walajna_current_user"));
+    let users = JSON.parse(localStorage.getItem("walajna_users") || "[]");
 
-    <button class="choose-btn owner" onclick="chooseRole('owner')">
-      مالك
-    </button>
-
-    <button class="choose-btn tenant" onclick="chooseRole('tenant')">
-      مستأجر
-    </button>
-
-  </div>
-</main>
-
-<script src="../js/main/auth.js"></script>
-<script src="../js/main/theme.js"></script>
-<script>
-requireAuth();
-
-const currentUser = JSON.parse(localStorage.getItem("walajna_current_user"));
-let users = JSON.parse(localStorage.getItem("walajna_users") || "[]");
-
-if(!currentUser){
-  window.location.href = "../auth/login.html";
-}
-
-function saveUser(updatedUser){
-
-  users = users.map(user => {
-    if(user.nationalId === updatedUser.nationalId){
-      return updatedUser;
+    if (!currentUser) {
+      window.location.href = "../auth/login.html";
     }
-    return user;
-  });
 
-  localStorage.setItem("walajna_users", JSON.stringify(users));
-  localStorage.setItem("walajna_current_user", JSON.stringify(updatedUser));
-}
+    function saveUser(updatedUser) {
+      users = users.map((user) => {
+        if (user.nationalId === updatedUser.nationalId) return updatedUser;
+        return user;
+      });
+      localStorage.setItem("walajna_users", JSON.stringify(users));
+      localStorage.setItem("walajna_current_user", JSON.stringify(updatedUser));
+    }
 
-function chooseRole(role){
+    function chooseRole(role) {
+      let roles = currentUser.roles || [];
+      if (!roles.includes(role)) roles.push(role);
+      const updatedUser = { ...currentUser, roles };
+      saveUser(updatedUser);
+      localStorage.setItem("activeRole", role);
+      if (role === "owner") window.location.href = "../owners/owner_home.html";
+      if (role === "tenant") window.location.href = "../tenants/tenant_home.html";
+    }
 
-  let roles = currentUser.roles || [];
-
-  // إذا المستخدم لا يملك الدور يتم إضافته
-  if(!roles.includes(role)){
-    roles.push(role);
-  }
-
-  const updatedUser = {
-    ...currentUser,
-    roles
-  };
-
-  saveUser(updatedUser);
-
-  // حفظ الدور النشط
-  localStorage.setItem("activeRole", role);
-
-  // التوجيه حسب الدور
-  if(role === "owner"){
-    window.location.href = "../owners/owner_home.html";
-  }
-
-  if(role === "tenant"){
-    window.location.href = "../tenants/tenant_home.html";
-  }
-
-}
-
-</script>
-
+    document.querySelectorAll("[data-role]").forEach((btn) => {
+      btn.addEventListener("click", () => chooseRole(btn.getAttribute("data-role")));
+    });
+  </script>
 </body>
 </html>

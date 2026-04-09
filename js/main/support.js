@@ -44,56 +44,55 @@ function addTyping(){
   return el;
 }
 
+function wlT(key) {
+  return window.walajna_language && window.walajna_language.t
+    ? window.walajna_language.t(key)
+    : key;
+}
+
 /* ===== Ready-made responses ===== */
-function getReply(msg){
+function getReply(msg) {
   const t = msg.trim().toLowerCase();
+  const forgotAr = "\u0646\u0633\u064a\u062a";
+  const wordPassAr = "\u0643\u0644\u0645\u0629";
+  const loginAr = "\u062a\u0633\u062c\u064a\u0644";
+  const enterAr = "\u062f\u062e\u0648\u0644";
+  const idAr1 = "\u0647\u0648\u064a\u0629";
+  const linkAr = "\u0631\u0628\u0637";
+  const tenantAr = "\u0645\u0633\u062a\u0623\u062c\u0631";
+  const buildingAr = "\u0645\u0628\u0646\u0649";
+  const aptAr = "\u0634\u0642\u0629";
+  const aptsAr = "\u0634\u0642\u0642";
 
-  // Password reset
-  if (t.includes("نسيت") && t.includes("كلمة")) {
-    return `لحل مشكلة نسيان كلمة المرور:
-1) افتح صفحة تسجيل الدخول
-2) اضغط "نسيت كلمة المرور" (سيتم إضافتها لاحقًا)
-حاليًا (نسخة تجريبية) يمكنك إعادة إنشاء حساب جديد للتجربة.`;
+  if (
+    t.includes("forgot") ||
+    t.includes("password") ||
+    (t.includes(forgotAr) && t.includes(wordPassAr))
+  ) {
+    return wlT("support.reply.forgot");
   }
 
-  // Login issues
-  if (t.includes("تسجيل") && (t.includes("الدخول") || t.includes("دخول"))) {
-    return `جرّب هذه الخطوات:
-1) تأكد من اسم المستخدم/البريد وكلمة المرور
-2) تأكد أنك تستخدم نفس الحساب المسجل
-3) إذا كنت تختبر بـ localStorage: جرّب مسح البيانات ثم إعادة التسجيل
-هل تظهر لك رسالة خطأ؟ اكتبها هنا.`;
+  if (
+    t.includes("login") ||
+    t.includes("sign in") ||
+    (t.includes(loginAr) && (t.includes(enterAr) || t.includes("\u0627\u0644\u062f\u062e\u0648\u0644")))
+  ) {
+    return wlT("support.reply.login");
   }
 
-  // National ID validation
-  if (t.includes("هوية") || t.includes("الهوية") || t.includes("national")) {
-    return `الهوية الوطنية لازم تكون:
-- 10 أرقام
-- وتنجح في التحقق (Checksum)
-تأكد من عدم وجود مسافات، واكتبها بالأرقام فقط.`;
+  if (t.includes("national") || t.includes("id") || t.includes(idAr1) || t.includes("\u0627\u0644\u0647\u0648\u064a\u0629")) {
+    return wlT("support.reply.nationalId");
   }
 
-  // Tenant linking
-  if (t.includes("ربط") || t.includes("مستأجر") || t.includes("tenant")) {
-    return `ربط المستأجر بالشقة:
-1) المالك يدخل رقم هوية المستأجر
-2) إذا كان المستأجر مسجل → يتم إنشاء عقد مباشرة
-3) إذا غير مسجل → يتم إنشاء دعوة معلّقة
-وعند تسجيل المستأجر بنفس الهوية يتم الربط تلقائيًا.`;
+  if (t.includes("tenant") || t.includes("link") || t.includes(linkAr) || t.includes(tenantAr)) {
+    return wlT("support.reply.tenantLink");
   }
 
-  // Add building/apartment
-  if (t.includes("مبنى") || t.includes("شقة") || t.includes("شقق") || t.includes("apartment")) {
-    return `لإضافة مبنى وشقق:
-1) ادخل لوحة المالك
-2) اختر "إضافة مبنى"
-3) بعد حفظ المبنى، أضف الشقق (رقم الوحدة)
-ثم اربط المستأجر لكل شقة عند الحاجة.`;
+  if (t.includes("apartment") || t.includes("building") || t.includes(buildingAr) || t.includes(aptAr) || t.includes(aptsAr)) {
+    return wlT("support.reply.building");
   }
 
-  // Default reply
-  return `تم 👌
-اكتب نوع المشكلة بالضبط (تسجيل دخول / تسجيل جديد / ربط مستأجر / إضافة مبنى) وسأعطيك الحل المناسب.`;
+  return wlT("support.reply.default");
 }
 
 /* ===== Save / Load chat ===== */

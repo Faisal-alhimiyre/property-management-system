@@ -1,13 +1,15 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
+  <script>(function(){try{var l=localStorage.getItem("walajna_language")||"ar";document.documentElement.setAttribute("lang",l==="en"?"en":"ar");document.documentElement.setAttribute("dir",l==="en"?"ltr":"rtl");}catch(e){}})();</script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Walajna | الرسائل</title>
+  <title data-i18n="meta.messagesTitle"></title>
   <link rel="stylesheet" href="../css/theme.css" />
   <link rel="stylesheet" href="../css/messages.css" />
+  <script src="../js/main/walajna-i18n.js"></script>
 </head>
-<body data-nav="user">
+<body data-nav="user" data-wl-bc="messages">
   <div id="navbar-container"></div>
 
   <div class="page-bg">
@@ -17,45 +19,42 @@
   </div>
 
   <div class="messages-shell">
-    <!-- Sidebar -->
     <aside class="sidebar glass-card">
-    <div class="brand-box">
-  
-  <div>
-    <h2 id="sidebarUserName">اسم المستخدم</h2>
-    <p id="sidebarUserRole">Walajna</p>
-  </div>
-</div>
+      <div class="brand-box">
+        <div>
+          <h2 id="sidebarUserName"></h2>
+          <p id="sidebarUserRole"></p>
+        </div>
+      </div>
 
       <nav class="side-nav"></nav>
 
       <div class="legend-box">
-        <h4>معاني الألوان</h4>
+        <h4 data-i18n="messages.legendTitle"></h4>
         <div class="legend-item">
           <span class="legend-dot complaint"></span>
-          <span>شكوى</span>
+          <span data-i18n="messages.type.complaint"></span>
         </div>
         <div class="legend-item">
           <span class="legend-dot maintenance"></span>
-          <span>صيانة</span>
+          <span data-i18n="messages.type.maintenance"></span>
         </div>
         <div class="legend-item">
           <span class="legend-dot suggestion"></span>
-          <span>اقتراح</span>
+          <span data-i18n="messages.type.suggestion"></span>
         </div>
         <div class="legend-item">
           <span class="legend-dot request"></span>
-          <span>طلب</span>
+          <span data-i18n="messages.type.request"></span>
         </div>
       </div>
     </aside>
 
-    <!-- Main -->
     <main class="messages-main">
       <header class="page-header glass-card">
         <div>
-          <h1 id="pageTitle">الرسائل</h1>
-          <p id="pageSubtitle">صندوق بريد منظم لإدارة الرسائل المتعلقة بالعقار</p>
+          <h1 id="pageTitle"></h1>
+          <p id="pageSubtitle"></p>
         </div>
 
         <div class="header-actions"></div>
@@ -64,27 +63,27 @@
       <section class="toolbar glass-card">
         <div class="toolbar-row">
           <div class="search-box">
-            <input id="searchInput" type="text" placeholder="ابحث باسم المبنى أو رقمه أو رقم الشقة..." />
+            <input id="searchInput" type="text" data-i18n-placeholder="messages.searchPh" placeholder="" />
           </div>
 
           <div class="filters">
             <select id="typeFilter">
-              <option value="all">كل الأنواع</option>
-              <option value="complaint">شكوى</option>
-              <option value="maintenance">صيانة</option>
-              <option value="suggestion">اقتراح</option>
-              <option value="request">طلب</option>
+              <option value="all" data-i18n-label="messages.filter.allTypes"></option>
+              <option value="complaint" data-i18n-label="messages.type.complaint"></option>
+              <option value="maintenance" data-i18n-label="messages.type.maintenance"></option>
+              <option value="suggestion" data-i18n-label="messages.type.suggestion"></option>
+              <option value="request" data-i18n-label="messages.type.request"></option>
             </select>
 
             <select id="statusFilter">
-              <option value="all">كل الحالات</option>
-              <option value="unread">غير مقروء</option>
-              <option value="read">مقروء</option>
+              <option value="all" data-i18n-label="messages.filter.allStatus"></option>
+              <option value="unread" data-i18n-label="messages.status.unread"></option>
+              <option value="read" data-i18n-label="messages.status.read"></option>
             </select>
 
             <select id="sortFilter">
-              <option value="newest">الأحدث أولاً</option>
-              <option value="oldest">الأقدم أولاً</option>
+              <option value="newest" data-i18n-label="messages.sort.newest"></option>
+              <option value="oldest" data-i18n-label="messages.sort.oldest"></option>
             </select>
           </div>
         </div>
@@ -95,24 +94,23 @@
 
         <div id="emptyState" class="empty-state glass-card hidden">
           <div class="empty-icon">✉</div>
-          <h3>لا توجد رسائل</h3>
-          <p id="emptyText">لا توجد رسائل مطابقة حالياً.</p>
+          <h3 data-i18n="messages.emptyTitle"></h3>
+          <p id="emptyText"></p>
         </div>
       </section>
     </main>
   </div>
 
-  <!-- Details Modal -->
   <div id="detailsModal" class="modal">
     <div class="modal-backdrop" data-close="detailsModal"></div>
 
     <div class="modal-dialog glass-card modal-lg">
       <div class="modal-header">
         <div>
-          <h2>تفاصيل الرسالة</h2>
-          <p>عرض كامل للرسالة</p>
+          <h2 data-i18n="messages.modalTitle"></h2>
+          <p data-i18n="messages.modalSub"></p>
         </div>
-        <button class="close-btn" data-close="detailsModal" type="button">×</button>
+        <button class="close-btn" data-close="detailsModal" type="button" data-i18n-aria-label="common.close" aria-label="">×</button>
       </div>
 
       <div id="detailsContent" class="modal-body"></div>
@@ -121,6 +119,8 @@
 
   <script src="../js/main/theme.js"></script>
   <script src="../js/main/messages.js"></script>
+  <script src="../js/main/breadcrumbs.js"></script>
+  <script src="../js/main/global-back.js"></script>
   <script src="../js/main/nav.js"></script>
 </body>
 </html>

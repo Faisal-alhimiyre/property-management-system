@@ -1,9 +1,19 @@
 document.addEventListener("DOMContentLoaded", () => {
+  const T = (k, p) =>
+    window.walajna_language && window.walajna_language.t
+      ? window.walajna_language.t(k, p)
+      : k;
+  const TAr = (k, p) =>
+    window.walajna_language && window.walajna_language.tAr
+      ? window.walajna_language.tAr(k, p)
+      : T(k, p);
+
   const form = document.getElementById("buildingForm");
   const message = document.getElementById("formMessage");
   const buildingCodeInput = document.getElementById("buildingCode");
   const defaultPaymentCycleInput = document.getElementById("defaultPaymentCycle");
   const buildingCitySelect = document.getElementById("building-city");
+  const ownerFormTitle = document.getElementById("ownerFormTitle");
 
   const params = new URLSearchParams(window.location.search);
   const editBuildingId = params.get("buildingId");
@@ -12,26 +22,40 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (!form) return;
 
-  const cities = [
-    "الرياض",
-    "جدة",
-    "مكة",
-    "المدينة المنورة",
-    "الدمام",
-    "الخبر",
-    "الظهران",
-    "الطائف",
-    "تبوك",
-    "أبها",
-    "خميس مشيط",
-    "حائل",
-    "بريدة",
-    "عنيزة",
-    "نجران",
-    "جازان",
-    "الجبيل",
-    "ينبع"
+  const CITY_KEYS = [
+    "owner.city.riyadh",
+    "owner.city.jeddah",
+    "owner.city.makkah",
+    "owner.city.madinah",
+    "owner.city.dammam",
+    "owner.city.khobar",
+    "owner.city.dhahran",
+    "owner.city.taif",
+    "owner.city.tabuk",
+    "owner.city.abha",
+    "owner.city.khamis",
+    "owner.city.hail",
+    "owner.city.buraidah",
+    "owner.city.onaizah",
+    "owner.city.najran",
+    "owner.city.jazan",
+    "owner.city.jubail",
+    "owner.city.yanbu",
   ];
+
+  function refreshFormChrome() {
+    if (ownerFormTitle) {
+      ownerFormTitle.textContent = T(
+        isEditMode ? "owner.formTitleEdit" : "owner.formTitleAdd"
+      );
+    }
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn) {
+      submitBtn.textContent = T(
+        isEditMode ? "owner.saveEdits" : "owner.saveBuilding"
+      );
+    }
+  }
 
   function getLocalArray(key) {
     try {
@@ -79,14 +103,24 @@ document.addEventListener("DOMContentLoaded", () => {
   function populateCities() {
     if (!buildingCitySelect) return;
 
-    buildingCitySelect.innerHTML = `<option value="">اختر المدينة</option>`;
+    const previous = buildingCitySelect.value;
+    buildingCitySelect.innerHTML = "";
 
-    cities.forEach((city) => {
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = T("owner.selectCity");
+    buildingCitySelect.appendChild(placeholder);
+
+    CITY_KEYS.forEach((key) => {
       const option = document.createElement("option");
-      option.value = city;
-      option.textContent = city;
+      option.value = TAr(key);
+      option.textContent = T(key);
       buildingCitySelect.appendChild(option);
     });
+
+    if (previous && [...buildingCitySelect.options].some((o) => o.value === previous)) {
+      buildingCitySelect.value = previous;
+    }
   }
 
   function fillFormForEdit(building) {
@@ -147,7 +181,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const submitBtn = form.querySelector('button[type="submit"]');
     if (submitBtn) {
-      submitBtn.textContent = "حفظ التعديلات";
+      submitBtn.textContent = T("owner.saveEdits");
     }
   }
 
@@ -169,7 +203,7 @@ document.addEventListener("DOMContentLoaded", () => {
       floorNumber: Number(floorNumber) || 1,
 
       leaseStatus: "vacant",
-      status: "فارغة",
+      status: TAr("finance.vacant"),
 
       rent: "",
       tenantUserId: null,
@@ -236,7 +270,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (isEditMode) {
     if (!buildingToEdit) {
-      showError("لم يتم العثور على بيانات العمارة المطلوب تعديلها");
+      showError(T("owner.buildingNotFoundEdit"));
       return;
     }
 
@@ -252,6 +286,15 @@ document.addEventListener("DOMContentLoaded", () => {
       defaultPaymentCycleInput.value = "monthly";
     }
   }
+
+  refreshFormChrome();
+  document.addEventListener("walajna:i18n-applied", () => {
+    populateCities();
+    refreshFormChrome();
+    if (window.walajna_language && window.walajna_language.apply) {
+      window.walajna_language.apply(document.body);
+    }
+  });
 
   requireAuth();
   requireRole('owner');
@@ -297,7 +340,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const payload = {
           owner_id: Number(ownerId),
-          address: `${buildingInfo.name} - شقة ${apartmentNumber}`,
+          address: T("linkModal.apiAddress", {
+            building: buildingInfo.name,
+            apt: apartmentNumber,
+          }),
           description: `WALAJNA_META:${JSON.stringify(meta)}`,
           rent: Number(apartment.rent || 0),
         };
@@ -331,7 +377,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const livingRooms = parseInt(document.getElementById("livingRooms")?.value, 10);
 
     if (/[a-zA-Z]/.test(buildingName)) {
-      alert("اسم الشقة يجب أن يكون بالعربية فقط");
+      alert(T("owner.aptNameArabicOnly"));
       return;
     }
 
@@ -354,44 +400,44 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("defaultPaymentCycle")?.value || "monthly";
 
     if (!buildingName || !buildingCode || !buildingCity || !apartmentCount || apartmentCount < 1) {
-      showError("يرجى تعبئة البيانات الأساسية بشكل صحيح");
+      showError(T("owner.fillBasics"));
       return;
     }
 
     if (!totalFloors || totalFloors < 1) {
-      showError("يرجى إدخال عدد الطوابق بشكل صحيح");
+      showError(T("owner.floorsInvalid"));
       return;
     }
 
     if (!apartmentsPerFloor || apartmentsPerFloor < 1) {
-      showError("يرجى إدخال عدد الشقق في كل طابق بشكل صحيح");
+      showError(T("owner.aptPerFloorInvalid"));
       return;
     }
 
     if (Number.isNaN(bedrooms) || bedrooms < 0) {
-      showError("يرجى إدخال عدد غرف النوم بشكل صحيح");
+      showError(T("owner.bedroomsInvalid"));
       return;
     }
 
     if (Number.isNaN(bathrooms) || bathrooms < 0) {
-      showError("يرجى إدخال عدد دورات المياه بشكل صحيح");
+      showError(T("owner.bathroomsInvalid"));
       return;
     }
 
     if (Number.isNaN(livingRooms) || livingRooms < 0) {
-      showError("يرجى إدخال عدد غرف المعيشة بشكل صحيح");
+      showError(T("owner.livingInvalid"));
       return;
     }
 
     const expectedApartments = totalFloors * apartmentsPerFloor;
 
  if (apartmentCount > totalFloors * apartmentsPerFloor) {
-  showError("عدد الشقق أكبر من السعة الممكنة");
+  showError(T("owner.capacityExceeded"));
   return;
 }
 
     if (!defaultPaymentCycle) {
-      showError("يرجى اختيار دورة الدفع الافتراضية");
+      showError(T("owner.pickPaymentCycle"));
       return;
     }
 
@@ -415,7 +461,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     if (buildingExists) {
-      showError("رمز العمارة مستخدم بالفعل");
+      showError(T("owner.codeUsed"));
       return;
     }
 
@@ -478,15 +524,17 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!isEditMode) {
           buildingPayload.id = serverRecord.id;
         }
-        showSuccess(isEditMode ? "تم تحديث العمارة بنجاح" : "تم حفظ العمارة بنجاح");
+        showSuccess(
+          isEditMode ? T("owner.updatedBuilding") : T("owner.savedBuilding")
+        );
       } else {
         const err = await apiResponse.json().catch(() => ({}));
         console.warn("Building API response error", err);
-        showError("حدث خطأ أثناء الحفظ في الخادم، سيتم حفظ البيانات محليًا.");
+        showError(T("owner.serverErrorLocal"));
       }
     } catch (ex) {
       console.warn("Buildings API error", ex);
-      showError("تعذر التواصل مع الخادم، سيتم حفظ البيانات محليًا.");
+      showError(T("owner.serverUnreachable"));
     }
 
     // Local fallback for now
@@ -515,7 +563,7 @@ document.addEventListener("DOMContentLoaded", () => {
       saveLocalArray("walajna_apartments", updatedApartments);
 
       if (!apiSucceeded) {
-        showSuccess("تم تحديث العمارة في وضع عدم الاتصال (محليًا)");
+        showSuccess(T("owner.updatedOffline"));
       }
     } else {
       const apartmentBuildingId = buildingPayload.id;
@@ -540,7 +588,7 @@ document.addEventListener("DOMContentLoaded", () => {
       // Keep local state for rendering, but do not re-insert apartments via /api/apartments.
 
       if (!apiSucceeded) {
-        showSuccess("تم حفظ العمارة محليًا لأن الخادم غير متاح");
+        showSuccess(T("owner.savedLocalServerDown"));
       }
 
       form.reset();

@@ -28,7 +28,6 @@ body{
     );
   background-attachment:fixed;
   color:var(--ink);
-  direction:rtl;
   position:relative;
   overflow-x:hidden;
 }
@@ -119,7 +118,7 @@ body{
   border-radius:16px;
   background:transparent;
   color:white;
-  text-align:right;
+  text-align:start;
   font-size:15px;
   font-weight:900;
   cursor:pointer;

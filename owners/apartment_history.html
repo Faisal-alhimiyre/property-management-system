@@ -1,63 +1,42 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
+  <script>(function(){try{var l=localStorage.getItem("walajna_language")||"ar";document.documentElement.setAttribute("lang",l==="en"?"en":"ar");document.documentElement.setAttribute("dir",l==="en"?"ltr":"rtl");}catch(e){}})();</script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>سجل الشقة</title>
-
+  <title data-i18n="meta.historyPage"></title>
   <link rel="stylesheet" href="../css/theme.css" />
   <link rel="stylesheet" href="../css/navstyle.css" />
   <link rel="stylesheet" href="../css/apartment-history.css" />
+  <script src="../js/main/walajna-i18n.js"></script>
 </head>
-
-<body data-nav="user">
-<div id ="navbar-container"></div>
-<div class="page-shell">
-
-  <!-- HEADER -->
-  <div class="page-head">
-    <div class="page-head-right">
-      <h1 class="page-title">سجل الشقة</h1>
-      <p id="pageSubtitle" class="page-subtitle"></p>
+<body data-nav="user" data-wl-bc="apartment-history">
+  <div id="navbar-container"></div>
+  <div class="page-shell">
+    <div class="page-head">
+      <div class="page-head-right">
+        <h1 class="page-title" data-i18n="history.pageTitle"></h1>
+        <p id="pageSubtitle" class="page-subtitle"></p>
+      </div>
     </div>
 
-    <button class="back-btn" onclick="history.back()">
-      رجوع
-    </button>
+    <div class="layout">
+      <aside class="sidebar">
+        <h3 class="sidebar-title" data-i18n="history.sidebarNav"></h3>
+        <button id="tenantsBtn" type="button" class="sidebar-btn active" data-i18n="history.navTenants"></button>
+        <button id="maintenanceBtn" type="button" class="sidebar-btn" data-i18n="history.navMaintenance"></button>
+      </aside>
+
+      <main class="content-wrap">
+        <div id="sectionTitle" class="section-head" data-i18n="history.sectionTenants"></div>
+        <div id="content" class="content"></div>
+      </main>
+    </div>
   </div>
-
-  <!-- LAYOUT -->
-  <div class="layout">
-
-    <!-- SIDEBAR -->
-    <aside class="sidebar">
-      <h3 class="sidebar-title">التنقل</h3>
-
-      <button id="tenantsBtn" class="sidebar-btn active">
-        المستأجرين
-      </button>
-
-      <button id="maintenanceBtn" class="sidebar-btn">
-        الصيانات
-      </button>
-    </aside>
-
-    <!-- CONTENT -->
-    <main class="content-wrap">
-
-      <div id="sectionTitle" class="section-head">
-        سجل المستأجرين
-      </div>
-
-      <div id="content" class="content"></div>
-
-    </main>
-
-  </div>
-
-</div>
-<script src="../js/main/theme.js"></script>
-<script src="../js/main/nav.js"></script>
-<script src="../js/apartment-manager/apartment-history.js"></script>
+  <script src="../js/main/theme.js"></script>
+  <script src="../js/main/breadcrumbs.js"></script>
+  <script src="../js/main/global-back.js"></script>
+  <script src="../js/main/nav.js"></script>
+  <script src="../js/apartment-manager/apartment-history.js"></script>
 </body>
 </html>

@@ -1,7 +1,7 @@
 // auth.js
 // Shared authentication/session helpers for Walajna
 
-const API_BASE = 'http://127.0.0.1:8002';
+const API_BASE = 'http://127.0.0.1:8000';
 
 function getAccessToken() {
   return localStorage.getItem('access_token');

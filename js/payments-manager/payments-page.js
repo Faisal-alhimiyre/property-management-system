@@ -10,7 +10,11 @@ document.addEventListener("DOMContentLoaded", function () {
   const historyContractId = params.get("contractId");
 
   if (!apartmentId) {
-    console.warn("لم يتم تمرير apartmentId إلى صفحة المدفوعات");
+    const msg =
+      window.walajna_language && window.walajna_language.t
+        ? window.walajna_language.t("console.aptIdMissing")
+        : "apartmentId missing";
+    console.warn(msg);
     return;
   }
 
@@ -18,7 +22,11 @@ document.addEventListener("DOMContentLoaded", function () {
   const apartment = apartments.find((apt) => String(apt.id) === String(apartmentId));
 
   if (!apartment) {
-    console.warn("تعذر العثور على الشقة المطلوبة");
+    const msg =
+      window.walajna_language && window.walajna_language.t
+        ? window.walajna_language.t("console.aptNotFoundPage")
+        : "Apartment not found";
+    console.warn(msg);
     return;
   }
 

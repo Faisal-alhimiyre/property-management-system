@@ -1,10 +1,15 @@
 document.addEventListener("DOMContentLoaded", () => {
+  const T = (k, p) =>
+    window.walajna_language && window.walajna_language.t
+      ? window.walajna_language.t(k, p)
+      : k;
+
   const params = new URLSearchParams(window.location.search);
   const apartmentId = params.get("id");
   const forcedContractId = params.get("contractId");
 
   if (!apartmentId) {
-    alert("تعذر تحديد الشقة");
+    alert(T("aptPage.cannotIdentify"));
     return;
   }
 
@@ -30,22 +35,17 @@ document.addEventListener("DOMContentLoaded", () => {
   const costNotesInput = document.getElementById("costNotesInput");
   const saveCostBtn = document.getElementById("saveCostBtn");
 
-  const COST_TYPES = {
-    maintenance: "صيانة",
-    repair: "إصلاح",
-    discount: "تخفيض",
-    adjustment: "تعديل",
-    service: "خدمة",
-    replacement: "استبدال",
-    cleaning: "تنظيف",
-    other: "أخرى"
-  };
+  function typeLabel(type) {
+    const k = `costs.type.${type}`;
+    const v = T(k);
+    return v === k ? T("costs.type.other") : v;
+  }
 
-  const STATUS_LABELS = {
-    approved: "معتمد",
-    pending: "معلق",
-    cancelled: "ملغي"
-  };
+  function statusLabel(status) {
+    const k = `costs.st.${status}`;
+    const v = T(k);
+    return v === k ? "—" : v;
+  }
 
   function getApartments() {
     return JSON.parse(localStorage.getItem("walajna_apartments") || "[]");
@@ -56,20 +56,20 @@ document.addEventListener("DOMContentLoaded", () => {
     return apartments.find((apt) => apt.id === apartmentId) || null;
   }
 
- function getCurrentContractId(apartment) {
-  if (forcedContractId) {
-    return forcedContractId;
+  function getCurrentContractId(apartment) {
+    if (forcedContractId) {
+      return forcedContractId;
+    }
+
+    if (!apartment) return null;
+
+    return (
+      apartment.currentContractId ||
+      apartment.contract?.id ||
+      apartment.contractId ||
+      null
+    );
   }
-
-  if (!apartment) return null;
-
-  return (
-    apartment.currentContractId ||
-    apartment.contract?.id ||
-    apartment.contractId ||
-    null
-  );
-}
 
   function getCosts() {
     return JSON.parse(localStorage.getItem(COSTS_KEY) || "[]");
@@ -91,7 +91,20 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function formatAmount(value) {
-    return `${Number(value || 0).toLocaleString("en-US")} ريال`;
+    const loc =
+      window.walajna_language && window.walajna_language.get() === "en"
+        ? "en-SA"
+        : "ar-SA";
+    return `${Number(value || 0).toLocaleString(loc)} ${T("common.sar")}`;
+  }
+
+  function resolveRowTypeLabel(item) {
+    if (item.type) {
+      const k = `costs.type.${item.type}`;
+      const v = T(k);
+      if (v !== k) return v;
+    }
+    return item.typeLabel || T("costs.type.other");
   }
 
   function openModal() {
@@ -99,12 +112,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const currentContractId = getCurrentContractId(apartment);
 
     if (!currentContractId) {
-      alert("لا يمكن تسجيل مصروفات بدون عقد حالي");
+      alert(T("costs.needContract"));
       return;
     }
 
     recordCostModal.setAttribute("aria-hidden", "false");
-    selectedCostInfo.textContent = `تسجيل مصروف جديد للشقة ${apartment?.number || apartmentId}`;
+    selectedCostInfo.textContent = T("costs.newForApt", {
+      n: apartment?.number || apartmentId
+    });
     costDateInput.value = new Date().toISOString().slice(0, 10);
   }
 
@@ -131,30 +146,40 @@ document.addEventListener("DOMContentLoaded", () => {
 
     costsSummary.innerHTML = `
       <div class="sum-card">
-        <span class="sum-label">إجمالي المصروفات</span>
+        <span class="sum-label">${escapeHtml(T("costs.sumTotal"))}</span>
         <div class="sum-value">${formatAmount(total)}</div>
       </div>
 
       <div class="sum-card">
-        <span class="sum-label">المعتمد</span>
+        <span class="sum-label">${escapeHtml(T("costs.sumApproved"))}</span>
         <div class="sum-value">${formatAmount(approved)}</div>
       </div>
 
       <div class="sum-card">
-        <span class="sum-label">المعلق</span>
+        <span class="sum-label">${escapeHtml(T("costs.sumPending"))}</span>
         <div class="sum-value">${formatAmount(pending)}</div>
       </div>
 
       <div class="sum-card">
-        <span class="sum-label">الملغي</span>
+        <span class="sum-label">${escapeHtml(T("costs.sumCancelled"))}</span>
         <div class="sum-value">${formatAmount(cancelled)}</div>
       </div>
     `;
   }
 
+  function escapeHtml(s) {
+    return String(s || "").replace(/[&<>"']/g, (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[
+        c
+      ])
+    );
+  }
+
   function renderTable(costs) {
     if (!costs.length) {
-      costsTableContainer.innerHTML = `<div class="empty-state">لا يوجد مصروفات مرتبطة بالعقد الحالي</div>`;
+      costsTableContainer.innerHTML = `<div class="empty-state">${escapeHtml(
+        T("costs.empty")
+      )}</div>`;
       return;
     }
 
@@ -162,33 +187,39 @@ document.addEventListener("DOMContentLoaded", () => {
       <table class="costs-table">
         <thead>
           <tr>
-            <th>تاريخ المصروف</th>
-            <th>المبلغ</th>
-            <th>النوع</th>
-            <th>الحالة</th>
-            <th>تاريخ التسجيل</th>
-            <th>ملاحظات</th>
-            <th>إجراء</th>
+            <th>${escapeHtml(T("costs.th.date"))}</th>
+            <th>${escapeHtml(T("costs.th.amount"))}</th>
+            <th>${escapeHtml(T("costs.th.type"))}</th>
+            <th>${escapeHtml(T("costs.th.status"))}</th>
+            <th>${escapeHtml(T("costs.th.recorded"))}</th>
+            <th>${escapeHtml(T("costs.th.notes"))}</th>
+            <th>${escapeHtml(T("costs.th.action"))}</th>
           </tr>
         </thead>
         <tbody>
-          ${costs.map((item) => `
+          ${costs
+            .map(
+              (item) => `
             <tr>
               <td>${item.expenseDate || "—"}</td>
               <td>${formatAmount(item.amount)}</td>
-              <td>${item.typeLabel || COST_TYPES[item.type] || "—"}</td>
+              <td>${escapeHtml(resolveRowTypeLabel(item))}</td>
               <td>
                 <span class="badge ${item.status}">
-                  ${STATUS_LABELS[item.status] || "—"}
+                  ${escapeHtml(statusLabel(item.status))}
                 </span>
               </td>
               <td>${item.createdAt || "—"}</td>
-              <td>${item.notes || "—"}</td>
+              <td>${escapeHtml(item.notes || "—")}</td>
               <td>
-                <button class="delete-btn" data-id="${item.id}">حذف</button>
+                <button class="delete-btn" data-id="${escapeHtml(
+                  item.id
+                )}">${escapeHtml(T("common.delete"))}</button>
               </td>
             </tr>
-          `).join("")}
+          `
+            )
+            .join("")}
         </tbody>
       </table>
     `;
@@ -196,7 +227,7 @@ document.addEventListener("DOMContentLoaded", () => {
     costsTableContainer.querySelectorAll(".delete-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
         const id = btn.dataset.id;
-        const confirmed = confirm("هل أنت متأكد من حذف المصروف؟");
+        const confirmed = confirm(T("costs.confirmDelete"));
         if (!confirmed) return;
 
         const updatedCosts = getCosts().filter((item) => item.id !== id);
@@ -213,14 +244,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const keyword = (searchInput.value || "").trim().toLowerCase();
 
     if (apartment) {
-      pageSub.textContent = `عرض مصروفات الشقة ${apartment.number} - ${apartment.buildingName || ""}`;
+      pageSub.textContent = T("costs.subtitle", {
+        n: apartment.number,
+        b: apartment.buildingName || ""
+      });
     }
 
     if (openCostModalBtn) {
       openCostModalBtn.disabled = !currentContractId;
       openCostModalBtn.title = currentContractId
         ? ""
-        : "لا يمكن تسجيل مصروفات بدون عقد حالي";
+        : T("costs.needContract");
     }
 
     let filteredCosts = allCosts;
@@ -232,13 +266,17 @@ document.addEventListener("DOMContentLoaded", () => {
           String(item.expenseDate || "").toLowerCase().includes(keyword) ||
           String(item.createdAt || "").toLowerCase().includes(keyword) ||
           String(item.notes || "").toLowerCase().includes(keyword) ||
-          String(item.typeLabel || "").toLowerCase().includes(keyword) ||
-          String(STATUS_LABELS[item.status] || "").toLowerCase().includes(keyword)
+          String(resolveRowTypeLabel(item) || "")
+            .toLowerCase()
+            .includes(keyword) ||
+          String(statusLabel(item.status) || "")
+            .toLowerCase()
+            .includes(keyword)
         );
       });
     }
 
-    costsCount.textContent = `عدد المصروفات: ${allCosts.length}`;
+    costsCount.textContent = T("costs.count", { n: allCosts.length });
     renderSummary(allCosts);
     renderTable(filteredCosts);
   }
@@ -255,7 +293,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const currentContractId = getCurrentContractId(apartment);
 
     if (!currentContractId) {
-      alert("لا يمكن تسجيل مصروفات بدون عقد حالي");
+      alert(T("costs.needContract"));
       return;
     }
 
@@ -266,7 +304,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const notes = costNotesInput.value.trim();
 
     if (!type || !amount || amount <= 0 || !expenseDate) {
-      alert("يرجى تعبئة الحقول المطلوبة");
+      alert(T("costs.fillRequired"));
       return;
     }
 
@@ -277,7 +315,7 @@ document.addEventListener("DOMContentLoaded", () => {
       apartmentId,
       contractId: currentContractId,
       type,
-      typeLabel: COST_TYPES[type] || "أخرى",
+      typeLabel: typeLabel(type),
       amount,
       status,
       expenseDate,
@@ -290,6 +328,8 @@ document.addEventListener("DOMContentLoaded", () => {
     closeModal();
     renderPage();
   });
+
+  document.addEventListener("walajna:i18n-applied", () => renderPage());
 
   renderPage();
 });

@@ -1,4 +1,9 @@
 document.addEventListener("DOMContentLoaded", () => {
+  const T = (k, p) =>
+    window.walajna_language && window.walajna_language.t
+      ? window.walajna_language.t(k, p)
+      : k;
+
   const STORAGE_KEYS = {
     USERS: "walajna_users",
     CURRENT_USER: "walajna_current_user",
@@ -45,8 +50,8 @@ document.addEventListener("DOMContentLoaded", () => {
   loggedInUser = getLocalObject(STORAGE_KEYS.CURRENT_USER);
 
   if (!loggedInUser) {
-    alert("لا يوجد مستخدم مسجل دخول حالياً");
-    window.location.href = "login.html";
+    alert(T("messages.alertNoUser"));
+    window.location.href = "../auth/login.html";
     return;
   }
 
@@ -61,7 +66,7 @@ document.addEventListener("DOMContentLoaded", () => {
   currentUser = resolveCurrentUserByRole(loggedInUser, activeRole, allUsers);
 
   if (!currentUser) {
-    alert("تعذر تحديد المستخدم الحالي حسب الدور النشط.");
+    alert(T("messages.alertRole"));
     return;
   }
 
@@ -93,11 +98,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function setupRoleView() {
     if (activeRole === "owner") {
-      pageTitle.textContent = "صندوق رسائل المالك";
-      pageSubtitle.textContent = "استعراض الرسائل والتنبيهات الواردة من المستأجرين حسب العقار والوحدة";
+      pageTitle.textContent = T("messages.pageTitleOwner");
+      pageSubtitle.textContent = T("messages.pageSubOwner");
     } else {
-      pageTitle.textContent = "صندوق الرسائل";
-      pageSubtitle.textContent = "استعراض الرسائل والتنبيهات المتعلقة بالعقار أو الشقة";
+      pageTitle.textContent = T("messages.pageTitleTenant");
+      pageSubtitle.textContent = T("messages.pageSubTenant");
     }
   }
 
@@ -150,9 +155,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!filtered.length) {
       emptyState.classList.remove("hidden");
       emptyText.textContent =
-        activeRole === "landlord"
-          ? "لا توجد رسائل أو تنبيهات واردة مطابقة حالياً."
-          : "لا توجد رسائل أو تنبيهات مطابقة حالياً.";
+        activeRole === "landlord" || activeRole === "owner"
+          ? T("messages.emptyOwner")
+          : T("messages.emptyDefault");
       return;
     }
 
@@ -164,13 +169,13 @@ document.addEventListener("DOMContentLoaded", () => {
       card.style.position = "relative";
 
       const sourceBadge = msg.sourceType === "request"
-        ? `<span class="type-badge ${escapeHtml(msg.type || "")}">تنبيه طلب</span>`
-        : `<span class="type-badge ${escapeHtml(msg.type || "")}">${getTypeLabel(msg.type)}</span>`;
+        ? `<span class="type-badge ${escapeHtml(msg.type || "")}">${escapeHtml(T("messages.requestAlert"))}</span>`
+        : `<span class="type-badge ${escapeHtml(msg.type || "")}">${escapeHtml(getTypeLabel(msg.type))}</span>`;
 
       const globalReplyAlert = msg.hasReplyAlert
         ? `
           <span
-            title="يوجد رد جديد"
+            title="${escapeHtml(T("messages.newReplyTitle"))}"
             style="
               position:absolute;
               top:14px;
@@ -195,35 +200,35 @@ document.addEventListener("DOMContentLoaded", () => {
         <div class="message-content">
           <div class="message-top">
             <div>
-              <h3 class="message-subject">${escapeHtml(msg.subject || "بدون عنوان")}</h3>
+              <h3 class="message-subject">${escapeHtml(msg.subject || T("messages.noSubject"))}</h3>
             </div>
 
             <div class="message-badges">
               ${sourceBadge}
               <span class="status-badge ${escapeHtml(msg.status || "unread")}">
-                ${msg.status === "read" ? "مقروء" : "غير مقروء"}
+                ${msg.status === "read" ? escapeHtml(T("messages.status.read")) : escapeHtml(T("messages.status.unread"))}
               </span>
             </div>
           </div>
 
           <div class="message-meta">
             <div class="meta-item">
-              <span class="meta-label">${activeRole === "owner" ? "من" : "إلى"}</span>
+              <span class="meta-label">${activeRole === "owner" ? escapeHtml(T("messages.metaFrom")) : escapeHtml(T("messages.metaTo"))}</span>
               <span class="meta-value">${escapeHtml(activeRole === "owner" ? msg.senderName : msg.receiverName)}</span>
             </div>
 
             <div class="meta-item">
-              <span class="meta-label">اسم المبنى</span>
+              <span class="meta-label">${escapeHtml(T("messages.buildingName"))}</span>
               <span class="meta-value">${escapeHtml(msg.buildingName || "-")}</span>
             </div>
 
             <div class="meta-item">
-              <span class="meta-label">رقم المبنى</span>
+              <span class="meta-label">${escapeHtml(T("messages.buildingNumber"))}</span>
               <span class="meta-value">${escapeHtml(msg.buildingNumber || "-")}</span>
             </div>
 
             <div class="meta-item">
-              <span class="meta-label">رقم الشقة</span>
+              <span class="meta-label">${escapeHtml(T("messages.apartmentNumber"))}</span>
               <span class="meta-value">${escapeHtml(msg.apartmentNumber || "-")}</span>
             </div>
           </div>
@@ -231,14 +236,14 @@ document.addEventListener("DOMContentLoaded", () => {
           <p class="message-preview">${escapeHtml(truncateText(msg.body || "", 150))}</p>
 
           <div class="message-actions">
-            <span class="message-date">تاريخ الإرسال: ${formatDate(msg.dateSent || msg.createdAt)}</span>
+            <span class="message-date">${escapeHtml(T("messages.sentAt"))}: ${formatDate(msg.dateSent || msg.createdAt)}</span>
 
             <div class="message-actions-right">
               <button class="action-btn view-btn" data-id="${escapeHtml(msg.id)}" data-source="${escapeHtml(msg.sourceType || "message")}" type="button">
-                عرض التفاصيل
+                ${escapeHtml(T("messages.viewDetails"))}
               </button>
               ${msg.status === "unread"
-                ? `<button class="action-btn mark-btn" data-id="${escapeHtml(msg.id)}" data-source="${escapeHtml(msg.sourceType || "message")}" type="button">تحديد كمقروء</button>`
+                ? `<button class="action-btn mark-btn" data-id="${escapeHtml(msg.id)}" data-source="${escapeHtml(msg.sourceType || "message")}" type="button">${escapeHtml(T("messages.markRead"))}</button>`
                 : ""}
             </div>
           </div>
@@ -303,12 +308,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const extraRequestInfo = message.sourceType === "request"
       ? `
         <div class="details-body-box">
-          <h4>تفاصيل الطلب</h4>
-          <p><strong>نوع الطلب:</strong> ${escapeHtml(getTypeLabel(message.type))}</p>
-          <p><strong>حالة الطلب:</strong> ${escapeHtml(message.requestStatusLabel || "-")}</p>
-          ${message.ownerReply ? `<p><strong>رد المالك:</strong> ${escapeHtml(message.ownerReply)}</p>` : ""}
-          ${message.repliedAt ? `<p><strong>تاريخ الرد:</strong> ${escapeHtml(formatDate(message.repliedAt))}</p>` : ""}
-          ${message.resolvedAt ? `<p><strong>تاريخ المعالجة:</strong> ${escapeHtml(formatDate(message.resolvedAt))}</p>` : ""}
+          <h4>${escapeHtml(T("messages.requestDetails"))}</h4>
+          <p><strong>${escapeHtml(T("messages.requestType"))}:</strong> ${escapeHtml(getTypeLabel(message.type))}</p>
+          <p><strong>${escapeHtml(T("messages.requestStatus"))}:</strong> ${escapeHtml(message.requestStatusLabel || "-")}</p>
+          ${message.ownerReply ? `<p><strong>${escapeHtml(T("messages.ownerReply"))}:</strong> ${escapeHtml(message.ownerReply)}</p>` : ""}
+          ${message.repliedAt ? `<p><strong>${escapeHtml(T("messages.replyDate"))}:</strong> ${escapeHtml(formatDate(message.repliedAt))}</p>` : ""}
+          ${message.resolvedAt ? `<p><strong>${escapeHtml(T("messages.resolvedDate"))}:</strong> ${escapeHtml(formatDate(message.resolvedAt))}</p>` : ""}
         </div>
       `
       : "";
@@ -317,53 +322,53 @@ document.addEventListener("DOMContentLoaded", () => {
       <div class="details-grid">
         <div class="details-header">
           <div>
-            <h3 class="details-subject">${escapeHtml(message.subject || "بدون عنوان")}</h3>
+            <h3 class="details-subject">${escapeHtml(message.subject || T("messages.noSubject"))}</h3>
           </div>
 
           <div class="message-badges">
             <span class="type-badge ${escapeHtml(message.type || "")}">
-              ${message.sourceType === "request" ? "تنبيه طلب" : getTypeLabel(message.type)}
+              ${message.sourceType === "request" ? escapeHtml(T("messages.requestAlert")) : escapeHtml(getTypeLabel(message.type))}
             </span>
             <span class="status-badge ${escapeHtml(message.status || "unread")}">
-              ${message.status === "read" ? "مقروء" : "غير مقروء"}
+              ${message.status === "read" ? escapeHtml(T("messages.status.read")) : escapeHtml(T("messages.status.unread"))}
             </span>
           </div>
         </div>
 
         <div class="details-meta">
           <div class="meta-item">
-            <span class="meta-label">${activeRole === "owner" ? "المرسل" : "المرسل إليه"}</span>
+            <span class="meta-label">${activeRole === "owner" ? escapeHtml(T("messages.sender")) : escapeHtml(T("messages.receiver"))}</span>
             <span class="meta-value">${escapeHtml(activeRole === "owner" ? message.senderName : message.receiverName)}</span>
           </div>
 
           <div class="meta-item">
-            <span class="meta-label">تاريخ الإرسال</span>
+            <span class="meta-label">${escapeHtml(T("messages.sentAt"))}</span>
             <span class="meta-value">${formatDate(message.dateSent || message.createdAt)}</span>
           </div>
 
           <div class="meta-item">
-            <span class="meta-label">اسم المبنى</span>
+            <span class="meta-label">${escapeHtml(T("messages.buildingName"))}</span>
             <span class="meta-value">${escapeHtml(message.buildingName || "-")}</span>
           </div>
 
           <div class="meta-item">
-            <span class="meta-label">رقم المبنى</span>
+            <span class="meta-label">${escapeHtml(T("messages.buildingNumber"))}</span>
             <span class="meta-value">${escapeHtml(message.buildingNumber || "-")}</span>
           </div>
 
           <div class="meta-item">
-            <span class="meta-label">رقم الشقة</span>
+            <span class="meta-label">${escapeHtml(T("messages.apartmentNumber"))}</span>
             <span class="meta-value">${escapeHtml(message.apartmentNumber || "-")}</span>
           </div>
 
           <div class="meta-item">
-            <span class="meta-label">نوع الرسالة</span>
+            <span class="meta-label">${escapeHtml(T("messages.msgType"))}</span>
             <span class="meta-value">${escapeHtml(getTypeLabel(message.type))}</span>
           </div>
         </div>
 
         <div class="details-body-box">
-          <h4>${message.sourceType === "request" ? "محتوى الطلب" : "محتوى الرسالة"}</h4>
+          <h4>${message.sourceType === "request" ? escapeHtml(T("messages.bodyRequest")) : escapeHtml(T("messages.bodyMessage"))}</h4>
           <p>${escapeHtml(message.body || "")}</p>
         </div>
 
@@ -388,12 +393,12 @@ document.addEventListener("DOMContentLoaded", () => {
         currentUser.fullName ||
         currentUser.name ||
         currentUser.username ||
-        "المستخدم";
+        T("common.user");
     }
 
     if (sidebarUserRole) {
       sidebarUserRole.textContent =
-        activeRole === "owner" ? "مالك" : "مستأجر";
+        activeRole === "owner" ? T("common.owner") : T("common.tenantRole");
     }
   }
 
@@ -489,7 +494,7 @@ document.addEventListener("DOMContentLoaded", () => {
         ownerUser?.fullName ||
         ownerUser?.name ||
         ownerUser?.username ||
-        "المالك";
+        T("common.landlord");
 
       const tenantDisplayName =
         req.tenantName ||
@@ -497,7 +502,7 @@ document.addEventListener("DOMContentLoaded", () => {
         tenantUser?.name ||
         tenantUser?.username ||
         matchedApartment?.tenantInfo?.fullName ||
-        "المستأجر";
+        T("common.tenant");
 
       const seen = activeRole === "owner"
         ? !!req.ownerSeen
@@ -514,10 +519,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const requestStatusLabel =
         req.status === "resolved"
-          ? "تمت المعالجة"
+          ? T("messages.statusResolved")
           : req.status === "replied"
-            ? "تم الرد"
-            : "جديد";
+            ? T("messages.statusReplied")
+            : T("messages.statusNew");
 
       return {
         id: String(req.id),
@@ -525,11 +530,11 @@ document.addEventListener("DOMContentLoaded", () => {
         type: req.typeId || "request",
         subject:
           activeRole === "owner"
-            ? `تنبيه طلب: ${req.typeTitle || getTypeLabel(req.typeId || "request")}`
+            ? `${T("messages.requestAlertPrefix")}: ${req.typeTitle || getTypeLabel(req.typeId || "request")}`
             : (
                 hasReplyAlert
-                  ? `تم الرد على طلب: ${req.typeTitle || getTypeLabel(req.typeId || "request")}`
-                  : `تم إرسال طلب: ${req.typeTitle || getTypeLabel(req.typeId || "request")}`
+                  ? `${T("messages.replyOnRequest")}: ${req.typeTitle || getTypeLabel(req.typeId || "request")}`
+                  : `${T("messages.sentRequest")}: ${req.typeTitle || getTypeLabel(req.typeId || "request")}`
               ),
         body: req.message || "",
         buildingName: req.buildingName || "-",
@@ -696,19 +701,19 @@ document.addEventListener("DOMContentLoaded", () => {
 function normalizeRole(role) {
   const r = String(role || "").trim().toLowerCase();
 
-  if (r === "landlord" || r === "owner" || r === "مالك" || r === "مؤجر") return "owner";
-  if (r === "tenant" || r === "renter" || r === "مستأجر") return "tenant";
+  if (r === "landlord" || r === "owner" || r === "\u0645\u0627\u0644\u0643" || r === "\u0645\u0624\u062c\u0631") return "owner";
+  if (r === "tenant" || r === "renter" || r === "\u0645\u0633\u062a\u0623\u062c\u0631") return "tenant";
 
   return r;
 }
 
   function getTypeLabel(type) {
     switch (type) {
-      case "complaint": return "شكوى";
-      case "maintenance": return "صيانة";
-      case "suggestion": return "اقتراح";
-      case "request": return "طلب";
-      default: return "غير محدد";
+      case "complaint": return T("messages.type.complaint");
+      case "maintenance": return T("messages.type.maintenance");
+      case "suggestion": return T("messages.type.suggestion");
+      case "request": return T("messages.type.request");
+      default: return T("common.na");
     }
   }
 
@@ -718,7 +723,8 @@ function normalizeRole(role) {
     const date = new Date(dateString);
     if (Number.isNaN(date.getTime())) return dateString;
 
-    return new Intl.DateTimeFormat("ar-SA", {
+    const loc = window.walajna_language && window.walajna_language.get() === "en" ? "en-US" : "ar-SA";
+    return new Intl.DateTimeFormat(loc, {
       year: "numeric",
       month: "long",
       day: "numeric",
@@ -773,9 +779,9 @@ function normalizeRole(role) {
       {
         id: generateId(),
         type: "complaint",
-        subject: "مشكلة في تسرب المياه",
-        body: "يوجد تسرب مياه في المطبخ منذ يومين ونحتاج إلى حل المشكلة في أسرع وقت ممكن.",
-        buildingName: "برج الروضة",
+        subject: T("sample.msg.subject1"),
+        body: T("sample.msg.body1"),
+        buildingName: T("sample.building1"),
         buildingNumber: "B-12",
         apartmentNumber: "A-203",
         senderId: getUserIdentifier(tenantUser),
@@ -790,9 +796,9 @@ function normalizeRole(role) {
       {
         id: generateId(),
         type: "maintenance",
-        subject: "طلب صيانة للمكيف",
-        body: "المكيف لا يبرد بالشكل المطلوب، ونرغب بزيارة فني للكشف والصيانة.",
-        buildingName: "مبنى الياسمين",
+        subject: T("sample.msg.subject2"),
+        body: T("sample.msg.body2"),
+        buildingName: T("sample.building2"),
         buildingNumber: "C-04",
         apartmentNumber: "12",
         senderId: getUserIdentifier(tenantUser),
@@ -807,9 +813,9 @@ function normalizeRole(role) {
       {
         id: generateId(),
         type: "suggestion",
-        subject: "اقتراح تحسين المدخل",
-        body: "أقترح إضافة إضاءة أفضل عند مدخل المبنى لتحسين الشكل العام وزيادة الأمان.",
-        buildingName: "برج الروضة",
+        subject: T("sample.msg.subject3"),
+        body: T("sample.msg.body3"),
+        buildingName: T("sample.building1"),
         buildingNumber: "B-12",
         apartmentNumber: "A-203",
         senderId: getUserIdentifier(tenantUser),
@@ -825,4 +831,10 @@ function normalizeRole(role) {
 
     localStorage.setItem(STORAGE_KEYS.MESSAGES, JSON.stringify(sample));
   }
+
+  document.addEventListener("walajna:i18n-applied", () => {
+    setupRoleView();
+    setupSidebarUser();
+    renderMessages();
+  });
 });

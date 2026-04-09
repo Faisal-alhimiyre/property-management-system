@@ -1,6 +1,9 @@
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 supabase==2.3.0
+# gotrue 2.9+ passes proxy= to httpx.Client; httpx 0.24 (required by supabase 2.3) expects proxies=.
+# Pin avoids: Client.__init__() got an unexpected keyword argument 'proxy'
+gotrue==2.8.1
 pydantic==2.5.0
 python-multipart==0.0.6
 python-jose[cryptography]==3.3.0

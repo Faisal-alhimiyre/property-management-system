@@ -2,27 +2,31 @@
 <html lang="ar" dir="rtl">
 
 <head>
+  <script>(function(){try{var l=localStorage.getItem('walajna_language')||'ar';document.documentElement.setAttribute('lang',l==='en'?'en':'ar');document.documentElement.setAttribute('dir',l==='en'?'ltr':'rtl');}catch(e){}})();</script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>صفحتي - ولجنا</title>
+  <title data-i18n="meta.tenantHome"></title>
 
   <link rel="stylesheet" href="../css/theme.css">
   <link rel="stylesheet" href="../css/navstyle.css">
   <link rel="stylesheet" href="../css/tenant-home.css">
+  <script src="../js/main/walajna-i18n.js"></script>
 </head>
 
-<body data-nav="user">
+<body data-nav="user" data-wl-bc="tenant-units">
 
   <div id="navbar-container"></div>
 
   <section class="page-title">
-    <h2>وحداتي السكنية</h2>
+    <h2 data-i18n="tenant.unitsTitle"></h2>
   </section>
 
   <section class="buildings-grid">
     <div class="buildings-grid" id="tenantApartments"></div>
   </section>
 
+  <script src="../js/main/breadcrumbs.js"></script>
+  <script src="../js/main/global-back.js"></script>
   <script src="../js/main/nav.js"></script>
   <script src="../js/main/auth.js"></script>
   <script src="../js/tenant-manager/tenant-home.js"></script>

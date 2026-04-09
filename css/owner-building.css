@@ -850,9 +850,33 @@ body.dark-mode .apartment-edit-modal__backdrop{
 body.dark-mode .apartment-edit-modal .item input,
 body.dark-mode .apartment-edit-modal .item select,
 body.dark-mode .apartment-edit-modal .item textarea{
-  background:#020617;
+  background-color:#0f172a !important;
+  background-image:none !important;
   border-color:rgba(148,163,184,.35);
-  color:#e5edf7;
+  color:#f8fafc !important;
+  -webkit-text-fill-color:#f8fafc !important;
+  caret-color:#f8fafc;
+  color-scheme:dark;
+}
+
+body.dark-mode .apartment-edit-modal .item input[type="text"],
+body.dark-mode .apartment-edit-modal .item textarea{
+  font-weight:500;
+  -webkit-font-smoothing:antialiased;
+  transform:translateZ(0);
+}
+
+body.dark-mode .apartment-edit-modal .item input:-webkit-autofill,
+body.dark-mode .apartment-edit-modal .item input:-webkit-autofill:hover,
+body.dark-mode .apartment-edit-modal .item input:-webkit-autofill:focus,
+body.dark-mode .apartment-edit-modal .item input:-webkit-autofill:active{
+  -webkit-box-shadow:0 0 0 1000px #0f172a inset !important;
+  box-shadow:0 0 0 1px rgba(148,163,184,.35) inset !important;
+  -webkit-text-fill-color:#f8fafc !important;
+  caret-color:#f8fafc;
+  color:#f8fafc !important;
+  border:1px solid rgba(148,163,184,.35) !important;
+  transition:background-color 99999s ease-out 0s;
 }
 
 body.dark-mode .building-stat-item,

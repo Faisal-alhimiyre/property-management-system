@@ -1,87 +1,90 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
+  <script>(function(){try{var l=localStorage.getItem('walajna_language')||'ar';document.documentElement.setAttribute('lang',l==='en'?'en':'ar');document.documentElement.setAttribute('dir',l==='en'?'ltr':'rtl');}catch(e){}})();</script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>إضافة عمارة - ولجنا</title>
+  <title data-i18n="meta.ownerEdit">إضافة عمارة - ولجنا</title>
 
   <link rel="stylesheet" href="../css/theme.css">
   <link rel="stylesheet" href="../css/navstyle.css">
   <link rel="stylesheet" href="../css/owner-edit.css">
+  <script src="../js/main/walajna-i18n.js"></script>
 </head>
-<body data-nav="user">
+<body data-nav="user" data-wl-bc="owner-edit">
   <div id="navbar-container"></div>
 
   <main class="owner-form-page">
     <section class="form-card">
-      <h2 class="form-title">إضافة عمارة</h2>
-      <p class="form-subtitle">أدخل بيانات العمارة وعدد الشقق</p>
+      <h2 id="ownerFormTitle" class="form-title" data-i18n="owner.formTitleAdd">إضافة عمارة</h2>
+      <p class="form-subtitle" data-i18n="owner.formSubtitle">أدخل بيانات العمارة وعدد الشقق</p>
 
       <form id="buildingForm" class="building-form">
         <div class="form-group full">
-          <label for="buildingName">اسم العمارة</label>
-          <input type="text" id="buildingName" placeholder="مثال: عمارة الخالدية 1" required>
+          <label for="buildingName" data-i18n="owner.label.buildingName">اسم العمارة</label>
+          <input type="text" id="buildingName" data-i18n-placeholder="owner.ph.buildingName" placeholder="مثال: عمارة الخالدية 1" required>
         </div>
 
         <div class="form-group">
-          <label for="buildingCode">رمز العمارة</label>
+          <label for="buildingCode" data-i18n="owner.label.buildingCode">رمز العمارة</label>
           <input type="text" id="buildingCode" readonly class="form-input">
         </div>
 
         <div class="form-group select-group">
-          <label for="building-city">المدينة</label>
+          <label for="building-city" data-i18n="owner.label.city">المدينة</label>
           <select id="building-city" required>
-            <option value="">اختر المدينة</option>
+            <option value="" data-i18n="owner.selectCity">اختر المدينة</option>
           </select>
         </div>
 
         <div class="form-group full">
-          <label for="apartmentCount">عدد الشقق</label>
-          <input type="number" id="apartmentCount" min="1" placeholder="مثال: 14" required>
+          <label for="apartmentCount" data-i18n="owner.label.apartmentCount">عدد الشقق</label>
+          <input type="number" id="apartmentCount" min="1" data-i18n-placeholder="owner.ph.count" placeholder="مثال: 14" required>
         </div>
 
         <div class="form-group">
-          <label for="totalFloors">عدد الطوابق</label>
-          <input type="number" id="totalFloors" min="1" placeholder="مثال: 7" />
+          <label for="totalFloors" data-i18n="owner.label.totalFloors">عدد الطوابق</label>
+          <input type="number" id="totalFloors" min="1" data-i18n-placeholder="owner.ph.floors" placeholder="مثال: 7" />
         </div>
 
         <div class="form-group">
-          <label for="apartmentsPerFloor">عدد الشقق في كل طابق</label>
-          <input type="number" id="apartmentsPerFloor" min="1" placeholder="مثال: 2" />
-        </div>
-
-        <!-- NEW: apartment details -->
-        <div class="form-group">
-          <label for="bedrooms">عدد غرف النوم</label>
-          <input type="number" id="bedrooms" min="0" placeholder="مثال: 3" required>
+          <label for="apartmentsPerFloor" data-i18n="owner.label.apartmentsPerFloor">عدد الشقق في كل طابق</label>
+          <input type="number" id="apartmentsPerFloor" min="1" data-i18n-placeholder="owner.ph.perFloor" placeholder="مثال: 2" />
         </div>
 
         <div class="form-group">
-          <label for="bathrooms">عدد دورات المياه</label>
-          <input type="number" id="bathrooms" min="0" placeholder="مثال: 2" required>
+          <label for="bedrooms" data-i18n="apt.html.label.bedrooms">عدد غرف النوم</label>
+          <input type="number" id="bedrooms" min="0" data-i18n-placeholder="owner.ph.bedrooms" placeholder="مثال: 3" required>
         </div>
 
         <div class="form-group">
-          <label for="livingRooms">عدد غرف المعيشة</label>
-          <input type="number" id="livingRooms" min="0" placeholder="مثال: 1" required>
+          <label for="bathrooms" data-i18n="apt.html.label.bathrooms">عدد دورات المياه</label>
+          <input type="number" id="bathrooms" min="0" data-i18n-placeholder="owner.ph.bathrooms" placeholder="مثال: 2" required>
+        </div>
+
+        <div class="form-group">
+          <label for="livingRooms" data-i18n="apt.html.label.livingRooms">عدد غرف المعيشة</label>
+          <input type="number" id="livingRooms" min="0" data-i18n-placeholder="owner.ph.livingRooms" placeholder="مثال: 1" required>
         </div>
 
         <div class="form-group select-group">
-          <label for="defaultPaymentCycle">دورة الدفع الافتراضية</label>
+          <label for="defaultPaymentCycle" data-i18n="owner.label.defaultPaymentCycle">دورة الدفع الافتراضية</label>
           <select id="defaultPaymentCycle" required>
-            <option value="monthly">شهري</option>
-            <option value="quarterly">ربع سنوي</option>
-            <option value="semi_annual">نصف سنوي</option>
-            <option value="annual">سنوي</option>
+            <option value="monthly" data-i18n="payments.cycle.monthly">شهري</option>
+            <option value="quarterly" data-i18n="payments.cycle.quarterly">ربع سنوي</option>
+            <option value="semi_annual" data-i18n="payments.cycle.semi">نصف سنوي</option>
+            <option value="annual" data-i18n="payments.cycle.annual">سنوي</option>
           </select>
         </div>
 
-        <button type="submit" class="save-btn">حفظ العمارة</button>
+        <button type="submit" class="save-btn" data-i18n="owner.saveBuilding">حفظ العمارة</button>
         <p id="formMessage" class="form-message"></p>
       </form>
     </section>
   </main>
 
+  <script src="../js/main/breadcrumbs.js"></script>
+  <script src="../js/main/global-back.js"></script>
   <script src="../js/main/nav.js"></script>
   <script src="../js/main/auth.js"></script>
   <script src="../js/owner-manager/owner-edit.js"></script>

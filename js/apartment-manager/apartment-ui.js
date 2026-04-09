@@ -36,6 +36,10 @@ function applyLeaseStatusStyle(statusElement, leaseStatus) {
    ======================================== */
 
 function fillApartmentInfoUI(data, buildingData) {
+  const T = (k, p) =>
+    window.walajna_language && window.walajna_language.t
+      ? window.walajna_language.t(k, p)
+      : k;
 
   const title = document.getElementById("aptTitle");
   const roleLabel = document.getElementById("pageRoleLabel");
@@ -62,7 +66,8 @@ function fillApartmentInfoUI(data, buildingData) {
 
 
   if (title) {
-    title.textContent = `تفاصيل الشقة ${data.number || ""}`.trim();
+    const n = data.number || "";
+    title.textContent = n ? `${T("apt.detailsTitle")} ${n}`.trim() : T("apt.detailsTitle");
   }
 
   if (roleLabel) {
@@ -71,8 +76,8 @@ function fillApartmentInfoUI(data, buildingData) {
 
     roleLabel.textContent =
       activeRole === "owner"
-        ? "عرض المالك"
-        : "عرض المستأجر";
+        ? T("apt.viewOwner")
+        : T("apt.viewTenant");
   }
 
 
@@ -94,8 +99,8 @@ function fillApartmentInfoUI(data, buildingData) {
   if (rent)
     rent.textContent =
       data.rent
-        ? `${data.rent} ريال`
-        : "—";
+        ? `${data.rent} ${T("common.sar")}`
+        : T("common.dash");
 
 
   if (startDate)
@@ -126,8 +131,8 @@ function fillApartmentInfoUI(data, buildingData) {
   if (insurancePaid)
     insurancePaid.textContent =
       contract.insurancePaid
-        ? `${contract.insurancePaid} ريال`
-        : "—";
+        ? `${contract.insurancePaid} ${T("common.sar")}`
+        : T("common.dash");
 
   if (phoneNumber)
     phoneNumber.textContent =

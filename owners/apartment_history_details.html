@@ -1,173 +1,153 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
+  <script>(function(){try{var l=localStorage.getItem("walajna_language")||"ar";document.documentElement.setAttribute("lang",l==="en"?"en":"ar");document.documentElement.setAttribute("dir",l==="en"?"ltr":"rtl");}catch(e){}})();</script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>تفاصيل المستأجر السابق</title>
-
+  <title data-i18n="meta.historyDetails"></title>
   <link rel="stylesheet" href="../css/theme.css" />
   <link rel="stylesheet" href="../css/navstyle.css" />
   <link rel="stylesheet" href="../css/apartment-history-details.css" />
+  <script src="../js/main/walajna-i18n.js"></script>
 </head>
-<body data-nav="user">
-  <div id ="navbar-container"></div>
+<body data-nav="user" data-wl-bc="apartment-history-details">
+  <div id="navbar-container"></div>
   <main class="history-details-page">
     <section class="history-hero">
       <div class="history-hero__top">
-        <button type="button" class="back-btn" onclick="history.back()">رجوع</button>
-
-        <div class="history-badge">
-          سجل مستأجر سابق
-        </div>
+        <div class="history-badge" data-i18n="historyDet.badge"></div>
       </div>
-
       <div class="history-hero__content">
         <div>
-          <h1 id="pageTitle" class="page-title">تفاصيل المستأجر السابق</h1>
+          <h1 id="pageTitle" class="page-title"></h1>
           <p id="pageSubtitle" class="page-subtitle">—</p>
         </div>
-
         <div class="hero-stats">
           <div class="hero-stat">
-            <span class="hero-stat__label">بداية العقد</span>
+            <span class="hero-stat__label" data-i18n="history.label.start"></span>
             <strong id="heroStartDate">—</strong>
           </div>
-
           <div class="hero-stat">
-            <span class="hero-stat__label">نهاية العقد</span>
+            <span class="hero-stat__label" data-i18n="history.label.end"></span>
             <strong id="heroEndDate">—</strong>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="history-note">
-      هذه الصفحة تعرض بيانات محفوظة من سجل الشقة، وهي للعرض فقط وليست بيانات المستأجر الحالي.
-    </section>
+    <section class="history-note" data-i18n="historyDet.noteBanner"></section>
 
     <section class="details-grid">
       <article class="info-card">
-        <h2 class="section-title">معلومات الشقة</h2>
+        <h2 class="section-title" data-i18n="historyDet.sectionApt"></h2>
         <div class="info-grid">
           <div class="info-item">
-            <span class="label">رقم الشقة</span>
+            <span class="label" data-i18n="aptInfo.aptNumber"></span>
             <strong id="aptNumber">—</strong>
           </div>
-
           <div class="info-item">
-            <span class="label">اسم العمارة</span>
+            <span class="label" data-i18n="aptInfo.buildingName"></span>
             <strong id="buildingName">—</strong>
           </div>
-
           <div class="info-item">
-            <span class="label">الدور</span>
+            <span class="label" data-i18n="common.floorWord"></span>
             <strong id="floorNumber">—</strong>
           </div>
-
           <div class="info-item">
-            <span class="label">الإيجار</span>
+            <span class="label" data-i18n="lease.rentValue"></span>
             <strong id="rentAmount">—</strong>
           </div>
         </div>
       </article>
 
       <article class="info-card">
-        <h2 class="section-title">معلومات المستأجر</h2>
+        <h2 class="section-title" data-i18n="historyDet.sectionTenant"></h2>
         <div class="info-grid">
           <div class="info-item">
-            <span class="label">الاسم الكامل</span>
+            <span class="label" data-i18n="auth.fullName"></span>
             <strong id="tenantFullName">—</strong>
           </div>
-
           <div class="info-item">
-            <span class="label">الجنسية</span>
+            <span class="label" data-i18n="aptInfo.nationality"></span>
             <strong id="tenantNationality">—</strong>
           </div>
-
           <div class="info-item">
-            <span class="label">الجوال</span>
+            <span class="label" data-i18n="settings.label.phone"></span>
             <strong id="phoneNumber">—</strong>
           </div>
-
           <div class="info-item">
-            <span class="label">رقم الهوية</span>
+            <span class="label" data-i18n="aptInfo.ownerNationalId"></span>
             <strong id="identityNumber">—</strong>
           </div>
-
           <div class="info-item">
-            <span class="label">نوع السكن</span>
+            <span class="label" data-i18n="lease.tenantType"></span>
             <strong id="tenantType">—</strong>
           </div>
-
           <div class="info-item">
-            <span class="label">تاريخ الأرشفة</span>
+            <span class="label" data-i18n="historyDet.archiveDate"></span>
             <strong id="archivedAt">—</strong>
           </div>
         </div>
       </article>
 
       <article class="info-card">
-        <h2 class="section-title">معلومات إضافية</h2>
+        <h2 class="section-title" data-i18n="historyDet.sectionExtra"></h2>
         <div class="info-grid">
           <div class="info-item">
-            <span class="label">بداية العقد</span>
+            <span class="label" data-i18n="history.label.start"></span>
             <strong id="startDate">—</strong>
           </div>
-
           <div class="info-item">
-            <span class="label">نهاية العقد</span>
+            <span class="label" data-i18n="history.label.end"></span>
             <strong id="endDate">—</strong>
           </div>
-
           <div class="info-item">
-            <span class="label">رقم العداد</span>
+            <span class="label" data-i18n="lease.meter"></span>
             <strong id="meterNumber">—</strong>
           </div>
-
           <div class="info-item">
-            <span class="label">التأمين</span>
+            <span class="label" data-i18n="lease.insurance"></span>
             <strong id="insurancePaid">—</strong>
           </div>
-
           <div class="info-item full">
-            <span class="label">ملاحظات</span>
+            <span class="label" data-i18n="common.note"></span>
             <strong id="notes">—</strong>
           </div>
         </div>
       </article>
 
       <article class="info-card">
-        <h2 class="section-title">مستندات وأقسام مرتبطة</h2>
+        <h2 class="section-title" data-i18n="historyDet.sectionDocs"></h2>
         <div class="actions-grid">
-          <button id="viewRequestsBtn" class="action-btn secondary">طلبات المستأجر</button>
-          <button id="openContractBtn" class="action-btn">عرض العقد</button>
-          <button id="viewPaymentsBtn" class="action-btn secondary">المدفوعات</button>
-          <button id="viewCostsBtn" class="action-btn secondary">التكاليف</button>
+          <button id="viewRequestsBtn" type="button" class="action-btn secondary" data-i18n="historyDet.tenantRequestsBtn"></button>
+          <button id="openContractBtn" type="button" class="action-btn" data-i18n="historyDet.viewContract"></button>
+          <button id="viewPaymentsBtn" type="button" class="action-btn secondary" data-i18n="historyDet.payments"></button>
+          <button id="viewCostsBtn" type="button" class="action-btn secondary" data-i18n="historyDet.costs"></button>
         </div>
-
-        <div id="contractHint" class="helper-text">سيتم فتح عقد هذا المستأجر إذا وُجد.</div>
+        <div id="contractHint" class="helper-text" data-i18n="historyDet.contractHelper"></div>
       </article>
     </section>
   </main>
+
   <div id="requestsModal" class="history-modal" aria-hidden="true">
-  <div class="history-modal__backdrop"></div>
-
-  <div class="history-modal__panel">
-    <div class="history-modal__header">
-      <div>
-        <h3 class="history-modal__title">طلبات المستأجر</h3>
-        <p class="history-modal__subtitle">عرض جميع الطلبات المرتبطة بهذا السجل</p>
+    <div class="history-modal__backdrop"></div>
+    <div class="history-modal__panel">
+      <div class="history-modal__header">
+        <div>
+          <h3 class="history-modal__title" data-i18n="historyDet.modalTitle"></h3>
+          <p class="history-modal__subtitle" data-i18n="historyDet.modalSub"></p>
+        </div>
+        <button type="button" id="closeRequestsModalBtn" class="history-modal__close" data-i18n-aria-label="common.close" aria-label="">×</button>
       </div>
-
-      <button type="button" id="closeRequestsModalBtn" class="history-modal__close">×</button>
-    </div>
-
-    <div id="requestsModalBody" class="history-modal__body">
-      <div class="history-request-empty">لا توجد طلبات محفوظة لهذا السجل</div>
+      <div id="requestsModalBody" class="history-modal__body">
+        <div class="history-request-empty" data-i18n="historyDet.requestsEmpty"></div>
+      </div>
     </div>
   </div>
-</div>
+
   <script src="../js/main/theme.js"></script>
+  <script src="../js/main/breadcrumbs.js"></script>
+  <script src="../js/main/global-back.js"></script>
   <script src="../js/main/nav.js"></script>
   <script src="../js/apartment-manager/apartment-history-details.js"></script>
 </body>

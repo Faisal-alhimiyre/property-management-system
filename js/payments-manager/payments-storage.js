@@ -5,7 +5,11 @@
     try {
       return JSON.parse(localStorage.getItem(PAYMENTS_KEY) || "[]");
     } catch (error) {
-      console.error("خطأ في قراءة المدفوعات:", error);
+      const pre =
+        window.walajna_language && window.walajna_language.t
+          ? window.walajna_language.t("console.paymentsReadError")
+          : "Error reading payments:";
+      console.error(pre, error);
       return [];
     }
   }

@@ -1,4 +1,9 @@
 document.addEventListener("DOMContentLoaded", () => {
+  const T = (k, p) =>
+    window.walajna_language && window.walajna_language.t
+      ? window.walajna_language.t(k, p)
+      : k;
+
   /* =========================
      1) PAGE ELEMENTS
      ========================= */
@@ -11,9 +16,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const rent = document.getElementById("rentAmount");
 
   const floorNumberEl = document.getElementById("floorNumber");
-  const roomsCountEl = document.getElementById("roomsCount");
-  const bathroomsCountEl = document.getElementById("bathroomsCount");
-  const livingRoomsCountEl = document.getElementById("livingRoomsCount");
+  const bedroomsEl = document.getElementById("bedrooms");
+  const bathroomsEl = document.getElementById("bathrooms");
+  const livingRoomsEl = document.getElementById("livingRooms");
 
   const tenantFullNameEl = document.getElementById("tenantFullName");
   const tenantNationalityEl = document.getElementById("tenantNationality");
@@ -51,7 +56,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const currentUser = getCurrentUser();
 
   if (!aptId) {
-    if (title) title.textContent = "لم يتم العثور على الشقة";
+    if (title) title.textContent = T("aptPage.notFound");
     return;
   }
 
@@ -65,7 +70,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let data = apartments.find((apt) => apt.id === aptId);
 
   if (!data) {
-    if (title) title.textContent = "لم يتم العثور على الشقة";
+    if (title) title.textContent = T("aptPage.notFound");
     return;
   }
 
@@ -75,25 +80,34 @@ document.addEventListener("DOMContentLoaded", () => {
      4) HELPERS
      ========================= */
   function formatMoney(value) {
-    return `${Number(value || 0).toLocaleString("en-US")} ريال`;
+    const loc =
+      window.walajna_language && window.walajna_language.get() === "en"
+        ? "en-SA"
+        : "ar-SA";
+    return `${Number(value || 0).toLocaleString(loc)} ${T("common.sar")}`;
   }
 
   function formatDate(dateString) {
     if (!dateString) return "—";
     const date = new Date(dateString);
     if (Number.isNaN(date.getTime())) return dateString;
-    return date.toLocaleDateString("en-GB");
+    const loc =
+      window.walajna_language && window.walajna_language.get() === "en"
+        ? "en-GB"
+        : "ar-SA";
+    return date.toLocaleDateString(loc);
   }
 
   function getPaymentCycleLabel(cycle) {
-    const labels = {
-      monthly: "شهري",
-      quarterly: "ربع سنوي",
-      semi_annual: "نصف سنوي",
-      annual: "سنوي",
-    };
-
-    return labels[cycle] || "شهري";
+    const k =
+      cycle === "quarterly"
+        ? "payments.cycle.quarterly"
+        : cycle === "semi_annual"
+          ? "payments.cycle.semi"
+          : cycle === "annual"
+            ? "payments.cycle.annual"
+            : "payments.cycle.monthly";
+    return T(k);
   }
    function getCurrentContractId() {
   return (
@@ -147,17 +161,17 @@ document.addEventListener("DOMContentLoaded", () => {
   function getLeaseStatusLabel(leaseStatus) {
     switch (leaseStatus) {
       case "ending_soon":
-        return "قريب الانتهاء";
+        return T("aptLease.ending_soon");
       case "ended":
-        return "منتهي";
+        return T("aptLease.ended");
       case "overdue":
-        return "متأخرة";
+        return T("aptLease.overdue_state");
       case "occupied":
       case "active":
-        return "مؤجرة";
+        return T("aptLease.rented");
       case "vacant":
       default:
-        return "فارغة";
+        return T("aptLease.vacant_label");
     }
   }
 
@@ -248,8 +262,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const annualRent = monthlyRent * 12;
 
-    rent.textContent =
-      `${formatMoney(annualRent)} سنويًا • ${formatMoney(installmentAmount)} لكل دفعة (${cycleLabel})`;
+    rent.textContent = T("aptPage.annualSummary", {
+      a: formatMoney(annualRent),
+      i: formatMoney(installmentAmount),
+      c: cycleLabel,
+    });
   }
 
  function getPaymentsForApartment() {
@@ -263,7 +280,7 @@ document.addEventListener("DOMContentLoaded", () => {
       ? payments.filter((payment) => payment.contractId === contractId)
       : [];
   } catch (error) {
-    console.error("خطأ أثناء قراءة المدفوعات:", error);
+    console.error(T("aptPage.payError"), error);
     return [];
   }
 }
@@ -302,7 +319,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (!apartment) {
     return {
       allowed: false,
-      message: "لم يتم العثور على بيانات الشقة",
+      message: T("building.aptDataMissing"),
     };
   }
 
@@ -315,7 +332,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (!currentContractId) {
     return {
       allowed: false,
-      message: "لا يمكن إخلاء شقة لا تحتوي على عقد حالي",
+      message: T("building.noContractVacate"),
     };
   }
 
@@ -347,7 +364,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (diffDays < 30) {
     return {
       allowed: false,
-      message: "لا يمكن إخلاء المستأجر قبل مرور 30 يومًا من بداية العقد",
+      message: T("building.vacateTooSoon"),
     };
   }
 
@@ -364,7 +381,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (effectiveLeaseStatus === "vacant") {
       dateEl.textContent = "";
-      amountEl.textContent = "لا يوجد دفعات";
+      amountEl.textContent = T("aptPage.noPayments");
       return;
     }
 
@@ -372,7 +389,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!nextPayment) {
       dateEl.textContent = "";
-      amountEl.textContent = "لا يوجد دفعات";
+      amountEl.textContent = T("aptPage.noPayments");
       return;
     }
 
@@ -380,7 +397,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const today = new Date();
 
     const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
-    const formattedDate = dueDate.toLocaleDateString("en-GB");
+    const loc =
+      window.walajna_language && window.walajna_language.get() === "en"
+        ? "en-GB"
+        : "ar-SA";
+    const formattedDate = dueDate.toLocaleDateString(loc);
 
     dateEl.textContent = "— " + formattedDate;
     amountEl.textContent = formatMoney(nextPayment.amount);
@@ -406,7 +427,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const aptNumber = data.number || data.apartmentNumber || "—";
     const buildingName = buildingData?.name || data.buildingName || "—";
 
-    title.textContent = `شقة ${aptNumber} ${buildingName}`;
+    title.textContent = T("aptPage.titleDynamic", {
+      n: aptNumber,
+      b: buildingName,
+    });
   }
 
   function fillExtraApartmentInfo() {
@@ -415,18 +439,25 @@ document.addEventListener("DOMContentLoaded", () => {
         data.floorNumber ?? data.contract?.floorNumber ?? "—";
     }
 
-    if (roomsCountEl) {
-      roomsCountEl.textContent =
-        data.roomsCount ?? data.contract?.roomsCount ?? "—";
+    if (bedroomsEl) {
+      bedroomsEl.textContent =
+        data.bedrooms ??
+        data.roomsCount ??
+        data.contract?.roomsCount ??
+        data.contract?.bedrooms ??
+        "—";
     }
 
-    if (bathroomsCountEl) {
-      bathroomsCountEl.textContent =
-        data.bathroomsCount ?? data.contract?.bathroomsCount ?? "—";
+    if (bathroomsEl) {
+      bathroomsEl.textContent =
+        data.bathrooms ??
+        data.bathroomsCount ??
+        data.contract?.bathroomsCount ??
+        "—";
     }
 
-    if (livingRoomsCountEl) {
-      livingRoomsCountEl.textContent =
+    if (livingRoomsEl) {
+      livingRoomsEl.textContent =
         data.livingRoomsCount ?? data.contract?.livingRoomsCount ?? "—";
     }
   }
@@ -500,7 +531,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const nextPayment = getNextDuePayment(aptId);
 
     if (!nextPayment) {
-      alert("لا توجد دفعات مستحقة حاليًا");
+      alert(T("aptPage.noDuePayments"));
       return;
     }
 
@@ -527,7 +558,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const historyBtn = document.createElement("button");
     historyBtn.id = "apartmentHistoryBtn";
     historyBtn.type = "button";
-    historyBtn.textContent = "سجل الشقة";
+    historyBtn.textContent = T("aptPage.historyBtn");
 
     if (mainActionBtn) {
       historyBtn.className = mainActionBtn.className;
@@ -584,14 +615,14 @@ document.addEventListener("DOMContentLoaded", () => {
     if (activeRole === "owner") {
       if (effectiveLeaseStatus === "vacant") {
         if (mainActionBtn) {
-          mainActionBtn.textContent = "ربط مستأجر";
+          mainActionBtn.textContent = T("aptPage.linkTenant");
           showElement(mainActionBtn);
         }
         return;
       }
 
       if (mainActionBtn) {
-        mainActionBtn.textContent = "تعديل بيانات الشقة";
+        mainActionBtn.textContent = T("aptPage.editApt");
         showElement(mainActionBtn);
       }
 
@@ -619,7 +650,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (mainActionBtn) {
-      mainActionBtn.textContent = "طلب صيانة";
+      mainActionBtn.textContent = T("aptPage.maintenanceRequest");
       showElement(mainActionBtn);
     }
 
@@ -650,7 +681,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   if (roleLabel) {
-    roleLabel.textContent = activeRole === "owner" ? "عرض المالك" : "عرض المستأجر";
+    roleLabel.textContent =
+      activeRole === "owner" ? T("aptPage.viewOwner") : T("aptPage.viewTenant");
   }
 
   /* =========================
@@ -680,7 +712,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      // للمستأجر: نظام الطلبات مربوط أصلًا على نفس الزر من ملف requests
+      // Tenant: requests module binds the same button
     });
   }
 
@@ -701,7 +733,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (viewCostsBtn) {
     viewCostsBtn.addEventListener("click", () => {
       if (!aptId) {
-        alert("تعذر تحديد الشقة");
+        alert(T("aptPage.cannotIdentify"));
         return;
       }
 
@@ -715,11 +747,11 @@ document.addEventListener("DOMContentLoaded", () => {
   if (renewContractBtn) {
     renewContractBtn.addEventListener("click", () => {
       if (remainingDays === null || remainingDays > 30) {
-        alert("يمكن تجديد العقد قبل شهر من نهايته فقط");
+        alert(T("aptPage.renewWindow"));
         return;
       }
 
-      alert("سيتم إضافة نظام تجديد العقد لاحقًا");
+      alert(T("aptPage.renewSoon"));
     });
   }
 
@@ -749,11 +781,11 @@ document.addEventListener("DOMContentLoaded", () => {
       : [];
 
     if (openRequests.length > 0) {
-      alert("لا يمكن إخلاء المستأجر قبل معالجة جميع الطلبات المفتوحة");
+      alert(T("aptPage.evacBlockedRequests"));
       return;
     }
 
-    if (!confirm("هل أنت متأكد من إخلاء المستأجر؟ سيتم حفظه في سجل الشقة.")) return;
+    if (!confirm(T("aptPage.confirmEvict"))) return;
 
     const updatedApartments = getApartments().map((apt) => {
       if (apt.id !== aptId) return apt;
@@ -782,16 +814,49 @@ document.addEventListener("DOMContentLoaded", () => {
         contract: {},
         currentContractId: null,
         leaseStatus: "vacant",
-        status: "فارغة",
+        status:
+          typeof getStatusLabel === "function"
+            ? getStatusLabel("vacant")
+            : T("lease.status.vacant"),
       };
     });
 
     saveApartments(updatedApartments);
 
-    alert("تم إخلاء المستأجر وحفظه في سجل الشقة");
+    alert(T("aptPage.evicted"));
     window.location.reload();
   });
 }
+
+  function refreshI18nTexts() {
+    if (window.walajna_language && window.walajna_language.apply) {
+      window.walajna_language.apply(document.body);
+    }
+    fillApartmentInfoUI(data, buildingData);
+    updatePageTitle();
+    updateRentDisplay(contract);
+    fillExtraApartmentInfo();
+    fillTenantInfo();
+    fillAdditionalInfo();
+    fillOwnerInfoForTenantOnly();
+    updateNextPaymentInfo(aptId);
+    if (status) {
+      status.textContent = getLeaseStatusLabel(data.leaseStatus || effectiveLeaseStatus);
+      if (typeof applyLeaseStatusStyle === "function") {
+        applyLeaseStatusStyle(status, data.leaseStatus || effectiveLeaseStatus);
+      }
+    }
+    if (roleLabel) {
+      roleLabel.textContent =
+        activeRole === "owner" ? T("aptPage.viewOwner") : T("aptPage.viewTenant");
+    }
+    applyActionVisibility();
+    ensureHistoryButton();
+    const hb = document.getElementById("apartmentHistoryBtn");
+    if (hb) hb.textContent = T("aptPage.historyBtn");
+  }
+
+  document.addEventListener("walajna:i18n-applied", refreshI18nTexts);
 
   /* =========================
      13) CLICKABLE CARDS (GLOBAL)

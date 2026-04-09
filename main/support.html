@@ -1,42 +1,44 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
+  <script>(function(){try{var l=localStorage.getItem("walajna_language")||"ar";document.documentElement.setAttribute("lang",l==="en"?"en":"ar");document.documentElement.setAttribute("dir",l==="en"?"ltr":"rtl");}catch(e){}})();</script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ولاجنا | الدعم الفني</title>
+  <title data-i18n="meta.supportTitle"></title>
   <link rel="stylesheet" href="../css/theme.css" />
   <link rel="stylesheet" href="../css/support.css" />
+  <script src="../js/main/walajna-i18n.js"></script>
 </head>
-<body data-nav="user">
-
- <div id="navbar-container"> </div>
+<body data-nav="user" data-wl-bc="support">
+  <div id="navbar-container"></div>
 
   <main class="wrap">
-    <section class="chat" id="chat" aria-label="Live chat">
-      <!-- Welcome message -->
+    <section class="chat" id="chat" data-i18n-aria-label="support.ariaChat" aria-label="">
       <div class="msg bot">
         <div class="bubble">
-          أهلًا 👋 أنا دعم ولاجنا. اختر موضوعًا أو اكتب سؤالك.
+          <span data-i18n="support.welcome"></span>
           <div class="chips">
-            <button class="chip" data-q="نسيت كلمة المرور">نسيت كلمة المرور</button>
-            <button class="chip" data-q="مشكلة تسجيل الدخول">مشكلة تسجيل الدخول</button>
-            <button class="chip" data-q="الهوية الوطنية غير صحيحة">الهوية الوطنية</button>
-            <button class="chip" data-q="كيف أربط مستأجر بالشقة؟">ربط مستأجر</button>
-            <button class="chip" data-q="كيف أضيف مبنى وشقق؟">إضافة مبنى</button>
+            <button type="button" class="chip" data-q="forgot password" data-i18n="support.chipForgot"></button>
+            <button type="button" class="chip" data-q="login problem" data-i18n="support.chipLogin"></button>
+            <button type="button" class="chip" data-q="national id" data-i18n="support.chipNationalId"></button>
+            <button type="button" class="chip" data-q="link tenant" data-i18n="support.chipTenant"></button>
+            <button type="button" class="chip" data-q="add building" data-i18n="support.chipBuilding"></button>
           </div>
         </div>
-        <div class="meta">الآن</div>
+        <div class="meta" data-i18n="support.now"></div>
       </div>
     </section>
 
     <form class="composer" id="form">
-      <input id="input" type="text" placeholder="اكتب رسالتك هنا..." autocomplete="off" />
-      <button class="send" type="submit">إرسال</button>
+      <input id="input" type="text" data-i18n-placeholder="support.placeholder" placeholder="" autocomplete="off" />
+      <button class="send" type="submit" data-i18n="support.send"></button>
     </form>
   </main>
 
   <script src="../js/main/theme.js"></script>
   <script src="../js/main/support.js"></script>
+  <script src="../js/main/breadcrumbs.js"></script>
+  <script src="../js/main/global-back.js"></script>
   <script src="../js/main/nav.js"></script>
 </body>
 </html>

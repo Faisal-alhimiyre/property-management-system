@@ -1,4 +1,16 @@
 (function () {
+  function wt(k, p) {
+    return window.walajna_language && window.walajna_language.t
+      ? window.walajna_language.t(k, p)
+      : k;
+  }
+
+  function numLocale() {
+    return window.walajna_language && window.walajna_language.get() === "en"
+      ? "en-SA"
+      : "ar-SA";
+  }
+
   function generatePaymentId() {
     return "PAY_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
   }
@@ -32,7 +44,7 @@
 
   function formatCurrency(value) {
     const amount = Number(value || 0);
-    return `${amount.toLocaleString("en-US")} ريال`;
+    return `${amount.toLocaleString(numLocale())} ${wt("common.sar")}`;
   }
 
   function formatDate(dateString) {
@@ -41,21 +53,25 @@
     const date = new Date(dateString);
     if (Number.isNaN(date.getTime())) return dateString;
 
-    return date.toLocaleDateString("en-GB");
+    const loc =
+      window.walajna_language && window.walajna_language.get() === "en"
+        ? "en-GB"
+        : "ar-SA";
+    return date.toLocaleDateString(loc);
   }
 
   function getPaymentStatusLabel(status) {
     switch (status) {
       case "paid":
-        return "مدفوع";
+        return wt("payments.paid");
       case "pending":
-        return "مستحق";
+        return wt("payments.due");
       case "overdue":
-        return "متأخر";
+        return wt("payments.overdue");
       case "cancelled":
-        return "ملغي";
+        return wt("payments.cancelled");
       default:
-        return "غير معروف";
+        return wt("payments.unknown");
     }
   }
 
@@ -116,14 +132,14 @@
   function getPaymentCycleLabel(paymentCycle) {
     switch (paymentCycle) {
       case "quarterly":
-        return "ربع سنوي";
+        return wt("payments.cycle.quarterly");
       case "semi_annual":
-        return "نصف سنوي";
+        return wt("payments.cycle.semi");
       case "annual":
-        return "سنوي";
+        return wt("payments.cycle.annual");
       case "monthly":
       default:
-        return "شهري";
+        return wt("payments.cycle.monthly");
     }
   }
 
@@ -220,7 +236,7 @@
 
     const payments = [];
 
-    // أول دفعة جزئية فقط إذا كانت البداية ليست يوم 1
+    // Partial first installment when contract does not start on the 1st
     const startsMidMonth = start.getDate() !== 1;
 
     if (startsMidMonth) {
@@ -242,7 +258,7 @@
 
         createdAt: new Date().toISOString(),
 
-        notes: "الدفعة الأولى الجزئية",
+        notes: wt("payments.firstPartialNote"),
         receiptDocumentId: null,
 
         paymentCycle,
@@ -288,7 +304,7 @@
       return payments;
     }
 
-    // إذا البداية يوم 1 يمشي طبيعي
+    // Standard schedule when start is on the 1st
     let current = new Date(start);
 
     while (current <= end) {
@@ -338,8 +354,8 @@
   function calculatePaymentsSummary(payments) {
   const normalized = normalizePaymentStatuses(payments);
 
-  let annualOriginalTotal = 0;   // الأصل قبل أي خصم
-  let adjustedTotal = 0;         // بعد الخصومات والتعديلات
+  let annualOriginalTotal = 0;
+  let adjustedTotal = 0;
   let paid = 0;
   let overdue = 0;
   let pending = 0;
@@ -411,7 +427,10 @@
       return {
         type: "overdue",
         payment: nextPayment,
-        message: `يوجد دفعة متأخرة منذ ${formatDate(nextPayment.dueDate)} بمبلغ ${formatCurrency(nextPayment.amount)}`,
+        message: wt("payments.remindOverdue", {
+          d: formatDate(nextPayment.dueDate),
+          a: formatCurrency(nextPayment.amount),
+        }),
       };
     }
 
@@ -423,7 +442,10 @@
       return {
         type: "upcoming",
         payment: nextPayment,
-        message: `تذكير: توجد دفعة قادمة بتاريخ ${formatDate(nextPayment.dueDate)} بمبلغ ${formatCurrency(nextPayment.amount)}`,
+        message: wt("payments.remindUpcoming", {
+          d: formatDate(nextPayment.dueDate),
+          a: formatCurrency(nextPayment.amount),
+        }),
       };
     }
 

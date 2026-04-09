@@ -1,21 +1,9 @@
-document.addEventListener("DOMContentLoaded", () => {
-  const container = document.getElementById("navbar-container");
-  if (!container) return;
-
-  fetch("../main/navigation.html")
-    .then((res) => {
-      if (!res.ok) throw new Error("Navbar file not found: " + res.status);
-      return res.text();
-    })
-    .then((html) => {
-      container.innerHTML = html;
-      setupNavbar();
-    })
-    .catch((err) => {
-      console.error(err);
-      container.innerHTML = "<div style='padding:10px'>لم يتم تحميل شريط التنقل</div>";
-    });
-});
+function wlT(key, params) {
+  if (window.walajna_language && typeof window.walajna_language.t === "function") {
+    return window.walajna_language.t(key, params);
+  }
+  return key;
+}
 
 function setupNavbar() {
   const navType = document.body.dataset.nav || "user";
@@ -39,33 +27,30 @@ function setupNavbar() {
   const settingsLink = document.getElementById("nav-settings");
 
   if (!homeLink || !link2 || !link3 || !link4 || !logoLink || !supportLink || !settingsLink) {
-    console.warn("بعض عناصر الناف غير موجودة");
+    console.warn(wlT("nav.warnMissing"));
     return;
   }
 
   clearActiveLinks();
 
-  // =========================
-  // 1) GUEST NAV
-  // =========================
   if (navType === "guest") {
-    homeLink.textContent = "الرئيسية";
+    homeLink.textContent = wlT("nav.home");
     homeLink.href = "../main/homepage.html";
 
-    link2.textContent = "كيف يعمل؟";
+    link2.textContent = wlT("nav.howItWorks");
     link2.href = "../main/how-it-works.html";
 
-    link3.textContent = "من نحن";
+    link3.textContent = wlT("nav.about");
     link3.href = "../main/about.html";
 
-    link4.textContent = "تسجيل الدخول";
+    link4.textContent = wlT("nav.login");
     link4.href = "../auth/login.html";
 
     logoLink.href = "../index.html";
 
     supportLink.href = "../main/contact.html";
-    supportLink.title = "تواصل معنا";
-    supportLink.setAttribute("aria-label", "تواصل معنا");
+    supportLink.title = wlT("nav.supportGuest");
+    supportLink.setAttribute("aria-label", wlT("nav.supportGuest"));
     supportLink.textContent = "✉️";
 
     settingsLink.style.display = "none";
@@ -74,9 +59,6 @@ function setupNavbar() {
     return;
   }
 
-  // =========================
-  // 2) USER NAV
-  // =========================
   let homeHref = "../auth/login.html";
 
   if (activeRole === "tenant") {
@@ -85,61 +67,55 @@ function setupNavbar() {
     homeHref = "../owners/owner_home.html";
   }
 
-  homeLink.textContent = "الرئيسية";
+  homeLink.textContent = wlT("nav.home");
   homeLink.href = homeHref;
 
-  // الخدمات تبقى كما هي
-  link2.textContent = "الخدمات";
+  link2.textContent = wlT("nav.services");
   link2.href = "../main/services.html";
 
-  link3.textContent = "الرسائل";
+  link3.textContent = wlT("nav.messages");
   link3.href = "../main/messages.html";
 
-  link4.textContent = "تسجيل الخروج";
+  link4.textContent = wlT("nav.logout");
   link4.href = "#";
-  link4.addEventListener("click", (e) => {
-  e.preventDefault();
-
-  const confirmed = window.confirm("هل أنت متأكد أنك تريد تسجيل الخروج؟");
-
-  if (!confirmed) return;
-
-  localStorage.removeItem("activeRole");
-  localStorage.removeItem("walajna_current_user");
-  window.location.href = "../auth/login.html";
- });
-  
+  link4.onclick = (e) => {
+    e.preventDefault();
+    const confirmed = window.confirm(wlT("nav.confirmLogout"));
+    if (!confirmed) return;
+    localStorage.removeItem("activeRole");
+    localStorage.removeItem("walajna_current_user");
+    window.location.href = "../auth/login.html";
+  };
 
   logoLink.href = homeHref;
 
   supportLink.href = "../main/support.html";
-  supportLink.title = "الدعم الفني";
-  supportLink.setAttribute("aria-label", "الدعم الفني");
+  supportLink.title = wlT("nav.support");
+  supportLink.setAttribute("aria-label", wlT("nav.support"));
   supportLink.textContent = "🎧";
 
   settingsLink.href = "../main/settings.html";
-  settingsLink.title = "الإعدادات";
-  settingsLink.setAttribute("aria-label", "الإعدادات");
+  settingsLink.title = wlT("nav.settings");
+  settingsLink.setAttribute("aria-label", wlT("nav.settings"));
   settingsLink.textContent = "⚙️";
   settingsLink.style.display = "grid";
 
-  // إضافة قائمة تبديل الدور فقط إذا عنده أكثر من رول
+  const existingSwitcher = document.getElementById("nav-role-switcher");
+  if (existingSwitcher) existingSwitcher.remove();
+
   if (roles.length > 1) {
-  insertRoleSwitcher({
-    roles,
-    activeRole,
-    afterElement: link4
-  });
-}
+    insertRoleSwitcher({
+      roles,
+      activeRole,
+      afterElement: link4
+    });
+  }
 
   setActiveLinkByPage(navType);
 }
 
 function insertRoleSwitcher({ roles, activeRole, afterElement }) {
-
   if (!afterElement) return;
-
-  if (document.getElementById("nav-role-switcher")) return;
 
   const wrapper = document.createElement("div");
   wrapper.className = "nav-role-switcher";
@@ -149,38 +125,32 @@ function insertRoleSwitcher({ roles, activeRole, afterElement }) {
   select.className = "nav-role-switcher__select";
 
   const roleLabels = {
-    owner: "مالك",
-    tenant: "مستأجر"
+    owner: wlT("common.owner"),
+    tenant: wlT("common.tenantRole")
   };
 
   roles.forEach((role) => {
     const option = document.createElement("option");
     option.value = role;
     option.textContent = roleLabels[role] || role;
-
     if (role === activeRole) option.selected = true;
-
     select.appendChild(option);
   });
 
   select.addEventListener("change", () => {
-
     const newRole = select.value;
-
     localStorage.setItem("activeRole", newRole);
-
     if (newRole === "owner") {
       window.location.href = "../owners/owner_home.html";
     } else {
       window.location.href = "../tenants/tenant_home.html";
     }
-
   });
 
   wrapper.appendChild(select);
-
   afterElement.insertAdjacentElement("afterend", wrapper);
 }
+
 function clearActiveLinks() {
   document.querySelectorAll(".walajna-topbar__nav a").forEach((link) => {
     link.classList.remove("is-active");
@@ -195,6 +165,8 @@ function setActiveLinkByPage(navType) {
   const link3 = document.getElementById("nav-link-3");
   const link4 = document.getElementById("nav-link-4");
 
+  if (!homeLink || !link2 || !link3 || !link4) return;
+
   if (navType === "guest") {
     if (currentPath.includes("index")) {
       homeLink.classList.add("is-active");
@@ -208,10 +180,7 @@ function setActiveLinkByPage(navType) {
     return;
   }
 
-  if (
-    currentPath.includes("owner_home") ||
-    currentPath.includes("tenant_home")
-  ) {
+  if (currentPath.includes("owner_home") || currentPath.includes("tenant_home")) {
     homeLink.classList.add("is-active");
   } else if (currentPath.includes("services")) {
     link2.classList.add("is-active");
@@ -219,3 +188,35 @@ function setActiveLinkByPage(navType) {
     link3.classList.add("is-active");
   }
 }
+
+function initNavbar() {
+  const container = document.getElementById("navbar-container");
+  if (!container) return;
+
+  fetch("../main/navigation.html")
+    .then((res) => {
+      if (!res.ok) throw new Error("Navbar file not found: " + res.status);
+      return res.text();
+    })
+    .then((html) => {
+      container.innerHTML = html;
+      if (window.walajna_language && typeof window.walajna_language.apply === "function") {
+        window.walajna_language.apply(container);
+      }
+      setupNavbar();
+      if (typeof window.walajnaInitGlobalBack === "function") {
+        window.walajnaInitGlobalBack();
+      }
+    })
+    .catch((err) => {
+      console.error(err);
+      container.innerHTML =
+        "<div style='padding:10px'>" + wlT("nav.loadError") + "</div>";
+    });
+}
+
+document.addEventListener("DOMContentLoaded", initNavbar);
+
+document.addEventListener("walajna:i18n-applied", () => {
+  if (document.getElementById("nav-home")) setupNavbar();
+});

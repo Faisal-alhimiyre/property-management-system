@@ -1,3 +1,9 @@
+function wlT(key, params) {
+  return window.walajna_language && window.walajna_language.t
+    ? window.walajna_language.t(key, params)
+    : key;
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   requireAuth();
   requireRole('owner');
@@ -121,7 +127,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         const payload = {
           owner_id: Number(ownerId),
-          address: `${buildingInfo.name} - شقة ${apartmentNumber}`,
+          address: wlT("tenant.home.aptLine", { name: buildingInfo.name, num: apartmentNumber }),
           description: `WALAJNA_META:${JSON.stringify(meta)}`,
           rent: Number(apartment.rent || 0),
         };
@@ -266,9 +272,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function deleteBuilding(buildingId) {
-    const confirmed = confirm(
-      "هل أنت متأكد من حذف العمارة؟ سيتم حذف جميع الشقق والبيانات المرتبطة بها."
-    );
+    const confirmed = confirm(wlT("owner.confirmDeleteBuilding"));
     if (!confirmed) return;
 
     const allBuildings = getLocalArray("walajna_buildings");
@@ -315,7 +319,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     setLocalArray("walajna_costs", updatedCosts);
     setLocalArray("walajna_documents", updatedDocuments);
 
-    alert("تم حذف العمارة بنجاح");
+    alert(wlT("owner.buildingDeleted"));
     window.location.reload();
   }
 
@@ -368,7 +372,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       number: String(apartmentNumber),
       floorNumber: Number(floorNumber) || 1,
       leaseStatus: "vacant",
-      status: "فارغة",
+      status: wlT("lease.status.vacant"),
       rent: "",
       tenantUserId: null,
       tenantNationalId: null,
@@ -476,7 +480,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (!currentUser) {
     if (emptyState) {
       emptyState.style.display = "block";
-      emptyState.textContent = "لم يتم العثور على المستخدم الحالي";
+      emptyState.textContent = wlT("owner.userNotFound");
     }
     return;
   }
@@ -513,7 +517,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (!buildings.length) {
     if (emptyState) {
       emptyState.style.display = "block";
-      emptyState.textContent = "لا توجد عمائر مرتبطة بهذا المالك";
+      emptyState.textContent = wlT("owner.noBuildingsForOwner");
     }
     return;
   }
@@ -524,7 +528,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (globalRequestsAlert) {
     if (totalNewRequests > 0) {
-      globalRequestsAlert.innerHTML = `يوجد ${totalNewRequests} طلبات جديدة`;
+      globalRequestsAlert.innerHTML = wlT("owner.newRequests", { n: totalNewRequests });
       globalRequestsAlert.style.display = "flex";
     } else {
       globalRequestsAlert.style.display = "none";
@@ -579,7 +583,9 @@ document.addEventListener("DOMContentLoaded", async () => {
               return `
                 <div
                   class="apartment-square ${typeClass} ${rentedClass}"
-                  title="شقة ${apartment.number} - الدور ${floorNumber}">
+                  title="${String(wlT("owner.aptTitle", { n: apartment.number, f: floorNumber }))
+                    .replace(/&/g, "&amp;")
+                    .replace(/"/g, "&quot;")}">
                 </div>
               `;
             })
@@ -609,7 +615,7 @@ return `
               class="building-more-btn"
               data-menu-btn="true"
               data-building-id="${building.id}"
-              aria-label="خيارات العمارة"
+              aria-label="${String(wlT("owner.buildingMenu")).replace(/"/g, "&quot;")}"
             >
               ⋮
             </button>
@@ -620,7 +626,7 @@ return `
                 data-action="toggle-pin-building"
                 data-building-id="${building.id}"
               >
-                ${building.isPinned ? "إلغاء التثبيت" : "تثبيت العمارة"}
+                ${building.isPinned ? wlT("owner.unpin") : wlT("owner.pin")}
               </button>
 
               <button
@@ -628,7 +634,7 @@ return `
                 data-action="edit-building"
                 data-building-id="${building.id}"
               >
-                تعديل
+                ${wlT("common.edit")}
               </button>
 
               <button
@@ -637,14 +643,14 @@ return `
                 data-action="delete-building"
                 data-building-id="${building.id}"
               >
-                حذف
+                ${wlT("common.delete")}
               </button>
             </div>
           </div>
 
           <div class="building-card__head">
             <h3 class="building-title">${building.isPinned ? "📌 " : ""}${building.name}</h3>
-            <span class="building-count">${buildingApartments.length} شقة</span>
+            <span class="building-count">${wlT("owner.aptCountLabel", { n: buildingApartments.length })}</span>
           </div>
 
           <div class="apartments-grid">
