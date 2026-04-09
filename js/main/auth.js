@@ -1,6 +1,6 @@
 // auth.js — httpOnly cookie session + minimal client profile in sessionStorage
 
-const API_BASE = 'http://127.0.0.1:8000';
+const API_BASE = 'http://127.0.0.1:8002';
 
 const USER_KEY = 'walajna_current_user';
 const ACTIVE_ROLE_KEY = 'activeRole';

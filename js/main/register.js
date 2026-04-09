@@ -2,7 +2,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("registerForm");
   const errorBox = document.getElementById("errorBox");
 
-  const API_BASE = 'http://127.0.0.1:8000';
+  const API_BASE =
+    (typeof WalajnaAuth !== "undefined" && WalajnaAuth.API_BASE) ||
+    "http://127.0.0.1:8002";
 
   function showError(msg) {
     errorBox.textContent = msg;
