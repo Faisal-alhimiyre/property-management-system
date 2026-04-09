@@ -37,26 +37,41 @@ def _authorize_contract_access(contract_id: int, user: dict) -> tuple[dict, dict
         raise HTTPException(status_code=404, detail="Apartment not found")
     apartment = ar.data[0]
 
-    role = user.get("role")
     uid = user.get("id")
+    try:
+        uid = int(uid)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=403, detail="Not authorized")
 
-    if role == "owner":
-        if int(apartment.get("owner_id") or -1) != int(uid):
-            raise HTTPException(status_code=403, detail="Not authorized")
-    elif role == "tenant":
-        ok = False
-        if apartment.get("tenant_user_id") is not None and int(apartment["tenant_user_id"]) == int(uid):
-            ok = True
-        else:
-            tid = contract.get("tenant_id")
-            if tid is not None:
-                tr = supabase.table("tenants").select("user_id").eq("id", tid).execute()
-                if tr.data and tr.data[0].get("user_id") is not None:
-                    if int(tr.data[0]["user_id"]) == int(uid):
-                        ok = True
-        if not ok:
-            raise HTTPException(status_code=403, detail="Not authorized")
-    else:
+    # Allow access if user is either the apartment owner OR the linked tenant.
+    is_owner = int(apartment.get("owner_id") or -1) == uid
+
+    is_tenant = False
+    if apartment.get("tenant_user_id") is not None:
+        try:
+            is_tenant = int(apartment["tenant_user_id"]) == uid
+        except (TypeError, ValueError):
+            is_tenant = False
+
+    if not is_tenant:
+        tid = contract.get("tenant_id")
+        if tid is not None:
+            tr = supabase.table("tenants").select("user_id").eq("id", tid).execute()
+            if tr.data and tr.data[0].get("user_id") is not None:
+                try:
+                    is_tenant = int(tr.data[0]["user_id"]) == uid
+                except (TypeError, ValueError):
+                    is_tenant = False
+
+    # Fallback for recently linked tenants where user_id linkage is not yet backfilled
+    # but apartment tenant_national_id is already set.
+    if not is_tenant:
+        user_national_id = user.get("national_id")
+        apartment_national_id = apartment.get("tenant_national_id")
+        if user_national_id is not None and apartment_national_id is not None:
+            is_tenant = str(user_national_id).strip() == str(apartment_national_id).strip()
+
+    if not (is_owner or is_tenant):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     return contract, apartment
@@ -81,9 +96,26 @@ async def create_payment(payment: Payment, current_user: dict = Depends(get_curr
 @router.get("/payments")
 async def get_payments(current_user: dict = Depends(get_current_user)):
     if current_user["role"] == "tenant":
-        tenant = supabase.table("tenants").select("*").eq("user_id", current_user["id"]).execute()
-        if tenant.data:
-            payments = supabase.table("payments").select("*").eq("tenant_id", tenant.data[0]["id"]).execute()
+        tenants = (
+            supabase.table("tenants")
+            .select("id,apartment_id")
+            .eq("user_id", current_user["id"])
+            .execute()
+        )
+        tenant_rows = tenants.data or []
+        tenant_ids = [row["id"] for row in tenant_rows if row.get("id") is not None]
+        apartment_by_tenant_id = {
+            row["id"]: row.get("apartment_id")
+            for row in tenant_rows
+            if row.get("id") is not None
+        }
+        if tenant_ids:
+            payments = supabase.table("payments").select("*").in_("tenant_id", tenant_ids).execute()
+            payment_rows = payments.data or []
+            # Add apartment_id for UI filtering on tenant pages.
+            for p in payment_rows:
+                p["apartment_id"] = apartment_by_tenant_id.get(p.get("tenant_id"))
+            return payment_rows
         else:
             payments = {"data": []}
     elif current_user["role"] == "owner":
@@ -137,10 +169,9 @@ async def generate_contract_installments(
     body: GenerateInstallmentsBody,
     current_user: dict = Depends(get_current_user),
 ):
-    if current_user.get("role") != "owner":
-        raise HTTPException(status_code=403, detail="Only owners can generate schedules")
-
     contract, apartment = _authorize_contract_access(contract_id, current_user)
+    if int(apartment.get("owner_id") or -1) != int(current_user.get("id") or -2):
+        raise HTTPException(status_code=403, detail="Only owners can generate schedules")
 
     try:
         existing = (

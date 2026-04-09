@@ -11,7 +11,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   async function getApartments() {
     try {
       const response = await WalajnaAuth.fetchWithAuth(
-        `${WalajnaAuth.API_BASE}/api/apartments`,
+        `${WalajnaAuth.API_BASE}/api/apartments?view=as_tenant`,
         { method: "GET" }
       );
       if (response.ok) {
@@ -124,9 +124,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     return false;
   }
 
-  const myApartments = (Array.isArray(apartments) ? apartments : []).filter((apt) =>
-    isApartmentLinkedToCurrentUser(apt, currentUser)
-  );
+  // Backend already scopes this endpoint to tenant-facing rows.
+  // Avoid a second frontend filter that can hide valid linked rows.
+  const myApartments = Array.isArray(apartments) ? apartments : [];
 
   if (myApartments.length === 0) {
     container.innerHTML = `<p class = "no-building">لا توجد وحدات مرتبطة بحسابك حالياً</p>`;

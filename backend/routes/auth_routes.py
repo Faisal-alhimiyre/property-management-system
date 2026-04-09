@@ -38,6 +38,14 @@ def _claim_pending_tenant_assignments(user_id: int, national_id: str | None):
     apartments = getattr(apartments_result, "data", None) or []
     print("Pending tenant assignments found:", apartments)
 
+    # Claim only one pending apartment row to avoid attaching the same user
+    # to every historical apartment with the same tenant_national_id.
+    pending = [a for a in apartments if a.get("tenant_user_id") in (None, "", 0, "0")]
+    if pending:
+        apartments = [max(pending, key=lambda x: int(x.get("id") or 0))]
+    else:
+        apartments = []
+
     for apartment in apartments:
         apartment_id = apartment.get("id")
         current_contract_id = apartment.get("current_contract_id")

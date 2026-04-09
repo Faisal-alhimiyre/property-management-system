@@ -134,6 +134,27 @@ document.addEventListener("DOMContentLoaded", async function () {
     });
   }
 
+  function mapLegacyPaymentRows(rows, apiApartment, contractIdStr) {
+    const aid = String(apiApartment.id ?? apartmentId);
+    return (rows || []).map((r, idx) => {
+      const dateRaw = r.date || r.paid_at || r.paidAt || r.due_date || "";
+      const dateOnly = dateRaw ? String(dateRaw).slice(0, 10) : "";
+      const amount = Number(r.amount ?? 0);
+      return {
+        id: String(r.id ?? `legacy_${idx}_${Date.now()}`),
+        contractId: String(r.contract_id ?? contractIdStr ?? ""),
+        apartmentId: String(r.apartment_id ?? aid),
+        dueDate: dateOnly,
+        amount,
+        originalAmount: amount,
+        status: (r.status || "pending").toLowerCase(),
+        paymentMethod: r.payment_method || "",
+        paidAt: (r.status || "").toLowerCase() === "paid" ? dateOnly : "",
+        notes: r.notes || "",
+      };
+    });
+  }
+
   let apartment;
   try {
     const { apiApartment, contract, currentContractId } =
@@ -169,9 +190,30 @@ document.addEventListener("DOMContentLoaded", async function () {
   const serverPaymentsRef = { current: [] };
   let installmentsApiError = null;
 
+  async function loadLegacyPaymentsFallback() {
+    const legacyRes = await WalajnaAuth.fetchWithAuth(
+      `${apiBase}/api/payments`,
+      { method: "GET" }
+    );
+    if (!legacyRes.ok) {
+      return [];
+    }
+    const legacyRows = await legacyRes.json();
+    const wantedApartmentId = String(apartment.apiId ?? apartment.id);
+    const filtered = (Array.isArray(legacyRows) ? legacyRows : []).filter((r) => {
+      if (r.apartment_id == null) return false;
+      return String(r.apartment_id) === wantedApartmentId;
+    });
+    return mapLegacyPaymentRows(
+      filtered,
+      apartment,
+      String(contractIdForServer || "")
+    );
+  }
+
   async function reloadServerPayments() {
     if (!contractIdForServer) {
-      serverPaymentsRef.current = [];
+      serverPaymentsRef.current = await loadLegacyPaymentsFallback();
       return;
     }
     try {
@@ -187,7 +229,9 @@ document.addEventListener("DOMContentLoaded", async function () {
         return;
       }
       if (!listRes.ok) {
-        serverPaymentsRef.current = [];
+        // Contract installments may return 403 for some mixed role/account states.
+        // Fallback to legacy /api/payments so tenant table still renders.
+        serverPaymentsRef.current = await loadLegacyPaymentsFallback();
         return;
       }
       let rows = await listRes.json();
@@ -220,11 +264,17 @@ document.addEventListener("DOMContentLoaded", async function () {
         apartment,
         String(contractIdForServer)
       );
+
+      // Fallback: if installments are empty, load legacy /api/payments rows
+      // so tenant payment table still renders.
+      if (!serverPaymentsRef.current.length) {
+        serverPaymentsRef.current = await loadLegacyPaymentsFallback();
+      }
     } catch (e) {
       console.warn("installments fetch failed (network/CORS/server):", e);
       installmentsApiError =
         "تعذر جلب جدول الدفعات من الخادم. تأكد أن الـ API يعمل على المنفذ 8002 ثم أعد تحميل الصفحة.";
-      serverPaymentsRef.current = [];
+      serverPaymentsRef.current = await loadLegacyPaymentsFallback();
     }
   }
 

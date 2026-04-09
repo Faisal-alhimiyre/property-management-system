@@ -1,6 +1,6 @@
 import logging
 from datetime import date, datetime
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from models import Apartment, ApartmentResponse
 from config import supabase
 from routes.auth_routes import get_current_user
@@ -276,10 +276,15 @@ async def create_apartment(apartment: Apartment, current_user: dict = Depends(ge
     return ApartmentResponse(**response.data[0])
 
 @router.get("/apartments", response_model=list[ApartmentResponse])
-async def get_apartments(current_user: dict = Depends(get_current_user)):
+async def get_apartments(
+    view: str | None = Query(None),
+    current_user: dict = Depends(get_current_user),
+):
     rows: list[dict] = []
 
-    if current_user["role"] == "owner":
+    as_tenant_view = (view or "").strip().lower() == "as_tenant"
+
+    if current_user["role"] == "owner" and not as_tenant_view:
         owner_rows_result = (
             supabase.table("apartments")
             .select("*")
@@ -306,6 +311,28 @@ async def get_apartments(current_user: dict = Depends(get_current_user)):
                 .execute()
             )
             for apartment in getattr(by_national_result, "data", None) or []:
+                if not any(existing.get("id") == apartment.get("id") for existing in rows):
+                    rows.append(apartment)
+
+        # Fallback by tenant profile rows (tenants.user_id -> tenants.apartment_id),
+        # so tenant UI still works if apartment tenant columns are temporarily stale.
+        tenant_rows_result = (
+            supabase.table("tenants")
+            .select("apartment_id")
+            .eq("user_id", current_user["id"])
+            .execute()
+        )
+        tenant_rows = getattr(tenant_rows_result, "data", None) or []
+        tenant_apartment_ids = [row.get("apartment_id") for row in tenant_rows if row.get("apartment_id") is not None]
+        tenant_apartment_ids = list(dict.fromkeys(tenant_apartment_ids))
+        if tenant_apartment_ids:
+            by_tenants_result = (
+                supabase.table("apartments")
+                .select("*")
+                .in_("id", tenant_apartment_ids)
+                .execute()
+            )
+            for apartment in getattr(by_tenants_result, "data", None) or []:
                 if not any(existing.get("id") == apartment.get("id") for existing in rows):
                     rows.append(apartment)
 
