@@ -51,17 +51,17 @@ body{
   box-shadow: none;
 }
 
-/* Each row: label on right, input on left (like picture) */
+/* Fixed label column so both inputs share the same width */
 .row{
   display: grid;
-  grid-template-columns: 240px 1fr; /* label | input */
+  grid-template-columns: 240px 1fr;
   align-items: center;
   gap: 18px;
 }
 
 .row label{
   font-family: 'Times New Roman', Times, serif;
-  font-size: 40px;
+  font-size: 20px;
   font-weight: 800;
   color: #ffffff;
   text-align: right;
@@ -70,6 +70,8 @@ body{
 
 /* Inputs */
 .row input{
+  min-width: 0;
+  width: 100%;
   height: 50px;
   border-radius: 10px;
   border: 2px solid #0b0f14;

@@ -1018,7 +1018,7 @@
     "auth.fullName": "Full name",
     "auth.phone": "Mobile number",
     "auth.email": "Email",
-    "auth.nationalId": "National ID",
+    "auth.nationalId": "National ID number",
     "auth.confirmPassword": "Confirm password",
     "auth.registerTitle": "Create account",
     "auth.registerSubmit": "Create account",

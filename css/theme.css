@@ -28,6 +28,8 @@
   --wl-shadow-soft: 0 18px 40px rgba(15, 23, 42, 0.45);
   --wl-shadow-elevated: 0 24px 60px rgba(15, 23, 42, 0.68);
   --wl-font-family: system-ui, -apple-system, "Segoe UI", "Tahoma", sans-serif;
+  /* Match .walajna-topbar height (navstyle.css) for sticky sub-bars */
+  --walajna-topbar-height: 78px;
 }
 
 html { scroll-behavior: smooth; }
@@ -161,7 +163,7 @@ body:not(.dark-mode) input[type="number"]::-webkit-outer-spin-button{
 /* Floating Back — same cyan pill as .back-btn on history pages (strip UA styles so it never looks gray) */
 .walajna-global-back{
   position:fixed;
-  top:max(90px, calc(env(safe-area-inset-top, 0px) + 78px + 12px));
+  top:max(90px, calc(env(safe-area-inset-top, 0px) + var(--walajna-topbar-height) + 12px));
   inset-inline-end:22px;
   z-index:99;
   box-sizing:border-box;
@@ -234,22 +236,92 @@ body.dark-mode button.walajna-global-back{
 }
 
 /* ----- Breadcrumb (Walajna) ----- */
+/* Pinned below fixed .walajna-topbar (--walajna-topbar-height); z-index under the bar (100) */
 .walajna-breadcrumb{
   box-sizing:border-box;
   width:100%;
   padding:10px 26px 14px;
   border-bottom:1px solid var(--wl-border-soft);
   background:rgba(15, 23, 42, 0.35);
+  position:sticky;
+  top:var(--walajna-topbar-height);
+  z-index:90;
+  box-shadow:0 6px 18px rgba(15, 23, 42, 0.12);
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
 }
 
 body:not(.dark-mode) .walajna-breadcrumb{
-  background:rgba(248, 250, 252, 0.92);
+  background:#f1f5f9;
   border-bottom-color:rgba(15, 23, 42, 0.08);
+  box-shadow:0 6px 18px rgba(15, 23, 42, 0.08);
 }
 
 body.dark-mode .walajna-breadcrumb{
   background:var(--wl-surface-muted);
   border-bottom-color:var(--wl-border-subtle);
+  box-shadow:0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.walajna-breadcrumb__bar{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  width:100%;
+}
+
+.walajna-breadcrumb__bar .walajna-breadcrumb__list{
+  flex:1;
+  min-width:0;
+}
+
+.walajna-breadcrumb__bar-back{
+  flex-shrink:0;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:36px;
+  height:36px;
+  margin:0;
+  padding:0;
+  border:1px solid var(--wl-border-subtle);
+  border-radius:12px;
+  background:rgba(34, 211, 238, 0.12);
+  color:var(--wl-accent);
+  font-family:var(--wl-font-family);
+  font-size:18px;
+  font-weight:900;
+  line-height:1;
+  direction:ltr;
+  unicode-bidi:isolate;
+  cursor:pointer;
+  transition:
+    background .15s ease,
+    color .15s ease,
+    border-color .15s ease,
+    transform .12s ease;
+}
+
+.walajna-breadcrumb__bar-back:hover{
+  background:rgba(34, 211, 238, 0.22);
+  color:var(--wl-text-on-dark);
+  border-color:rgba(34, 211, 238, 0.45);
+}
+
+.walajna-breadcrumb__bar-back:active{
+  transform:scale(0.96);
+}
+
+body:not(.dark-mode) .walajna-breadcrumb__bar-back{
+  background:rgba(13, 148, 136, 0.1);
+  color:#0f766e;
+  border-color:rgba(13, 148, 136, 0.25);
+}
+
+body:not(.dark-mode) .walajna-breadcrumb__bar-back:hover{
+  background:rgba(13, 148, 136, 0.18);
+  color:#0b3d3a;
+  border-color:rgba(13, 148, 136, 0.4);
 }
 
 .walajna-breadcrumb__list{
@@ -318,6 +390,6 @@ body:not(.dark-mode) .walajna-breadcrumb__current{
 }
 
 body:has(#walajna-breadcrumb) .walajna-global-back{
-  top:max(128px, calc(env(safe-area-inset-top, 0px) + 78px + 46px));
+  top:max(128px, calc(env(safe-area-inset-top, 0px) + var(--walajna-topbar-height) + 46px));
 }
 

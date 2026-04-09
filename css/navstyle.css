@@ -14,14 +14,22 @@
   box-sizing: border-box;
 }
 
+/* Reserve vertical space: .walajna-topbar is position:fixed and does not contribute to flow height */
+#navbar-container{
+  min-height: var(--walajna-topbar-height, 78px);
+}
+
 .walajna-topbar{
   height: 78px;
   background:
     linear-gradient(135deg, var(--walajna-bar) 0%, var(--walajna-bar-dark) 58%, var(--walajna-bar-deep) 100%);
   display: flex;
   align-items: center;
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
   z-index: 100;
   box-shadow: var(--walajna-shadow);
   border-bottom: 1px solid var(--walajna-border);

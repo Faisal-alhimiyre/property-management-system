@@ -5,6 +5,28 @@ function wlT(key, params) {
   return key;
 }
 
+let walajnaTopbarResizeObserver = null;
+
+/** Keeps sticky bars (e.g. #walajna-breadcrumb) flush under the real topbar when height is not 78px (wrapped nav on small screens). */
+function syncWalajnaTopbarHeight() {
+  const bar = document.querySelector("#navbar-container .walajna-topbar");
+  if (!bar) return;
+  const h = Math.max(0, Math.round(bar.getBoundingClientRect().height));
+  document.documentElement.style.setProperty("--walajna-topbar-height", h + "px");
+}
+
+function observeWalajnaTopbarHeight() {
+  const bar = document.querySelector("#navbar-container .walajna-topbar");
+  if (!bar || typeof ResizeObserver === "undefined") {
+    syncWalajnaTopbarHeight();
+    return;
+  }
+  if (walajnaTopbarResizeObserver) walajnaTopbarResizeObserver.disconnect();
+  walajnaTopbarResizeObserver = new ResizeObserver(() => syncWalajnaTopbarHeight());
+  walajnaTopbarResizeObserver.observe(bar);
+  syncWalajnaTopbarHeight();
+}
+
 function setupNavbar() {
   const navType = document.body.dataset.nav || "user";
   const activeRole =
@@ -237,9 +259,13 @@ function initNavbar() {
         }
       };
       if (typeof WalajnaAuth !== "undefined" && typeof WalajnaAuth.hydrateSession === "function") {
-        return WalajnaAuth.hydrateSession().then(() => afterHydrate());
+        return WalajnaAuth.hydrateSession().then(() => {
+          afterHydrate();
+          requestAnimationFrame(() => observeWalajnaTopbarHeight());
+        });
       }
       afterHydrate();
+      requestAnimationFrame(() => observeWalajnaTopbarHeight());
       return undefined;
     })
     .catch((err) => {
@@ -252,5 +278,8 @@ function initNavbar() {
 document.addEventListener("DOMContentLoaded", initNavbar);
 
 document.addEventListener("walajna:i18n-applied", () => {
-  if (document.getElementById("nav-home")) setupNavbar();
+  if (document.getElementById("nav-home")) {
+    setupNavbar();
+    requestAnimationFrame(() => syncWalajnaTopbarHeight());
+  }
 });

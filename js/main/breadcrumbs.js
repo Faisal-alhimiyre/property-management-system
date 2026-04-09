@@ -129,6 +129,22 @@
     ];
   }
 
+  /** English → ">", Arabic → "<" (follows <html lang> / dir, then localStorage). */
+  function barBackChevronChar() {
+    const html = document.documentElement;
+    const lang = (html.getAttribute("lang") || "").toLowerCase().split("-")[0];
+    const dir = (html.getAttribute("dir") || "").toLowerCase();
+    if (lang === "ar") return "<";
+    if (lang === "en") return ">";
+    if (dir === "rtl") return "<";
+    if (dir === "ltr") return ">";
+    const stored =
+      global.walajna_language && typeof global.walajna_language.get === "function"
+        ? global.walajna_language.get()
+        : "ar";
+    return stored === "en" ? ">" : "<";
+  }
+
   function segmentText(seg) {
     if (seg.label != null && String(seg.label).trim() !== "") return String(seg.label);
     if (seg.labelKey) return t(seg.labelKey);
@@ -176,7 +192,27 @@
       ol.appendChild(li);
     }
 
-    nav.replaceChildren(ol);
+    const useBarBack =
+      document.body &&
+      document.body.getAttribute("data-nav") === "user" &&
+      document.body.dataset.bcBarBack !== "false";
+    if (useBarBack) {
+      const bar = document.createElement("div");
+      bar.className = "walajna-breadcrumb__bar";
+      bar.appendChild(ol);
+      const backBtn = document.createElement("button");
+      backBtn.type = "button";
+      backBtn.className = "walajna-breadcrumb__bar-back";
+      backBtn.setAttribute("aria-label", t("history.back"));
+      backBtn.textContent = barBackChevronChar();
+      backBtn.addEventListener("click", () => {
+        global.history.back();
+      });
+      bar.appendChild(backBtn);
+      nav.replaceChildren(bar);
+    } else {
+      nav.replaceChildren(ol);
+    }
   }
 
   function set(segments) {
