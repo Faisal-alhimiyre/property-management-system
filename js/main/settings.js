@@ -1,3 +1,9 @@
+function wlT(key, params) {
+  return window.walajna_language && window.walajna_language.t
+    ? window.walajna_language.t(key, params)
+    : key;
+}
+
 const sideLinks = document.querySelectorAll(".side-link");
 const panels = document.querySelectorAll(".panel");
 
@@ -27,16 +33,16 @@ function getCurrentUser() {
 
 function roleLabel(roleOrRoles) {
   if (Array.isArray(roleOrRoles)) {
-    if (roleOrRoles.includes("owner") && roleOrRoles.includes("tenant")) return "مالك + مستأجر";
-    if (roleOrRoles[0] === "owner") return "مالك";
-    if (roleOrRoles[0] === "tenant") return "مستأجر";
-    return "—";
+    if (roleOrRoles.includes("owner") && roleOrRoles.includes("tenant")) return wlT("common.ownerAndTenant");
+    if (roleOrRoles[0] === "owner") return wlT("common.owner");
+    if (roleOrRoles[0] === "tenant") return wlT("common.tenantRole");
+    return wlT("common.dash");
   }
 
-  if (roleOrRoles === "owner") return "مالك";
-  if (roleOrRoles === "tenant") return "مستأجر";
-  if (roleOrRoles === "both") return "مالك + مستأجر";
-  return "—";
+  if (roleOrRoles === "owner") return wlT("common.owner");
+  if (roleOrRoles === "tenant") return wlT("common.tenantRole");
+  if (roleOrRoles === "both") return wlT("common.ownerAndTenant");
+  return wlT("common.dash");
 }
 
 function setText(id, value) {
@@ -80,25 +86,26 @@ function loadProfile() {
     setText("p_fullName", "—");
     setText("p_username", "—");
     setText("p_email", "—");
-    setText("p_phone", "غير متوفر");
+    setText("p_phone", wlT("common.notAvailable"));
     setText("p_nationalId", "—");
     setText("p_role", "—");
 
     const avatar = document.getElementById("avatarLetter");
-    if (avatar) avatar.textContent = "و";
+    if (avatar) avatar.textContent = "W";
     return;
   }
 
   setText("p_fullName", user.fullName);
   setText("p_username", user.username);
   setText("p_email", user.email);
-  setText("p_phone", user.phone || "غير متوفر");
+  setText("p_phone", user.phone || wlT("common.notAvailable"));
   setText("p_nationalId", user.nationalId);
   setText("p_role", current?.roles ? roleLabel(current.roles) : roleLabel(user.role));
 
   const avatar = document.getElementById("avatarLetter");
   if (avatar) {
-    avatar.textContent = (user.fullName || "و").trim().charAt(0) || "و";
+    const ch = (user.fullName || "W").trim().charAt(0) || "W";
+    avatar.textContent = ch;
   }
 }
 
@@ -118,19 +125,19 @@ if (savePasswordBtn) {
     const current = getCurrentUser();
 
     if (!currentPassword || !newPassword || !confirmNewPassword) {
-      passwordMessage.textContent = "الرجاء تعبئة جميع حقول كلمة المرور.";
+      passwordMessage.textContent = wlT("settings.pwd.fillAll");
       passwordMessage.style.color = "#df2f45";
       return;
     }
 
     if (newPassword.length < 4) {
-      passwordMessage.textContent = "كلمة المرور الجديدة يجب أن تكون 4 أحرف على الأقل.";
+      passwordMessage.textContent = wlT("settings.pwd.short");
       passwordMessage.style.color = "#df2f45";
       return;
     }
 
     if (newPassword !== confirmNewPassword) {
-      passwordMessage.textContent = "كلمتا المرور الجديدتان غير متطابقتين.";
+      passwordMessage.textContent = wlT("settings.pwd.mismatch");
       passwordMessage.style.color = "#df2f45";
       return;
     }
@@ -150,13 +157,13 @@ if (savePasswordBtn) {
     }
 
     if (userIndex === -1) {
-      passwordMessage.textContent = "لا يوجد مستخدم لتحديث كلمة المرور.";
+      passwordMessage.textContent = wlT("settings.pwd.noUser");
       passwordMessage.style.color = "#df2f45";
       return;
     }
 
     if (users[userIndex].password !== currentPassword) {
-      passwordMessage.textContent = "كلمة المرور الحالية غير صحيحة.";
+      passwordMessage.textContent = wlT("settings.pwd.badCurrent");
       passwordMessage.style.color = "#df2f45";
       return;
     }
@@ -164,7 +171,7 @@ if (savePasswordBtn) {
     users[userIndex].password = newPassword;
     localStorage.setItem("walajna_users", JSON.stringify(users));
 
-    passwordMessage.textContent = "تم تحديث كلمة المرور بنجاح.";
+    passwordMessage.textContent = wlT("settings.pwd.success");
     passwordMessage.style.color = "#1f9d55";
 
     document.getElementById("currentPassword").value = "";
@@ -203,7 +210,7 @@ if (logoutBtn) {
   logoutBtn.addEventListener("click", () => {
     localStorage.removeItem("walajna_current_user");
     localStorage.removeItem("activeRole");
-    alert("تم تسجيل الخروج.");
+    alert(wlT("settings.logoutAlert"));
     window.location.href = "../auth/login.html";
   });
 }
@@ -213,14 +220,14 @@ const deleteAccountBtn = document.getElementById("deleteAccountBtn");
 
 if (deleteAccountBtn) {
   deleteAccountBtn.addEventListener("click", () => {
-    const confirmed = confirm("هل أنت متأكد من حذف الحساب الحالي؟");
+    const confirmed = confirm(wlT("settings.deleteConfirm"));
     if (!confirmed) return;
 
     const users = getUsers();
     const current = getCurrentUser();
 
     if (!users.length) {
-      alert("لا توجد حسابات مخزنة.");
+      alert(wlT("settings.noAccounts"));
       return;
     }
 
@@ -240,7 +247,7 @@ if (deleteAccountBtn) {
     localStorage.removeItem("walajna_current_user");
     localStorage.removeItem("activeRole");
 
-    alert("تم حذف الحساب من النسخة التجريبية.");
+    alert(wlT("settings.deletedDemo"));
     window.location.href = "../auth/register.html";
   });
 }
@@ -352,13 +359,13 @@ document.getElementById("sendEmailCodeBtn")?.addEventListener("click", () => {
   const current = getCurrentUser();
 
   if (!newEmail) {
-    setEditMessage("الرجاء إدخال البريد الإلكتروني الجديد.");
+    setEditMessage(wlT("settings.email.newRequired"));
     return;
   }
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(newEmail)) {
-    setEditMessage("صيغة البريد الإلكتروني غير صحيحة.");
+    setEditMessage(wlT("settings.email.invalid"));
     return;
   }
 
@@ -368,13 +375,13 @@ document.getElementById("sendEmailCodeBtn")?.addEventListener("click", () => {
   );
 
   if (emailExists) {
-    setEditMessage("هذا البريد مستخدم بالفعل.");
+    setEditMessage(wlT("settings.email.taken"));
     return;
   }
 
   emailVerificationCode = generateCode();
-  if (emailCodeHint) emailCodeHint.textContent = `رمز التحقق التجريبي: ${emailVerificationCode}`;
-  setEditMessage("تم إنشاء رمز تحقق للبريد الإلكتروني.", "#1f9d55");
+  if (emailCodeHint) emailCodeHint.textContent = wlT("settings.code.demoEmail", { code: emailVerificationCode });
+  setEditMessage(wlT("settings.email.codeCreated"), "#1f9d55");
 });
 
 document.getElementById("verifyEmailBtn")?.addEventListener("click", () => {
@@ -384,22 +391,22 @@ document.getElementById("verifyEmailBtn")?.addEventListener("click", () => {
   const index = getEditableUserIndex();
 
   if (!emailVerificationCode) {
-    setEditMessage("الرجاء إرسال رمز التحقق أولًا.");
+    setEditMessage(wlT("settings.code.sendFirst"));
     return;
   }
 
   if (!enteredCode) {
-    setEditMessage("الرجاء إدخال رمز التحقق.");
+    setEditMessage(wlT("settings.code.enter"));
     return;
   }
 
   if (enteredCode !== emailVerificationCode) {
-    setEditMessage("رمز التحقق غير صحيح.");
+    setEditMessage(wlT("settings.code.wrong"));
     return;
   }
 
   if (index === -1) {
-    setEditMessage("لا يوجد مستخدم لتحديث البيانات.");
+    setEditMessage(wlT("settings.update.noUser"));
     return;
   }
 
@@ -418,7 +425,7 @@ document.getElementById("verifyEmailBtn")?.addEventListener("click", () => {
   document.getElementById("emailCode").value = "";
 
   loadProfile();
-  setEditMessage("تم تحديث البريد الإلكتروني بنجاح.", "#1f9d55");
+  setEditMessage(wlT("settings.email.updated"), "#1f9d55");
 });
 
 /* Phone update */
@@ -428,12 +435,12 @@ document.getElementById("sendPhoneCodeBtn")?.addEventListener("click", () => {
   const current = getCurrentUser();
 
   if (!newPhone) {
-    setEditMessage("الرجاء إدخال رقم الجوال الجديد.");
+    setEditMessage(wlT("settings.phone.newRequired"));
     return;
   }
 
   if (!isValidSaudiPhone(newPhone)) {
-    setEditMessage("رقم الجوال يجب أن يبدأ بـ 05 ويتكون من 10 أرقام.");
+    setEditMessage(wlT("settings.phone.invalid"));
     return;
   }
 
@@ -443,13 +450,13 @@ document.getElementById("sendPhoneCodeBtn")?.addEventListener("click", () => {
   );
 
   if (phoneExists) {
-    setEditMessage("رقم الجوال مستخدم بالفعل.");
+    setEditMessage(wlT("settings.phone.taken"));
     return;
   }
 
   phoneVerificationCode = generateCode();
-  if (phoneCodeHint) phoneCodeHint.textContent = `رمز التحقق التجريبي: ${phoneVerificationCode}`;
-  setEditMessage("تم إنشاء رمز تحقق لرقم الجوال.", "#1f9d55");
+  if (phoneCodeHint) phoneCodeHint.textContent = wlT("settings.code.demoEmail", { code: phoneVerificationCode });
+  setEditMessage(wlT("settings.phone.codeCreated"), "#1f9d55");
 });
 
 document.getElementById("verifyPhoneBtn")?.addEventListener("click", () => {
@@ -459,22 +466,22 @@ document.getElementById("verifyPhoneBtn")?.addEventListener("click", () => {
   const index = getEditableUserIndex();
 
   if (!phoneVerificationCode) {
-    setEditMessage("الرجاء إرسال رمز التحقق أولًا.");
+    setEditMessage(wlT("settings.code.sendFirst"));
     return;
   }
 
   if (!enteredCode) {
-    setEditMessage("الرجاء إدخال رمز التحقق.");
+    setEditMessage(wlT("settings.code.enter"));
     return;
   }
 
   if (enteredCode !== phoneVerificationCode) {
-    setEditMessage("رمز التحقق غير صحيح.");
+    setEditMessage(wlT("settings.code.wrong"));
     return;
   }
 
   if (index === -1) {
-    setEditMessage("لا يوجد مستخدم لتحديث البيانات.");
+    setEditMessage(wlT("settings.update.noUser"));
     return;
   }
 
@@ -493,5 +500,22 @@ document.getElementById("verifyPhoneBtn")?.addEventListener("click", () => {
   document.getElementById("phoneCode").value = "";
 
   loadProfile();
-  setEditMessage("تم تحديث رقم الجوال بنجاح.", "#1f9d55");
+  setEditMessage(wlT("settings.phone.updated"), "#1f9d55");
+});
+
+(function initLangSelect() {
+  const sel = document.getElementById("walajnaLangSelect");
+  if (!sel || !window.walajna_language) return;
+  sel.value = walajna_language.get();
+  sel.setAttribute("aria-label", wlT("settings.lang.title"));
+  sel.addEventListener("change", () => {
+    walajna_language.set(sel.value);
+    loadProfile();
+  });
+})();
+
+document.addEventListener("walajna:i18n-applied", () => {
+  loadProfile();
+  const sel = document.getElementById("walajnaLangSelect");
+  if (sel && window.walajna_language) sel.value = walajna_language.get();
 });

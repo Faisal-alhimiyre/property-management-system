@@ -1,130 +1,130 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
+  <script>(function(){try{var l=localStorage.getItem("walajna_language")||"ar";document.documentElement.setAttribute("lang",l==="en"?"en":"ar");document.documentElement.setAttribute("dir",l==="en"?"ltr":"rtl");}catch(e){}})();</script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>تفاصيل الشقة - ولجنا</title>
-
-  <link rel="stylesheet" href="../css/theme.css">
-  <link rel="stylesheet" href="../css/navstyle.css">
-  <link rel="stylesheet" href="../css/apartment-info.css">
+  <title data-i18n="meta.apartmentDetails"></title>
+  <link rel="stylesheet" href="../css/theme.css" />
+  <link rel="stylesheet" href="../css/navstyle.css" />
+  <link rel="stylesheet" href="../css/apartment-info.css" />
+  <script src="../js/main/walajna-i18n.js"></script>
 </head>
-
-<body data-nav="user">
-
+<body data-nav="user" data-wl-bc="apartment-details">
   <div id="navbar-container"></div>
 
   <main class="apartment-details-wrap">
     <div class="header">
-      <h2 id="aptTitle">تفاصيل الشقة</h2>
-      <p id="pageRoleLabel" class="page-role-label">—</p>
+      <h2 id="aptTitle"></h2>
+      <p id="pageRoleLabel" class="page-role-label"></p>
     </div>
 
     <section id="ownerInfoSection" class="details-card" style="display:none;">
-      <h3 class="section-title">معلومات المالك</h3>
+      <h3 class="section-title" data-i18n="aptInfo.ownerSection"></h3>
       <div class="details-grid">
         <div class="item">
-          <span class="label">الاسم الكامل</span>
+          <span class="label" data-i18n="auth.fullName"></span>
           <span class="value" id="ownerFullName">—</span>
         </div>
         <div class="item">
-          <span class="label">رقم الهوية</span>
+          <span class="label" data-i18n="aptInfo.ownerNationalId"></span>
           <span class="value" id="ownerNationalId">—</span>
         </div>
       </div>
     </section>
 
     <section class="details-card">
-      <h3 class="section-title">معلومات المستأجر</h3>
+      <h3 class="section-title" data-i18n="aptInfo.tenantSection"></h3>
       <div class="details-grid">
         <div class="item">
-          <span class="label">الاسم الكامل</span>
+          <span class="label" data-i18n="auth.fullName"></span>
           <span class="value" id="tenantFullName">—</span>
         </div>
         <div class="item">
-          <span class="label">الجنسية</span>
+          <span class="label" data-i18n="aptInfo.nationality"></span>
           <span class="value" id="tenantNationality">—</span>
         </div>
         <div class="item">
-          <span class="label">أفراد أو عوائل</span>
+          <span class="label" data-i18n="aptInfo.tenantType"></span>
           <span class="value" id="tenantType">—</span>
         </div>
         <div class="item">
-          <span class="label">التأمين المدفوع</span>
+          <span class="label" data-i18n="aptInfo.insurancePaid"></span>
           <span class="value" id="insurancePaid">—</span>
         </div>
         <div class="item">
-          <span class="label">رقم الجوال</span>
+          <span class="label" data-i18n="settings.label.phone"></span>
           <span class="value" id="phoneNumber">—</span>
         </div>
         <div class="item">
-          <span class="label">رقم الهوية / الإقامة</span>
+          <span class="label" data-i18n="aptInfo.identityId"></span>
           <span class="value" id="identityNumber">—</span>
         </div>
       </div>
     </section>
 
     <section class="details-card">
-      <h3 class="section-title">معلومات الشقة</h3>
+      <h3 class="section-title" data-i18n="aptInfo.aptSection"></h3>
       <div class="details-grid">
         <div class="item">
-          <span class="label">رقم الشقة</span>
+          <span class="label" data-i18n="aptInfo.aptNumber"></span>
           <span class="value" id="aptNumber">—</span>
         </div>
         <div class="item">
-          <span class="label">اسم العمارة</span>
+          <span class="label" data-i18n="aptInfo.buildingName"></span>
           <span class="value" id="buildingName">—</span>
         </div>
         <div class="item">
-          <span class="label">الحالة</span>
+          <span class="label" data-i18n="common.status"></span>
           <span class="value" id="leaseStatus">—</span>
         </div>
         <div class="item">
-          <span class="label">الإيجار الشهري</span>
+          <span class="label" data-i18n="paymentsUi.monthlyRent"></span>
           <span class="value" id="rentAmount">—</span>
         </div>
         <div class="item">
-          <span class="label">الدور</span>
+          <span class="label" data-i18n="common.floorWord"></span>
           <span class="value" id="floorNumber">—</span>
         </div>
         <div class="item">
-          <span class="label">عدد غرف النوم</span>
+          <span class="label" data-i18n="ownerEdit.bedrooms"></span>
           <span class="value" id="bedrooms">—</span>
         </div>
         <div class="item">
-          <span class="label">عدد الحمامات</span>
+          <span class="label" data-i18n="ownerEdit.bathrooms"></span>
           <span class="value" id="bathrooms">—</span>
         </div>
         <div class="item">
-          <span class="label">عدد غرف المعيشة</span>
+          <span class="label" data-i18n="ownerEdit.livingRooms"></span>
           <span class="value" id="livingRooms">—</span>
         </div>
       </div>
     </section>
 
     <section class="details-card">
-      <h3 class="section-title">معلومات إضافية</h3>
+      <h3 class="section-title" data-i18n="aptInfo.extraSection"></h3>
       <div class="details-grid">
         <div class="item">
-          <span class="label">تاريخ بداية العقد</span>
+          <span class="label" data-i18n="apt.html.label.contractStart"></span>
           <span class="value" id="startDate">—</span>
         </div>
         <div class="item">
-          <span class="label">تاريخ نهاية العقد</span>
+          <span class="label" data-i18n="apt.html.label.contractEnd"></span>
           <span class="value" id="endDate">—</span>
         </div>
         <div class="item">
-          <span class="label">رقم العداد</span>
+          <span class="label" data-i18n="lease.meter"></span>
           <span class="value" id="meterNumber">—</span>
         </div>
         <div class="item">
-          <span class="label">ملاحظات</span>
+          <span class="label" data-i18n="common.note"></span>
           <span class="value" id="notes">—</span>
         </div>
         <div class="item">
-          <span class="label">الدفعة القادمة
-            <span id="nextPaymentDate" class="next-payment-date">—</span>
-          </span>
+          <span class="label"
+            ><span data-i18n="aptInfo.nextPayment"></span>
+            <span id="nextPaymentDate" class="next-payment-date"></span
+          ></span>
           <span class="value" id="nextPaymentAmount">—</span>
         </div>
       </div>
@@ -134,327 +134,248 @@
 
     <section class="actions">
       <div class="actions-row">
-        <button id="mainActionBtn" class="action-btn">طلب صيانة</button>
-        <button id="paymentsBtn" class="action-btn">عرض المدفوعات</button>
-        <button id="documentsBtn" class="action-btn">عرض الوثائق</button>
-        <button id="viewRequestsBtn" class="action-btn">عرض الطلبات</button>
-        <button id="viewCostsBtn" class="action-btn">عرض المصروفات</button>
-        <button id="tenantPayBtn" class="action-btn action-black">سداد الايجار</button>
+        <button id="mainActionBtn" class="action-btn" type="button" data-i18n="aptPage.maintenanceRequest"></button>
+        <button id="paymentsBtn" class="action-btn" type="button" data-i18n="aptInfo.actions.viewPayments"></button>
+        <button id="documentsBtn" class="action-btn" type="button" data-i18n="aptInfo.actions.viewDocuments"></button>
+        <button id="viewRequestsBtn" class="action-btn" type="button" data-i18n="aptInfo.actions.viewRequests"></button>
+        <button id="viewCostsBtn" class="action-btn" type="button" data-i18n="aptInfo.actions.viewCosts"></button>
+        <button id="tenantPayBtn" class="action-btn action-black" type="button" data-i18n="aptInfo.actions.payRent"></button>
       </div>
 
       <div class="actions-row actions-row-bottom">
-        <button id="evictTenantBtn" class="action-btn action-red">إخلاء المستأجر</button>
-        <button id="renewContractBtn" class="action-btn action-blue">تجديد العقد</button>
+        <button id="evictTenantBtn" class="action-btn action-red" type="button" data-i18n="aptInfo.actions.evict"></button>
+        <button id="renewContractBtn" class="action-btn action-blue" type="button" data-i18n="aptInfo.actions.renew"></button>
       </div>
     </section>
   </main>
 
   <div id="requestModal" class="wl-modal" aria-hidden="true">
     <div class="wl-modal__backdrop" data-close="true"></div>
-
     <div class="wl-modal__panel" role="dialog" aria-modal="true" aria-labelledby="requestModalTitle">
       <div class="wl-modal__header">
         <div>
-          <h3 id="requestModalTitle" class="wl-modal__title">اختر نوع التواصل</h3>
-          <p class="wl-modal__subtitle">سيتم إرسال الطلب للمالك مع لون يوضح نوعه</p>
+          <h3 id="requestModalTitle" class="wl-modal__title" data-i18n="requests.modalTitle"></h3>
+          <p class="wl-modal__subtitle" data-i18n="requests.modalSub"></p>
         </div>
-
-        <button id="closeRequestModal" class="wl-icon-btn" type="button" aria-label="إغلاق">✕</button>
+        <button id="closeRequestModal" class="wl-icon-btn" type="button" data-i18n-aria-label="common.close" aria-label="">✕</button>
       </div>
-
       <div class="wl-modal__body">
-        <div id="requestTypeList" class="wl-list" role="listbox" aria-label="أنواع الطلبات"></div>
-
+        <div id="requestTypeList" class="wl-list" role="listbox" data-i18n-aria-label="requests.requestTypesAria" aria-label=""></div>
         <div id="requestMessageBox" class="wl-message-box" style="display:none;">
-          <label class="wl-label" for="requestMessage">اكتب تفاصيل الطلب</label>
-
-          <textarea
-            id="requestMessage"
-            maxlength="150"
-            placeholder="اكتب وصف المشكلة أو الطلب (حد أقصى 150 حرف)"
-          ></textarea>
-
-          <div class="wl-char-counter">
-            <span id="charCount">0</span>/150
-          </div>
-
-          <button id="submitRequestBtn" class="wl-btn wl-btn--primary" type="button">
-            إرسال الطلب
-          </button>
+          <label class="wl-label" for="requestMessage" data-i18n="requests.writeRequestLabel"></label>
+          <textarea id="requestMessage" maxlength="150" data-i18n-placeholder="requests.requestPlaceholder" placeholder=""></textarea>
+          <div class="wl-char-counter"><span id="charCount">0</span>/150</div>
+          <button id="submitRequestBtn" class="wl-btn wl-btn--primary" type="button" data-i18n="requests.sendRequest"></button>
         </div>
       </div>
-
       <div class="wl-modal__footer">
-        <button id="cancelRequestModal" class="wl-btn wl-btn--ghost" type="button">إلغاء</button>
+        <button id="cancelRequestModal" class="wl-btn wl-btn--ghost" type="button" data-i18n="common.cancel"></button>
       </div>
     </div>
   </div>
 
   <div id="viewRequestsModal" class="wl-modal" aria-hidden="true">
     <div class="wl-modal__backdrop" data-view-close="true"></div>
-
     <div class="wl-modal__panel" role="dialog" aria-modal="true" aria-labelledby="viewRequestsModalTitle">
       <div class="wl-modal__header">
         <div>
-          <h3 id="viewRequestsModalTitle" class="wl-modal__title">الطلبات</h3>
-          <p class="wl-modal__subtitle" id="viewRequestsSubtitle">عرض الطلبات الخاصة بالشقة</p>
+          <h3 id="viewRequestsModalTitle" class="wl-modal__title" data-i18n="requests.viewTitle"></h3>
+          <p class="wl-modal__subtitle" id="viewRequestsSubtitle" data-i18n="requests.viewSub"></p>
         </div>
-
-        <button id="closeViewRequestsModal" class="wl-icon-btn" type="button" aria-label="إغلاق">✕</button>
+        <button id="closeViewRequestsModal" class="wl-icon-btn" type="button" data-i18n-aria-label="common.close" aria-label="">✕</button>
       </div>
-
       <div class="wl-modal__body">
         <div id="viewRequestsList" class="wl-list"></div>
-
         <div id="ownerReplyBox" class="wl-message-box" style="display:none;">
-          <label class="wl-label" for="ownerReplyMessage">اكتب الرد</label>
-
-          <textarea
-            id="ownerReplyMessage"
-            maxlength="200"
-            placeholder="اكتب ردك على طلب المستأجر"
-          ></textarea>
-
-          <div class="wl-char-counter">
-            <span id="ownerReplyCharCount">0</span>/200
-          </div>
-
-          <button id="submitOwnerReplyBtn" class="wl-btn wl-btn--primary" type="button">
-            إرسال الرد
-          </button>
+          <label class="wl-label" for="ownerReplyMessage" data-i18n="requests.replyLabel"></label>
+          <textarea id="ownerReplyMessage" maxlength="200" data-i18n-placeholder="requests.replyPlaceholder" placeholder=""></textarea>
+          <div class="wl-char-counter"><span id="ownerReplyCharCount">0</span>/200</div>
+          <button id="submitOwnerReplyBtn" class="wl-btn wl-btn--primary" type="button" data-i18n="requests.sendReply"></button>
         </div>
       </div>
-
       <div class="wl-modal__footer">
-        <button id="cancelViewRequestsModal" class="wl-btn wl-btn--ghost" type="button">إغلاق</button>
+        <button id="cancelViewRequestsModal" class="wl-btn wl-btn--ghost" type="button" data-i18n="common.close"></button>
       </div>
     </div>
   </div>
 
   <div id="linkTenantModal" class="wl-modal" aria-hidden="true">
     <div class="wl-modal__backdrop" data-link-close="true"></div>
-
     <div class="wl-modal__panel" role="dialog" aria-modal="true" aria-labelledby="linkTenantModalTitle">
       <div class="wl-modal__header">
         <div>
-          <h3 id="linkTenantModalTitle" class="wl-modal__title">ربط مستأجر بالشقة</h3>
-          <p class="wl-modal__subtitle">أدخل بيانات المستأجر والعقد</p>
+          <h3 id="linkTenantModalTitle" class="wl-modal__title" data-i18n="linkModal.title"></h3>
+          <p class="wl-modal__subtitle" data-i18n="linkModal.subtitle"></p>
         </div>
-
-        <button id="closeLinkTenantModal" class="wl-icon-btn" type="button" aria-label="إغلاق">✕</button>
+        <button id="closeLinkTenantModal" class="wl-icon-btn" type="button" data-i18n-aria-label="common.close" aria-label="">✕</button>
       </div>
-
       <div class="wl-modal__body">
         <div class="details-grid">
           <div class="item">
-            <label class="label" for="linkFullName">الاسم الكامل</label>
-            <input id="linkFullName" type="text" />
+            <label class="label" for="linkFullName" data-i18n="auth.fullName"></label>
+            <input id="linkFullName" type="text" autocomplete="name" />
           </div>
-
           <div class="item">
-            <label class="label" for="linkNationalId">رقم الهوية / الإقامة</label>
+            <label class="label" for="linkNationalId" data-i18n="aptInfo.identityId"></label>
             <input id="linkNationalId" type="text" maxlength="10" />
           </div>
-
           <div class="item">
-            <label class="label" for="linkNationality">الجنسية</label>
+            <label class="label" for="linkNationality" data-i18n="aptInfo.nationality"></label>
             <input id="linkNationality" type="text" />
           </div>
-
           <div class="item">
-            <label class="label" for="linkTenantType">أفراد أو عوائل</label>
+            <label class="label" for="linkTenantType" data-i18n="aptInfo.tenantType"></label>
             <select id="linkTenantType">
-              <option value="">اختر</option>
-              <option value="أفراد">أفراد</option>
-              <option value="عوائل">عوائل</option>
+              <option value="" data-i18n-label="costs.pick"></option>
+              <option value="أفراد" data-i18n-label="lease.tenantIndividuals"></option>
+              <option value="عوائل" data-i18n-label="lease.tenantFamilies"></option>
             </select>
           </div>
-
           <div class="item">
-            <label class="label" for="linkPhoneNumber">رقم الجوال</label>
+            <label class="label" for="linkPhoneNumber" data-i18n="settings.label.phone"></label>
             <input id="linkPhoneNumber" type="text" maxlength="10" />
           </div>
-
           <div class="item">
-            <label class="label" for="linkRent">الإيجار الشهري</label>
+            <label class="label" for="linkRent" data-i18n="paymentsUi.monthlyRent"></label>
             <input id="linkRent" type="number" min="0" step="0.01" />
           </div>
-
           <div class="item">
-            <label class="label" for="linkBedrooms">عدد غرف النوم</label>
-            <input id="linkBedrooms" type="number" min="0">
+            <label class="label" for="linkBedrooms" data-i18n="ownerEdit.bedrooms"></label>
+            <input id="linkBedrooms" type="number" min="0" />
           </div>
-
           <div class="item">
-            <label class="label" for="linkBathrooms">عدد الحمامات</label>
-            <input id="linkBathrooms" type="number" min="0">
+            <label class="label" for="linkBathrooms" data-i18n="ownerEdit.bathrooms"></label>
+            <input id="linkBathrooms" type="number" min="0" />
           </div>
-
           <div class="item">
-            <label class="label" for="linkLivingRooms">عدد غرف المعيشة</label>
-            <input id="linkLivingRooms" type="number" min="0">
+            <label class="label" for="linkLivingRooms" data-i18n="ownerEdit.livingRooms"></label>
+            <input id="linkLivingRooms" type="number" min="0" />
           </div>
-
           <div class="item">
-            <label class="label" for="linkFloorNumber">الدور</label>
+            <label class="label" for="linkFloorNumber" data-i18n="common.floorWord"></label>
             <input id="linkFloorNumber" type="number" min="0" />
           </div>
-
           <div class="item">
-            <label class="label" for="linkPaymentCycle">دورة الدفع</label>
+            <label class="label" for="linkPaymentCycle" data-i18n="paymentsUi.payCycle"></label>
             <select id="linkPaymentCycle">
-              <option value="monthly">شهري</option>
-              <option value="quarterly">ربع سنوي</option>
-              <option value="semi_annual">نصف سنوي</option>
-              <option value="annual">سنوي</option>
+              <option value="monthly" data-i18n-label="payments.cycle.monthly"></option>
+              <option value="quarterly" data-i18n-label="payments.cycle.quarterly"></option>
+              <option value="semi_annual" data-i18n-label="payments.cycle.semi"></option>
+              <option value="annual" data-i18n-label="payments.cycle.annual"></option>
             </select>
           </div>
-
           <div class="item">
-            <label class="label" for="linkInsurancePaid">التأمين المدفوع</label>
+            <label class="label" for="linkInsurancePaid" data-i18n="aptInfo.insurancePaid"></label>
             <input id="linkInsurancePaid" type="text" />
           </div>
-
           <div class="item">
-            <label class="label" for="linkStartDate">تاريخ بداية العقد</label>
+            <label class="label" for="linkStartDate" data-i18n="apt.link.startDate"></label>
             <input id="linkStartDate" type="date" />
           </div>
-
           <div class="item">
-            <label class="label" for="linkEndDate">تاريخ نهاية العقد</label>
+            <label class="label" for="linkEndDate" data-i18n="apt.link.endDate"></label>
             <input id="linkEndDate" type="date" />
           </div>
-
           <div class="item">
-            <label class="label" for="linkMeterNumber">رقم العداد</label>
+            <label class="label" for="linkMeterNumber" data-i18n="lease.meter"></label>
             <input id="linkMeterNumber" type="text" />
           </div>
-
           <div class="item">
-            <label class="label" for="linkNotes">ملاحظات</label>
+            <label class="label" for="linkNotes" data-i18n="common.note"></label>
             <input id="linkNotes" type="text" />
           </div>
 
           <div class="form-section">
-            <h4 class="form-section-title">الخدمات والمرافق</h4>
-
+            <h4 class="form-section-title" data-i18n="linkModal.servicesTitle"></h4>
             <div class="form-grid">
               <div class="form-group">
-                <label for="linkElectricityIncluded">الكهرباء</label>
+                <label for="linkElectricityIncluded" data-i18n="lease.electricity"></label>
                 <select id="linkElectricityIncluded">
-                  <option value="no">لا يشمل</option>
-                  <option value="yes">يشمل</option>
+                  <option value="no" data-i18n-label="lease.exclude"></option>
+                  <option value="yes" data-i18n-label="lease.include"></option>
                 </select>
               </div>
-
               <div class="form-group">
-                <label for="linkWaterIncluded">الماء</label>
+                <label for="linkWaterIncluded" data-i18n="lease.water"></label>
                 <select id="linkWaterIncluded">
-                  <option value="no">لا يشمل</option>
-                  <option value="yes">يشمل</option>
+                  <option value="no" data-i18n-label="lease.exclude"></option>
+                  <option value="yes" data-i18n-label="lease.include"></option>
                 </select>
               </div>
-
               <div class="form-group">
-                <label for="linkGasType">الغاز</label>
+                <label for="linkGasType" data-i18n="lease.gas"></label>
                 <select id="linkGasType">
-                  <option value="none">غير متوفر</option>
-                  <option value="central">مركزي</option>
+                  <option value="none" data-i18n-label="lease.utilNone"></option>
+                  <option value="central" data-i18n-label="lease.central"></option>
                 </select>
               </div>
-
               <div class="form-group">
-                <label for="linkAcType">التكييف</label>
+                <label for="linkAcType" data-i18n="lease.ac"></label>
                 <select id="linkAcType">
-                  <option value="none">غير متوفر</option>
-                  <option value="central">مركزي</option>
+                  <option value="none" data-i18n-label="lease.utilNone"></option>
+                  <option value="central" data-i18n-label="lease.central"></option>
                 </select>
               </div>
             </div>
 
             <div class="form-section">
-              <h4 class="form-section-title">بيانات الوسيط (اختياري)</h4>
-
+              <h4 class="form-section-title" data-i18n="linkModal.brokerTitle"></h4>
               <div class="form-grid">
                 <div class="form-group">
-                  <label for="linkBrokerName">اسم الوسيط</label>
-                  <input
-                    id="linkBrokerName"
-                    type="text"
-                    placeholder="أدخل اسم الوسيط"
-                  />
+                  <label for="linkBrokerName" data-i18n="lease.brokerName"></label>
+                  <input id="linkBrokerName" type="text" autocomplete="name" data-i18n-placeholder="linkModal.ph.brokerName" placeholder="" />
                 </div>
-
                 <div class="form-group">
-                  <label for="linkBrokerCommercialRegister">السجل التجاري</label>
-                  <input
-                    id="linkBrokerCommercialRegister"
-                    type="text"
-                    placeholder="أدخل السجل التجاري"
-                  />
+                  <label for="linkBrokerCommercialRegister" data-i18n="lease.brokerCr"></label>
+                  <input id="linkBrokerCommercialRegister" type="text" data-i18n-placeholder="linkModal.ph.brokerCr" placeholder="" />
                 </div>
-
                 <div class="form-group">
-                  <label for="linkBrokerPhone">جوال الوسيط</label>
-                  <input
-                    id="linkBrokerPhone"
-                    type="text"
-                    placeholder="أدخل رقم الجوال"
-                  />
+                  <label for="linkBrokerPhone" data-i18n="lease.brokerPhone"></label>
+                  <input id="linkBrokerPhone" type="text" data-i18n-placeholder="linkModal.ph.brokerPhone" placeholder="" />
                 </div>
               </div>
             </div>
           </div>
 
           <div class="item">
-            <label class="label" for="contractFile">ملف عقد الإيجار</label>
+            <label class="label" for="contractFile" data-i18n="linkModal.contractFile"></label>
             <input id="contractFile" type="file" accept=".docx,.pdf,.txt,.jpg,.png" />
           </div>
-
           <div class="item">
-            <button id="extractContractBtn" class="wl-btn wl-btn--ghost" type="button">
-              استخراج البيانات من العقد
-            </button>
+            <button id="extractContractBtn" class="wl-btn wl-btn--ghost" type="button" data-i18n="linkModal.extractBtn"></button>
           </div>
         </div>
-
         <p id="linkTenantError" class="error"></p>
       </div>
-
       <div class="wl-modal__footer">
-        <button id="saveLinkedTenantBtn" class="wl-btn wl-btn--primary" type="button">
-          حفظ وربط المستأجر
-        </button>
-        <button id="cancelLinkTenantModal" class="wl-btn wl-btn--ghost" type="button">
-          إلغاء
-        </button>
+        <button id="saveLinkedTenantBtn" class="wl-btn wl-btn--primary" type="button" data-i18n="linkModal.saveBtn"></button>
+        <button id="cancelLinkTenantModal" class="wl-btn wl-btn--ghost" type="button" data-i18n="common.cancel"></button>
       </div>
     </div>
   </div>
 
   <div id="documentsModal" class="wl-modal" aria-hidden="true">
     <div class="wl-modal__backdrop" data-docs-close="true"></div>
-
     <div class="wl-modal__panel" role="dialog" aria-modal="true" aria-labelledby="documentsModalTitle">
       <div class="wl-modal__header">
         <div>
-          <h3 id="documentsModalTitle" class="wl-modal__title">الوثائق</h3>
-          <p class="wl-modal__subtitle">الملفات المرتبطة بهذه الشقة</p>
+          <h3 id="documentsModalTitle" class="wl-modal__title" data-i18n="aptInfo.documentsTitle"></h3>
+          <p class="wl-modal__subtitle" data-i18n="aptInfo.documentsSub"></p>
         </div>
-
-        <button id="closeDocumentsModal" class="wl-icon-btn" type="button" aria-label="إغلاق">✕</button>
+        <button id="closeDocumentsModal" class="wl-icon-btn" type="button" data-i18n-aria-label="common.close" aria-label="">✕</button>
       </div>
-
       <div class="wl-modal__body">
         <div id="documentsList" class="wl-list"></div>
       </div>
-
       <div class="wl-modal__footer">
-        <button id="cancelDocumentsModal" class="wl-btn wl-btn--ghost" type="button">إغلاق</button>
+        <button id="cancelDocumentsModal" class="wl-btn wl-btn--ghost" type="button" data-i18n="common.close"></button>
       </div>
     </div>
   </div>
 
+  <script src="../js/main/theme.js"></script>
+  <script src="../js/main/breadcrumbs.js"></script>
+  <script src="../js/main/global-back.js"></script>
   <script src="../js/main/auth.js"></script>
   <script src="../js/main/nav.js"></script>
   <script src="../js/apartment-manager/apartment-storage.js"></script>
@@ -464,7 +385,5 @@
   <script src="../js/apartment-manager/apartment-requests.js"></script>
   <script src="../js/apartment-manager/apartment-link-tenant.js"></script>
   <script src="../js/apartment-manager/apartment-page.js"></script>
-  <script src="../js/main/theme.js"></script>
-
 </body>
 </html>

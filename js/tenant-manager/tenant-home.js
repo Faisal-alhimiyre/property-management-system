@@ -1,3 +1,9 @@
+function wlT(key, params) {
+  return window.walajna_language && window.walajna_language.t
+    ? window.walajna_language.t(key, params)
+    : key;
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   await WalajnaAuth.hydrateSession();
   requireAuth();
@@ -67,7 +73,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   );
 
   if (!currentUser) {
-    container.innerHTML = `<p>لم يتم العثور على المستخدم الحالي</p>`;
+    container.innerHTML = `<p>${wlT("tenant.home.userMissing")}</p>`;
     return;
   }
 
@@ -95,13 +101,13 @@ document.addEventListener("DOMContentLoaded", async () => {
       const b = buildingById.get(bid);
       const name = b && (b.name ?? b.building_name);
       if (name) {
-        return `${name} - شقة ${num}`;
+        return wlT("tenant.home.aptLine", { name, num });
       }
     }
     if (apt.address && toStr(apt.address)) {
       return toStr(apt.address);
     }
-    return `شقة ${num}`;
+    return wlT("tenant.home.aptOnly", { num });
   }
 
   function isApartmentLinkedToCurrentUser(apartment, user) {
@@ -129,7 +135,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const myApartments = Array.isArray(apartments) ? apartments : [];
 
   if (myApartments.length === 0) {
-    container.innerHTML = `<p class = "no-building">لا توجد وحدات مرتبطة بحسابك حالياً</p>`;
+    container.innerHTML = `<p class="no-building">${wlT("tenant.home.noUnits")}</p>`;
     return;
   }
 

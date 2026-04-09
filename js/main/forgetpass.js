@@ -1,3 +1,8 @@
+const T = (k, p) =>
+  window.walajna_language && window.walajna_language.t
+    ? window.walajna_language.t(k, p)
+    : k;
+
 const forgotForm = document.getElementById("forgotForm");
 const identifierInput = document.getElementById("identifier");
 const identifierLabel = document.getElementById("identifierLabel");
@@ -34,14 +39,14 @@ function updateRecoverMethod(method) {
   showForgotMessage("");
 
   if (method === "email") {
-    identifierLabel.textContent = "البريد الإلكتروني";
+    identifierLabel.textContent = T("forget.emailLabel");
     identifierInput.type = "email";
-    identifierInput.placeholder = "ادخل البريد الإلكتروني";
+    identifierInput.placeholder = T("forget.emailPh");
     identifierInput.setAttribute("autocomplete", "email");
   } else {
-    identifierLabel.textContent = "رقم الجوال";
+    identifierLabel.textContent = T("forget.phoneLabel");
     identifierInput.type = "tel";
-    identifierInput.placeholder = "ادخل رقم الجوال";
+    identifierInput.placeholder = T("forget.phonePh");
     identifierInput.setAttribute("autocomplete", "tel");
   }
 }
@@ -50,6 +55,10 @@ recoverTabs.forEach((tab) => {
   tab.addEventListener("click", function () {
     updateRecoverMethod(this.dataset.method);
   });
+});
+
+document.addEventListener("walajna:i18n-applied", () => {
+  updateRecoverMethod(activeMethod);
 });
 
 forgotForm.addEventListener("submit", function (e) {
@@ -62,9 +71,7 @@ forgotForm.addEventListener("submit", function (e) {
 
   if (!rawValue.trim()) {
     showForgotMessage(
-      activeMethod === "email"
-        ? "يرجى إدخال البريد الإلكتروني"
-        : "يرجى إدخال رقم الجوال"
+      activeMethod === "email" ? T("forget.needEmail") : T("forget.needPhone")
     );
     return;
   }
@@ -77,7 +84,7 @@ forgotForm.addEventListener("submit", function (e) {
     user = users.find((u) => normalizeValue(u.email) === email);
 
     if (!user) {
-      showForgotMessage("هذا البريد الإلكتروني غير مسجل في النظام");
+      showForgotMessage(T("forget.emailNotFound"));
       return;
     }
 
@@ -89,7 +96,7 @@ forgotForm.addEventListener("submit", function (e) {
     user = users.find((u) => normalizePhone(u.phoneNumber) === phone);
 
     if (!user) {
-      showForgotMessage("رقم الجوال غير مسجل في النظام");
+      showForgotMessage(T("forget.phoneNotFound"));
       return;
     }
 
@@ -105,7 +112,7 @@ forgotForm.addEventListener("submit", function (e) {
 
   console.log("Walajna OTP Code:", otpCode);
 
-  showForgotMessage("تم إرسال رمز التحقق، تحقق من Console", true);
+  showForgotMessage(T("forget.codeSent"), true);
 
   setTimeout(() => {
     window.location.href = "../auth/verify-code.html";

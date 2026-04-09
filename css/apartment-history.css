@@ -68,15 +68,27 @@ body {
 }
 
 .back-btn {
+  box-sizing: border-box;
+  appearance: none;
+  -webkit-appearance: none;
   border: none;
-  background: var(--brand);
+  background: linear-gradient(160deg, #5eead4 0%, #22d3ee 42%, #0ea5a2 100%);
   color: #fff;
-  padding: 14px 22px;
-  border-radius: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1;
+  min-height: 44px;
+  padding: 0 1.5rem;
+  border-radius: 9999px;
   cursor: pointer;
   font-weight: 800;
   font-size: 16px;
-  box-shadow: 0 10px 20px rgba(29, 167, 166, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 10px 26px rgba(34, 211, 238, 0.38),
+    0 4px 12px rgba(15, 23, 42, 0.25);
 }
 
 /* main layout */
@@ -353,8 +365,13 @@ body.dark-mode .sidebar-btn.active{
 }
 
 body.dark-mode .back-btn{
-  background:linear-gradient(135deg, #22d3ee, #0ea5a2);
-  color:#053433;
+  background:linear-gradient(160deg, #5eead4 0%, #22d3ee 42%, #0ea5a2 100%);
+  color:#fff;
+  -webkit-text-fill-color:#fff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 10px 26px rgba(34, 211, 238, 0.38),
+    0 4px 12px rgba(15, 23, 42, 0.25);
 }
 
 body.dark-mode .card::after{

@@ -2,7 +2,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("loginForm");
   const errorBox = document.getElementById("loginError");
 
-  const API_BASE = 'http://127.0.0.1:8002';
+  const API_BASE = 'http://127.0.0.1:8000';
 
   function showError(msg) {
     if (!errorBox) {
@@ -45,14 +45,15 @@ document.addEventListener("DOMContentLoaded", () => {
     e.preventDefault();
     showError("");
 
+    const T = (k, p) => (window.walajna_language && window.walajna_language.t(k, p)) || k;
+
     const nationalIdInput = document.getElementById("nationalId");
     const passwordInput = document.getElementById("password");
-    const national_id = (nationalIdInput ? String(nationalIdInput.value ?? "").trim() : "");
-    /* JSON.stringify drops keys whose value is undefined — always send real strings */
+    const national_id = nationalIdInput ? String(nationalIdInput.value ?? "").trim() : "";
     const password = passwordInput ? String(passwordInput.value ?? "") : "";
 
     if (!national_id || !password) {
-      showError("الرجاء تعبئة رقم الهوية وكلمة المرور.");
+      showError(T("login.fillUserPass"));
       return;
     }
 
@@ -67,7 +68,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       if (!response.ok) {
-        let detailText = 'بيانات الدخول غير صحيحة.';
+        let detailText = T("login.badCreds");
         try {
           const error = await response.json();
           detailText = formatApiDetail(error.detail);
@@ -82,7 +83,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const user = data.user || null;
 
       if (!user) {
-        showError("خطأ في الاستجابة من الخادم، حاول مرة أخرى.");
+        showError(T("login.serverBad"));
         return;
       }
 
@@ -97,7 +98,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       window.location.href = "./role.html";
     } catch (error) {
-      showError("خطأ في الشبكة. حاول مرة أخرى.");
+      showError(T("login.network"));
     }
   });
 });

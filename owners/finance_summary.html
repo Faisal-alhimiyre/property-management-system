@@ -1,37 +1,41 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
+  <script>(function(){try{var l=localStorage.getItem('walajna_language')||'ar';document.documentElement.setAttribute('lang',l==='en'?'en':'ar');document.documentElement.setAttribute('dir',l==='en'?'ltr':'rtl');}catch(e){}})();</script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>الملخص المالي</title>
+  <title data-i18n="meta.financeSummary">الملخص المالي</title>
 
-  <link rel="stylesheet" href="../../css/theme.css" />
-  <link rel="stylesheet" href="../../css/navstyle.css" />
-  <link rel="stylesheet" href="../../css/finance-summary.css" />
+  <link rel="stylesheet" href="../css/theme.css" />
+  <link rel="stylesheet" href="../css/navstyle.css" />
+  <link rel="stylesheet" href="../css/finance-summary.css" />
+  <script src="../js/main/walajna-i18n.js"></script>
 </head>
-<body data-nav="user">
+<body data-nav="user" data-wl-bc="finance-summary">
+  <div id="navbar-container"></div>
+
   <main class="finance-page">
 
     <section class="finance-hero">
       <div class="finance-hero__header">
         <div class="finance-hero__content">
           <h1 id="buildingName" class="finance-title">الملخص المالي</h1>
-          <p class="finance-subtitle">عرض مالي تفصيلي حسب الفترة المختارة</p>
+          <p class="finance-subtitle" data-i18n="finance.subtitle">عرض مالي تفصيلي حسب الفترة المختارة</p>
         </div>
 
         <div class="finance-filters">
           <div class="finance-filter-group">
-            <label for="periodSelect" class="finance-filter-label">طريقة العرض</label>
+            <label for="periodSelect" class="finance-filter-label" data-i18n="finance.viewMode">طريقة العرض</label>
             <select id="periodSelect" class="finance-select">
-              <option value="monthly">شهري</option>
-              <option value="quarterly">ربع سنوي</option>
-              <option value="semi">نصف سنوي</option>
-              <option value="annual">سنوي</option>
+              <option value="monthly" data-i18n="payments.cycle.monthly">شهري</option>
+              <option value="quarterly" data-i18n="payments.cycle.quarterly">ربع سنوي</option>
+              <option value="semi" data-i18n="payments.cycle.semi">نصف سنوي</option>
+              <option value="annual" data-i18n="payments.cycle.annual">سنوي</option>
             </select>
           </div>
 
           <div class="finance-filter-group">
-            <label for="periodDate" class="finance-filter-label">التاريخ</label>
+            <label for="periodDate" class="finance-filter-label" data-i18n="finance.dateLabel">التاريخ</label>
             <input id="periodDate" class="finance-date-input" type="date" />
           </div>
         </div>
@@ -42,55 +46,55 @@
 
     <section class="finance-cards">
       <article class="finance-card">
-        <span class="finance-card__label">الدخل</span>
-        <strong id="incomeValue" class="finance-card__value">0 ريال</strong>
+        <span class="finance-card__label" data-i18n="finance.cardIncome">الدخل</span>
+        <strong id="incomeValue" class="finance-card__value">0</strong>
       </article>
 
       <article class="finance-card">
-        <span class="finance-card__label">التكاليف</span>
-        <strong id="costValue" class="finance-card__value">0 ريال</strong>
+        <span class="finance-card__label" data-i18n="finance.cardCosts">التكاليف</span>
+        <strong id="costValue" class="finance-card__value">0</strong>
       </article>
 
       <article class="finance-card">
-        <span class="finance-card__label">الربح</span>
-        <strong id="profitValue" class="finance-card__value">0 ريال</strong>
+        <span class="finance-card__label" data-i18n="finance.cardProfit">الربح</span>
+        <strong id="profitValue" class="finance-card__value">0</strong>
       </article>
 
       <article class="finance-card">
-        <span class="finance-card__label">المتأخرات</span>
-        <strong id="lateValue" class="finance-card__value">0 ريال</strong>
+        <span class="finance-card__label" data-i18n="finance.cardLate">المتأخرات</span>
+        <strong id="lateValue" class="finance-card__value">0</strong>
       </article>
     </section>
 
     <section class="finance-table-section">
       <div class="finance-table-header">
-        <h2>تفاصيل الشقق</h2>
-        <span id="tableMeta" class="finance-table-meta">0 شقة</span>
+        <h2 data-i18n="finance.aptDetails">تفاصيل الشقق</h2>
+        <span id="tableMeta" class="finance-table-meta">0</span>
       </div>
 
       <div class="finance-table-wrap">
         <table class="finance-table">
           <thead>
             <tr>
-              <th>الشقة</th>
-              <th>المستأجر</th>
-              <th>الحالة</th>
-              <th>الدخل</th>
-              <th>التكاليف</th>
-              <th>المتأخرات</th>
-              <th>ملاحظات</th>
-              <th>الربح</th>
+              <th data-i18n="finance.th.apt">الشقة</th>
+              <th data-i18n="finance.th.tenant">المستأجر</th>
+              <th data-i18n="finance.th.status">الحالة</th>
+              <th data-i18n="finance.th.income">الدخل</th>
+              <th data-i18n="finance.th.costs">التكاليف</th>
+              <th data-i18n="finance.th.late">المتأخرات</th>
+              <th data-i18n="finance.th.notes">ملاحظات</th>
+              <th data-i18n="finance.th.profit">الربح</th>
             </tr>
           </thead>
           <tbody id="tableBody"></tbody>
           <tfoot>
             <tr>
-              <td colspan="3">الإجمالي</td>
-              <td id="totalIncome">0 ريال</td>
-              <td id="totalCosts">0 ريال</td>
-              <td id="totalLate">0 ريال</td>
-              <td>—</td>
-              <td id="totalProfit">0 ريال</td>
+              <td colspan="3" data-i18n="finance.totalRow">الإجمالي</td>
+              <td id="totalIncome">0</td>
+              <td id="totalCosts">0</td>
+              <td id="totalLate">0</td>
+              <td data-i18n="common.dash">—</td>
+              <td id="totalProfit">0</td>
             </tr>
           </tfoot>
         </table>
@@ -101,6 +105,9 @@
 
   <script src="../js/main/auth.js"></script>
   <script src="../js/main/theme.js"></script>
+  <script src="../js/main/breadcrumbs.js"></script>
+  <script src="../js/main/global-back.js"></script>
+  <script src="../js/main/nav.js"></script>
   <script src="../js/owner-manager/finance-summary.js"></script>
 </body>
 </html>

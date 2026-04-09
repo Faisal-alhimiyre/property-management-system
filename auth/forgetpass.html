@@ -1,40 +1,38 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
+  <script>(function(){try{var l=localStorage.getItem("walajna_language")||"ar";document.documentElement.setAttribute("lang",l==="en"?"en":"ar");document.documentElement.setAttribute("dir",l==="en"?"ltr":"rtl");}catch(e){}})();</script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>استعادة كلمة المرور - ولجنا</title>
+  <title data-i18n="meta.forgetTitle"></title>
   <link rel="stylesheet" href="../css/theme.css" />
   <link rel="stylesheet" href="../css/register.css" />
+  <script src="../js/main/walajna-i18n.js"></script>
 </head>
 <body>
-
+  <script src="../js/main/theme.js"></script>
   <div class="register-bg"></div>
 
-  <a href="../auth/login.html" class="logo">
-    <img src="../pics/logo.png" class="brand-logo" alt="Walajna Logo" />
+  <a href="../auth/login.html" class="logo" data-i18n-aria-label="common.logo" aria-label="">
+    <img src="../pics/logo.png" class="brand-logo" data-i18n-alt="common.logo" alt="" />
   </a>
 
   <main class="register-wrap">
     <form class="register-form" id="forgotForm">
-      <h2 class="title">استعادة كلمة المرور</h2>
+      <h2 class="title" data-i18n="forget.title"></h2>
 
       <div class="recover-switch">
-        <button type="button" class="recover-tab active" data-method="email">
-          البريد الإلكتروني
-        </button>
-
-        <button type="button" class="recover-tab" data-method="phone">
-          رقم الجوال
-        </button>
+        <button type="button" class="recover-tab active" data-method="email" data-i18n="forget.tabEmail"></button>
+        <button type="button" class="recover-tab" data-method="phone" data-i18n="forget.tabPhone"></button>
       </div>
 
       <div class="row">
-        <label for="identifier" id="identifierLabel">البريد الإلكتروني</label>
+        <label for="identifier" id="identifierLabel"></label>
         <input
           id="identifier"
           type="email"
-          placeholder="ادخل البريد الإلكتروني"
+          data-i18n-placeholder="forget.emailPh"
+          placeholder=""
           autocomplete="email"
           required
         />
@@ -42,15 +40,15 @@
 
       <p id="forgotMessage" class="error"></p>
 
-      <button class="register-btn" type="submit">متابعة</button>
+      <button class="register-btn" type="submit" data-i18n="forget.continue"></button>
 
       <p class="footer">
-        <a href="../auth/login.html">رجوع لتسجيل الدخول</a>
+        <a href="../auth/login.html" data-i18n="auth.backToLogin"></a>
       </p>
     </form>
   </main>
 
-  <script src="../js/main/theme.js"></script>
+  <script src="../js/main/global-back.js"></script>
   <script src="../js/main/forgetpass.js"></script>
 </body>
 </html>

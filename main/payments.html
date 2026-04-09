@@ -1,100 +1,92 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
+  <script>(function(){try{var l=localStorage.getItem("walajna_language")||"ar";document.documentElement.setAttribute("lang",l==="en"?"en":"ar");document.documentElement.setAttribute("dir",l==="en"?"ltr":"rtl");}catch(e){}})();</script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>المدفوعات - ولجنا</title>
-
-  <link rel="stylesheet" href="../css/theme.css">
-  <link rel="stylesheet" href="../css/navstyle.css">
-  <link rel="stylesheet" href="../css/payments.css">
+  <title data-i18n="meta.paymentsTitle"></title>
+  <link rel="stylesheet" href="../css/theme.css" />
+  <link rel="stylesheet" href="../css/navstyle.css" />
+  <link rel="stylesheet" href="../css/payments.css" />
+  <script src="../js/main/walajna-i18n.js"></script>
 </head>
-<body data-nav="user">
-
+<body data-nav="user" data-wl-bc="payments">
   <div id="navbar-container"></div>
 
   <main class="pay-wrap">
     <div class="pay-header">
       <div>
-        <h2 id="pageTitle">سجل المدفوعات</h2>
-        <p id="pageSub">عرض تاريخ المدفوعات للشقة</p>
+        <h2 id="pageTitle" data-i18n="payments.pageTitle"></h2>
+        <p id="pageSub" data-i18n="payments.pageSub"></p>
       </div>
 
       <div class="pay-search">
-        <input
-          id="searchInput"
-          type="text"
-          placeholder="ابحث (مثال: فبراير، تحويل، 1500)"
-        />
+        <input id="searchInput" type="text" data-i18n-placeholder="payments.searchPh" placeholder="" />
       </div>
     </div>
 
-    <!-- التنبيه التلقائي -->
     <div id="paymentsReminder"></div>
 
-    <!-- ملخص المدفوعات -->
     <div id="paymentsSummary"></div>
 
-    <!-- جدول المدفوعات -->
     <div id="paymentsTableContainer"></div>
-
-    
   </main>
 
-  <!-- مودال تسجيل الدفعة -->
   <div id="recordPaymentModal" class="wl-modal" aria-hidden="true">
-  <div class="wl-modal__backdrop" data-record-payment-close="true"></div>
+    <div class="wl-modal__backdrop" data-record-payment-close="true"></div>
 
-  <div class="wl-modal__panel" role="dialog" aria-modal="true" aria-labelledby="recordPaymentModalTitle">
-    <div class="wl-modal__header">
-      <div>
-        <h3 id="recordPaymentModalTitle" class="wl-modal__title">تسجيل دفعة</h3>
-        <p class="wl-modal__subtitle">أدخل تفاصيل الدفعة ثم احفظ</p>
+    <div class="wl-modal__panel" role="dialog" aria-modal="true" aria-labelledby="recordPaymentModalTitle">
+      <div class="wl-modal__header">
+        <div>
+          <h3 id="recordPaymentModalTitle" class="wl-modal__title" data-i18n="payments.modalTitle"></h3>
+          <p class="wl-modal__subtitle" data-i18n="payments.modalSub"></p>
+        </div>
+
+        <button id="closeRecordPaymentModal" class="wl-icon-btn" type="button" data-i18n-aria-label="common.close" aria-label="">✕</button>
       </div>
 
-      <button id="closeRecordPaymentModal" class="wl-icon-btn" type="button" aria-label="إغلاق">✕</button>
-    </div>
+      <div class="wl-modal__body">
+        <div id="selectedPaymentInfo" class="payments-inline-note">—</div>
 
-    <div class="wl-modal__body">
-      <div id="selectedPaymentInfo" class="payments-inline-note">—</div>
+        <div class="payments-form-grid">
+          <div class="payments-field">
+            <label for="paymentAmountInput" data-i18n="payments.labelAmount"></label>
+            <input id="paymentAmountInput" type="number" min="0" step="0.01" />
+          </div>
 
-      <div class="payments-form-grid">
-        <div class="payments-field">
-          <label for="paymentAmountInput">المبلغ</label>
-          <input id="paymentAmountInput" type="number" min="0" step="0.01" />
-        </div>
+          <div class="payments-field">
+            <label for="paymentMethodInput" data-i18n="payments.labelMethod"></label>
+            <select id="paymentMethodInput">
+              <option value="" data-i18n-label="payments.pick"></option>
+              <option value="cash" data-i18n-label="payments.method.cash"></option>
+              <option value="bank_transfer" data-i18n-label="payments.method.bank_transfer"></option>
+              <option value="mada" data-i18n-label="payments.method.mada"></option>
+              <option value="card" data-i18n-label="payments.method.card"></option>
+            </select>
+          </div>
 
-        <div class="payments-field">
-          <label for="paymentMethodInput">طريقة الدفع</label>
-          <select id="paymentMethodInput">
-            <option value="">اختر</option>
-            <option value="cash">نقدًا</option>
-            <option value="bank_transfer">تحويل بنكي</option>
-            <option value="mada">مدى</option>
-            <option value="card">بطاقة</option>
-          </select>
-        </div>
+          <div class="payments-field">
+            <label for="paymentPaidAtInput" data-i18n="payments.labelPaidAt"></label>
+            <input id="paymentPaidAtInput" type="date" />
+          </div>
 
-        <div class="payments-field">
-          <label for="paymentPaidAtInput">تاريخ الدفع</label>
-          <input id="paymentPaidAtInput" type="date" />
-        </div>
-
-        <div class="payments-field" style="grid-column:1/-1;">
-          <label for="paymentNotesInput">ملاحظات</label>
-          <textarea id="paymentNotesInput" placeholder="ملاحظات إضافية"></textarea>
+          <div class="payments-field" style="grid-column:1/-1;">
+            <label for="paymentNotesInput" data-i18n="payments.labelNotes"></label>
+            <textarea id="paymentNotesInput" data-i18n-placeholder="payments.notesPh" placeholder=""></textarea>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="wl-modal__footer">
-      <button id="savePaymentRecordBtn" class="wl-btn wl-btn--primary" type="button">حفظ الدفعة</button>
-      <button id="cancelRecordPaymentModal" class="wl-btn wl-btn--ghost" type="button">إلغاء</button>
+      <div class="wl-modal__footer">
+        <button id="savePaymentRecordBtn" class="wl-btn wl-btn--primary" type="button" data-i18n="payments.saveRecord"></button>
+        <button id="cancelRecordPaymentModal" class="wl-btn wl-btn--ghost" type="button" data-i18n="common.cancel"></button>
+      </div>
     </div>
   </div>
-</div>
- 
+
   <script src="../js/main/theme.js"></script>
+  <script src="../js/main/breadcrumbs.js"></script>
+  <script src="../js/main/global-back.js"></script>
   <script src="../js/main/auth.js"></script>
   <script src="../js/main/nav.js"></script>
   <script src="../js/apartment-manager/apartment-storage.js"></script>
@@ -103,6 +95,5 @@
   <script src="../js/payments-manager/payments-ui.js"></script>
   <script src="../js/payments-manager/apartment-payments.js"></script>
   <script src="../js/payments-manager/payments-page.js"></script>
-
 </body>
 </html>

@@ -12,7 +12,11 @@ document.addEventListener("DOMContentLoaded", async function () {
   const tableContainer = document.getElementById("paymentsTableContainer");
 
   if (!apartmentId) {
-    console.warn("لم يتم تمرير apartmentId إلى صفحة المدفوعات");
+    const msg =
+      window.walajna_language && window.walajna_language.t
+        ? window.walajna_language.t("console.aptIdMissing")
+        : "apartmentId missing";
+    console.warn(msg);
     return;
   }
 
@@ -38,8 +42,16 @@ document.addEventListener("DOMContentLoaded", async function () {
     );
 
     if (!apartment) {
-      console.warn("تعذر العثور على الشقة المطلوبة (وضع السجل)");
-      showLoadError("تعذر العثور على بيانات الشقة.");
+      const msg =
+        window.walajna_language && window.walajna_language.t
+          ? window.walajna_language.t("console.aptNotFoundPage")
+          : "Apartment not found";
+      console.warn(msg);
+      showLoadError(
+        window.walajna_language && window.walajna_language.t
+          ? window.walajna_language.t("payments.historyAptMissing")
+          : "تعذر العثور على بيانات الشقة."
+      );
       return;
     }
 

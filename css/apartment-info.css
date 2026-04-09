@@ -809,9 +809,13 @@ body.dark-mode .details-grid select.value,
 body.dark-mode #linkTenantModal input,
 body.dark-mode #linkTenantModal textarea,
 body.dark-mode #linkTenantModal select{
-  background:#020617;
+  background-color:#0f172a !important;
+  background-image:none !important;
   border-color:rgba(148,163,184,.35);
-  color:#e5edf7;
+  color:#f8fafc !important;
+  -webkit-text-fill-color:#f8fafc !important;
+  caret-color:#f8fafc;
+  color-scheme:dark;
 }
 
 body.dark-mode .details-grid input.value:focus,
@@ -824,6 +828,55 @@ body.dark-mode #linkTenantModal select:focus{
   box-shadow:0 0 0 1px rgba(34,211,238,.5);
 }
 
+/* Chrome/Safari autofill: full name / email etc. must keep dark bg + light text */
+body.dark-mode #linkTenantModal input:-webkit-autofill,
+body.dark-mode #linkTenantModal input:-webkit-autofill:hover,
+body.dark-mode #linkTenantModal input:-webkit-autofill:focus,
+body.dark-mode #linkTenantModal input:-webkit-autofill:active{
+  -webkit-box-shadow:0 0 0 1000px #0f172a inset !important;
+  box-shadow:0 0 0 1px rgba(148,163,184,.35) inset !important;
+  -webkit-text-fill-color:#f8fafc !important;
+  caret-color:#f8fafc;
+  color:#f8fafc !important;
+  border:1px solid rgba(148,163,184,.35) !important;
+  transition:background-color 99999s ease-out 0s;
+}
+
+body.dark-mode .details-grid input.value:-webkit-autofill,
+body.dark-mode .details-grid input.value:-webkit-autofill:hover,
+body.dark-mode .details-grid input.value:-webkit-autofill:focus,
+body.dark-mode .details-grid input.value:-webkit-autofill:active{
+  -webkit-box-shadow:0 0 0 1000px #0f172a inset !important;
+  box-shadow:0 0 0 1px rgba(148,163,184,.35) inset !important;
+  -webkit-text-fill-color:#f8fafc !important;
+  caret-color:#f8fafc;
+  color:#f8fafc !important;
+  border:1px solid rgba(148,163,184,.35) !important;
+  transition:background-color 99999s ease-out 0s;
+}
+
+/* Modal grid: inputs often have no .value class — same autofill fix */
+body.dark-mode #linkTenantModal .details-grid input:-webkit-autofill,
+body.dark-mode #linkTenantModal .details-grid input:-webkit-autofill:hover,
+body.dark-mode #linkTenantModal .details-grid input:-webkit-autofill:focus,
+body.dark-mode #linkTenantModal .details-grid input:-webkit-autofill:active{
+  -webkit-box-shadow:0 0 0 1000px #0f172a inset !important;
+  box-shadow:0 0 0 1px rgba(148,163,184,.35) inset !important;
+  -webkit-text-fill-color:#f8fafc !important;
+  caret-color:#f8fafc;
+  color:#f8fafc !important;
+  border:1px solid rgba(148,163,184,.35) !important;
+  transition:background-color 99999s ease-out 0s;
+}
+
+/* Name / free-text fields: heavy font-weight + compositing can hide glyphs until keypress */
+body.dark-mode #linkTenantModal input[type="text"],
+body.dark-mode #linkTenantModal textarea{
+  font-weight:500;
+  -webkit-font-smoothing:antialiased;
+  transform:translateZ(0);
+}
+
 body.dark-mode .action-btn.secondary{
   background:#0b111c;
   color:#e5edf7;
@@ -834,6 +887,9 @@ body.dark-mode .wl-modal__panel{
   background:#101825;
   border-color:rgba(148,163,184,.35);
   box-shadow:0 24px 60px rgba(15,23,42,.82);
+  /* Backdrop blur breaks text painting in some Chromium builds until a key event */
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none;
 }
 
 body.dark-mode .wl-modal__header{
@@ -952,6 +1008,8 @@ body.dark-mode #leaseStatus.danger{
 /* Link tenant modal dark fixes (date icon, file input, white strips) */
 body.dark-mode #linkTenantModal .wl-modal__panel{
   background:#101825;
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none;
 }
 
 body.dark-mode #linkTenantModal .wl-modal__body{

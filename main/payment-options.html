@@ -1,189 +1,69 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
+  <script>(function(){try{var l=localStorage.getItem("walajna_language")||"ar";document.documentElement.setAttribute("lang",l==="en"?"en":"ar");document.documentElement.setAttribute("dir",l==="en"?"ltr":"rtl");}catch(e){}})();</script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>خيارات الدفع - ولجنا</title>
-  <link rel="stylesheet" href="../css/theme.css">
-  <link rel="stylesheet" href="../css/navstyle.css">
-  <link rel="stylesheet" href="../css/payment-options.css">
+  <title data-i18n="meta.paymentOptionsTitle"></title>
+  <link rel="stylesheet" href="../css/theme.css" />
+  <link rel="stylesheet" href="../css/navstyle.css" />
+  <link rel="stylesheet" href="../css/payment-options.css" />
+  <script src="../js/main/walajna-i18n.js"></script>
 </head>
-<body data-nav="user">
-
+<body data-nav="user" data-wl-bc="payment-options">
   <div id="navbar-container"></div>
 
   <main class="payment-options-wrap">
     <section class="payment-options-header">
       <div class="payment-options-header__content">
-        <h2>خيارات الدفع</h2>
-        <p>اختر طريقة الدفع المناسبة لإتمام العملية</p>
-        <a id="backToPaymentsLink" class="back-link" href="#">
-  ← العودة إلى صفحة المدفوعات
-</a>
+        <h2 data-i18n="paymentOpt.title"></h2>
+        <p data-i18n="paymentOpt.subtitle"></p>
+        <a id="backToPaymentsLink" class="back-link" href="#" data-i18n="paymentOpt.back"></a>
       </div>
     </section>
 
-    <section id="paymentSummaryBox" class="payment-summary-box">
-      جارٍ تحميل بيانات الدفعة...
-    </section>
+    <section id="paymentSummaryBox" class="payment-summary-box" data-i18n="paymentOpt.loading"></section>
 
     <section class="payment-methods-grid">
       <div class="payment-method-card tamara" data-method="tamara">
         <div class="payment-method-head">
-          <img src="../images/tamara.png" alt="Tamara" class="payment-method-logo">
-          <h3>تمارا</h3>
+          <img src="../images/tamara.png" alt="Tamara" class="payment-method-logo" />
+          <h3>Tamara</h3>
         </div>
-        <p>ادفع الآن أو قسّط المبلغ حسب الخيارات المتاحة.</p>
+        <p data-i18n="paymentOpt.tamaraDesc"></p>
       </div>
 
       <div class="payment-method-card tabby" data-method="tabby">
         <div class="payment-method-head">
-          <img src="../images/tabby.png" alt="Tabby" class="payment-method-logo">
-          <h3>تابي</h3>
+          <img src="../images/tabby.png" alt="Tabby" class="payment-method-logo" />
+          <h3>Tabby</h3>
         </div>
-        <p>خيار مناسب للدفع المرن على دفعات.</p>
+        <p data-i18n="paymentOpt.tabbyDesc"></p>
       </div>
 
       <div class="payment-method-card apple-pay" data-method="apple_pay">
         <div class="payment-method-head">
-          <img src="../images/apple-pay.png" alt="Apple Pay" class="payment-method-logo">
+          <img src="../images/apple-pay.png" alt="Apple Pay" class="payment-method-logo" />
           <h3>Apple Pay</h3>
         </div>
-        <p>إتمام سريع وآمن لعملية الدفع.</p>
+        <p data-i18n="paymentOpt.appleDesc"></p>
       </div>
 
       <div class="payment-method-card bank-card" data-method="card">
         <div class="payment-method-head">
-          <img src="../images/mastercard.png" alt="MasterCard" class="payment-method-logo">
-          <h3>البطاقة</h3>
+          <img src="../images/mastercard.png" alt="MasterCard" class="payment-method-logo" />
+          <h3 data-i18n="paymentOpt.cardTitle"></h3>
         </div>
-        <p>الدفع باستخدام البطاقة البنكية مباشرة.</p>
+        <p data-i18n="paymentOpt.cardDesc"></p>
       </div>
     </section>
   </main>
 
   <script src="../js/main/theme.js"></script>
+  <script src="../js/main/breadcrumbs.js"></script>
+  <script src="../js/main/global-back.js"></script>
   <script src="../js/main/auth.js"></script>
   <script src="../js/main/nav.js"></script>
-  <script>
-    document.addEventListener("DOMContentLoaded", async function () {
-      const params = new URLSearchParams(window.location.search);
-      const apartmentId = params.get("id");
-      const paymentId = params.get("paymentId");
-      const contractId = params.get("contractId");
-
-      const summaryBox = document.getElementById("paymentSummaryBox");
-      const backLink = document.getElementById("backToPaymentsLink");
-
-      if (backLink && apartmentId) {
-        backLink.href = `../main/payments.html?id=${encodeURIComponent(apartmentId)}`;
-      }
-
-      if (
-        !apartmentId ||
-        !paymentId ||
-        !contractId ||
-        !window.WalajnaAuth ||
-        typeof window.WalajnaAuth.fetchWithAuth !== "function"
-      ) {
-        if (summaryBox) {
-          summaryBox.textContent =
-            "بيانات الدفعة غير مكتملة. ارجع إلى صفحة المدفوعات واختر الدفعة من جديد.";
-        }
-        return;
-      }
-
-      await WalajnaAuth.hydrateSession();
-
-      const apiBase = window.WalajnaAuth.API_BASE;
-
-      let payment = null;
-      try {
-        const res = await WalajnaAuth.fetchWithAuth(
-          `${apiBase}/api/contracts/${encodeURIComponent(contractId)}/installments`,
-          { method: "GET" }
-        );
-        if (res.status === 401) {
-          if (typeof WalajnaAuth.handleUnauthorized === "function") {
-            WalajnaAuth.handleUnauthorized(
-              "انتهت الجلسة أو التوكن غير صالح. سجل الدخول مرة أخرى ثم أعد المحاولة."
-            );
-          }
-          return;
-        }
-        if (!res.ok) {
-          throw new Error("installments fetch failed");
-        }
-        const rows = await res.json();
-        payment = Array.isArray(rows)
-          ? rows.find((item) => String(item.id) === String(paymentId))
-          : null;
-      } catch (e) {
-        console.warn(e);
-      }
-
-      if (summaryBox) {
-        if (!payment) {
-          summaryBox.textContent = "لم يتم العثور على الدفعة المحددة.";
-        } else {
-          const due = (payment.due_date || "").toString().slice(0, 10);
-          summaryBox.innerHTML = `
-            <div class="payment-summary-row">
-              <span class="payment-summary-label">المبلغ</span>
-              <strong class="payment-summary-value">${Number(payment.amount || 0).toLocaleString("ar-SA")} ريال</strong>
-            </div>
-            <div class="payment-summary-row">
-              <span class="payment-summary-label">تاريخ الاستحقاق</span>
-              <strong class="payment-summary-value">${due || "—"}</strong>
-            </div>
-          `;
-        }
-      }
-
-      document.querySelectorAll(".payment-method-card").forEach((card) => {
-        card.addEventListener("click", async function () {
-          const method = this.dataset.method;
-
-          if (!payment) {
-            alert("تعذر العثور على بيانات الدفعة");
-            return;
-          }
-
-          try {
-            const patchRes = await WalajnaAuth.fetchWithAuth(
-              `${apiBase}/api/payment-installments/${encodeURIComponent(paymentId)}`,
-              {
-                method: "PATCH",
-                body: JSON.stringify({
-                  status: "paid",
-                  payment_method: method,
-                  notes: "تم السداد من صفحة خيارات الدفع",
-                }),
-              }
-            );
-            if (patchRes.status === 401) {
-              if (typeof WalajnaAuth.handleUnauthorized === "function") {
-                WalajnaAuth.handleUnauthorized();
-              }
-              return;
-            }
-            if (!patchRes.ok) {
-              const t = await patchRes.text();
-              alert("تعذر تسجيل الدفع: " + (t || patchRes.status));
-              return;
-            }
-          } catch (err) {
-            console.warn(err);
-            alert("حدث خطأ أثناء الاتصال بالخادم.");
-            return;
-          }
-
-          alert("تم تنفيذ الدفع بنجاح ✅");
-          window.location.href = `../main/payments.html?id=${encodeURIComponent(apartmentId)}`;
-        });
-      });
-    });
-  </script>
-
+  <script src="../js/main/payment-options-page.js"></script>
 </body>
 </html>

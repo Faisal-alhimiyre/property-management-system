@@ -1,15 +1,57 @@
 document.addEventListener("DOMContentLoaded", async () => {
+  const T = (k, p) =>
+    window.walajna_language && window.walajna_language.t
+      ? window.walajna_language.t(k, p)
+      : k;
+  const TAr = (k, p) =>
+    window.walajna_language && window.walajna_language.tAr
+      ? window.walajna_language.tAr(k, p)
+      : T(k, p);
+
   const title = document.getElementById("buildingTitle");
   const grid = document.getElementById("apartmentsGrid");
   const financeBtn = document.getElementById("financeSummaryBtn");
 
   if (!grid) return;
 
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function populateLinkTenantTypeSelect() {
+    const sel = document.getElementById("linkTenantType");
+    if (!sel) return;
+    const previous = sel.value;
+    sel.innerHTML = "";
+    const o0 = document.createElement("option");
+    o0.value = "";
+    o0.textContent = T("apt.link.pick");
+    sel.appendChild(o0);
+    const indAr = TAr("lease.tenantIndividuals");
+    const famAr = TAr("lease.tenantFamilies");
+    const o1 = document.createElement("option");
+    o1.value = indAr;
+    o1.textContent = T("lease.tenantIndividuals");
+    sel.appendChild(o1);
+    const o2 = document.createElement("option");
+    o2.value = famAr;
+    o2.textContent = T("lease.tenantFamilies");
+    sel.appendChild(o2);
+    if (previous && [...sel.options].some((o) => o.value === previous)) {
+      sel.value = previous;
+    }
+  }
+
   const params = new URLSearchParams(window.location.search);
   const buildingId = params.get("buildingId");
 
   if (!buildingId) {
-    if (title) title.textContent = "لم يتم العثور على العمارة";
+    if (title) title.textContent = T("building.notFound");
     return;
   }
 
@@ -142,7 +184,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (building && title) {
     title.textContent = building.name;
   } else if (title) {
-    title.textContent = "لم يتم العثور على العمارة";
+    title.textContent = T("building.notFound");
   }
 
   function openFinanceSummary() {
@@ -204,7 +246,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       number: String(apartmentNumber),
       floorNumber: Number(floorNumber) || 1,
       leaseStatus: "vacant",
-      status: "فارغة",
+      status: TAr("finance.vacant"),
       rent: "",
       tenantUserId: null,
       tenantNationalId: null,
@@ -251,7 +293,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   let selectedApartmentId = null;
 
   function formatMoney(value) {
-    return `${Number(value || 0).toLocaleString("en-US")} ريال`;
+    const n = Number(value || 0);
+    const loc =
+      window.walajna_language && window.walajna_language.get() === "en"
+        ? "en-SA"
+        : "ar-SA";
+    if (!n) return T("common.sarZero");
+    return `${n.toLocaleString(loc)} ${T("common.sar")}`;
   }
 
   function getRequestPriority(typeId) {
@@ -488,7 +536,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const modal = document.getElementById("editApartmentModal");
 
     if (titleEl) {
-      titleEl.textContent = `تعديل شقة ${apartment.number}`;
+      titleEl.textContent = T("building.editApt", { n: apartment.number });
     }
 
     setFieldValue("linkFullName", tenantInfo.fullName);
@@ -560,19 +608,19 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function validateEditFormData(data) {
     if (data.nationalId && !/^\d{10}$/.test(data.nationalId)) {
-      return "رقم الهوية / الإقامة يجب أن يكون 10 أرقام";
+      return T("building.idInvalid");
     }
 
     if (data.phone && !/^05\d{8}$/.test(data.phone)) {
-      return "رقم الجوال غير صحيح";
+      return T("building.phoneInvalid");
     }
 
     if (data.endDate && data.startDate && data.endDate < data.startDate) {
-      return "تاريخ نهاية العقد يجب أن يكون بعد تاريخ البداية";
+      return T("building.endAfterStart");
     }
 
     if (data.installmentsCount && Number(data.installmentsCount) < 1) {
-      return "عدد الدفعات غير صحيح";
+      return T("building.installmentsInvalid");
     }
 
     return "";
@@ -667,11 +715,11 @@ function evictApartment(apartmentId) {
   const openRequests = getOpenRequests(apartment);
 
   if (openRequests.length > 0) {
-    alert("لا يمكن إخلاء الشقة قبل معالجة جميع الطلبات المفتوحة");
+    alert(T("building.openRequestsFirst"));
     return;
   }
 
-  const confirmed = confirm("هل أنت متأكد من إخلاء المستأجر من هذه الشقة؟");
+  const confirmed = confirm(T("building.confirmVacate"));
   if (!confirmed) return;
 
   const updatedApartments = apartments.map((item) => {
@@ -686,7 +734,7 @@ function evictApartment(apartmentId) {
       contract: {},
       currentContractId: null,
       leaseStatus: "vacant",
-      status: "فارغة",
+      status: TAr("finance.vacant"),
     };
   });
 
@@ -761,7 +809,7 @@ function evictApartment(apartmentId) {
   if (!apartment) {
     return {
       allowed: false,
-      message: "لم يتم العثور على بيانات الشقة",
+      message: T("building.aptDataMissing"),
     };
   }
 
@@ -774,7 +822,7 @@ function evictApartment(apartmentId) {
   if (!currentContractId) {
     return {
       allowed: false,
-      message: "لا يمكن إخلاء شقة لا تحتوي على عقد حالي",
+      message: T("building.noContractVacate"),
     };
   }
 
@@ -806,7 +854,7 @@ function evictApartment(apartmentId) {
   if (diffDays < 30) {
     return {
       allowed: false,
-      message: "لا يمكن إخلاء المستأجر قبل مرور 30 يومًا من بداية العقد",
+      message: T("building.vacateTooSoon"),
     };
   }
 
@@ -1046,7 +1094,7 @@ function evictApartment(apartmentId) {
   renderBuildingFinancialSummary();
 
   function deleteApartment(apartmentId) {
-    const confirmed = confirm("هل أنت متأكد من حذف الشقة؟ سيتم حذف كل البيانات المرتبطة بها.");
+    const confirmed = confirm(T("building.confirmDeleteApt"));
     if (!confirmed) return;
 
     const updatedApartments = apartments.filter((apartment) => apartment.id !== apartmentId);
@@ -1063,10 +1111,11 @@ function evictApartment(apartmentId) {
     localStorage.setItem("walajna_costs", JSON.stringify(updatedCosts));
     localStorage.setItem("walajna_documents", JSON.stringify(updatedDocuments));
 
-    alert("تم حذف الشقة بنجاح");
+    alert(T("building.aptDeleted"));
     window.location.reload();
   }
 
+  function renderApartmentGrid() {
   const floors = {};
 
   buildingApartments.forEach((apartment) => {
@@ -1102,7 +1151,9 @@ function evictApartment(apartmentId) {
           const isRented = isApartmentOccupied(apartment);
 
           const rentedBadge = isRented
-            ? `<span class="apartment-badge rented-badge">مؤجرة</span>`
+            ? `<span class="apartment-badge rented-badge">${escapeHtml(
+                T("building.rentedBadge")
+              )}</span>`
             : "";
 
           if (isOverdue) {
@@ -1121,7 +1172,7 @@ function evictApartment(apartmentId) {
                     (req) => `
                       <span class="apartment-badge badge-${req.typeId}">
                         <span class="badge-dot"></span>
-                        ${req.typeTitle}
+                        ${escapeHtml(req.typeTitle)}
                       </span>
                     `
                   )
@@ -1138,7 +1189,7 @@ function evictApartment(apartmentId) {
                   class="apartment-more-btn"
                   data-menu-btn="true"
                   data-id="${apartment.id}"
-                  aria-label="خيارات الشقة"
+                  aria-label="${escapeHtml(T("building.aptMenu"))}"
                 >
                   ⋮
                 </button>
@@ -1149,7 +1200,7 @@ function evictApartment(apartmentId) {
                     data-action="edit-apartment"
                     data-id="${apartment.id}"
                   >
-                    تعديل
+                    ${escapeHtml(T("common.edit"))}
                   </button>
 
                   <button
@@ -1158,20 +1209,22 @@ function evictApartment(apartmentId) {
                     data-action="evict-apartment"
                     data-id="${apartment.id}"
                   >
-                    إخلاء
+                    ${escapeHtml(T("building.vacate"))}
                   </button>
                 </div>
               </div>
 
               <div class="apartment-number-row">
                 <div class="apartment-number">
-                  شقة ${apartment.number}
+                  ${escapeHtml(T("building.aptLabel", { n: apartment.number }))}
                 </div>
                 ${rentedBadge}
               </div>
 
               <div class="apartment-tenant">
-                ${apartment.tenantInfo?.fullName || "بدون مستأجر"}
+                ${escapeHtml(
+                  apartment.tenantInfo?.fullName || T("finance.noTenant")
+                )}
               </div>
 
               ${badgesHtml}
@@ -1182,7 +1235,9 @@ function evictApartment(apartmentId) {
 
       return `
         <div class="floor-section">
-          <div class="floor-title">الدور ${floorNumber}</div>
+          <div class="floor-title">${escapeHtml(
+            T("building.floorTitle", { n: floorNumber })
+          )}</div>
           <div class="floor-apartments">
             ${apartmentsHtml}
           </div>
@@ -1241,6 +1296,22 @@ function evictApartment(apartmentId) {
       const aptId = card.dataset.id;
       window.location.href = `../main/apartment_info.html?id=${encodeURIComponent(aptId)}`;
     });
+  });
+  }
+
+  function refreshAll() {
+    renderBuildingFinancialSummary();
+    renderApartmentGrid();
+  }
+
+  populateLinkTenantTypeSelect();
+  refreshAll();
+  document.addEventListener("walajna:i18n-applied", () => {
+    populateLinkTenantTypeSelect();
+    refreshAll();
+    if (window.walajna_language && window.walajna_language.apply) {
+      window.walajna_language.apply(document.body);
+    }
   });
 
   const closeBtn = document.getElementById("closeEditApartmentModal");

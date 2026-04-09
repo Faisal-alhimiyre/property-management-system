@@ -1,4 +1,9 @@
 document.addEventListener("DOMContentLoaded", async () => {
+  const T = (k, p) =>
+    window.walajna_language && window.walajna_language.t
+      ? window.walajna_language.t(k, p)
+      : k;
+
   const params = new URLSearchParams(window.location.search);
   const rawBuildingId = params.get("buildingId") || "";
 
@@ -177,14 +182,32 @@ document.addEventListener("DOMContentLoaded", async () => {
   const totalLateEl = document.getElementById("totalLate");
   const totalProfitEl = document.getElementById("totalProfit");
 
-  if (buildingNameEl) {
-    buildingNameEl.textContent = building
-      ? `الملخص المالي - ${building.name}`
-      : "الملخص المالي";
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
   }
 
+  function setBuildingTitle() {
+    if (!buildingNameEl) return;
+    buildingNameEl.textContent = building
+      ? T("finance.summaryWithBuilding", { name: building.name })
+      : T("finance.summary");
+  }
+
+  setBuildingTitle();
+
   function formatMoney(value) {
-    return `${Number(value || 0).toLocaleString("en-US")} ريال`;
+    const n = Number(value || 0);
+    const loc =
+      window.walajna_language && window.walajna_language.get() === "en"
+        ? "en-SA"
+        : "ar-SA";
+    if (!n) return T("common.sarZero");
+    return `${n.toLocaleString(loc)} ${T("common.sar")}`;
   }
 
   function isApartmentOccupied(apartment) {
@@ -199,11 +222,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function getApartmentStatusHtml(apartment) {
-    if (isApartmentOccupied(apartment)) {
-      return `<span class="finance-status-badge rented">مؤجرة</span>`;
-    }
-
-    return `<span class="finance-status-badge vacant">فارغة</span>`;
+    const occupied = isApartmentOccupied(apartment);
+    const label = occupied ? T("finance.rented") : T("finance.vacant");
+    const cls = occupied ? "rented" : "vacant";
+    return `<span class="finance-status-badge ${cls}">${escapeHtml(label)}</span>`;
   }
 
   function getApartmentCurrentContractId(apartment) {
@@ -273,6 +295,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const year = baseDate.getFullYear();
     const month = baseDate.getMonth();
+    const loc =
+      window.walajna_language && window.walajna_language.get() === "en"
+        ? "en-GB"
+        : "ar-SA";
 
     let start;
     let end;
@@ -281,25 +307,28 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (view === "monthly") {
       start = new Date(year, month, 1);
       end = new Date(year, month + 1, 0);
-      label = `${baseDate.toLocaleString("ar", { month: "long" })} ${year}`;
+      label = baseDate.toLocaleDateString(loc, { month: "long", year: "numeric" });
     } else if (view === "quarterly") {
       const quarter = Math.floor(month / 3) + 1;
       const startMonth = (quarter - 1) * 3;
 
       start = new Date(year, startMonth, 1);
       end = new Date(year, startMonth + 3, 0);
-      label = `الربع ${quarter} - ${year}`;
+      label = T("finance.quarter", { q: quarter, y: year });
     } else if (view === "semi") {
       const half = month < 6 ? 1 : 2;
       const startMonth = half === 1 ? 0 : 6;
 
       start = new Date(year, startMonth, 1);
       end = new Date(year, startMonth + 6, 0);
-      label = `النصف ${half === 1 ? "الأول" : "الثاني"} - ${year}`;
+      label =
+        half === 1
+          ? T("finance.halfFirst", { y: year })
+          : T("finance.halfSecond", { y: year });
     } else {
       start = new Date(year, 0, 1);
       end = new Date(year, 11, 31);
-      label = `السنة ${year}`;
+      label = T("finance.year", { y: year });
     }
 
     start.setHours(0, 0, 0, 0);
@@ -309,7 +338,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function buildNoteText(apartment) {
-    return apartment?.contract?.notes || "—";
+    return apartment?.contract?.notes || T("common.dash");
   }
 
   function getApartmentCostsForRange(apartment, start, end) {
@@ -544,15 +573,22 @@ document.addEventListener("DOMContentLoaded", async () => {
   function renderTableRow(apartment, income, apartmentCosts, lateAmount, profit) {
     const tr = document.createElement("tr");
 
+    const num = apartment.number || apartment.apartmentNumber || T("common.dash");
+    const aptLabel = T("building.aptLabel", { n: num });
+    const tenant =
+      apartment?.tenantInfo?.fullName || T("finance.noTenant");
+    const noteRaw = buildNoteText(apartment);
+    const note = escapeHtml(noteRaw);
+
     tr.innerHTML = `
-      <td>شقة ${apartment.number || apartment.apartmentNumber || "—"}</td>
-      <td>${apartment?.tenantInfo?.fullName || "بدون مستأجر"}</td>
+      <td>${escapeHtml(aptLabel)}</td>
+      <td>${escapeHtml(tenant)}</td>
       <td>${getApartmentStatusHtml(apartment)}</td>
-      <td>${formatMoney(income)}</td>
-      <td class="${apartmentCosts > 0 ? "finance-value-cost" : ""}">${formatMoney(apartmentCosts)}</td>
-      <td>${formatMoney(lateAmount)}</td>
-      <td class="finance-note-cell" title="${buildNoteText(apartment)}">${buildNoteText(apartment)}</td>
-      <td class="${profit > 0 ? "finance-value-profit" : profit < 0 ? "finance-value-cost" : ""}">${formatMoney(profit)}</td>
+      <td>${escapeHtml(formatMoney(income))}</td>
+      <td class="${apartmentCosts > 0 ? "finance-value-cost" : ""}">${escapeHtml(formatMoney(apartmentCosts))}</td>
+      <td>${escapeHtml(formatMoney(lateAmount))}</td>
+      <td class="finance-note-cell" title="${note}">${note}</td>
+      <td class="${profit > 0 ? "finance-value-profit" : profit < 0 ? "finance-value-cost" : ""}">${escapeHtml(formatMoney(profit))}</td>
     `;
 
     return tr;
@@ -570,14 +606,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     tableBody.innerHTML = "";
 
     if (periodCaption) {
-      periodCaption.textContent = `الفترة المعروضة: ${label}`;
+      periodCaption.textContent = T("finance.periodShown", { label });
     }
 
     if (!buildingApartments.length) {
       tableBody.innerHTML = `
         <tr>
           <td colspan="8">
-            <div class="finance-empty">لا توجد شقق مرتبطة بهذه العمارة</div>
+            <div class="finance-empty">${escapeHtml(T("finance.noApts"))}</div>
           </td>
         </tr>
       `;
@@ -602,7 +638,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     const totalProfit = totalIncome - totalCosts;
 
     if (tableMeta) {
-      tableMeta.textContent = `${buildingApartments.length} شقة`;
+      tableMeta.textContent = T("finance.aptCount", {
+        n: buildingApartments.length,
+      });
     }
 
     if (incomeValueEl) incomeValueEl.textContent = formatMoney(totalIncome);
@@ -633,4 +671,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   render();
+
+  document.addEventListener("walajna:i18n-applied", () => {
+    setBuildingTitle();
+    render();
+    if (window.walajna_language && window.walajna_language.apply) {
+      window.walajna_language.apply(document.body);
+    }
+  });
 });

@@ -1,3 +1,8 @@
+const T = (k, p) =>
+  window.walajna_language && window.walajna_language.t
+    ? window.walajna_language.t(k, p)
+    : k;
+
 const resetForm = document.getElementById("resetForm");
 const newPasswordInput = document.getElementById("newPassword");
 const confirmPasswordInput = document.getElementById("confirmPassword");
@@ -28,7 +33,7 @@ console.log("reset-password.js loaded");
   const userExists = users.some((user) => user.id === resetUserId);
 
   if (!resetUserId || !userExists) {
-    alert("انتهت صلاحية العملية، يرجى إعادة طلب استعادة كلمة المرور");
+    alert(T("reset.expired"));
     window.location.href = "../auth/forgetpass.html";
   }
 })();
@@ -49,17 +54,17 @@ resetForm.addEventListener("submit", function (e) {
   showResetMessage("");
 
   if (!newPassword || !confirmPassword) {
-    showResetMessage("يرجى تعبئة جميع الحقول");
+    showResetMessage(T("reset.fillAll"));
     return;
   }
 
   if (newPassword.length < 6) {
-    showResetMessage("كلمة المرور يجب أن تكون 6 أحرف على الأقل");
+    showResetMessage(T("reset.min6"));
     return;
   }
 
   if (newPassword !== confirmPassword) {
-    showResetMessage("كلمتا المرور غير متطابقتين");
+    showResetMessage(T("reset.mismatch"));
     return;
   }
 
@@ -68,7 +73,7 @@ resetForm.addEventListener("submit", function (e) {
   console.log("userIndex:", userIndex);
 
   if (userIndex === -1) {
-    showResetMessage("تعذر العثور على المستخدم");
+    showResetMessage(T("reset.userMissing"));
     return;
   }
 
@@ -83,9 +88,18 @@ resetForm.addEventListener("submit", function (e) {
 
   localStorage.removeItem("walajna_reset_user");
 
-  showResetMessage("تم تغيير كلمة المرور بنجاح", true);
+  showResetMessage(T("reset.success"), true);
 
   setTimeout(() => {
     window.location.href = "../auth/login.html";
   }, 1200);
+});
+
+document.addEventListener("walajna:i18n-applied", () => {
+  if (newPasswordInput && !newPasswordInput.value) {
+    newPasswordInput.placeholder = T("reset.newPwdPh");
+  }
+  if (confirmPasswordInput && !confirmPasswordInput.value) {
+    confirmPasswordInput.placeholder = T("reset.confirmPh");
+  }
 });

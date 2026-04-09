@@ -1,16 +1,18 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
+  <script>(function(){try{var l=localStorage.getItem('walajna_language')||'ar';document.documentElement.setAttribute('lang',l==='en'?'en':'ar');document.documentElement.setAttribute('dir',l==='en'?'ltr':'rtl');}catch(e){}})();</script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>شقق العمارة</title>
+  <title data-i18n="meta.ownerBuildingPage">شقق العمارة</title>
 
   <link rel="stylesheet" href="../css/theme.css">
   <link rel="stylesheet" href="../css/navstyle.css">
   <link rel="stylesheet" href="../css/owner-building.css">
+  <script src="../js/main/walajna-i18n.js"></script>
 </head>
 
-<body data-nav="user">
+<body data-nav="user" data-wl-bc="owner-building">
 
   <div id="navbar-container"></div>
 
@@ -18,38 +20,38 @@
    
     <section class="building-finance-summary">
       <div class="finance-card">
-        <span class="finance-label">الدخل الشهري</span>
-        <strong id="buildingIncome">0 ريال</strong>
+        <span class="finance-label" data-i18n="finance.monthlyIncome">الدخل الشهري</span>
+        <strong id="buildingIncome">0</strong>
       </div>
 
       <div class="finance-card">
-        <span class="finance-label">المصروفات</span>
-        <strong id="buildingCosts">0 ريال</strong>
+        <span class="finance-label" data-i18n="finance.expenses">المصروفات</span>
+        <strong id="buildingCosts">0</strong>
       </div>
 
       <div class="finance-card">
-        <span class="finance-label">الربح الشهري</span>
-        <strong id="buildingProfit">0 ريال</strong>
+        <span class="finance-label" data-i18n="finance.monthlyProfit">الربح الشهري</span>
+        <strong id="buildingProfit">0</strong>
       </div>
     </section>
       <div class="finance-link-row">
-  <button id="financeSummaryBtn" class="finance-summary-btn" type="button">
+  <button id="financeSummaryBtn" class="finance-summary-btn" type="button" data-i18n="finance.viewSummaryBtn">
     عرض الملخص المالي
   </button>
 </div>
     <section class="building-shell">
       <div class="building-shell__header">
-        <h2 id="buildingTitle">العمارة</h2>
+        <h2 id="buildingTitle">—</h2>
       </div>
 
       <div class="building-stats">
         <div class="building-stat-item">
-          <span class="building-stat-label">الوحدات المؤجرة</span>
+          <span class="building-stat-label" data-i18n="finance.rentedUnits">الوحدات المؤجرة</span>
           <strong id="buildingOccupiedUnits">0 / 0</strong>
         </div>
 
         <div class="building-stat-item">
-          <span class="building-stat-label">الشقق المتأخرة</span>
+          <span class="building-stat-label" data-i18n="finance.lateUnits">الشقق المتأخرة</span>
           <strong id="buildingLateUnits">0</strong>
         </div>
       </div>
@@ -59,113 +61,108 @@
 
   </main>
 
-  <!-- مودال تعديل الشقة -->
   <div id="editApartmentModal" class="apartment-edit-modal" aria-hidden="true">
     <div class="apartment-edit-modal__backdrop" data-close-edit-modal="true"></div>
 
     <div class="apartment-edit-modal__panel" role="dialog" aria-modal="true" aria-labelledby="editApartmentModalTitle">
       <div class="apartment-edit-modal__header">
         <div>
-          <h3 id="editApartmentModalTitle" class="apartment-edit-modal__title">تعديل الشقة</h3>
-          <p class="apartment-edit-modal__subtitle">عدّل بيانات الشقة والمستأجر والعقد</p>
+          <h3 id="editApartmentModalTitle" class="apartment-edit-modal__title" data-i18n="building.editModalTitle">تعديل الشقة</h3>
+          <p class="apartment-edit-modal__subtitle" data-i18n="building.editModalSub">عدّل بيانات الشقة والمستأجر والعقد</p>
         </div>
 
-        <button id="closeEditApartmentModal" class="apartment-edit-modal__close" type="button" aria-label="إغلاق">✕</button>
+        <button id="closeEditApartmentModal" class="apartment-edit-modal__close" type="button" data-i18n-aria-label="common.close">✕</button>
       </div>
 
       <div class="apartment-edit-modal__body">
         <div class="details-grid">
           <div class="item">
-            <label class="label" for="linkFullName">الاسم الكامل</label>
-            <input id="linkFullName" type="text" />
+            <label class="label" for="linkFullName" data-i18n="auth.fullName">الاسم الكامل</label>
+            <input id="linkFullName" type="text" autocomplete="name" />
           </div>
 
           <div class="item">
-            <label class="label" for="linkNationalId">رقم الهوية / الإقامة</label>
+            <label class="label" for="linkNationalId" data-i18n="auth.nationalId">رقم الهوية / الإقامة</label>
             <input id="linkNationalId" type="text" maxlength="10" />
           </div>
 
           <div class="item">
-            <label class="label" for="linkNationality">الجنسية</label>
+            <label class="label" for="linkNationality" data-i18n="auth.nationality">الجنسية</label>
             <input id="linkNationality" type="text" />
           </div>
 
           <div class="item">
-            <label class="label" for="linkTenantType">أفراد أو عوائل</label>
-            <select id="linkTenantType">
-              <option value="">اختر</option>
-              <option value="أفراد">أفراد</option>
-              <option value="عوائل">عوائل</option>
-            </select>
+            <label class="label" for="linkTenantType" data-i18n="apt.label.tenantHousehold">أفراد أو عوائل</label>
+            <select id="linkTenantType"></select>
           </div>
 
           <div class="item">
-            <label class="label" for="linkPhoneNumber">رقم الجوال</label>
+            <label class="label" for="linkPhoneNumber" data-i18n="auth.phone">رقم الجوال</label>
             <input id="linkPhoneNumber" type="text" maxlength="10" />
           </div>
 
           <div class="item">
-            <label class="label" for="linkRent">الإيجار الشهري</label>
+            <label class="label" for="linkRent" data-i18n="apt.html.label.monthlyRent">الإيجار الشهري</label>
             <input id="linkRent" type="number" min="0" step="0.01" />
           </div>
 
           <div class="item">
-            <label class="label" for="linkFloorNumber">الدور</label>
+            <label class="label" for="linkFloorNumber" data-i18n="lease.floor">الدور</label>
             <input id="linkFloorNumber" type="number" min="0" />
           </div>
 
           <div class="item">
-            <label class="label" for="linkRoomsCount">عدد الغرف</label>
+            <label class="label" for="linkRoomsCount" data-i18n="lease.rooms">عدد الغرف</label>
             <input id="linkRoomsCount" type="number" min="0" />
           </div>
 
           <div class="item">
-            <label class="label" for="linkBathroomsCount">عدد الحمامات</label>
+            <label class="label" for="linkBathroomsCount" data-i18n="lease.bathrooms">عدد الحمامات</label>
             <input id="linkBathroomsCount" type="number" min="0" />
           </div>
 
           <div class="item">
-            <label class="label" for="linkLivingRoomsCount">عدد الصالات</label>
+            <label class="label" for="linkLivingRoomsCount" data-i18n="lease.living">عدد الصالات</label>
             <input id="linkLivingRoomsCount" type="number" min="0" />
           </div>
 
           <div class="item">
-            <label class="label" for="linkPaymentCycle">دورة الدفع</label>
+            <label class="label" for="linkPaymentCycle" data-i18n="lease.payCycle">دورة الدفع</label>
             <select id="linkPaymentCycle">
-              <option value="monthly">شهري</option>
-              <option value="quarterly">ربع سنوي</option>
-              <option value="semi_annual">نصف سنوي</option>
-              <option value="annual">سنوي</option>
+              <option value="monthly" data-i18n="payments.cycle.monthly">شهري</option>
+              <option value="quarterly" data-i18n="payments.cycle.quarterly">ربع سنوي</option>
+              <option value="semi_annual" data-i18n="payments.cycle.semi">نصف سنوي</option>
+              <option value="annual" data-i18n="payments.cycle.annual">سنوي</option>
             </select>
           </div>
 
           <div class="item">
-            <label class="label" for="linkInstallmentsCount">عدد الدفعات</label>
+            <label class="label" for="linkInstallmentsCount" data-i18n="lease.installments">عدد الدفعات</label>
             <input id="linkInstallmentsCount" type="number" min="1" />
           </div>
 
           <div class="item">
-            <label class="label" for="linkInsurancePaid">التأمين المدفوع</label>
+            <label class="label" for="linkInsurancePaid" data-i18n="apt.link.insurance">التأمين المدفوع</label>
             <input id="linkInsurancePaid" type="text" />
           </div>
 
           <div class="item">
-            <label class="label" for="linkStartDate">تاريخ بداية العقد</label>
+            <label class="label" for="linkStartDate" data-i18n="apt.link.startDate">تاريخ بداية العقد</label>
             <input id="linkStartDate" type="date" />
           </div>
 
           <div class="item">
-            <label class="label" for="linkEndDate">تاريخ نهاية العقد</label>
+            <label class="label" for="linkEndDate" data-i18n="apt.link.endDate">تاريخ نهاية العقد</label>
             <input id="linkEndDate" type="date" />
           </div>
 
           <div class="item">
-            <label class="label" for="linkMeterNumber">رقم العداد</label>
+            <label class="label" for="linkMeterNumber" data-i18n="lease.meter">رقم العداد</label>
             <input id="linkMeterNumber" type="text" />
           </div>
 
          <div class="item full-width">
-  <label class="label" for="linkNotes">ملاحظات</label>
+  <label class="label" for="linkNotes" data-i18n="common.note">ملاحظات</label>
   <textarea id="linkNotes"></textarea>
 </div>
         </div>
@@ -174,17 +171,19 @@
       </div>
 
       <div class="apartment-edit-modal__footer">
-        <button id="saveLinkedTenantBtn" class="apartment-edit-btn primary" type="button">
+        <button id="saveLinkedTenantBtn" class="apartment-edit-btn primary" type="button" data-i18n="owner.saveEdits">
           حفظ التعديلات
         </button>
 
-        <button id="cancelEditApartmentModal" class="apartment-edit-btn ghost" type="button">
+        <button id="cancelEditApartmentModal" class="apartment-edit-btn ghost" type="button" data-i18n="common.cancel">
           إلغاء
         </button>
       </div>
     </div>
   </div>
 
+  <script src="../js/main/breadcrumbs.js"></script>
+  <script src="../js/main/global-back.js"></script>
   <script src="../js/main/auth.js"></script>
   <script src="../js/main/nav.js"></script>
   <script src="../js/main/theme.js"></script>

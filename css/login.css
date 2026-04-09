@@ -3,7 +3,6 @@
 body{
   margin: 0;
   font-family: var(--wl-font-family, system-ui, -apple-system, "Segoe UI", Arial, sans-serif);
-  direction: rtl;
   height: 100vh;
   overflow: hidden;
   color: #ffffff;
