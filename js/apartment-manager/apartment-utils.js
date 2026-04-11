@@ -10,6 +10,10 @@ function getStatusLabel(leaseStatus) {
   switch (leaseStatus) {
     case "vacant":
       return T("lease.status.vacant");
+    case "occupied":
+      return T("aptLease.rented");
+    case "overdue":
+      return T("aptLease.overdue_state");
     case "active":
       return T("lease.status.active");
     case "ending_soon":
@@ -24,14 +28,16 @@ function getStatusLabel(leaseStatus) {
 
 function getStatusClass(leaseStatus) {
   switch (leaseStatus) {
+    case "occupied":
     case "active":
       return "ok";
 
-    case "ending_soon":
-      return "warn";
-
+    case "overdue":
     case "ended":
       return "danger";
+
+    case "ending_soon":
+      return "warn";
 
     default:
       return "";

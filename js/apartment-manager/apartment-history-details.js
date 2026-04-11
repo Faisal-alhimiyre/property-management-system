@@ -1,8 +1,12 @@
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   const T = (k, p) =>
     window.walajna_language && window.walajna_language.t
       ? window.walajna_language.t(k, p)
       : k;
+
+  if (typeof WalajnaAuth !== "undefined" && WalajnaAuth.hydrateSession) {
+    await WalajnaAuth.hydrateSession();
+  }
 
   const params = new URLSearchParams(window.location.search);
   const apartmentId = params.get("apartmentId");
@@ -225,11 +229,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const apartments = getLocalArray("walajna_apartments");
   const documents = getLocalArray("walajna_documents");
-  const requests = getLocalArray("walajna_requests");
+  let dbRequestsRaw = [];
 
   const apartment = apartments.find(
     (apt) => String(apt.id) === String(apartmentId)
   );
+
+  if (apartment && typeof WalajnaTenantRequests !== "undefined" && WalajnaAuth?.fetchWithAuth) {
+    const aid = Number(apartment.apiId ?? apartment.id);
+    if (Number.isFinite(aid) && aid >= 1) {
+      try {
+        dbRequestsRaw = await WalajnaTenantRequests.list(aid);
+      } catch (e) {
+        console.warn("[history-details] requests", e);
+      }
+    }
+  }
 
   let historyEntry = null;
   let historicalContractId = null;
@@ -373,22 +388,22 @@ document.addEventListener("DOMContentLoaded", () => {
     if (insurancePaid) insurancePaid.textContent = formatMoney(contract.insurancePaid);
     if (notes) notes.textContent = contract.notes || T("common.dash");
 
-    matchingRequests = requests
-      .filter((request) => {
-        if (String(request.apartmentId) !== String(apartmentId)) return false;
+    matchingRequests = (dbRequestsRaw || [])
+      .filter((row) => {
+        if (String(row.apartment_id) !== String(apartmentId)) return false;
 
         if (
           historicalContractId &&
-          request.contractId &&
-          String(request.contractId) === String(historicalContractId)
+          row.contract_id != null &&
+          String(row.contract_id) === String(historicalContractId)
         ) {
           return true;
         }
 
         if (
           historyEntry.tenantNationalId &&
-          request.tenantNationalId &&
-          String(request.tenantNationalId) === String(historyEntry.tenantNationalId)
+          row.tenant_national_id &&
+          String(row.tenant_national_id) === String(historyEntry.tenantNationalId)
         ) {
           return true;
         }
@@ -396,10 +411,19 @@ document.addEventListener("DOMContentLoaded", () => {
         return false;
       })
       .sort((a, b) => {
-        const aTime = new Date(a.createdAt || a.date || 0).getTime();
-        const bTime = new Date(b.createdAt || b.date || 0).getTime();
+        const aTime = new Date(a.created_at || 0).getTime();
+        const bTime = new Date(b.created_at || 0).getTime();
         return bTime - aTime;
-      });
+      })
+      .map((row) => ({
+        title: row.title,
+        status: row.status,
+        createdAt: row.created_at,
+        typeLabel: row.request_type,
+        description: row.description,
+        ownerReply: row.owner_reply,
+        contractId: row.contract_id,
+      }));
 
     renderRequestsModal(matchingRequests);
     computeContractDoc();

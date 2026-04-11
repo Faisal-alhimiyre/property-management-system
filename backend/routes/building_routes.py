@@ -45,6 +45,16 @@ def _normalize_building_payload(payload: dict, owner_id: int) -> dict:
 
 def _build_apartment_seed_rows(building_row: dict) -> list[dict]:
     rows: list[dict] = []
+    apartment_defaults = building_row.get("apartment_defaults") or {}
+    default_bedrooms = _to_int(
+        apartment_defaults.get("bedrooms", apartment_defaults.get("roomsCount")), 0
+    )
+    default_bathrooms = _to_int(
+        apartment_defaults.get("bathrooms", apartment_defaults.get("bathroomsCount")), 0
+    )
+    default_living_rooms = _to_int(
+        apartment_defaults.get("livingRooms", apartment_defaults.get("livingRoomsCount")), 0
+    )
 
     apartments_count = _to_int(
         building_row.get("apartments_count", building_row.get("apartment_count")),
@@ -86,6 +96,9 @@ def _build_apartment_seed_rows(building_row: dict) -> list[dict]:
                 "building_id": building_id,
                 "apartment_number": apartment_number,
                 "floor_number": floor_number,
+                "bedrooms": default_bedrooms,
+                "bathrooms": default_bathrooms,
+                "living_rooms": default_living_rooms,
                 "lease_status": "vacant",
                 "address": f"{building_name} - شقة {apartment_number}",
                 "description": f"Apartment {apartment_number} in building {building_id}",
@@ -131,9 +144,9 @@ async def create_building(building: dict, current_user: dict = Depends(get_curre
     logger.info("Create building incoming payload: %s", building)
     building_data = _normalize_building_payload(building or {}, int(current_user["id"]))
 
-    # Strip fields that exist in our payload but are NOT columns in the buildings DB table.
-    # These are used only for apartment seeding, so we keep them in a separate dict.
-    _NON_DB_BUILDING_FIELDS = {"apartments_per_floor", "apartment_defaults", "payment_defaults"}
+    # Keep only fields that are truly non-db.
+    # apartment_defaults/payment_defaults are real DB columns in current schema.
+    _NON_DB_BUILDING_FIELDS = {"apartments_per_floor"}
     building_meta = {k: building_data.pop(k) for k in list(building_data.keys()) if k in _NON_DB_BUILDING_FIELDS}
 
     logger.info("Create building payload mapped for DB: %s", building_data)

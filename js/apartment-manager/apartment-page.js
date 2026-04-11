@@ -96,6 +96,20 @@ document.addEventListener("DOMContentLoaded", async () => {
         apiApartment.floor_number != null
           ? Number(apiApartment.floor_number)
           : null,
+      bedrooms:
+        apiApartment.bedrooms != null
+          ? Number(apiApartment.bedrooms)
+          : null,
+      bathrooms:
+        apiApartment.bathrooms != null
+          ? Number(apiApartment.bathrooms)
+          : null,
+      livingRooms:
+        apiApartment.living_rooms != null
+          ? Number(apiApartment.living_rooms)
+          : apiApartment.livingRooms != null
+            ? Number(apiApartment.livingRooms)
+            : null,
       address: apiApartment.address || "",
       description: apiApartment.description || "",
       rent:
@@ -107,8 +121,48 @@ document.addEventListener("DOMContentLoaded", async () => {
       tenantInfo: apiApartment.tenant_info || null,
       currentContractId: apiApartment.current_contract_id ?? null,
       leaseStatus: apiApartment.lease_status || "vacant",
-      status: apiApartment.status || null,
+      maintenanceId: apiApartment.maintenance_id ?? null,
     };
+  }
+
+  async function fetchContractById(contractId) {
+    if (!contractId || typeof WalajnaAuth === "undefined") return null;
+    try {
+      const res = await WalajnaAuth.fetchWithAuth(
+        `${WalajnaAuth.API_BASE}/api/contracts`,
+        { method: "GET" }
+      );
+      if (!res.ok) return null;
+      const rows = await res.json();
+      if (!Array.isArray(rows)) return null;
+      const match = rows.find((c) => String(c.id) === String(contractId));
+      if (!match) return null;
+      let parsedTerms = null;
+      if (typeof match.terms === "string" && match.terms.trim().startsWith("{")) {
+        try {
+          parsedTerms = JSON.parse(match.terms);
+        } catch {
+          parsedTerms = null;
+        }
+      }
+      return {
+        id: match.id,
+        startDate: match.start_date || "",
+        endDate: match.end_date || "",
+        notes:
+          (parsedTerms && (parsedTerms.notes || parsedTerms.note)) ||
+          match.terms ||
+          "",
+        meterNumber:
+          (parsedTerms &&
+            (parsedTerms.meterNumber ||
+              parsedTerms.meter_number ||
+              parsedTerms.meter)) ||
+          "",
+      };
+    } catch {
+      return null;
+    }
   }
 
   async function fetchFreshApartmentById(apartmentId) {
@@ -133,6 +187,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (shouldRefreshFromApi) {
     const freshApartment = await fetchFreshApartmentById(aptId);
     if (freshApartment) {
+      if (freshApartment.currentContractId) {
+        const freshContract = await fetchContractById(freshApartment.currentContractId);
+        if (freshContract) {
+          freshApartment.contract = {
+            ...(freshApartment.contract || {}),
+            ...freshContract,
+          };
+        }
+      }
       data = freshApartment;
 
       const existing = apartments.find((apt) => sameId(apt.id, aptId));
@@ -584,7 +647,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (livingRoomsEl) {
       livingRoomsEl.textContent =
-        data.livingRoomsCount ?? data.contract?.livingRoomsCount ?? "—";
+        data.livingRooms ??
+        data.living_rooms ??
+        data.livingRoomsCount ??
+        data.contract?.livingRooms ??
+        data.contract?.livingRoomsCount ??
+        "—";
     }
   }
 
@@ -867,7 +935,7 @@ document.addEventListener("DOMContentLoaded", async () => {
      6) INIT FEATURES
      ========================= */
   initDocumentsSystem(aptId);
-  initRequestsSystem(aptId, uiRoleForWidgets, currentUser, effectiveLeaseStatus);
+  initRequestsSystem(aptId, uiRoleForWidgets, currentUser, effectiveLeaseStatus, data);
   const linkTenantSystem = initLinkTenantSystem(aptId, currentUser);
 
   /* Renew button state may depend on payment fetch — refresh actions once */
@@ -937,14 +1005,12 @@ document.addEventListener("DOMContentLoaded", async () => {
      12) EVICT TENANT
      ========================= */
  if (evictTenantBtn) {
-  evictTenantBtn.addEventListener("click", () => {
+  evictTenantBtn.addEventListener("click", async () => {
     const evictionCheck = canEvictApartment(data);
     if (!evictionCheck.allowed) {
       alert(evictionCheck.message);
       return;
     }
-
-    const allRequests = JSON.parse(localStorage.getItem("walajna_requests") || "[]");
 
     const currentContractId =
       data.currentContractId ||
@@ -952,11 +1018,27 @@ document.addEventListener("DOMContentLoaded", async () => {
       data.contractId ||
       null;
 
-    const openRequests = currentContractId
-      ? allRequests.filter((req) => {
-          return req.contractId === currentContractId && req.status !== "resolved";
-        })
-      : [];
+    let openRequests = [];
+    const apiAid = data.apiId != null ? Number(data.apiId) : null;
+    if (
+      currentContractId &&
+      typeof WalajnaTenantRequests !== "undefined" &&
+      WalajnaAuth?.fetchWithAuth &&
+      apiAid != null &&
+      Number.isFinite(apiAid)
+    ) {
+      try {
+        const rows = await WalajnaTenantRequests.list(apiAid);
+        openRequests = (rows || []).filter((row) => {
+          const st = String(row.status || "").toLowerCase();
+          if (st === "resolved" || st === "closed") return false;
+          const cid = row.contract_id;
+          return cid != null && String(cid) === String(currentContractId);
+        });
+      } catch (e) {
+        console.warn("[apartment-page] evict requests check", e);
+      }
+    }
 
     if (openRequests.length > 0) {
       alert(T("aptPage.evacBlockedRequests"));
@@ -992,10 +1074,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         contract: {},
         currentContractId: null,
         leaseStatus: "vacant",
-        status:
-          typeof getStatusLabel === "function"
-            ? getStatusLabel("vacant")
-            : T("lease.status.vacant"),
+        maintenanceId: null,
       };
     });
 

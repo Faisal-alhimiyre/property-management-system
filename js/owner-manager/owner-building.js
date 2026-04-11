@@ -60,37 +60,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   let maintenanceRows = [];
   let apartmentsFromApi = false;
 
-  const REQUEST_STORAGE_CANDIDATES = [
-    "walajna_requests",
-    "walajna_apartment_requests",
-    "apartment_requests",
-    "requests",
-  ];
-
-  function detectRequestStorageKey() {
-    for (const key of REQUEST_STORAGE_CANDIDATES) {
-      try {
-        const data = JSON.parse(localStorage.getItem(key) || "null");
-        if (Array.isArray(data)) return key;
-      } catch {
-        /* ignore */
-      }
-    }
-    return REQUEST_STORAGE_CANDIDATES[0];
-  }
-
-  const tenantRequestStorageKey = detectRequestStorageKey();
-
-  function loadStoredTenantRequests() {
-    try {
-      const data = JSON.parse(localStorage.getItem(tenantRequestStorageKey) || "[]");
-      return Array.isArray(data) ? data : [];
-    } catch {
-      return [];
-    }
-  }
-
-  let requests = loadStoredTenantRequests();
   const payments = JSON.parse(localStorage.getItem("walajna_payments") || "[]");
   const costs = JSON.parse(localStorage.getItem("walajna_costs") || "[]");
 
@@ -110,7 +79,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       currentContractId: apt.current_contract_id ?? null,
       contractId: apt.current_contract_id ?? null,
       contract: apt.current_contract_id ? { id: apt.current_contract_id } : null,
-      status: apt.status || null,
+      maintenanceId: apt.maintenance_id ?? null,
     };
   }
 
@@ -346,6 +315,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!aid) return [];
     return (maintenanceRows || []).filter((m) => {
       if (String(m.apartment_id) !== aid) return false;
+      const rt = String(m.request_type || "maintenance").toLowerCase();
+      if (rt !== "maintenance") return false;
       const st = String(m.status || "").toLowerCase();
       return st !== "resolved" && st !== "closed";
     });
@@ -362,90 +333,75 @@ document.addEventListener("DOMContentLoaded", async () => {
     return map[req.typeId] || "طلب";
   }
 
-  function isStoredTenantRequestOpen(req) {
-    const st = String(req.status || "new").toLowerCase();
-    return st !== "resolved" && st !== "closed";
+  /** Keeps badge CSS class (`badge-${typeId}`) aligned with label — use DB `request_type`, not free `title`. */
+  function canonicalBadgeLabel(typeId) {
+    const id = String(typeId || "request").trim().toLowerCase();
+    const map = {
+      maintenance: "صيانة",
+      complaint: "شكوى",
+      suggestion: "اقتراح",
+      request: "طلب",
+    };
+    return map[id] || map.request;
   }
 
-  /** Matches rows saved by apartment-requests.js (apartmentId / buildingId + unit number). */
-  function apartmentMatchesStoredRequest(apartment, req) {
-    const ids = new Set(
-      [apartment.apiId, apartment.id]
-        .filter((x) => x != null && String(x) !== "")
-        .map((x) => String(x))
-    );
-    if (req.apartmentId != null && req.apartmentId !== "" && ids.has(String(req.apartmentId))) {
-      return true;
-    }
-    const bReq = String(req.buildingId ?? "");
-    const bCur = String(buildingId);
-    if (bReq && bReq === bCur) {
-      const n1 = String(req.apartmentNumber ?? "").trim();
-      const n2 = String(apartment.number ?? "").trim();
-      if (n1 && n2 && n1 === n2) return true;
-    }
-    const bn = building?.name ? String(building.name).trim() : "";
-    if (bn && String(req.buildingName ?? "").trim() === bn) {
-      const n1 = String(req.apartmentNumber ?? "").trim();
-      const n2 = String(apartment.number ?? "").trim();
-      if (n1 && n2 && n1 === n2) return true;
-    }
-    return false;
+  function normalizeRequestTypeId(raw) {
+    const x = String(raw || "request").trim().toLowerCase();
+    if (["maintenance", "complaint", "suggestion", "request"].includes(x)) return x;
+    return "request";
   }
 
-  /** Clears owner-home ring badge + marks inbox requests seen for this building (same as clicking a card on عمائري). */
-  function markOwnerAcknowledgedBuildingOnHome() {
+  const TYPE_COLOR = {
+    complaint: "#facc15",
+    suggestion: "#3b82f6",
+    request: "#22c55e",
+  };
+
+  function getOpenNonMaintenanceRequestsForApartment(apartment) {
+    const aid = String(apartment.apiId ?? apartment.id ?? "");
+    if (!aid) return [];
+    return (maintenanceRows || [])
+      .filter((m) => {
+        if (String(m.apartment_id) !== aid) return false;
+        const rt = String(m.request_type || "maintenance").toLowerCase();
+        if (rt === "maintenance") return false;
+        const st = String(m.status || "").toLowerCase();
+        return st !== "resolved" && st !== "closed";
+      })
+      .map((m) => {
+        const rt = normalizeRequestTypeId(m.request_type || "request");
+        return {
+          typeId: rt,
+          typeTitle: canonicalBadgeLabel(rt),
+          typeColor: TYPE_COLOR[rt] || "#94a3b8",
+          status: m.status,
+        };
+      });
+  }
+
+  async function markOwnerAcknowledgedBuildingOnHome() {
     try {
-      const SEEN_MAINT_BUILDINGS_KEY = "walajna_owner_cleared_maint_buildings";
-      const raw = sessionStorage.getItem(SEEN_MAINT_BUILDINGS_KEY) || "[]";
-      const arr = JSON.parse(raw);
-      const set = new Set(Array.isArray(arr) ? arr.map(String) : []);
-      set.add(String(buildingId));
-      sessionStorage.setItem(SEEN_MAINT_BUILDINGS_KEY, JSON.stringify([...set]));
-    } catch {
-      /* ignore */
-    }
-    const list = loadStoredTenantRequests();
-    let changed = false;
-    const next = list.map((req) => {
-      const match =
-        String(req.buildingId) === String(buildingId) ||
-        buildingApartments.some((apt) => apartmentMatchesStoredRequest(apt, req));
-      if (!match || req.ownerSeen) return req;
-      changed = true;
-      return {
-        ...req,
-        ownerSeen: true,
-        ownerSeenAt: new Date().toISOString(),
-      };
-    });
-    if (changed) {
-      localStorage.setItem(tenantRequestStorageKey, JSON.stringify(next));
-      requests = next;
+      if (
+        typeof WalajnaTenantRequests !== "undefined" &&
+        WalajnaTenantRequests.markOwnerSeenBuilding
+      ) {
+        await WalajnaTenantRequests.markOwnerSeenBuilding(buildingId);
+      }
+    } catch (e) {
+      console.warn("[owner-building] mark owner seen", e);
     }
   }
 
-  markOwnerAcknowledgedBuildingOnHome();
-
-  function getOpenStoredRequestsForApartment(apartment) {
-    return (requests || [])
-      .filter((req) => isStoredTenantRequestOpen(req) && apartmentMatchesStoredRequest(apartment, req))
-      .map((req) => ({
-        typeId: req.typeId || "request",
-        typeTitle: tenantRequestTypeTitle(req),
-        typeColor: req.typeColor || "#94a3b8",
-        status: req.status,
-      }));
-  }
+  void markOwnerAcknowledgedBuildingOnHome();
 
   function getOpenRequests(apartment) {
     const fromMaint = getOpenMaintenanceForApartment(apartment).map((m) => ({
       typeId: "maintenance",
-      typeTitle: m.title || "صيانة",
+      typeTitle: canonicalBadgeLabel("maintenance"),
       typeColor: "#f59e0b",
       status: m.status,
     }));
-    const fromStored = getOpenStoredRequestsForApartment(apartment);
+    const fromStored = getOpenNonMaintenanceRequestsForApartment(apartment);
     const byType = new Map();
     [...fromMaint, ...fromStored].forEach((r) => {
       if (!byType.has(r.typeId)) byType.set(r.typeId, r);
@@ -1098,7 +1054,6 @@ function evictApartment(apartmentId) {
     if (!confirmed) return;
 
     const updatedApartments = apartments.filter((apartment) => apartment.id !== apartmentId);
-    const updatedRequests = requests.filter((request) => request.apartmentId !== apartmentId);
     const updatedPayments = payments.filter((payment) => payment.apartmentId !== apartmentId);
     const updatedCosts = costs.filter((cost) => cost.apartmentId !== apartmentId);
 
@@ -1106,7 +1061,6 @@ function evictApartment(apartmentId) {
     const updatedDocuments = documents.filter((document) => document.apartmentId !== apartmentId);
 
     localStorage.setItem("walajna_apartments", JSON.stringify(updatedApartments));
-    localStorage.setItem(tenantRequestStorageKey, JSON.stringify(updatedRequests));
     localStorage.setItem("walajna_payments", JSON.stringify(updatedPayments));
     localStorage.setItem("walajna_costs", JSON.stringify(updatedCosts));
     localStorage.setItem("walajna_documents", JSON.stringify(updatedDocuments));

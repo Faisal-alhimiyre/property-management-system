@@ -91,9 +91,7 @@ function fillApartmentInfoUI(data, buildingData) {
 
 
   if (status)
-    status.textContent =
-      data.status ||
-      getStatusLabel(data.leaseStatus);
+    status.textContent = getStatusLabel(data.leaseStatus);
 
 
   if (rent)

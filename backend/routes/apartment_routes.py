@@ -1,4 +1,6 @@
+import json
 import logging
+from collections import defaultdict
 from datetime import date, datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from models import Apartment, ApartmentResponse
@@ -31,6 +33,10 @@ def _normalize_assign_payload(payload: dict) -> dict:
         "end_date": payload.get("end_date", payload.get("endDate")),
         "rent": payload.get("rent"),
         "notes": payload.get("notes"),
+        "meter_number": payload.get("meter_number", payload.get("meterNumber")),
+        "bedrooms": payload.get("bedrooms"),
+        "bathrooms": payload.get("bathrooms"),
+        "living_rooms": payload.get("living_rooms", payload.get("livingRooms")),
     }
     return normalized
 
@@ -205,6 +211,116 @@ def _reconcile_owner_apartment_statuses(apartments_data: list[dict]) -> list[dic
     return reconciled
 
 
+def _maintenance_request_is_open(status_raw) -> bool:
+    st = str(status_raw or "").lower()
+    return st not in ("resolved", "closed")
+
+
+def _reconcile_owner_apartment_maintenance_pointers(apartments_data: list[dict]) -> list[dict]:
+    """
+    Keep apartments.maintenance_id in sync with open maintenance_requests rows.
+    Points to the lowest id among open requests for that apartment (stable primary ticket).
+    """
+    if not apartments_data:
+        return apartments_data
+
+    apt_ids: list[int] = []
+    for apartment in apartments_data:
+        aid = apartment.get("id")
+        if aid is None:
+            continue
+        try:
+            apt_ids.append(int(aid))
+        except (TypeError, ValueError):
+            continue
+    if not apt_ids:
+        return apartments_data
+
+    try:
+        res = (
+            supabase.table("maintenance_requests")
+            .select("id, apartment_id, status, request_type")
+            .in_("apartment_id", apt_ids)
+            .execute()
+        )
+    except Exception:
+        logger.exception("maintenance_requests batch read failed; skipping maintenance_id reconcile")
+        return apartments_data
+
+    open_ids_by_apt: dict[int, list[int]] = defaultdict(list)
+    for row in getattr(res, "data", None) or []:
+        if not _maintenance_request_is_open(row.get("status")):
+            continue
+        rt = str(row.get("request_type") or "maintenance").lower()
+        if rt != "maintenance":
+            continue
+        aid = row.get("apartment_id")
+        rid = row.get("id")
+        if aid is None or rid is None:
+            continue
+        try:
+            open_ids_by_apt[int(aid)].append(int(rid))
+        except (TypeError, ValueError):
+            continue
+
+    expected: dict[int, int | None] = {}
+    for aid in apt_ids:
+        rids = open_ids_by_apt.get(aid) or []
+        expected[aid] = min(rids) if rids else None
+
+    reconciled: list[dict] = []
+    for apartment in apartments_data:
+        aid = apartment.get("id")
+        if aid is None:
+            reconciled.append(apartment)
+            continue
+        try:
+            iaid = int(aid)
+        except (TypeError, ValueError):
+            reconciled.append(apartment)
+            continue
+
+        exp = expected.get(iaid)
+        cur = apartment.get("maintenance_id")
+        try:
+            cur_i = int(cur) if cur is not None else None
+        except (TypeError, ValueError):
+            cur_i = None
+
+        if cur_i == exp:
+            reconciled.append(apartment)
+            continue
+
+        update_payload = {"maintenance_id": exp}
+        try:
+            update_result = (
+                supabase.table("apartments")
+                .update(update_payload)
+                .eq("id", iaid)
+                .execute()
+            )
+            if getattr(update_result, "data", None):
+                apartment = update_result.data[0]
+            else:
+                apartment = {**apartment, **update_payload}
+        except Exception:
+            logger.exception("Failed to reconcile maintenance_id for apartment_id=%s", iaid)
+            apartment = {**apartment, **update_payload}
+
+        reconciled.append(apartment)
+
+    return reconciled
+
+
+def reconcile_apartment_maintenance_pointer(apartment_id: int) -> None:
+    """Call after maintenance_requests create/update to refresh FK on apartments."""
+    res = supabase.table("apartments").select("id, maintenance_id").eq("id", apartment_id).execute()
+    rows = getattr(res, "data", None) or []
+    if not rows:
+        return
+    _reconcile_owner_apartment_maintenance_pointers(rows)
+
+
 def _get_or_create_tenant_row(tenant_user_id: int | None, apartment_id: int, start_date, end_date) -> dict:
     existing_tenants = (
         supabase.table("tenants")
@@ -293,6 +409,7 @@ async def get_apartments(
         )
         rows = getattr(owner_rows_result, "data", None) or []
         rows = _reconcile_owner_apartment_statuses(rows)
+        rows = _reconcile_owner_apartment_maintenance_pointers(rows)
     else:
         by_user_result = (
             supabase.table("apartments")
@@ -373,6 +490,11 @@ async def get_apartment(apartment_id: int, current_user: dict = Depends(get_curr
             )
             if not getattr(tenant, "data", None):
                 raise HTTPException(status_code=403, detail="Not authorized")
+
+    if is_landlord:
+        tmp = _reconcile_owner_apartment_statuses([dict(apt)])
+        tmp = _reconcile_owner_apartment_maintenance_pointers(tmp)
+        apt = tmp[0]
 
     row = dict(apt)
     # Owner contact on the apartment row (same user may be owner_id and tenant_user_id in test data).
@@ -456,13 +578,27 @@ async def assign_tenant_to_apartment(
         )
         logger.info("assign-tenant tenant row used: %s", tenant_row)
 
-        # Build and insert contract row
+        # Build and insert contract row.
+        # Persist meter number inside `terms` as JSON to avoid adding another DB column.
+        meter_number = normalized_payload.get("meter_number")
+        notes_value = normalized_payload.get("notes") or ""
+        if meter_number is not None and str(meter_number).strip() != "":
+            contract_terms = json.dumps(
+                {
+                    "notes": notes_value,
+                    "meterNumber": str(meter_number).strip(),
+                },
+                ensure_ascii=False,
+            )
+        else:
+            contract_terms = notes_value
+
         contract_data = {
             "apartment_id": apartment_id,
             "tenant_id": tenant_row.get("id"),
             "start_date": lease_start,
             "end_date": lease_end,
-            "terms": normalized_payload.get("notes") or "",
+            "terms": contract_terms,
         }
         contract_data = {k: v for k, v in contract_data.items() if v is not None}
         logger.info("assign-tenant contract data payload: %s", contract_data)
@@ -506,6 +642,14 @@ async def assign_tenant_to_apartment(
         }
         if rent_value is not None:
             update_payload["rent"] = rent_value
+        for db_key in ("bedrooms", "bathrooms", "living_rooms"):
+            raw = normalized_payload.get(db_key)
+            if raw is None or raw == "":
+                continue
+            try:
+                update_payload[db_key] = int(raw)
+            except (TypeError, ValueError):
+                pass
 
         logger.info(
             "assign-tenant apartment update start: apartment_id=%s contract_id=%s tenant_user_id=%s payload=%s",
@@ -548,6 +692,9 @@ async def assign_tenant_to_apartment(
             )
 
         updated_apt = update_result.data[0]
+        reconciled = _reconcile_owner_apartment_statuses([dict(updated_apt)])
+        reconciled = _reconcile_owner_apartment_maintenance_pointers(reconciled)
+        updated_apt = reconciled[0]
         logger.info("assign-tenant final response apartment_id=%s response=%s", apartment_id, updated_apt)
         return updated_apt
     except HTTPException:

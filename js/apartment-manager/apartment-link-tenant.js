@@ -1097,6 +1097,18 @@ function resetForm() {
         building_id: Number(localBuildingId),
         apartment_number: normalizedApartmentNumber,
         floor_number: Number(savedApartment?.floorNumber || 1),
+        bedrooms:
+          savedApartment?.bedrooms != null && savedApartment?.bedrooms !== ""
+            ? Number(savedApartment.bedrooms)
+            : null,
+        bathrooms:
+          savedApartment?.bathrooms != null && savedApartment?.bathrooms !== ""
+            ? Number(savedApartment.bathrooms)
+            : null,
+        living_rooms:
+          savedApartment?.livingRooms != null && savedApartment?.livingRooms !== ""
+            ? Number(savedApartment.livingRooms)
+            : null,
         address: T("linkModal.apiAddress", {
           building: savedApartment?.buildingName || `Building ${normalizedBuildingId}`,
           apt: normalizedApartmentNumber,
@@ -1170,6 +1182,18 @@ function resetForm() {
     const payload = {
       tenant_user_id:     savedApartment?.tenantUserId ?? null,
       tenant_national_id: tenantNationalIdValue || null,
+      bedrooms:
+        formData?.bedrooms != null && formData?.bedrooms !== ""
+          ? Number(formData.bedrooms)
+          : null,
+      bathrooms:
+        formData?.bathrooms != null && formData?.bathrooms !== ""
+          ? Number(formData.bathrooms)
+          : null,
+      living_rooms:
+        formData?.livingRooms != null && formData?.livingRooms !== ""
+          ? Number(formData.livingRooms)
+          : null,
       tenant_info: {
         fullName:    formData.fullName    ?? null,
         phoneNumber: formData.phone       ?? null,
@@ -1292,6 +1316,8 @@ function resetForm() {
         savedApartment.apiId = apiResponse.id ?? savedApartment.apiId;
         savedApartment.currentContractId = serverContractId;
         savedApartment.leaseStatus = apiResponse.lease_status ?? savedApartment.leaseStatus;
+        savedApartment.maintenanceId =
+          apiResponse.maintenance_id ?? savedApartment.maintenanceId ?? null;
         savedApartment.contract = {
           ...(savedApartment.contract || {}),
           id: serverContractId,

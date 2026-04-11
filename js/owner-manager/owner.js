@@ -104,7 +104,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       contract: apt.current_contract_id
         ? { id: apt.current_contract_id }
         : null,
-      status: apt.status || null,
+      maintenanceId: apt.maintenance_id ?? null,
     };
   }
 
@@ -221,61 +221,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  const REQUEST_STORAGE_CANDIDATES = [
-    "walajna_requests",
-    "walajna_apartment_requests",
-    "apartment_requests",
-    "requests",
-  ];
-
-  function detectRequestStorageKey() {
-    for (const key of REQUEST_STORAGE_CANDIDATES) {
-      try {
-        const data = JSON.parse(localStorage.getItem(key) || "null");
-        if (Array.isArray(data)) return key;
-      } catch {
-        /* ignore */
-      }
-    }
-    return REQUEST_STORAGE_CANDIDATES[0];
-  }
-
-  function loadStoredTenantRequests() {
-    try {
-      const key = detectRequestStorageKey();
-      const data = JSON.parse(localStorage.getItem(key) || "[]");
-      return Array.isArray(data) ? data : [];
-    } catch {
-      return [];
-    }
-  }
-
-  const SEEN_MAINT_BUILDINGS_KEY = "walajna_owner_cleared_maint_buildings";
-
-  function readClearedMaintBuildingIds() {
-    try {
-      const raw = sessionStorage.getItem(SEEN_MAINT_BUILDINGS_KEY) || "[]";
-      const arr = JSON.parse(raw);
-      return new Set(Array.isArray(arr) ? arr.map(String) : []);
-    } catch {
-      return new Set();
-    }
-  }
-
-  function addClearedMaintBuildingId(buildingId) {
-    const s = readClearedMaintBuildingIds();
-    s.add(String(buildingId));
-    sessionStorage.setItem(SEEN_MAINT_BUILDINGS_KEY, JSON.stringify([...s]));
-  }
-
-  function saveStoredTenantRequests(rows) {
-    try {
-      localStorage.setItem(detectRequestStorageKey(), JSON.stringify(rows || []));
-    } catch {
-      /* ignore */
-    }
-  }
-
   function getRequestPriority(typeId) {
     const priorities = {
       maintenance: 2,
@@ -322,43 +267,33 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!aid) return [];
     return (maintenanceRows || []).filter((m) => {
       if (String(m.apartment_id) !== aid) return false;
+      const rt = String(m.request_type || "maintenance").toLowerCase();
+      if (rt !== "maintenance") return false;
       const st = String(m.status || "").toLowerCase();
       return st !== "resolved" && st !== "closed";
     });
   }
 
-  function isStoredTenantRequestOpen(req) {
-    const st = String(req.status || "new").toLowerCase();
-    return st !== "resolved" && st !== "closed";
+  function getOpenNonMaintenanceRequestsForApartment(apartment, maintenanceRows) {
+    const aid = String(apartment.apiId ?? apartment.id ?? "");
+    if (!aid) return [];
+    return (maintenanceRows || []).filter((m) => {
+      if (String(m.apartment_id) !== aid) return false;
+      const rt = String(m.request_type || "maintenance").toLowerCase();
+      if (rt === "maintenance") return false;
+      const st = String(m.status || "").toLowerCase();
+      return st !== "resolved" && st !== "closed";
+    });
   }
 
-  function apartmentMatchesStoredRequest(apartment, req) {
-    const bid = String(apartment.buildingId ?? "");
-    const ids = new Set(
-      [String(apartment.id), String(apartment.apiId)].filter(
-        (x) => x && x !== "undefined"
-      )
-    );
-    if (req.apartmentId != null && req.apartmentId !== "" && ids.has(String(req.apartmentId))) {
-      return true;
-    }
-    if (String(req.buildingId ?? "") === bid) {
-      const n1 = String(req.apartmentNumber ?? "").trim();
-      const n2 = String(apartment.number ?? "").trim();
-      if (n1 && n2 && n1 === n2) return true;
-    }
-    return false;
-  }
-
-  function getHighestPriorityRequest(apartment, maintenanceRows, tenantRequests) {
+  function getHighestPriorityRequest(apartment, maintenanceRows) {
     const open = [];
     if (getOpenMaintenanceForApartment(apartment, maintenanceRows).length) {
       open.push({ typeId: "maintenance" });
     }
-    (tenantRequests || []).forEach((req) => {
-      if (!isStoredTenantRequestOpen(req)) return;
-      if (!apartmentMatchesStoredRequest(apartment, req)) return;
-      open.push({ typeId: req.typeId || "request" });
+    getOpenNonMaintenanceRequestsForApartment(apartment, maintenanceRows).forEach((m) => {
+      const rt = String(m.request_type || "request").toLowerCase();
+      open.push({ typeId: rt || "request" });
     });
     if (!open.length) return null;
     return [...open].sort(
@@ -390,7 +325,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  function getApartmentStatusClass(apartment, maintenanceRows, allPayments, tenantRequests) {
+  function getApartmentStatusClass(apartment, maintenanceRows, allPayments) {
     if (!isApartmentOccupied(apartment)) {
       return "none";
     }
@@ -399,11 +334,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       return "rent-overdue";
     }
 
-    const highestPriorityRequest = getHighestPriorityRequest(
-      apartment,
-      maintenanceRows,
-      tenantRequests
-    );
+    const highestPriorityRequest = getHighestPriorityRequest(apartment, maintenanceRows);
 
     if (!highestPriorityRequest) {
       return "none";
@@ -565,80 +496,35 @@ document.addEventListener("DOMContentLoaded", async () => {
     return allApartments;
   }
 
-  function getMaintNewCountForBuilding(
-    buildingId,
-    allApartments,
-    maintenanceRows
-  ) {
-    if (readClearedMaintBuildingIds().has(String(buildingId))) {
-      return 0;
-    }
+  function getNewRequestsCountForBuilding(buildingId, allApartments, maintenanceRows) {
     const buildingApartments = getApartmentsForBuilding(buildingId, allApartments);
     const aptIds = new Set(
-      buildingApartments.map((a) => String(a.apiId ?? a.id))
+      buildingApartments
+        .map((a) => String(a.apiId ?? a.id))
+        .filter((x) => x && x !== "undefined")
     );
+    if (!aptIds.size) return 0;
     return (maintenanceRows || []).filter((m) => {
       if (!aptIds.has(String(m.apartment_id))) return false;
+      if (m.owner_seen) return false;
       const st = String(m.status || "").toLowerCase();
-      return st === "pending" || st === "new" || st === "open";
+      if (st === "resolved" || st === "closed") return false;
+      return true;
     }).length;
   }
 
-  function getStoredNewCountForBuilding(buildingId, allApartments, tenantRequests) {
-    const buildingApartments = getApartmentsForBuilding(buildingId, allApartments);
-    return (tenantRequests || []).filter((req) => {
-      if (String(req.status || "").toLowerCase() === "resolved") return false;
-      if (req.ownerSeen) return false;
-      return buildingApartments.some((apt) => apartmentMatchesStoredRequest(apt, req));
-    }).length;
-  }
-
-  function getNewRequestsForBuilding(
-    buildingId,
-    allApartments,
-    maintenanceRows,
-    tenantRequests
-  ) {
-    return (
-      getMaintNewCountForBuilding(buildingId, allApartments, maintenanceRows) +
-      getStoredNewCountForBuilding(buildingId, allApartments, tenantRequests)
-    );
-  }
-
-  function getNewRequestsCountForBuilding(
-    buildingId,
-    allApartments,
-    maintenanceRows,
-    tenantRequests
-  ) {
-    return getNewRequestsForBuilding(
-      buildingId,
-      allApartments,
-      maintenanceRows,
-      tenantRequests
-    );
-  }
-
-  function markBuildingRequestsAsSeen(buildingId) {
+  async function markBuildingRequestsAsSeen(buildingId) {
     if (buildingId == null || buildingId === "") return;
-    addClearedMaintBuildingId(buildingId);
-
-    const buildingApts = getApartmentsForBuilding(buildingId, apartments);
-    const reqs = loadStoredTenantRequests();
-    let changed = false;
-    const next = reqs.map((req) => {
-      const match =
-        String(req.buildingId) === String(buildingId) ||
-        buildingApts.some((apt) => apartmentMatchesStoredRequest(apt, req));
-      if (!match || req.ownerSeen) return req;
-      changed = true;
-      return {
-        ...req,
-        ownerSeen: true,
-        ownerSeenAt: new Date().toISOString(),
-      };
-    });
-    if (changed) saveStoredTenantRequests(next);
+    try {
+      if (
+        typeof WalajnaTenantRequests !== "undefined" &&
+        WalajnaTenantRequests.markOwnerSeenBuilding
+      ) {
+        await WalajnaTenantRequests.markOwnerSeenBuilding(buildingId);
+      }
+    } catch (e) {
+      console.warn("[owner] mark owner seen", e);
+    }
   }
 
   function getBuildingSizeClass(apartmentCount) {
@@ -664,7 +550,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     fetchOwnerMaintenance(),
   ]);
   let apartments = fetchedApartments;
-  const tenantRequests = loadStoredTenantRequests();
 
   const ownerBuildingsList = allBuildings.filter(
     (building) =>
@@ -695,14 +580,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       const aNewCount = getNewRequestsCountForBuilding(
         a.id,
         apartments,
-        maintenanceRows,
-        tenantRequests
+        maintenanceRows
       );
       const bNewCount = getNewRequestsCountForBuilding(
         b.id,
         apartments,
-        maintenanceRows,
-        tenantRequests
+        maintenanceRows
       );
 
       if (bNewCount !== aNewCount) {
@@ -732,8 +615,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       getNewRequestsCountForBuilding(
         building.id,
         apartments,
-        maintenanceRows,
-        tenantRequests
+        maintenanceRows
       )
     );
   }, 0);
@@ -754,8 +636,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const newRequestsCount = getNewRequestsCountForBuilding(
         building.id,
         apartments,
-        maintenanceRows,
-        tenantRequests
+        maintenanceRows
       );
 
       const sizeClass = getBuildingSizeClass(buildingApartments.length);
@@ -789,8 +670,7 @@ document.addEventListener("DOMContentLoaded", async () => {
               const typeClass = getApartmentStatusClass(
                 apartment,
                 maintenanceRows,
-                payments,
-                tenantRequests
+                payments
               );
 
               const rentedClass =
@@ -930,12 +810,12 @@ return `
   });
 
   document.querySelectorAll(".building-card").forEach((card) => {
-    card.addEventListener("click", (event) => {
+    card.addEventListener("click", async (event) => {
       if (event.target.closest(".building-menu-wrap")) return;
 
       const buildingId = card.dataset.buildingId;
 
-      markBuildingRequestsAsSeen(buildingId);
+      await markBuildingRequestsAsSeen(buildingId);
 
       window.location.href = `owner_building.html?buildingId=${encodeURIComponent(
         buildingId

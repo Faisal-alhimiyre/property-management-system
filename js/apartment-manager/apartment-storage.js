@@ -148,50 +148,31 @@ function isApartmentOccupied(apartment) {
 }
 
 /* =========================
-   Requests
+   Requests — persisted in DB (maintenance_requests); local helpers are no-ops.
 ========================= */
 
 function getRequests() {
-  return getArray(StorageKeys.REQUESTS);
+  return [];
 }
 
-function saveRequests(requests) {
-  saveArray(StorageKeys.REQUESTS, requests);
+function saveRequests() {
+  /* no-op */
 }
 
-function getRequestsByApartmentId(aptId) {
-  return getRequests().filter((request) => request.apartmentId === aptId);
+function getRequestsByApartmentId() {
+  return [];
 }
 
-function getRequestsByContractId(contractId) {
-  if (!contractId) return [];
-  return getRequests().filter((request) => request.contractId === contractId);
+function getRequestsByContractId() {
+  return [];
 }
 
-function getRequestsForApartmentContext(aptId) {
-  const contractId = getApartmentCurrentContractId(aptId);
-  const requests = getRequests();
-
-  if (contractId) {
-    return requests.filter((request) => {
-      if (request.contractId) {
-        return request.contractId === contractId;
-      }
-
-      return request.apartmentId === aptId;
-    });
-  }
-
-  return requests.filter((request) => request.apartmentId === aptId);
+function getRequestsForApartmentContext() {
+  return [];
 }
 
-function deleteApartmentRequests(aptId) {
-  const requests = getRequests();
-  const filteredRequests = removeBy(
-    requests,
-    (request) => request.apartmentId === aptId
-  );
-  saveRequests(filteredRequests);
+function deleteApartmentRequests() {
+  /* no-op */
 }
 
 /* =========================

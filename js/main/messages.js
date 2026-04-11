@@ -1,4 +1,9 @@
-document.addEventListener("DOMContentLoaded", () => {
+/**
+ * Messages page — streamlined communication: lists only `maintenance_requests`
+ * (via GET /api/maintenance), including description and owner_reply. No separate
+ * direct-messaging table.
+ */
+document.addEventListener("DOMContentLoaded", async () => {
   const T = (k, p) =>
     window.walajna_language && window.walajna_language.t
       ? window.walajna_language.t(k, p)
@@ -7,16 +12,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const STORAGE_KEYS = {
     USERS: "walajna_users",
     CURRENT_USER: "walajna_current_user",
-    MESSAGES: "walajna_messages",
     ACTIVE_ROLE: "activeRole"
   };
-
-  const REQUEST_STORAGE_CANDIDATES = [
-    "walajna_requests",
-    "walajna_apartment_requests",
-    "apartment_requests",
-    "requests"
-  ];
 
   const pageTitle = document.getElementById("pageTitle");
   const pageSubtitle = document.getElementById("pageSubtitle");
@@ -36,18 +33,29 @@ document.addEventListener("DOMContentLoaded", () => {
   const sidebarUserName = document.getElementById("sidebarUserName");
   const sidebarUserRole = document.getElementById("sidebarUserRole");
 
+  if (typeof WalajnaAuth !== "undefined" && WalajnaAuth.hydrateSession) {
+    await WalajnaAuth.hydrateSession();
+  }
+
+  function getSessionStoredUser() {
+    try {
+      return JSON.parse(sessionStorage.getItem(STORAGE_KEYS.CURRENT_USER) || "null");
+    } catch {
+      return null;
+    }
+  }
+
+  let loggedInUser =
+    (typeof WalajnaAuth !== "undefined" && WalajnaAuth.getCurrentUser && WalajnaAuth.getCurrentUser()) ||
+    getSessionStoredUser() ||
+    getLocalObject(STORAGE_KEYS.CURRENT_USER);
+
   let allUsers = getLocalArray(STORAGE_KEYS.USERS);
-  let loggedInUser = getLocalObject(STORAGE_KEYS.CURRENT_USER);
-  let allMessages = getLocalArray(STORAGE_KEYS.MESSAGES);
   let activeRole = localStorage.getItem(STORAGE_KEYS.ACTIVE_ROLE) || "";
   let currentUser = null;
   let visibleMessages = [];
-
-  seedSampleMessagesIfNeeded();
-
-  allUsers = getLocalArray(STORAGE_KEYS.USERS);
-  allMessages = getLocalArray(STORAGE_KEYS.MESSAGES);
-  loggedInUser = getLocalObject(STORAGE_KEYS.CURRENT_USER);
+  /** @type {Array<object>} Raw rows from GET /api/maintenance */
+  let apiRequestRows = [];
 
   if (!loggedInUser) {
     alert(T("messages.alertNoUser"));
@@ -68,6 +76,14 @@ document.addEventListener("DOMContentLoaded", () => {
   if (!currentUser) {
     alert(T("messages.alertRole"));
     return;
+  }
+
+  if (typeof WalajnaTenantRequests !== "undefined" && WalajnaAuth?.fetchWithAuth) {
+    try {
+      apiRequestRows = await WalajnaTenantRequests.list();
+    } catch (e) {
+      console.warn("[messages] requests fetch", e);
+    }
   }
 
   setupRoleView();
@@ -272,7 +288,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function bindCardButtons() {
     document.querySelectorAll(".view-btn").forEach(btn => {
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", async () => {
         const id = btn.dataset.id;
         const source = btn.dataset.source || "message";
         const item = visibleMessages.find(
@@ -281,7 +297,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!item) return;
 
         if (item.status === "unread") {
-          markItemAsRead(item);
+          await markItemAsRead(item);
         }
 
         openDetailsModal(item);
@@ -290,7 +306,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     document.querySelectorAll(".mark-btn").forEach(btn => {
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", async () => {
         const id = btn.dataset.id;
         const source = btn.dataset.source || "message";
         const item = visibleMessages.find(
@@ -298,7 +314,7 @@ document.addEventListener("DOMContentLoaded", () => {
         );
         if (!item) return;
 
-        markItemAsRead(item);
+        await markItemAsRead(item);
         renderMessages();
       });
     });
@@ -380,9 +396,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function getMessagesForCurrentRole() {
-    const normalMessages = getNormalMessagesForCurrentRole();
-    const requestNotifications = getRequestNotificationsForCurrentRole();
-    return [...normalMessages, ...requestNotifications];
+    return getRequestNotificationsForCurrentRole();
   }
 
   function setupSidebarUser() {
@@ -402,45 +416,40 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function getNormalMessagesForCurrentRole() {
-    const currentId = String(getUserIdentifier(currentUser) || "");
-    const currentName = String(getUserDisplayName(currentUser) || "");
+  function mapApiRowToLegacyRequest(row) {
+    const mapSt =
+      typeof WalajnaTenantRequests !== "undefined" && WalajnaTenantRequests.mapStatusToUi
+        ? WalajnaTenantRequests.mapStatusToUi(row.status)
+        : "new";
+    const statusLegacy =
+      mapSt === "resolved" ? "resolved" : mapSt === "replied" ? "replied" : "new";
+    return {
+      id: String(row.id),
+      apartmentId: String(row.apartment_id ?? ""),
+      contractId: row.contract_id ?? null,
+      buildingId: String(row.building_id ?? ""),
+      buildingName: row.building_name || "",
+      apartmentNumber:
+        row.apartment_number != null && row.apartment_number !== ""
+          ? String(row.apartment_number)
+          : "",
+      tenantNationalId: String(row.tenant_national_id ?? ""),
+      typeId: row.request_type || "request",
+      typeTitle: row.title || "",
+      message: row.description || "",
+      ownerReply: row.owner_reply || "",
+      status: statusLegacy,
+      ownerSeen: !!row.owner_seen,
+      tenantSeen: !!row.tenant_reply_seen_at,
+      createdAt: row.created_at,
+      repliedAt: row.replied_at,
+      resolvedAt: row.resolved_at
+    };
+  }
 
-    if (activeRole === "owner") {
-      return allMessages
-        .filter(msg => {
-          const receiverId = String(msg.receiverId || "");
-          const receiverName = String(msg.receiverName || "");
-          const receiverRole = normalizeRole(msg.receiverRole || "");
-
-          return (
-            (receiverId && receiverId === currentId) ||
-            (receiverName && receiverName === currentName) ||
-            (receiverRole === "landlord" && (receiverId === currentId || receiverName === currentName))
-          );
-        })
-        .map(msg => ({
-          ...msg,
-          sourceType: "message"
-        }));
-    }
-
-    return allMessages
-      .filter(msg => {
-        const senderId = String(msg.senderId || "");
-        const senderName = String(msg.senderName || "");
-        const senderRole = normalizeRole(msg.senderRole || "");
-
-        return (
-          (senderId && senderId === currentId) ||
-          (senderName && senderName === currentName) ||
-          (senderRole === "tenant" && (senderId === currentId || senderName === currentName))
-        );
-      })
-      .map(msg => ({
-        ...msg,
-        sourceType: "message"
-      }));
+  function getRequests() {
+    if (!Array.isArray(apiRequestRows)) return [];
+    return apiRequestRows.map(mapApiRowToLegacyRequest);
   }
 
   function getRequestNotificationsForCurrentRole() {
@@ -578,38 +587,25 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  function markItemAsRead(item) {
+  async function markItemAsRead(item) {
     if (!item) return;
-
-    if ((item.sourceType || "message") === "request") {
-      markRequestNotificationAsRead(item.id);
-      return;
-    }
-
-    const message = allMessages.find(m => String(m.id) === String(item.id));
-    if (!message) return;
-
-    message.status = "read";
-    saveMessages();
+    await markRequestNotificationAsRead(item.id);
   }
 
-  function markRequestNotificationAsRead(requestId) {
-    const requests = getRequests();
-    const updated = requests.map(req => {
-      if (String(req.id) !== String(requestId)) return req;
-
+  async function markRequestNotificationAsRead(requestId) {
+    if (typeof WalajnaTenantRequests === "undefined" || !WalajnaAuth?.fetchWithAuth) {
+      return;
+    }
+    try {
       if (activeRole === "owner") {
-        return { ...req, ownerSeen: true };
+        await WalajnaTenantRequests.patch(requestId, { owner_seen: true });
+      } else {
+        await WalajnaTenantRequests.patch(requestId, { tenant_reply_seen: true });
       }
-
-      return {
-        ...req,
-        tenantSeen: true,
-        tenantSeenAt: new Date().toISOString()
-      };
-    });
-
-    saveRequests(updated);
+      apiRequestRows = await WalajnaTenantRequests.list();
+    } catch (e) {
+      console.warn("[messages] mark request read", e);
+    }
   }
 
   function resolveCurrentUserByRole(loggedUser, role, users) {
@@ -648,36 +644,6 @@ document.addEventListener("DOMContentLoaded", () => {
   function closeModal(modal) {
     if (!modal) return;
     modal.classList.remove("is-open");
-  }
-
-  function saveMessages() {
-    localStorage.setItem(STORAGE_KEYS.MESSAGES, JSON.stringify(allMessages));
-  }
-
-  function detectRequestStorageKey() {
-    for (const key of REQUEST_STORAGE_CANDIDATES) {
-      const parsed = getParsedStorageValue(key);
-      if (Array.isArray(parsed)) return key;
-    }
-    return REQUEST_STORAGE_CANDIDATES[0];
-  }
-
-  function getRequests() {
-    const key = detectRequestStorageKey();
-    return getLocalArray(key);
-  }
-
-  function saveRequests(requests) {
-    const key = detectRequestStorageKey();
-    localStorage.setItem(key, JSON.stringify(requests));
-  }
-
-  function getParsedStorageValue(key) {
-    try {
-      return JSON.parse(localStorage.getItem(key));
-    } catch {
-      return null;
-    }
   }
 
   function getLocalArray(key) {
@@ -745,91 +711,6 @@ function normalizeRole(role) {
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#039;");
-  }
-
-  function generateId() {
-    return "msg_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
-  }
-
-  function seedSampleMessagesIfNeeded() {
-    const existing = getLocalArray(STORAGE_KEYS.MESSAGES);
-    if (existing.length) return;
-
-    const current = getLocalObject(STORAGE_KEYS.CURRENT_USER);
-    if (!current) return;
-
-    const roleFromStorage =
-      localStorage.getItem(STORAGE_KEYS.ACTIVE_ROLE) || getUserRole(current);
-    const role = normalizeRole(roleFromStorage);
-    const users = getLocalArray(STORAGE_KEYS.USERS);
-
-    const tenantUser =
-      getUserRole(current) === "tenant"
-        ? current
-        : users.find(u => getUserRole(u) === "tenant");
-
-    const landlordUser =
-      getUserRole(current) === "landlord"
-        ? current
-        : users.find(u => getUserRole(u) === "landlord");
-
-    if (!tenantUser || !landlordUser) return;
-
-    const sample = [
-      {
-        id: generateId(),
-        type: "complaint",
-        subject: T("sample.msg.subject1"),
-        body: T("sample.msg.body1"),
-        buildingName: T("sample.building1"),
-        buildingNumber: "B-12",
-        apartmentNumber: "A-203",
-        senderId: getUserIdentifier(tenantUser),
-        senderName: getUserDisplayName(tenantUser),
-        senderRole: "tenant",
-        receiverId: getUserIdentifier(landlordUser),
-        receiverName: getUserDisplayName(landlordUser),
-        receiverRole: "landlord",
-        status: role === "landlord" ? "unread" : "read",
-        dateSent: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString()
-      },
-      {
-        id: generateId(),
-        type: "maintenance",
-        subject: T("sample.msg.subject2"),
-        body: T("sample.msg.body2"),
-        buildingName: T("sample.building2"),
-        buildingNumber: "C-04",
-        apartmentNumber: "12",
-        senderId: getUserIdentifier(tenantUser),
-        senderName: getUserDisplayName(tenantUser),
-        senderRole: "tenant",
-        receiverId: getUserIdentifier(landlordUser),
-        receiverName: getUserDisplayName(landlordUser),
-        receiverRole: "landlord",
-        status: "read",
-        dateSent: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString()
-      },
-      {
-        id: generateId(),
-        type: "suggestion",
-        subject: T("sample.msg.subject3"),
-        body: T("sample.msg.body3"),
-        buildingName: T("sample.building1"),
-        buildingNumber: "B-12",
-        apartmentNumber: "A-203",
-        senderId: getUserIdentifier(tenantUser),
-        senderName: getUserDisplayName(tenantUser),
-        senderRole: "tenant",
-        receiverId: getUserIdentifier(landlordUser),
-        receiverName: getUserDisplayName(landlordUser),
-        receiverRole: "landlord",
-        status: "read",
-        dateSent: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString()
-      }
-    ];
-
-    localStorage.setItem(STORAGE_KEYS.MESSAGES, JSON.stringify(sample));
   }
 
   document.addEventListener("walajna:i18n-applied", () => {

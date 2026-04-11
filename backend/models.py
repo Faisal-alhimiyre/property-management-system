@@ -13,15 +13,20 @@ class User(BaseModel):
     created_at: Optional[datetime] = None
 
 class Apartment(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     id: Optional[int] = None
     owner_id: Optional[int] = None  # set server-side on create
     building_id: Optional[int] = None
     apartment_number: Optional[str] = None
     floor_number: Optional[int] = None
+    bedrooms: Optional[int] = None
+    bathrooms: Optional[int] = None
+    living_rooms: Optional[int] = None
     address: str
     description: Optional[str] = None
     rent: float
-    status: Optional[str] = None
+    maintenance_id: Optional[int] = None
     created_at: Optional[datetime] = None
 
 class Tenant(BaseModel):
@@ -59,6 +64,7 @@ class Message(BaseModel):
     content: str
     timestamp: Optional[datetime] = None
 
+
 class Contract(BaseModel):
     id: Optional[int] = None
     apartment_id: Optional[int] = None
@@ -77,14 +83,41 @@ class Document(BaseModel):
     url: str
     uploaded_at: Optional[datetime] = None
 
+class MaintenanceRequestCreate(BaseModel):
+    """Body for POST /api/maintenance — tenant profile id is resolved server-side."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    apartment_id: int
+    title: str
+    description: str
+    priority: str = "medium"
+    request_type: str = "maintenance"
+    contract_id: Optional[int] = None
+
+
+class MaintenanceRequestPatch(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    status: Optional[str] = None
+    owner_reply: Optional[str] = None
+    owner_seen: Optional[bool] = None
+    tenant_reply_seen: Optional[bool] = None
+
+
 class MaintenanceRequest(BaseModel):
     id: Optional[int] = None
-    tenant_id: int
+    tenant_id: Optional[int] = None
     apartment_id: int
     title: str
     description: str
     status: str = "pending"
     priority: str = "medium"
+    request_type: Optional[str] = "maintenance"
+    contract_id: Optional[int] = None
+    building_id: Optional[int] = None
+    submitted_by_user_id: Optional[int] = None
+    owner_reply: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
@@ -123,6 +156,9 @@ class ApartmentResponse(BaseModel):
     building_id: Optional[int] = None
     apartment_number: Optional[str] = None
     floor_number: Optional[int] = None
+    bedrooms: Optional[int] = None
+    bathrooms: Optional[int] = None
+    living_rooms: Optional[int] = None
     address: str
     description: Optional[str] = None
     rent: float
@@ -131,7 +167,7 @@ class ApartmentResponse(BaseModel):
     tenant_info: Optional[dict] = None
     current_contract_id: Optional[int] = None
     lease_status: Optional[str] = "vacant"
-    status: Optional[str] = None
+    maintenance_id: Optional[int] = None
     created_at: Optional[datetime] = None
     # Filled for tenants on GET /apartments/{id} only (linked tenant); not a DB column.
     owner_public_name: Optional[str] = None
