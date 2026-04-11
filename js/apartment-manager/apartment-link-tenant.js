@@ -98,9 +98,11 @@ function initLinkTenantSystem(aptId, currentUser) {
     const date = new Date(dateStr);
     if (Number.isNaN(date.getTime())) return dateStr;
     const loc =
-      window.walajna_language && window.walajna_language.get() === "en"
-        ? "en-GB"
-        : "ar-SA";
+      window.walajna_language && typeof window.walajna_language.localeForDates === "function"
+        ? window.walajna_language.localeForDates()
+        : window.walajna_language && window.walajna_language.get() === "en"
+          ? "en-GB"
+          : "ar-SA";
     return date.toLocaleDateString(loc);
   }
 
@@ -108,9 +110,11 @@ function initLinkTenantSystem(aptId, currentUser) {
     const number = Number(value || 0);
     if (!number) return T("common.sarZero");
     const loc =
-      window.walajna_language && window.walajna_language.get() === "en"
-        ? "en-SA"
-        : "ar-SA";
+      window.walajna_language && typeof window.walajna_language.localeForNumbers === "function"
+        ? window.walajna_language.localeForNumbers()
+        : window.walajna_language && window.walajna_language.get() === "en"
+          ? "en-SA"
+          : "ar-SA";
     return `${number.toLocaleString(loc)} ${T("common.sar")}`;
   }
 
@@ -216,9 +220,11 @@ function syncEndDateWithStartDate(force = false) {
     return Array.from({ length: count }).map((_, index) => {
       const dueDate = addMonths(startDate, index * cycleMonths);
       const loc =
-        window.walajna_language && window.walajna_language.get() === "en"
-          ? "en-SA"
-          : "ar-SA";
+        window.walajna_language && typeof window.walajna_language.localeForNumbers === "function"
+          ? window.walajna_language.localeForNumbers()
+          : window.walajna_language && window.walajna_language.get() === "en"
+            ? "en-SA"
+            : "ar-SA";
       const amt = Math.round(installmentAmount);
       const amountStr =
         amt === 0
@@ -253,11 +259,11 @@ function syncEndDateWithStartDate(force = false) {
   }
 
   function buildLeaseContractHtml(apartment, data) {
-    const leaseLang =
-      window.walajna_language && window.walajna_language.get() === "en"
-        ? "en"
-        : "ar";
-    const leaseDir = leaseLang === "en" ? "ltr" : "rtl";
+    const g = window.walajna_language && window.walajna_language.get
+      ? window.walajna_language.get()
+      : "ar";
+    const leaseLang = g === "en" ? "en" : g === "ur" ? "ur" : "ar";
+    const leaseDir = g === "en" ? "ltr" : "rtl";
     const dash = T("common.dash");
     const owner = getCurrentOwnerInfo();
 

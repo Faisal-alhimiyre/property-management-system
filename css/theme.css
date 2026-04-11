@@ -3,6 +3,14 @@
 */
 
 :root {
+  /* Light mode — 60% light blue · 30% navy · 10% logo cyan accent (single flat page bg) */
+  --wl-palette-bg: #e4edf7;
+  --wl-palette-navy: #1a2f4a;
+  --wl-palette-navy-mid: #243854;
+  /* Logo field cyan (matches ALAJNA mark) */
+  --wl-palette-logo: #36d7e8;
+  --wl-palette-logo-deep: #1fb8d4;
+
   --wl-bg-body: #050811;
   --wl-surface-card: #101825;
   --wl-surface-card-soft: #121a27;
@@ -15,19 +23,21 @@
   --wl-text-secondary: #dbe5f4;
   --wl-text-muted: #c3d0e4;
   --wl-text-placeholder: #c7d4e8;
-  --wl-text-on-light: #0b1220;
+  --wl-text-on-light: #1a2f4a;
   --wl-text-on-dark: #f8fafc;
-  --wl-placeholder-on-light: #475569;
+  --wl-placeholder-on-light: rgba(26, 47, 74, 0.5);
   --wl-placeholder-on-dark: #c7d4e8;
   --wl-text-on-accent: #f9fafb;
 
-  --wl-accent: #22d3ee;
-  --wl-accent-strong: #06b6d4;
+  --wl-accent: #36d7e8;
+  --wl-accent-strong: #1fb8d4;
 
   --wl-danger: #f97373;
   --wl-shadow-soft: 0 18px 40px rgba(15, 23, 42, 0.45);
   --wl-shadow-elevated: 0 24px 60px rgba(15, 23, 42, 0.68);
   --wl-font-family: system-ui, -apple-system, "Segoe UI", "Tahoma", sans-serif;
+  /* Match .walajna-topbar height (navstyle.css) for sticky sub-bars */
+  --walajna-topbar-height: 78px;
 }
 
 html { scroll-behavior: smooth; }
@@ -106,7 +116,7 @@ body.dark-mode select option{
 
 body:not(.dark-mode) select option{
   background: #ffffff;
-  color: #0b1220;
+  color: #1a2f4a;
 }
 
 /* Disabled controls readable in both modes */
@@ -161,7 +171,7 @@ body:not(.dark-mode) input[type="number"]::-webkit-outer-spin-button{
 /* Floating Back — same cyan pill as .back-btn on history pages (strip UA styles so it never looks gray) */
 .walajna-global-back{
   position:fixed;
-  top:max(90px, calc(env(safe-area-inset-top, 0px) + 78px + 12px));
+  top:max(90px, calc(env(safe-area-inset-top, 0px) + var(--walajna-topbar-height) + 12px));
   inset-inline-end:22px;
   z-index:99;
   box-sizing:border-box;
@@ -183,13 +193,13 @@ body:not(.dark-mode) input[type="number"]::-webkit-outer-spin-button{
   min-height:44px;
   padding:0 1.5rem;
   border-radius:9999px;
-  color:#fff !important;
-  -webkit-text-fill-color:#fff;
-  background:linear-gradient(160deg, #5eead4 0%, #22d3ee 42%, #0ea5a2 100%) !important;
+  color:#1a2f4a !important;
+  -webkit-text-fill-color:#1a2f4a;
+  background:var(--wl-palette-logo) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.45),
-    0 10px 26px rgba(34, 211, 238, 0.38),
-    0 4px 12px rgba(15, 23, 42, 0.28);
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 10px 26px rgba(26, 47, 74, 0.12),
+    0 4px 12px rgba(26, 47, 74, 0.08);
   transition:
     transform .18s ease,
     box-shadow .18s ease,
@@ -200,9 +210,9 @@ body:not(.dark-mode) input[type="number"]::-webkit-outer-spin-button{
   transform:translateY(-1px);
   filter:brightness(1.05);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.5),
-    0 14px 32px rgba(34, 211, 238, 0.45),
-    0 6px 16px rgba(15, 23, 42, 0.32);
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    0 14px 32px rgba(26, 47, 74, 0.14),
+    0 6px 16px rgba(26, 47, 74, 0.1);
 }
 
 .walajna-global-back:active{
@@ -211,20 +221,20 @@ body:not(.dark-mode) input[type="number"]::-webkit-outer-spin-button{
 }
 
 body:not(.dark-mode) .walajna-global-back{
-  color:#fff !important;
-  -webkit-text-fill-color:#fff;
-  background:linear-gradient(160deg, #5eead4 0%, #2dd4bf 45%, #14b8a6 100%) !important;
+  color:#1a2f4a !important;
+  -webkit-text-fill-color:#1a2f4a;
+  background:var(--wl-palette-logo) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.42),
-    0 10px 22px rgba(20, 184, 166, 0.38),
-    0 4px 12px rgba(15, 23, 42, 0.14);
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 10px 22px rgba(26, 47, 74, 0.1),
+    0 4px 12px rgba(26, 47, 74, 0.08);
 }
 
 body:not(.dark-mode) .walajna-global-back:hover{
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.48),
-    0 14px 28px rgba(20, 184, 166, 0.44),
-    0 6px 14px rgba(15, 23, 42, 0.16);
+    inset 0 1px 0 rgba(255, 255, 255, 0.58),
+    0 14px 28px rgba(26, 47, 74, 0.12),
+    0 6px 14px rgba(26, 47, 74, 0.09);
 }
 
 body.dark-mode button.walajna-global-back{
@@ -234,22 +244,92 @@ body.dark-mode button.walajna-global-back{
 }
 
 /* ----- Breadcrumb (Walajna) ----- */
+/* Pinned below fixed .walajna-topbar (--walajna-topbar-height); z-index under the bar (100) */
 .walajna-breadcrumb{
   box-sizing:border-box;
   width:100%;
   padding:10px 26px 14px;
   border-bottom:1px solid var(--wl-border-soft);
   background:rgba(15, 23, 42, 0.35);
+  position:sticky;
+  top:var(--walajna-topbar-height);
+  z-index:90;
+  box-shadow:0 6px 18px rgba(15, 23, 42, 0.12);
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
 }
 
 body:not(.dark-mode) .walajna-breadcrumb{
-  background:rgba(248, 250, 252, 0.92);
-  border-bottom-color:rgba(15, 23, 42, 0.08);
+  background:#ffffff;
+  border-bottom-color:rgba(26, 47, 74, 0.1);
+  box-shadow:0 6px 18px rgba(26, 47, 74, 0.06);
 }
 
 body.dark-mode .walajna-breadcrumb{
   background:var(--wl-surface-muted);
   border-bottom-color:var(--wl-border-subtle);
+  box-shadow:0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.walajna-breadcrumb__bar{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  width:100%;
+}
+
+.walajna-breadcrumb__bar .walajna-breadcrumb__list{
+  flex:1;
+  min-width:0;
+}
+
+.walajna-breadcrumb__bar-back{
+  flex-shrink:0;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:36px;
+  height:36px;
+  margin:0;
+  padding:0;
+  border:1px solid var(--wl-border-subtle);
+  border-radius:12px;
+  background:rgba(34, 211, 238, 0.12);
+  color:var(--wl-accent);
+  font-family:var(--wl-font-family);
+  font-size:18px;
+  font-weight:900;
+  line-height:1;
+  direction:ltr;
+  unicode-bidi:isolate;
+  cursor:pointer;
+  transition:
+    background .15s ease,
+    color .15s ease,
+    border-color .15s ease,
+    transform .12s ease;
+}
+
+.walajna-breadcrumb__bar-back:hover{
+  background:rgba(34, 211, 238, 0.22);
+  color:var(--wl-text-on-dark);
+  border-color:rgba(34, 211, 238, 0.45);
+}
+
+.walajna-breadcrumb__bar-back:active{
+  transform:scale(0.96);
+}
+
+body:not(.dark-mode) .walajna-breadcrumb__bar-back{
+  background:rgba(54, 215, 232, 0.28);
+  color:#1a2f4a;
+  border-color:rgba(26, 47, 74, 0.15);
+}
+
+body:not(.dark-mode) .walajna-breadcrumb__bar-back:hover{
+  background:rgba(54, 215, 232, 0.45);
+  color:#1a2f4a;
+  border-color:rgba(26, 47, 74, 0.22);
 }
 
 .walajna-breadcrumb__list{
@@ -297,11 +377,11 @@ body.dark-mode .walajna-breadcrumb{
 }
 
 body:not(.dark-mode) .walajna-breadcrumb__link{
-  color:#0d9488;
+  color:#1a2f4a;
 }
 
 body:not(.dark-mode) .walajna-breadcrumb__link:hover{
-  color:#0f766e;
+  color:#1fb8d4;
 }
 
 .walajna-breadcrumb__current{
@@ -314,10 +394,10 @@ body:not(.dark-mode) .walajna-breadcrumb__link:hover{
 }
 
 body:not(.dark-mode) .walajna-breadcrumb__current{
-  color:#475569;
+  color:rgba(26, 47, 74, 0.55);
 }
 
 body:has(#walajna-breadcrumb) .walajna-global-back{
-  top:max(128px, calc(env(safe-area-inset-top, 0px) + 78px + 46px));
+  top:max(128px, calc(env(safe-area-inset-top, 0px) + var(--walajna-topbar-height) + 46px));
 }
 

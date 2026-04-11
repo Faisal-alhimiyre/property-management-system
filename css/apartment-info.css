@@ -1,29 +1,24 @@
 /* tenant-apart.css */
 
 :root{
-  --bg:#eef2f6;
+  --bg:var(--wl-palette-bg, #e4edf7);
   --surface:#ffffff;
-  --surface-soft:rgba(255,255,255,0.82);
-  --surface-muted:#f8fafc;
-  --text:#0f172a;
-  --muted:#64748b;
-  --border:#dbe3ec;
+  --surface-soft:rgba(255,255,255,0.96);
+  --surface-muted:#f0f6fc;
+  --text:#1a2f4a;
+  --muted:rgba(26,47,74,0.55);
+  --border:rgba(26,47,74,0.12);
 
-  --brand:#18c7c3;
-  --brand-strong:#0ea5a2;
-  --brand-dark:#0f2f4a;
+  --brand:#36d7e8;
+  --brand-strong:#1fb8d4;
+  --brand-dark:#1a2f4a;
 
   --danger:#ef4444;
   --ok:#16a34a;
   --warn:#f59e0b;
   --info:#2563eb;
 
-  --top1:#67d8d4;
-  --top2:#49c6d9;
-  --bottom1:#2f5d86;
-  --bottom2:#24496d;
-
-  --shadow-sm:0 8px 22px rgba(15,23,42,0.06);
+  --shadow-sm:0 8px 22px rgba(26,47,74,0.06);
   --shadow-md:0 14px 34px rgba(15,23,42,0.10);
   --shadow-lg:0 22px 48px rgba(15,23,42,0.14);
 
@@ -37,14 +32,7 @@
 body{
   margin:0;
   min-height:100vh;
-  background:
-    linear-gradient(
-      to bottom,
-      var(--top1) 0%,
-      var(--top2) 26%,
-      var(--bottom1) 26%,
-      var(--bottom2) 100%
-    );
+  background:var(--wl-palette-bg, #e4edf7);
   background-attachment:fixed;
   color:var(--text);
   font-family:Arial,sans-serif;
@@ -855,7 +843,7 @@ body.dark-mode .details-grid input.value:-webkit-autofill:active{
   transition:background-color 99999s ease-out 0s;
 }
 
-/* Modal grid: inputs often have no .value class — same autofill fix */
+/* Modal grid: inputs often have no .value class â€” same autofill fix */
 body.dark-mode #linkTenantModal .details-grid input:-webkit-autofill,
 body.dark-mode #linkTenantModal .details-grid input:-webkit-autofill:hover,
 body.dark-mode #linkTenantModal .details-grid input:-webkit-autofill:focus,

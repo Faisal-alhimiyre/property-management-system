@@ -689,7 +689,12 @@ function normalizeRole(role) {
     const date = new Date(dateString);
     if (Number.isNaN(date.getTime())) return dateString;
 
-    const loc = window.walajna_language && window.walajna_language.get() === "en" ? "en-US" : "ar-SA";
+    const loc =
+      window.walajna_language && typeof window.walajna_language.localeForDates === "function"
+        ? window.walajna_language.localeForDates()
+        : window.walajna_language && window.walajna_language.get() === "en"
+          ? "en-US"
+          : "ar-SA";
     return new Intl.DateTimeFormat(loc, {
       year: "numeric",
       month: "long",

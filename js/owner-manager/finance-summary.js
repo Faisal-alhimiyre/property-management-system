@@ -203,9 +203,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   function formatMoney(value) {
     const n = Number(value || 0);
     const loc =
-      window.walajna_language && window.walajna_language.get() === "en"
-        ? "en-SA"
-        : "ar-SA";
+      window.walajna_language && typeof window.walajna_language.localeForNumbers === "function"
+        ? window.walajna_language.localeForNumbers()
+        : window.walajna_language && window.walajna_language.get() === "en"
+          ? "en-SA"
+          : "ar-SA";
     if (!n) return T("common.sarZero");
     return `${n.toLocaleString(loc)} ${T("common.sar")}`;
   }
@@ -296,9 +298,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     const year = baseDate.getFullYear();
     const month = baseDate.getMonth();
     const loc =
-      window.walajna_language && window.walajna_language.get() === "en"
-        ? "en-GB"
-        : "ar-SA";
+      window.walajna_language && typeof window.walajna_language.localeForDates === "function"
+        ? window.walajna_language.localeForDates()
+        : window.walajna_language && window.walajna_language.get() === "en"
+          ? "en-GB"
+          : "ar-SA";
 
     let start;
     let end;

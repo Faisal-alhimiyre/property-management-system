@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <script>(function(){try{var l=localStorage.getItem("walajna_language")||"ar";document.documentElement.setAttribute("lang",l==="en"?"en":"ar");document.documentElement.setAttribute("dir",l==="en"?"ltr":"rtl");}catch(e){}})();</script>
+  <script>(function(){try{var l=localStorage.getItem("walajna_language")||"ar";if(l!=="en"&&l!=="ar"&&l!=="ur")l="ar";document.documentElement.setAttribute("lang",l==="en"?"en":(l==="ur"?"ur":"ar"));document.documentElement.setAttribute("dir",l==="en"?"ltr":"rtl");}catch(e){}})();</script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title data-i18n="meta.loginTitle"></title>
@@ -9,46 +9,54 @@
   <!-- CSS -->
   <link rel="stylesheet" href="../css/theme.css" />
   <link rel="stylesheet" href="../css/login.css" />
+  <script src="../js/main/walajna-i18n-ur.js"></script>
   <script src="../js/main/walajna-i18n.js"></script>
 </head>
 
-<body>
- <div class="login-root">
+<body class="auth-page">
+  <script src="../js/main/theme.js"></script>
+  <div class="login-root">
+    <div class="login-bg" aria-hidden="true"></div>
 
-  <div class="login-bg"></div>
-  <!-- Logo (top-right) -->
-  <a href="../owners/owner_home.html" class="logo" data-i18n-aria-label="common.logo" aria-label="">
-    <img src="../pics/logo.png" alt="ALAJNA" class="brand-logo">
-  </a>
+    <main class="auth-shell">
+      <div class="auth-stack">
+        <a href="../owners/owner_home.html" class="auth-logo-top" data-i18n-aria-label="common.logo" aria-label="">
+          <img src="../pics/logo.png" alt="ALAJNA" class="auth-hero-logo" />
+        </a>
+      <div class="auth-card">
+        <header class="auth-card__head">
+          <h1 class="auth-card__title" data-i18n="auth.loginHeading"></h1>
+          <p class="auth-card__sub" data-i18n="auth.loginSub"></p>
+        </header>
 
-  <!-- Login form -->
-<main class="login-wrap">
-  <form class="login-form" id="loginForm">
-    <div class="row">
-      <label for="nationalId">رقم الهوية الوطنية</label>
-      <input id="nationalId" name="national_id" type="text" inputmode="numeric" autocomplete="username" required />
-    </div>
+        <form class="login-form" id="loginForm">
+          <div class="row auth-field">
+            <label for="nationalId" data-i18n="auth.nationalId"></label>
+            <input id="nationalId" name="national_id" type="text" inputmode="numeric" autocomplete="username" required />
+          </div>
 
-    <div class="row">
-      <label for="password">كلمة المرور</label>
-      <input id="password" name="password" type="password" autocomplete="current-password" required />
-    </div>
+          <div class="row auth-field">
+            <label for="password" data-i18n="auth.password"></label>
+            <input id="password" name="password" type="password" autocomplete="current-password" required />
+          </div>
 
-    <p class="error" id="loginError" aria-live="polite"></p>
+          <p class="error" id="loginError" aria-live="polite"></p>
 
-    <button class="login-btn" type="submit" data-i18n="auth.loginBtn"></button>
+          <button class="login-btn" type="submit" data-i18n="auth.loginBtn"></button>
 
-    <a class="forgot-link" href="../auth/forgetpass.html" data-i18n="auth.forgotPassword"></a>
+          <a class="forgot-link" href="../auth/forgetpass.html" data-i18n="auth.forgotPassword"></a>
 
-    <p class="footer">
-      <span data-i18n="auth.noAccount"></span> <a href="../auth/register.html" data-i18n="auth.createAccount"></a>
-    </p>
-  </form>
-</main>
+          <p class="footer">
+            <span data-i18n="auth.noAccount"></span>
+            <a href="../auth/register.html" data-i18n="auth.createAccount"></a>
+          </p>
+        </form>
+      </div>
+      </div>
+    </main>
 
-<script src="../js/main/auth.js"></script>
-<script src="../js/main/theme.js"></script>
-<script src="../js/main/login.js?v=4"></script>
- </div>
+    <script src="../js/main/auth.js"></script>
+    <script src="../js/main/login.js?v=4"></script>
+  </div>
 </body>
 </html>

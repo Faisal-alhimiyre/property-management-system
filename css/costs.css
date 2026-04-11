@@ -1,14 +1,14 @@
 :root{
-  --bg:#f6f7fb;
+  --bg:var(--wl-palette-bg, #e4edf7);
   --card:#ffffff;
-  --text:#101828;
-  --muted:#667085;
-  --border:#eaecf0;
+  --text:#1a2f4a;
+  --muted:rgba(26,47,74,0.55);
+  --border:rgba(26,47,74,0.12);
 
-  --brand-1:#67d8d4;
-  --brand-2:#49c6d9;
-  --brand-3:#2f5d86;
-  --brand-4:#24496d;
+  --brand-1:#36d7e8;
+  --brand-2:#1fb8d4;
+  --brand-3:#1a2f4a;
+  --brand-4:#1a2f4a;
 
   --shadow-sm:0 8px 22px rgba(15,23,42,0.06);
   --shadow-md:0 14px 34px rgba(15,23,42,0.10);
@@ -19,8 +19,8 @@
   --radius-md:20px;
   --radius-sm:14px;
 
-  --primary:#0f172a;
-  --primary-hover:#020617;
+  --primary:#1a2f4a;
+  --primary-hover:#14243d;
 
   --danger-bg:#fee4e2;
   --danger-text:#b42318;
@@ -33,7 +33,7 @@
 
   --neutral-bg:#f2f4f7;
 
-  --brand:#18c7c3;
+  --brand:#36d7e8;
 }
 
 /* page */
@@ -41,14 +41,7 @@
 body{
   margin:0;
   min-height:100vh;
-  background:
-    linear-gradient(
-      to bottom,
-      var(--brand-1) 0%,
-      var(--brand-2) 28%,
-      var(--brand-3) 28%,
-      var(--brand-4) 100%
-    );
+  background:var(--wl-palette-bg, #e4edf7);
   background-attachment:fixed;
   color:var(--text);
   font-family:Arial,sans-serif;
@@ -178,7 +171,7 @@ body{
   right:0;
   left:0;
   height:4px;
-  background:linear-gradient(90deg,#22d3ee,#14b8a6);
+  background:#36d7e8;
 }
 
 .sum-label{
@@ -624,7 +617,7 @@ body.dark-mode .costs-table tbody tr:hover{
 }
 
 body.dark-mode .record-btn{
-  background:linear-gradient(135deg, #22d3ee, #0ea5a2);
+  background:#36d7e8;
   color:#053433;
 }
 
@@ -654,7 +647,7 @@ body.dark-mode .payments-field label{
 }
 
 body.dark-mode .wl-btn--primary{
-  background:linear-gradient(135deg, #22d3ee, #0ea5a2);
+  background:#36d7e8;
   color:#053433;
 }
 

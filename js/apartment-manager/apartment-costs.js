@@ -92,9 +92,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function formatAmount(value) {
     const loc =
-      window.walajna_language && window.walajna_language.get() === "en"
-        ? "en-SA"
-        : "ar-SA";
+      window.walajna_language && typeof window.walajna_language.localeForNumbers === "function"
+        ? window.walajna_language.localeForNumbers()
+        : window.walajna_language && window.walajna_language.get() === "en"
+          ? "en-SA"
+          : "ar-SA";
     return `${Number(value || 0).toLocaleString(loc)} ${T("common.sar")}`;
   }
 

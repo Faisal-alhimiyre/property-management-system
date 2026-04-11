@@ -2,6 +2,36 @@
    Apartment Documents System
    ======================================== */
 
+function docT(key, params) {
+  return window.walajna_language && window.walajna_language.t
+    ? window.walajna_language.t(key, params)
+    : key;
+}
+
+function docLocaleForDates() {
+  return window.walajna_language && typeof window.walajna_language.localeForDates === "function"
+    ? window.walajna_language.localeForDates()
+    : window.walajna_language && window.walajna_language.get() === "en"
+      ? "en-GB"
+      : "ar-SA";
+}
+
+function formatDocDateTime(iso) {
+  if (!iso) return docT("common.dash");
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return String(iso);
+  return d.toLocaleString(docLocaleForDates());
+}
+
+function escapeHtmlDoc(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 function openDocumentsModal(documentsModal, documentsList, aptId) {
   if (!documentsModal) return;
 
@@ -76,8 +106,8 @@ function renderDocumentsList(documentsList, aptId) {
     documentsList.innerHTML = `
       <div class="wl-item">
         <div>
-          <div class="wl-item__title">لا توجد وثائق</div>
-          <div class="wl-item__desc">لا توجد ملفات مرتبطة بالعقد الحالي حتى الآن</div>
+          <div class="wl-item__title">${escapeHtmlDoc(docT("aptDoc.emptyTitle"))}</div>
+          <div class="wl-item__desc">${escapeHtmlDoc(docT("aptDoc.emptyDesc"))}</div>
         </div>
       </div>
     `;
@@ -95,22 +125,22 @@ function renderDocumentsList(documentsList, aptId) {
 
             <div>
               <div class="wl-item__title">
-                ${doc.fileName || "ملف"}
+                ${escapeHtmlDoc(doc.fileName || docT("aptDoc.fileFallback"))}
               </div>
 
               <div class="wl-item__desc">
-                تم الرفع: ${new Date(doc.uploadedAt).toLocaleString("ar-SA")}
+                ${escapeHtmlDoc(docT("aptDoc.uploadedPrefix"))}: ${escapeHtmlDoc(formatDocDateTime(doc.uploadedAt))}
               </div>
 
               ${
                 doc.contractId
-                  ? `<div class="wl-item__desc">العقد: ${doc.contractId}</div>`
+                  ? `<div class="wl-item__desc">${escapeHtmlDoc(docT("aptDoc.contractLabel"))}: ${escapeHtmlDoc(doc.contractId)}</div>`
                   : ""
               }
             </div>
           </div>
 
-          <span class="wl-badge">فتح</span>
+          <span class="wl-badge">${escapeHtmlDoc(docT("aptDoc.open"))}</span>
         </div>
       `
     )
@@ -149,7 +179,7 @@ function saveHtmlDocumentForApartment(htmlContent, aptId, fileName, extraData = 
   documents.push({
     id: "DOC" + Date.now(),
     apartmentId: aptId,
-    fileName: fileName || "وثيقة.html",
+    fileName: fileName || docT("aptDoc.htmlDocName"),
     fileData: buildHtmlDataUrl(htmlContent),
     mimeType: "text/html",
     uploadedAt: new Date().toISOString(),
@@ -172,7 +202,7 @@ function upsertHtmlDocumentForApartment(htmlContent, aptId, fileName, matcher = 
   const newDoc = {
     id: index >= 0 ? documents[index].id : "DOC" + Date.now(),
     apartmentId: aptId,
-    fileName: fileName || "وثيقة.html",
+    fileName: fileName || docT("aptDoc.htmlDocName"),
     fileData: buildHtmlDataUrl(htmlContent),
     mimeType: "text/html",
     uploadedAt: new Date().toISOString(),
@@ -201,11 +231,15 @@ function openDocumentById(docId) {
   const win = window.open();
   if (!win) return;
 
+  const lang = window.walajna_language && window.walajna_language.get ? window.walajna_language.get() : "ar";
+  const htmlLang = lang === "en" ? "en" : lang === "ur" ? "ur" : "ar";
+  const dir = lang === "en" ? "ltr" : "rtl";
+
   win.document.write(`
-    <html lang="ar" dir="rtl">
+    <html lang="${htmlLang}" dir="${dir}">
       <head>
         <meta charset="UTF-8" />
-        <title>${doc.fileName || "وثيقة"}</title>
+        <title>${escapeHtmlDoc(doc.fileName || docT("aptDoc.viewerDoc"))}</title>
         <style>
           html, body {
             margin: 0;

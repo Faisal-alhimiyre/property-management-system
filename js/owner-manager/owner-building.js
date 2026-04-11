@@ -264,9 +264,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   function formatMoney(value) {
     const n = Number(value || 0);
     const loc =
-      window.walajna_language && window.walajna_language.get() === "en"
-        ? "en-SA"
-        : "ar-SA";
+      window.walajna_language && typeof window.walajna_language.localeForNumbers === "function"
+        ? window.walajna_language.localeForNumbers()
+        : window.walajna_language && window.walajna_language.get() === "en"
+          ? "en-SA"
+          : "ar-SA";
     if (!n) return T("common.sarZero");
     return `${n.toLocaleString(loc)} ${T("common.sar")}`;
   }

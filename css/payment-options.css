@@ -1,14 +1,14 @@
 :root{
-  --bg:#f3f4f6;
+  --bg:var(--wl-palette-bg, #e4edf7);
   --card:#ffffff;
-  --text:#101828;
-  --muted:#667085;
-  --border:#e5e7eb;
+  --text:#1a2f4a;
+  --muted:rgba(26,47,74,0.55);
+  --border:rgba(26,47,74,0.12);
 
-  --brand-1:#67d8d4;
-  --brand-2:#49c6d9;
-  --brand-3:#2f5d86;
-  --brand-4:#24496d;
+  --brand-1:#36d7e8;
+  --brand-2:#1fb8d4;
+  --brand-3:#1a2f4a;
+  --brand-4:#1a2f4a;
 
   --shadow-sm:0 8px 22px rgba(15,23,42,0.06);
   --shadow-md:0 14px 34px rgba(15,23,42,0.10);
@@ -24,14 +24,7 @@
 body{
   margin:0;
   min-height:100vh;
-  background:
-    linear-gradient(
-      to bottom,
-      var(--brand-1) 0%,
-      var(--brand-2) 28%,
-      var(--brand-3) 28%,
-      var(--brand-4) 100%
-    );
+  background:var(--wl-palette-bg, #e4edf7);
   background-attachment:fixed;
   font-family:inherit;
   color:var(--text);

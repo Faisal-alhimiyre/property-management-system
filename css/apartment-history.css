@@ -1,9 +1,9 @@
 :root {
-  --text: #16324a;
-  --muted: #7b8a9a;
+  --text: #1a2f4a;
+  --muted: rgba(26, 47, 74, 0.55);
   --card: rgba(248, 248, 248, 0.97);
   --border: #d9e1e8;
-  --brand: #1da7a6;
+  --brand: #36d7e8;
   --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
   --shadow-soft: 0 8px 18px rgba(15, 23, 42, 0.05);
 }
@@ -17,14 +17,7 @@ body {
   font-family: Arial, sans-serif;
   color: var(--text);
   min-height: 100vh;
-  background:
-    linear-gradient(
-      to bottom,
-      #6fd5dc 0%,
-      #4ec0d8 28%,
-      #274e74 28%,
-      #355f86 100%
-    );
+  background: var(--wl-palette-bg, #e4edf7);
 }
 
 .page-shell {
@@ -94,7 +87,7 @@ body {
 /* main layout */
 .layout {
   display: flex;
-  flex-direction: row-reverse; /* القائمة يمين والمحتوى يسار بصريًا */
+  flex-direction: row-reverse; /* Ø§Ù„Ù‚Ø§Ø¦Ù…Ø© ÙŠÙ…ÙŠÙ† ÙˆØ§Ù„Ù…Ø­ØªÙˆÙ‰ ÙŠØ³Ø§Ø± Ø¨ØµØ±ÙŠÙ‹Ø§ */
   align-items: flex-start;
   gap: 26px;
 }

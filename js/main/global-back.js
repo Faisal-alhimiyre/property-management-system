@@ -11,6 +11,7 @@
     if (document.getElementById("walajna-global-back")) return;
     if (document.querySelector(".back-btn")) return;
     if (document.body && document.body.dataset.globalBack === "false") return;
+    if (document.body && document.body.getAttribute("data-nav") === "user") return;
 
     const btn = document.createElement("button");
     btn.type = "button";

@@ -1,15 +1,15 @@
 :root{
-  --text:#0f172a;
-  --muted:#64748b;
+  --text:#1a2f4a;
+  --muted:rgba(26,47,74,0.55);
   --surface:#ffffff;
-  --surface-soft:rgba(255,255,255,0.78);
-  --surface-strong:rgba(255,255,255,0.90);
-  --border:rgba(255,255,255,0.38);
+  --surface-soft:rgba(255,255,255,0.96);
+  --surface-strong:rgba(255,255,255,0.98);
+  --border:rgba(26,47,74,0.1);
 
-  --brand-1:#67d8d4;
-  --brand-2:#49c6d9;
-  --brand-3:#2f5d86;
-  --brand-4:#24496d;
+  --brand-1:#36d7e8;
+  --brand-2:#1fb8d4;
+  --brand-3:#1a2f4a;
+  --brand-4:#1a2f4a;
 
   --shadow-sm:0 8px 20px rgba(15,23,42,0.05);
   --shadow-md:0 12px 28px rgba(15,23,42,0.09);
@@ -30,14 +30,7 @@ body{
   min-height:100vh;
   font-family:Arial,sans-serif;
   color:var(--text);
-  background:
-    linear-gradient(
-      to bottom,
-      var(--brand-1) 0%,
-      var(--brand-2) 28%,
-      var(--brand-3) 28%,
-      var(--brand-4) 100%
-    );
+  background:var(--wl-palette-bg, #e4edf7);
   background-attachment:fixed;
 }
 
@@ -81,7 +74,7 @@ body{
   right:0;
   left:0;
   height:3px;
-  background:linear-gradient(90deg, #22d3ee, #14b8a6);
+  background:#36d7e8;
 }
 
 .finance-label{
@@ -106,7 +99,7 @@ body{
   color:#b42318;
 }
 
-/* المصروفات بالأحمر */
+/* Ø§Ù„Ù…ØµØ±ÙˆÙØ§Øª Ø¨Ø§Ù„Ø£Ø­Ù…Ø± */
 .finance-card:has(#buildingCosts)::before{
   background:linear-gradient(90deg, #ef4444, #dc2626);
 }
@@ -983,4 +976,9 @@ body.dark-mode .apartment-edit-modal .item input::placeholder,
 body.dark-mode .apartment-edit-modal .item textarea::placeholder{
   color:#94a3b8;
   opacity:1;
+}
+
+/* Sticky breadcrumb sits under the topbar; avoid a second band of page background */
+body:has(#walajna-breadcrumb) .owner-building-wrap{
+  margin-top:0;
 }

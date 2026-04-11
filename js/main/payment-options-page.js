@@ -13,9 +13,11 @@ document.addEventListener("DOMContentLoaded", async function () {
   const backLink = document.getElementById("backToPaymentsLink");
 
   const loc =
-    window.walajna_language && window.walajna_language.get() === "en"
-      ? "en-SA"
-      : "ar-SA";
+    window.walajna_language && typeof window.walajna_language.localeForNumbers === "function"
+      ? window.walajna_language.localeForNumbers()
+      : window.walajna_language && window.walajna_language.get() === "en"
+        ? "en-SA"
+        : "ar-SA";
 
   const payments = JSON.parse(localStorage.getItem("walajna_payments") || "[]");
 
