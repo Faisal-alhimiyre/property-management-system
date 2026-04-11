@@ -1,10 +1,10 @@
 :root {
-  --text: #0f172a;
-  --muted: #64748b;
+  --text: #1a2f4a;
+  --muted: rgba(26, 47, 74, 0.55);
   --card: #ffffff;
   --border: #dbe4ee;
-  --brand: #0ea5a2;
-  --brand-dark: #0f766e;
+  --brand: #36d7e8;
+  --brand-dark: #1fb8d4;
   --history: #7c3aed;
   --history-soft: #f5f3ff;
   --shadow: 0 12px 30px rgba(15, 23, 42, 0.10);
@@ -20,14 +20,7 @@ body {
   font-family: Arial, sans-serif;
   color: var(--text);
   min-height: 100vh;
-  background:
-    linear-gradient(
-      to bottom,
-      #74d6dc 0%,
-      #4ec0d8 26%,
-      #274e74 26%,
-      #355f86 100%
-    );
+  background: var(--wl-palette-bg, #e4edf7);
 }
 
 .history-details-page {

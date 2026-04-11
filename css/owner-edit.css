@@ -1,18 +1,13 @@
 :root{
-  --bg:#f4f6f8;
+  --bg:var(--wl-palette-bg, #e4edf7);
   --card:#ffffff;
-  --text:#101828;
-  --muted:#667085;
-  --border:#dbe2ea;
+  --text:#1a2f4a;
+  --muted:rgba(26,47,74,0.55);
+  --border:rgba(26,47,74,0.12);
 
-  --brand:#18c7c3;
-  --brand-dark:#0fa9a5;
-  --brand-soft:rgba(24,199,195,0.14);
-
-  --top1:#67d8d4;
-  --top2:#49c6d9;
-  --bottom1:#2f5d86;
-  --bottom2:#24496d;
+  --brand:#36d7e8;
+  --brand-dark:#1fb8d4;
+  --brand-soft:rgba(54,215,232,0.25);
 
   --danger:#e5484d;
   --success:#16a34a;
@@ -29,14 +24,7 @@
 body{
   margin:0;
   min-height:100vh;
-  background:
-    linear-gradient(
-      to bottom,
-      var(--top1) 0%,
-      var(--top2) 26%,
-      var(--bottom1) 26%,
-      var(--bottom2) 100%
-    );
+  background:var(--wl-palette-bg, #e4edf7);
   background-attachment:fixed;
   font-family:Arial, sans-serif;
   color:var(--text);
@@ -171,7 +159,7 @@ body{
 
 /* custom arrow */
 .select-group::after{
-  content:"⌄";
+  content:"âŒ„";
   position:absolute;
   left:16px;
   top:calc(50% + 14px);

@@ -1,36 +1,29 @@
 /* dashboard.css */
 
 :root{
-  --text:#0f172a;
-  --muted:#64748b;
-  --surface:rgba(255,255,255,0.78);
-  --surface-strong:rgba(255,255,255,0.9);
-  --border:rgba(255,255,255,0.42);
+  --text:#1a2f4a;
+  --muted:rgba(26,47,74,0.55);
+  --surface:rgba(255,255,255,0.96);
+  --surface-strong:#ffffff;
+  --border:rgba(26,47,74,0.1);
 
-  --brand-1:#67d8d4;
-  --brand-2:#49c6d9;
-  --brand-3:#2f5d86;
-  --brand-4:#24496d;
+  --brand-1:#36d7e8;
+  --brand-2:#1fb8d4;
+  --brand-3:#1a2f4a;
+  --brand-4:#1a2f4a;
 
   --shadow-sm:0 8px 22px rgba(15,23,42,0.08);
   --shadow-md:0 14px 34px rgba(15,23,42,0.12);
   --shadow-lg:0 22px 48px rgba(15,23,42,0.16);
 }
 
-/* الصفحة */
+/* Ø§Ù„ØµÙØ­Ø© */
 body{
   margin:0;
   min-height:100vh;
   font-family:Arial,sans-serif;
   color:var(--text);
-  background:
-    linear-gradient(
-      to bottom,
-      var(--brand-1) 0%,
-      var(--brand-2) 28%,
-      var(--brand-3) 28%,
-      var(--brand-4) 100%
-    );
+  background:var(--wl-palette-bg, #e4edf7);
   background-attachment:fixed;
 }
 
@@ -68,7 +61,7 @@ body.dark-mode .no-building{
 }
 
 
-/* عنوان الصفحة */
+/* Ø¹Ù†ÙˆØ§Ù† Ø§Ù„ØµÙØ­Ø© */
 .page-title{
   width:100%;
   padding:26px 16px 8px;
@@ -84,7 +77,7 @@ body.dark-mode .no-building{
   text-shadow:0 2px 10px rgba(255,255,255,0.16);
 }
 
-/* شبكة العمائر */
+/* Ø´Ø¨ÙƒØ© Ø§Ù„Ø¹Ù…Ø§Ø¦Ø± */
 .buildings-grid{
   max-width:1200px;
   margin:34px auto 56px;
@@ -99,7 +92,7 @@ body.dark-mode .no-building{
   gap:26px;
 }
 
-/* كرت العمارة */
+/* ÙƒØ±Øª Ø§Ù„Ø¹Ù…Ø§Ø±Ø© */
 .building-card{
   width:100%;
   height:190px;
@@ -151,7 +144,7 @@ body.dark-mode .no-building{
   display:flex;
   align-items:center;
   justify-content:center;
-  background:#76e6ff;
+  background:#36d7e8;
 }
 
 .building-card__media img{
@@ -178,7 +171,7 @@ body.dark-mode .no-building{
   text-shadow:0 3px 10px rgba(0,0,0,0.35);
 }
 
-/* لا توجد عمائر */
+/* Ù„Ø§ ØªÙˆØ¬Ø¯ Ø¹Ù…Ø§Ø¦Ø± */
 .no-building{
   grid-column:1 / -1;
   text-align:center;

@@ -134,7 +134,7 @@
     const html = document.documentElement;
     const lang = (html.getAttribute("lang") || "").toLowerCase().split("-")[0];
     const dir = (html.getAttribute("dir") || "").toLowerCase();
-    if (lang === "ar") return "<";
+    if (lang === "ar" || lang === "ur") return "<";
     if (lang === "en") return ">";
     if (dir === "rtl") return "<";
     if (dir === "ltr") return ">";

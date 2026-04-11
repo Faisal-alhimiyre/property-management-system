@@ -1,19 +1,14 @@
 :root{
-  --bg:#eef2f6;
+  --bg:var(--wl-palette-bg, #e4edf7);
   --surface:#ffffff;
-  --surface-soft:rgba(255,255,255,0.82);
-  --surface-strong:rgba(255,255,255,0.92);
-  --text:#0f172a;
-  --muted:#64748b;
-  --border:#dbe3ec;
+  --surface-soft:rgba(255,255,255,0.96);
+  --surface-strong:rgba(255,255,255,0.98);
+  --text:#1a2f4a;
+  --muted:rgba(26,47,74,0.55);
+  --border:rgba(26,47,74,0.12);
 
-  --brand:#18c7c3;
-  --brand-strong:#0ea5a2;
-
-  --top1:#67d8d4;
-  --top2:#49c6d9;
-  --bottom1:#2f5d86;
-  --bottom2:#24496d;
+  --brand:#36d7e8;
+  --brand-strong:#1fb8d4;
 
   --ok:#16a34a;
   --warn:#f59e0b;
@@ -32,14 +27,7 @@
 body{
   margin:0;
   min-height:100vh;
-  background:
-    linear-gradient(
-      to bottom,
-      var(--top1) 0%,
-      var(--top2) 22%,
-      var(--bottom1) 22%,
-      var(--bottom2) 100%
-    );
+  background:var(--wl-palette-bg, #e4edf7);
   background-attachment:fixed;
   color:var(--text);
   font-family:Arial,sans-serif;
@@ -128,7 +116,7 @@ body{
   right:0;
   left:0;
   height:3px;
-  background:linear-gradient(90deg, #22d3ee, #14b8a6);
+  background:#36d7e8;
 }
 
 .sum-label{
@@ -558,7 +546,7 @@ body.dark-mode .payments-field textarea:focus{
 }
 
 body.dark-mode .wl-btn--primary{
-  background:linear-gradient(135deg, #22d3ee, #0ea5a2);
+  background:#36d7e8;
   color:#053433;
 }
 
@@ -621,7 +609,7 @@ body.dark-mode .payments-empty{
 }
 
 body.dark-mode .payments-action-btn.primary{
-  background:linear-gradient(135deg, #22d3ee, #0ea5a2) !important;
+  background:#36d7e8 !important;
   color:#052626 !important;
 }
 
@@ -688,7 +676,7 @@ body.dark-mode #recordPaymentModal .wl-icon-btn:hover{
   background:#172033 !important;
 }
 
-/* Record-payment modal — full layout here so JS-injected styles cannot override (RTL / Live Server safe). */
+/* Record-payment modal â€” full layout here so JS-injected styles cannot override (RTL / Live Server safe). */
 #recordPaymentModal.wl-modal{
   display:none !important;
   position:fixed !important;

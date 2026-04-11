@@ -1,13 +1,14 @@
 :root{
-  --walajna-bar: #33cfe6;
-  --walajna-bar-dark: #19b9d0;
-  --walajna-bar-deep: #12a8c2;
-  --walajna-text: #0b0f14;
-  --walajna-hover: rgba(255,255,255,.18);
-  --walajna-hover-strong: rgba(255,255,255,.28);
+  /* 30% navy bar — solid (no split / gradient band) */
+  --walajna-bar: #1a2f4a;
+  --walajna-bar-dark: #1a2f4a;
+  --walajna-bar-deep: #152638;
+  --walajna-text: #f0f5fb;
+  --walajna-hover: rgba(255,255,255,.14);
+  --walajna-hover-strong: rgba(255,255,255,.24);
   --walajna-radius: 0px;
-  --walajna-shadow: 0 10px 28px rgba(8, 30, 52, .14);
-  --walajna-border: rgba(255,255,255,.26);
+  --walajna-shadow: 0 10px 28px rgba(8, 30, 52, .18);
+  --walajna-border: rgba(255,255,255,.2);
 }
 
 *{
@@ -21,8 +22,7 @@
 
 .walajna-topbar{
   height: 78px;
-  background:
-    linear-gradient(135deg, var(--walajna-bar) 0%, var(--walajna-bar-dark) 58%, var(--walajna-bar-deep) 100%);
+  background: var(--walajna-bar);
   display: flex;
   align-items: center;
   position: fixed;
@@ -192,7 +192,7 @@
 }
 
 .nav-role-switcher__select option{
-  color: #111827;
+  color: #1a2f4a;
   background: white;
 }
 

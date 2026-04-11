@@ -377,11 +377,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     const bathrooms = parseInt(document.getElementById("bathrooms")?.value, 10);
     const livingRooms = parseInt(document.getElementById("livingRooms")?.value, 10);
 
-    if (/[a-zA-Z]/.test(buildingName)) {
-      alert(T("owner.aptNameArabicOnly"));
-      return;
-    }
-
     const apartmentCount = parseInt(
       document.getElementById("apartmentCount")?.value,
       10

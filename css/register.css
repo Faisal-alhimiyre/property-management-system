@@ -1,223 +1,321 @@
 *{ box-sizing: border-box; }
 
+/* Shared by register / role / forget / verify / reset (not all use .auth-page) */
 body{
   margin: 0;
-  font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
-  height: 100vh;
-  overflow: auto;
+  font-family: var(--wl-font-family, system-ui, -apple-system, "Segoe UI", Arial, sans-serif);
+  min-height: 100vh;
+  min-height: 100dvh;
+  color: var(--wl-text-on-light, #1a2f4a);
+  background: var(--wl-palette-bg, #e4edf7);
 }
 
-/* Split background like Walajna */
+body.auth-page{
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
 .register-bg{
   position: fixed;
   inset: 0;
-  background: linear-gradient(to bottom,
-    #45d7e6 0%,
-    #45d7e6 50%,
-    #294e68 50%,
-    #294e68 100%
-  );
+  background: var(--wl-palette-bg, #e4edf7);
   z-index: -1;
 }
 
-/* Logo top-right */
-.logo{
+/* Recovery pages: small logo in corner */
+.logo.logo--corner{
   position: fixed;
-  top: 0px;
-  right: 0px;
+  top: 14px;
+  inset-inline-start: 14px;
+  z-index: 2;
   text-decoration: none;
-}
-.brand-logo{
-  height: 170px;
-  width: auto;
-  display: block;
+  line-height: 0;
 }
 
-/* Layout */
-.register-wrap{
-  height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 24px;
+.logo.logo--corner .brand-logo{
+  height: 56px;
+  width: auto;
+  display: block;
+  filter: drop-shadow(0 4px 12px rgba(26, 47, 74, 0.12));
+}
+
+/* Login / register / role: centered hero logo above card */
+.auth-stack{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  gap: clamp(20px, 4vh, 36px);
+}
+
+.auth-stack--wide{
+  max-width: min(520px, 100%);
+}
+
+.auth-logo-top{
+  display: block;
+  text-decoration: none;
+  line-height: 0;
+  flex-shrink: 0;
+}
+
+.auth-hero-logo{
+  display: block;
+  width: min(420px, 92vw);
+  height: auto;
+  max-height: min(240px, 34vh);
+  object-fit: contain;
+  margin-inline: auto;
+  filter: drop-shadow(0 10px 28px rgba(26, 47, 74, 0.16));
+}
+
+/* Layout shell */
+.register-wrap,
+.auth-shell{
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(20px, 5vw, 40px);
+  padding-top: clamp(28px, 6vh, 56px);
+}
+
+/* Forgot / verify / reset: room for fixed corner logo */
+.register-wrap:not(.auth-shell){
+  padding-top: clamp(88px, 14vh, 120px);
+}
+
+.auth-card{
+  width: min(480px, 100%);
+  padding: clamp(24px, 4vw, 32px);
+  border-radius: 20px;
+  background: #ffffff;
+  border: 1px solid rgba(26, 47, 74, 0.08);
+  box-shadow:
+    0 4px 6px -1px rgba(26, 47, 74, 0.06),
+    0 20px 40px -12px rgba(26, 47, 74, 0.12);
+}
+
+.auth-card--wide{
+  width: min(520px, 100%);
+}
+
+/* Role page: box around the two pill buttons */
+.auth-card--role{
+  width: min(560px, 100%);
+  padding: clamp(22px, 4vw, 32px) clamp(20px, 4vw, 36px);
+}
+
+.auth-card--role .role-card__lead{
+  margin: 0 0 8px;
+  text-align: center;
+  font-size: clamp(1.05rem, 2.8vw, 1.22rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--wl-palette-navy, #1a2f4a);
+  line-height: 1.35;
+}
+
+.auth-card--role .role-card__sub{
+  margin: 0 0 clamp(18px, 3vh, 24px);
+  text-align: center;
+  font-size: 0.92rem;
+  font-weight: 500;
+  color: rgba(26, 47, 74, 0.62);
+  line-height: 1.45;
+}
+
+.auth-card__head{
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.auth-card__head--tight{
+  margin-bottom: 16px;
+}
+
+.auth-card__title{
+  margin: 0 0 8px;
+  font-size: clamp(1.35rem, 3.5vw, 1.6rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--wl-palette-navy, #1a2f4a);
+  line-height: 1.25;
+}
+
+.auth-card__sub{
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 500;
+  line-height: 1.45;
+  color: rgba(26, 47, 74, 0.62);
 }
 
 .register-form{
-  width: min(680px, 92vw);
-  display: grid;
-  gap: 12px;
-  justify-items: center;
-}
-
-.title{
-  margin: 0 0 6px;
-  color: #0b2a3a;
-  font-weight: 900;
-  font-size: 28px;
-  text-shadow: 0 6px 14px rgba(0,0,0,.08);
-}
-
-/* Label + field rows */
-.row{
   width: 100%;
   display: grid;
-  grid-template-columns: 240px 1fr;
-  gap: 16px;
-  align-items: center;
+  gap: 14px;
+  justify-items: stretch;
+}
+
+/* Stacked label above field */
+.register-form .row,
+.auth-card .row{
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  align-items: stretch;
 }
 
 .row label{
-  color: #ffffff;
-  font-weight: 800;
-  font-size: 20px;
-  text-align: right;
-  white-space: nowrap;
+  color: var(--wl-palette-navy-mid, #243854);
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-align: start;
+  white-space: normal;
 }
 
 .row input,
 .row select{
-  height: 52px;
-  border-radius: 10px;
-  border: 2px solid #0b0f14;
-  background: #ffffff;
+  height: 48px;
+  border-radius: 12px;
+  border: 1px solid rgba(26, 47, 74, 0.18);
+  background: #f8fafc;
   outline: none;
   padding: 10px 14px;
   font-size: 16px;
-  box-shadow: 4px 6px 0 rgba(0,0,0,.75);
+  color: var(--wl-text-on-light, #1a2f4a);
+  box-shadow: none;
+  transition:
+    border-color .16s ease-out,
+    background-color .16s ease-out,
+    box-shadow .16s ease-out;
 }
 
-.row select{ cursor: pointer; }
+.row select{
+  cursor: pointer;
+}
+
+.row input:focus,
+.row select:focus{
+  border-color: var(--wl-palette-logo, #36d7e8);
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(54, 215, 232, 0.2);
+}
 
 .hint{
-  grid-column: 2 / 3;
-  margin-top: 6px;
-  font-size: 12px;
-  color: rgba(255,255,255,.92);
+  grid-column: 1 / -1;
+  margin-top: 2px;
+  font-size: 0.8rem;
+  color: rgba(26, 47, 74, 0.55);
+  line-height: 1.35;
 }
 
-/* Error message */
+/* Legacy page title (forget / verify / reset) */
+.title{
+  margin: 0 0 12px;
+  color: var(--wl-palette-navy, #1a2f4a);
+  font-weight: 800;
+  font-size: clamp(1.25rem, 3vw, 1.5rem);
+  text-align: center;
+  letter-spacing: -0.02em;
+}
+
 .error{
   margin: 0;
   min-height: 22px;
   width: 100%;
   text-align: center;
-  font-weight: 800;
-  color: #ffefef;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #b91c1c;
 }
 
-/* Button */
 .register-btn{
-  margin-top: 2px;
+  width: 100%;
+  margin-top: 4px;
   border: 0;
   cursor: pointer;
-  padding: 12px 46px;
-  border-radius: 999px;
-  color: #ffffff;
-  font-weight: 900;
-  font-size: 18px;
-  background: linear-gradient(90deg, #4ee7e7, #1c63c7);
-  box-shadow: 0 10px 20px rgba(0,0,0,.18);
+  padding: 14px 20px;
+  border-radius: 12px;
+  color: var(--wl-palette-navy, #1a2f4a);
+  font-weight: 800;
+  font-size: 1rem;
+  background: var(--wl-palette-logo, #36d7e8);
+  box-shadow: 0 8px 20px rgba(54, 215, 232, 0.35);
+  transition: filter .18s ease-out, box-shadow .18s ease-out;
 }
-.register-btn:hover{ filter: brightness(1.03); }
 
-/* Footer */
-.footer{
-  margin: 6px 0 0;
-  color: rgba(255,255,255,.92);
-  font-weight: 700;
-  text-align: center;
+.register-btn:hover{
+  filter: brightness(1.04);
+  box-shadow: 0 10px 26px rgba(54, 215, 232, 0.42);
 }
+
+.footer{
+  margin: 8px 0 0;
+  color: rgba(26, 47, 74, 0.6);
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-align: center;
+  line-height: 1.5;
+}
+
 .footer a{
-  color: #ffffff;
+  color: var(--wl-palette-logo-deep, #1fb8d4);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.footer a:hover{
   text-decoration: underline;
 }
-body{
-  margin:0;
-  font-family:system-ui;
-  height:100vh;
-  display:grid;
-  place-items:center;
-  background:#f2f2f2;
-}
 
-.box{
-  background:#fff;
-  padding:28px;
-  border-radius:14px;
-  box-shadow:0 10px 25px rgba(0,0,0,.1);
-  text-align:center;
-}
-
-button{
-  border:0;
-  cursor:pointer;
-  padding:12px 20px;
-  border-radius:10px;
-  font-weight:800;
-}
-/* Use the same background from register.css; only layout here */
-
+/* Role selection — two pills in one row (under hero logo) */
 .choose-wrap{
-  height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 24px;
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 
-/* Center content and keep it clean like the image */
-.choose-box{
-  width: min(900px, 92vw);
-  display: grid;
-  justify-items: center;
-  gap: 30px;
-}
-
-
-.choose-logo{
-  width: min(360px, 82vw);
-  height: auto;
-  display: block;
-  margin: 0 auto; /* هذا السطر يوسّط اللوقو */
-  filter: drop-shadow(0 16px 26px rgba(0,0,0,.18));
-}
-.logo-center{
-  position: absolute;
-  top: 50px;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-/* Buttons centered side-by-side */
 .choose-actions{
   display: flex;
-  gap: 70px;
+  flex-direction: row;
+  flex-wrap: nowrap;
   justify-content: center;
   align-items: center;
-  flex-wrap: wrap;
-  margin-top: 80px; 
+  gap: clamp(20px, 5vw, 56px);
+  width: 100%;
 }
 
-/* Pill buttons like your design */
 .choose-btn{
   border: 0;
   cursor: pointer;
-  padding: 14px 52px;
+  padding: 14px clamp(28px, 7vw, 52px);
   border-radius: 999px;
   font-weight: 900;
-  font-size: 22px;
-  color: #0b2a3a;
-  background: linear-gradient(90deg, #59e8e8, #1c63c7);
-  box-shadow: 0 14px 26px rgba(0,0,0,.18);
-  transition: transform .12s ease, filter .12s ease;
+  font-size: clamp(1.05rem, 3.2vw, 1.35rem);
+  color: var(--wl-palette-navy, #1a2f4a);
+  background: var(--wl-palette-logo, #36d7e8);
+  box-shadow: 0 14px 28px rgba(26, 47, 74, 0.12);
+  transition: transform .12s ease, filter .12s ease, box-shadow .12s ease;
+  white-space: nowrap;
 }
 
 .choose-btn:hover{
   transform: translateY(-1px);
-  filter: brightness(1.02);
+  filter: brightness(1.03);
 }
 
-/* Optional: slightly different feel for each button (still same style) */
-.choose-btn.owner{ opacity: .95; }
-.choose-btn.tenant{ opacity: 1; }
+.choose-btn:focus-visible{
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(54, 215, 232, 0.45), 0 14px 28px rgba(26, 47, 74, 0.12);
+}
+
+.choose-btn.owner{
+  opacity: 0.96;
+}
+
 .recover-switch{
   width: 100%;
   display: flex;
@@ -228,55 +326,100 @@ button{
 }
 
 .recover-tab{
-  border: 2px solid #0b0f14;
-  background: #ffffff;
-  color: #0b2a3a;
+  border: 1px solid rgba(26, 47, 74, 0.18);
+  background: #f8fafc;
+  color: var(--wl-text-on-light, #1a2f4a);
   border-radius: 999px;
-  padding: 12px 22px;
-  font-size: 15px;
-  font-weight: 900;
+  padding: 10px 20px;
+  font-size: 0.9rem;
+  font-weight: 700;
   cursor: pointer;
-  box-shadow: 4px 6px 0 rgba(0,0,0,.75);
-  transition: .15s ease;
+  transition: background .15s ease, border-color .15s ease, box-shadow .15s ease;
 }
 
 .recover-tab.active{
-  background: linear-gradient(90deg, #4ee7e7, #1c63c7);
-  color: #ffffff;
+  background: var(--wl-palette-logo, #36d7e8);
+  border-color: transparent;
+  box-shadow: 0 6px 16px rgba(54, 215, 232, 0.35);
 }
 
 .recover-tab:hover{
-  transform: translateY(-1px);
+  border-color: rgba(54, 215, 232, 0.45);
 }
 
-/* ===== Dark mode: register, role, forget / reset / verify (shared register.css) ===== */
-body.dark-mode {
-  background: transparent !important;
+/* ===== Dark mode: register, role, forget / reset / verify ===== */
+body.dark-mode.auth-page{
+  background: #020617;
   color: #e5edf7;
-  display: block;
-  place-items: unset;
-  min-height: 100vh;
 }
 
-body.dark-mode .register-bg {
+body.dark-mode{
+  color: #e5edf7;
+}
+
+body.dark-mode .register-bg{
   background:
-    radial-gradient(circle at top right, rgba(34, 211, 238, 0.22), transparent 52%),
-    linear-gradient(180deg, #0f172a 0%, #020617 50%, #020617 100%);
+    radial-gradient(circle at 100% 0%, rgba(34, 211, 238, 0.12), transparent 45%),
+    linear-gradient(180deg, #0f172a 0%, #020617 100%);
 }
 
-body.dark-mode .title {
-  color: #e5edf7 !important;
-  text-shadow: 0 4px 24px rgba(15, 23, 42, 0.9);
+body.dark-mode .logo.logo--corner .brand-logo,
+body.dark-mode .auth-hero-logo{
+  filter: drop-shadow(0 12px 36px rgba(0, 0, 0, 0.45));
 }
 
-body.dark-mode .row label {
+body.dark-mode .title{
+  color: #f8fafc !important;
+}
+
+body.dark-mode .auth-card{
+  background: linear-gradient(155deg, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.92));
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  box-shadow: 0 26px 80px rgba(15, 23, 42, 0.85);
+}
+
+body.dark-mode .auth-card__title{
+  color: #f8fafc;
+}
+
+body.dark-mode .auth-card__sub{
+  color: #9ca3af;
+}
+
+body.dark-mode .auth-card--role .role-card__lead{
+  color: #f8fafc;
+}
+
+body.dark-mode .auth-card--role .role-card__sub{
+  color: #9ca3af;
+}
+
+/* Card-on-form for legacy pages without .auth-card wrapper */
+body.dark-mode .register-wrap:not(.auth-shell) .register-form,
+body.dark-mode .register-wrap:not(.auth-shell) form.register-form{
+  padding: 28px 26px;
+  border-radius: 24px;
+  background: linear-gradient(155deg, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.9));
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  box-shadow: 0 26px 80px rgba(15, 23, 42, 0.85);
+}
+
+body.dark-mode .auth-shell .auth-card .register-form{
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+body.dark-mode .row label{
   color: #e5edf7 !important;
 }
 
 body.dark-mode .row input,
-body.dark-mode .row select {
+body.dark-mode .row select{
   border: 1px solid rgba(148, 163, 184, 0.35) !important;
-  background-color: #0f172a !important;
+  background-color: #020617 !important;
   background-image: none !important;
   color: #f8fafc !important;
   -webkit-text-fill-color: #f8fafc !important;
@@ -286,16 +429,15 @@ body.dark-mode .row select {
 }
 
 body.dark-mode .row input:focus,
-body.dark-mode .row select:focus {
+body.dark-mode .row select:focus{
   border-color: #06b6d4 !important;
   box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.55) !important;
 }
 
-/* Chrome/Safari autofill uses light background + hides text unless overridden */
 body.dark-mode .register-form input:-webkit-autofill,
 body.dark-mode .register-form input:-webkit-autofill:hover,
 body.dark-mode .register-form input:-webkit-autofill:focus,
-body.dark-mode .register-form input:-webkit-autofill:active {
+body.dark-mode .register-form input:-webkit-autofill:active{
   -webkit-box-shadow: 0 0 0 1000px #0f172a inset !important;
   box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.35) inset !important;
   -webkit-text-fill-color: #f8fafc !important;
@@ -305,78 +447,76 @@ body.dark-mode .register-form input:-webkit-autofill:active {
   transition: background-color 99999s ease-out 0s;
 }
 
-body.dark-mode .hint {
+body.dark-mode .hint{
   color: #9ca3af !important;
 }
 
-body.dark-mode .error {
+body.dark-mode .error{
   color: #f97373 !important;
 }
 
-body.dark-mode .register-btn {
+body.dark-mode .register-btn{
   color: #f9fafb;
-  background: radial-gradient(circle at top left, #22d3ee, #0369a1);
-  box-shadow: 0 20px 50px rgba(8, 47, 73, 0.95);
+  background: linear-gradient(135deg, #22d3ee, #0e7490);
+  box-shadow: 0 16px 40px rgba(8, 47, 73, 0.75);
 }
 
-body.dark-mode .register-btn:hover {
+body.dark-mode .register-btn:hover{
   filter: brightness(1.05);
 }
 
 body.dark-mode .footer,
-body.dark-mode .footer span {
+body.dark-mode .footer span{
   color: #9ca3af !important;
 }
 
-body.dark-mode .footer a {
+body.dark-mode .footer a{
   color: #22d3ee !important;
 }
 
-body.dark-mode .register-form {
-  padding: 28px 26px;
-  border-radius: 24px;
-  background: linear-gradient(155deg, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.9));
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  box-shadow: 0 26px 80px rgba(15, 23, 42, 0.85);
-}
-
-body.dark-mode .choose-btn {
+body.dark-mode .choose-btn{
   color: #053433;
   background: linear-gradient(135deg, #22d3ee, #0ea5a2);
   box-shadow: 0 16px 40px rgba(8, 47, 73, 0.75);
 }
 
-body.dark-mode .choose-btn:hover {
+body.dark-mode .choose-btn:hover{
   filter: brightness(1.06);
 }
 
-body.dark-mode .choose-logo {
-  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.45));
+body.dark-mode .choose-btn:focus-visible{
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.5), 0 16px 40px rgba(8, 47, 73, 0.75);
 }
 
-body.dark-mode .brand-logo {
-  filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.35));
-}
-
-body.dark-mode .recover-tab {
+body.dark-mode .recover-tab{
   background: #020617 !important;
   border: 1px solid rgba(148, 163, 184, 0.35) !important;
   color: #e5edf7 !important;
   box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.9) !important;
 }
 
-body.dark-mode .recover-tab.active {
-  background: linear-gradient(135deg, #22d3ee, #0ea5a2) !important;
-  color: #053433 !important;
+body.dark-mode .recover-tab.active{
+  background: linear-gradient(135deg, #22d3ee, #0e7490) !important;
+  color: #f9fafb !important;
   border-color: transparent !important;
 }
 
-/* Mobile */
 @media (max-width: 650px){
-  body{ overflow: auto; }
-  .row{ grid-template-columns: 1fr; }
-  .row label{ text-align: center; }
-  .hint{ grid-column: 1 / 2; text-align: center; }
-  .choose-actions{ gap: 16px; }
-  .choose-btn{ width: 100%; max-width: 320px; }
+  .logo.logo--corner .brand-logo{
+    height: 44px;
+  }
+  .auth-hero-logo{
+    width: min(340px, 94vw);
+    max-height: min(200px, 30vh);
+  }
+  .choose-actions{
+    gap: clamp(12px, 3vw, 20px);
+  }
+  .choose-btn{
+    padding: 12px clamp(16px, 5vw, 28px);
+    font-size: clamp(0.95rem, 3.8vw, 1.15rem);
+  }
+  .hint{
+    text-align: start;
+  }
 }

@@ -1,11 +1,10 @@
 :root{
-  --wl-bg-top:#39c7df;
-  --wl-bg-bottom:#274f7d;
-  --wl-surface:#edf2f5;
-  --wl-surface-2:#f8fafc;
-  --wl-text:#102b4c;
-  --wl-subtle:#7b8798;
-  --wl-border:#d7e1ea;
+  --wl-bg-page:var(--wl-palette-bg, #e4edf7);
+  --wl-surface:#ffffff;
+  --wl-surface-2:#f0f6fc;
+  --wl-text:#1a2f4a;
+  --wl-subtle:rgba(26,47,74,0.55);
+  --wl-border:rgba(26,47,74,0.12);
   --wl-shadow:0 10px 24px rgba(16,43,76,0.08);
   --wl-profit:#0f8a4b;
   --wl-cost:#d0342c;
@@ -20,14 +19,7 @@ body{
   min-height:100vh;
   font-family:"Tahoma","Arial",sans-serif;
   color:var(--wl-text);
-  background:
-    linear-gradient(
-      to bottom,
-      var(--wl-bg-top) 0%,
-      var(--wl-bg-top) 31%,
-      var(--wl-bg-bottom) 31%,
-      var(--wl-bg-bottom) 100%
-    );
+  background:var(--wl-bg-page);
 }
 
 .finance-page{

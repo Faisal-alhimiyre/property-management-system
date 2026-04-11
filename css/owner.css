@@ -1,13 +1,13 @@
 :root {
-  --bg: #f4f6f8;
+  --bg: var(--wl-palette-bg, #e4edf7);
 
   --card: #ffffff;
-  --text: #0f172a;
-  --muted: #64748b;
-  --border: #e2e8f0;
+  --text: #1a2f4a;
+  --muted: rgba(26, 47, 74, 0.55);
+  --border: rgba(26, 47, 74, 0.12);
 
-  --brand: #18c7c3;
-  --brand-dark: #0ea5a2;
+  --brand: #36d7e8;
+  --brand-dark: #1fb8d4;
 
   --none: #d9dee5;
   --rent-overdue: #ef4444;
@@ -16,13 +16,8 @@
   --suggestion: #3b82f6;
   --request: #22c55e;
 
-  --top1: #6ddad7;
-  --top2: #4fc8d7;
-  --bottom1: #274e74;
-  --bottom2: #355f86;
-
-  --shadow-soft: 0 10px 25px rgba(0, 0, 0, 0.08);
-  --shadow-hover: 0 18px 40px rgba(0, 0, 0, 0.15);
+  --shadow-soft: 0 10px 25px rgba(26, 47, 74, 0.08);
+  --shadow-hover: 0 18px 40px rgba(26, 47, 74, 0.12);
 }
 
 /* page */
@@ -32,14 +27,7 @@ body {
   min-height: 100vh;
   font-family: Arial, sans-serif;
   color: var(--text);
-  background:
-    linear-gradient(
-      to bottom,
-      var(--top1) 0%,
-      var(--top2) 32%,
-      var(--bottom1) 32%,
-      var(--bottom2) 100%
-    );
+  background: var(--wl-palette-bg, #e4edf7);
   background-attachment: fixed;
 }
 
@@ -168,7 +156,7 @@ body.dark-mode .building-card-menu button:hover {
 /* add building button */
 
 .add-building-btn {
-  background: linear-gradient(135deg, #22d3ee, #0ea5a2);
+  background: #36d7e8;
   color: white;
   padding: 12px 20px;
   font-weight: 800;

@@ -3,6 +3,34 @@
    ======================================== */
 
 function initRequestsSystem(aptId, activeRole, currentUser, leaseStatus) {
+  const T = (key, params) =>
+    window.walajna_language && window.walajna_language.t
+      ? window.walajna_language.t(key, params)
+      : key;
+
+  function localeForDates() {
+    return window.walajna_language && typeof window.walajna_language.localeForDates === "function"
+      ? window.walajna_language.localeForDates()
+      : window.walajna_language && window.walajna_language.get() === "en"
+        ? "en-GB"
+        : "ar-SA";
+  }
+
+  function formatRequestDateTime(iso) {
+    if (!iso) return T("common.dash");
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return String(iso);
+    return d.toLocaleString(localeForDates());
+  }
+
+  function requestTypeLabel(typeId) {
+    const id =
+      typeId && ["maintenance", "complaint", "suggestion", "request"].includes(typeId)
+        ? typeId
+        : "request";
+    return T("messages.type." + id);
+  }
+
   const modal = document.getElementById("requestModal");
   const openModalBtn = document.getElementById("mainActionBtn");
   const closeModalBtn = document.getElementById("closeRequestModal");
@@ -27,10 +55,10 @@ function initRequestsSystem(aptId, activeRole, currentUser, leaseStatus) {
   const submitOwnerReplyBtn = document.getElementById("submitOwnerReplyBtn");
 
   const requestTypes = [
-    { id: "maintenance", title: "صيانة", desc: "مشكلة فنية داخل الشقة أو المرافق", color: "#f59e0b" },
-    { id: "complaint", title: "شكوى", desc: "بلاغ أو ملاحظة تحتاج متابعة", color: "#facc15" },
-    { id: "suggestion", title: "اقتراح", desc: "فكرة لتحسين السكن أو الخدمات", color: "#3b82f6" },
-    { id: "request", title: "طلب", desc: "طلب عام (وثائق، تمديد، استفسار)", color: "#22c55e" }
+    { id: "maintenance", descKey: "aptReq.desc.maintenance", color: "#f59e0b" },
+    { id: "complaint", descKey: "aptReq.desc.complaint", color: "#facc15" },
+    { id: "suggestion", descKey: "aptReq.desc.suggestion", color: "#3b82f6" },
+    { id: "request", descKey: "aptReq.desc.request", color: "#22c55e" },
   ];
 
   let selectedRequestType = null;
@@ -101,7 +129,7 @@ function getApartmentById() {
       currentUser?.fullName ||
       currentUser?.name ||
       apartment?.tenantInfo?.fullName ||
-      "المستأجر"
+      T("common.tenant")
     );
   }
 
@@ -113,7 +141,7 @@ function getApartmentById() {
         currentUser?.fullName ||
         currentUser?.name ||
         currentUser?.username ||
-        "المالك"
+        T("common.landlord")
       );
     }
 
@@ -124,7 +152,7 @@ function getApartmentById() {
 
     const owner = users.find((u) => u.id === apartment?.ownerId);
 
-    return owner?.fullName || owner?.name || owner?.username || "المالك";
+    return owner?.fullName || owner?.name || owner?.username || T("common.landlord");
   }
 
   function getRequestsForCurrentContext() {
@@ -161,11 +189,11 @@ function getApartmentById() {
         <div class="wl-item__left">
           <span class="wl-dot" style="background:${x.color}"></span>
           <div>
-            <div class="wl-item__title">${x.title}</div>
-            <div class="wl-item__desc">${x.desc}</div>
+            <div class="wl-item__title">${escapeHtml(requestTypeLabel(x.id))}</div>
+            <div class="wl-item__desc">${escapeHtml(T(x.descKey))}</div>
           </div>
         </div>
-        <span class="wl-badge">${x.id}</span>
+        <span class="wl-badge">${escapeHtml(requestTypeLabel(x.id))}</span>
       </div>
     `).join("");
   }
@@ -245,16 +273,16 @@ function getApartmentById() {
     if (viewRequestsSubtitle) {
       viewRequestsSubtitle.textContent =
         activeRole === "owner"
-          ? "عرض طلبات المستأجر الحالية والرد عليها"
-          : "عرض طلباتك الخاصة بالعقد الحالي";
+          ? T("aptReq.modal.viewSub.owner")
+          : T("aptReq.modal.viewSub.tenant");
     }
 
     if (apartmentRequests.length === 0) {
       viewRequestsList.innerHTML = `
         <div class="wl-item">
           <div>
-            <div class="wl-item__title">لا توجد طلبات</div>
-            <div class="wl-item__desc">لا توجد طلبات مرتبطة بالعقد الحالي حتى الآن</div>
+            <div class="wl-item__title">${escapeHtml(T("aptReq.list.emptyTitle"))}</div>
+            <div class="wl-item__desc">${escapeHtml(T("aptReq.list.emptyDesc"))}</div>
           </div>
         </div>
       `;
@@ -270,41 +298,41 @@ function getApartmentById() {
             <span class="wl-dot" style="background:${req.typeColor || "#94a3b8"}"></span>
 
             <div>
-              <div class="wl-item__title">${req.typeTitle || "طلب"}</div>
-              <div class="wl-item__desc">${escapeHtml(req.message || "—")}</div>
+              <div class="wl-item__title">${escapeHtml(requestTypeLabel(req.typeId) || req.typeTitle || T("messages.type.request"))}</div>
+              <div class="wl-item__desc">${escapeHtml(req.message || T("common.dash"))}</div>
 
               <div class="wl-item__desc">
-                تاريخ الإرسال: ${new Date(req.createdAt).toLocaleString("ar-SA")}
+                ${escapeHtml(T("messages.sentAt"))}: ${escapeHtml(formatRequestDateTime(req.createdAt))}
               </div>
 
               <div class="wl-item__desc">
-                من: ${escapeHtml(req.senderName || "—")}
+                ${escapeHtml(T("messages.metaFrom"))}: ${escapeHtml(req.senderName || T("common.dash"))}
               </div>
 
               <div class="wl-item__desc">
-                إلى: ${escapeHtml(req.receiverName || "—")}
+                ${escapeHtml(T("messages.metaTo"))}: ${escapeHtml(req.receiverName || T("common.dash"))}
               </div>
 
               <div class="wl-item__desc">
-                الحالة:
+                ${escapeHtml(T("aptReq.label.status"))}:
                 ${
                   req.status === "resolved"
-                    ? "تمت المعالجة"
+                    ? escapeHtml(T("messages.statusResolved"))
                     : req.status === "replied"
-                    ? "تم الرد"
-                    : "جديد"
+                    ? escapeHtml(T("messages.statusReplied"))
+                    : escapeHtml(T("messages.statusNew"))
                 }
               </div>
 
               ${
                 activeRole === "tenant" && req.status === "replied" && !req.tenantReplySeenAt
-                  ? `<div class="wl-item__desc"><strong>🔔 تم الرد على طلبك</strong></div>`
+                  ? `<div class="wl-item__desc"><strong>${escapeHtml(T("messages.tenantReplyNotif"))}</strong></div>`
                   : ""
               }
 
               ${
                 req.ownerReply
-                  ? `<div class="wl-item__desc"><strong>رد المالك:</strong> ${escapeHtml(req.ownerReply)}</div>`
+                  ? `<div class="wl-item__desc"><strong>${escapeHtml(T("messages.ownerReply"))}:</strong> ${escapeHtml(req.ownerReply)}</div>`
                   : ""
               }
 
@@ -317,7 +345,7 @@ function getApartmentById() {
                         class="resolve-request-btn"
                         data-resolve-id="${req.id}"
                       >
-                        تمت المعالجة
+                        ${escapeHtml(T("messages.statusResolved"))}
                       </button>
                     </div>
                   `
@@ -326,7 +354,7 @@ function getApartmentById() {
             </div>
           </div>
 
-          <span class="wl-badge">${req.typeId || "request"}</span>
+          <span class="wl-badge">${escapeHtml(requestTypeLabel(req.typeId))}</span>
         </div>
       `)
       .join("");
@@ -367,7 +395,7 @@ function getApartmentById() {
     if (openModalBtn) {
       openModalBtn.addEventListener("click", () => {
         if (leaseStatus === "vacant") {
-          alert("هذه الشقة غير مرتبطة بعقد حاليًا");
+          alert(T("aptReq.alert.vacant"));
           return;
         }
 
@@ -407,14 +435,14 @@ function getApartmentById() {
     if (submitBtn) {
       submitBtn.addEventListener("click", () => {
         if (!selectedRequestType) {
-          alert("اختر نوع الطلب أولاً");
+          alert(T("aptReq.alert.pickType"));
           return;
         }
 
         const message = (messageInput?.value || "").trim();
 
         if (!message) {
-          alert("اكتب تفاصيل الطلب");
+          alert(T("aptReq.alert.writeMessage"));
           return;
         }
 
@@ -423,7 +451,7 @@ function getApartmentById() {
         const currentContractId = getCurrentContractId();
 
         if (!currentContractId) {
-          alert("تعذر تحديد العقد الحالي لهذه الشقة");
+          alert(T("aptReq.alert.noContract"));
           return;
         }
 
@@ -451,7 +479,7 @@ function getApartmentById() {
           receiverName: getCurrentOwnerDisplayName(),
 
           typeId: chosen?.id || selectedRequestType,
-          typeTitle: chosen?.title || "",
+          typeTitle: requestTypeLabel(chosen?.id || selectedRequestType),
           typeColor: chosen?.color || "#94a3b8",
 
           message: message,
@@ -471,7 +499,7 @@ function getApartmentById() {
         saveRequests(all);
 
         closeModal();
-        alert("تم إرسال الطلب بنجاح ✅");
+        alert(T("aptReq.alert.sentSuccess"));
       });
     }
   }
@@ -517,7 +545,7 @@ function getApartmentById() {
         renderViewRequests();
         resetOwnerReplyUI();
 
-        alert("تمت معالجة الطلب ✅");
+        alert(T("aptReq.alert.resolvedSuccess"));
         return;
       }
 
@@ -540,14 +568,14 @@ function getApartmentById() {
   if (submitOwnerReplyBtn) {
     submitOwnerReplyBtn.addEventListener("click", () => {
       if (!selectedOwnerRequestId) {
-        alert("اختر طلبًا أولاً");
+        alert(T("aptReq.alert.pickRequestFirst"));
         return;
       }
 
       const reply = (ownerReplyMessage?.value || "").trim();
 
       if (!reply) {
-        alert("اكتب الرد أولاً");
+        alert(T("aptReq.alert.writeReplyFirst"));
         return;
       }
 
@@ -559,7 +587,7 @@ function getApartmentById() {
             ...req,
             ownerReply: reply,
             receiverRole: "tenant",
-            receiverName: req.senderName || "المستأجر",
+            receiverName: req.senderName || T("common.tenant"),
             repliedAt: new Date().toISOString(),
             status: "replied",
             tenantReplySeenAt: null,
@@ -574,7 +602,7 @@ function getApartmentById() {
       renderViewRequests();
       resetOwnerReplyUI();
 
-      alert("تم إرسال الرد بنجاح ✅");
+      alert(T("aptReq.alert.replySuccess"));
     });
   }
 }

@@ -157,9 +157,11 @@ document.addEventListener("DOMContentLoaded", async () => {
      ========================= */
   function formatMoney(value) {
     const loc =
-      window.walajna_language && window.walajna_language.get() === "en"
-        ? "en-SA"
-        : "ar-SA";
+      window.walajna_language && typeof window.walajna_language.localeForNumbers === "function"
+        ? window.walajna_language.localeForNumbers()
+        : window.walajna_language && window.walajna_language.get() === "en"
+          ? "en-SA"
+          : "ar-SA";
     return `${Number(value || 0).toLocaleString(loc)} ${T("common.sar")}`;
   }
 
@@ -168,9 +170,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     const date = new Date(dateString);
     if (Number.isNaN(date.getTime())) return dateString;
     const loc =
-      window.walajna_language && window.walajna_language.get() === "en"
-        ? "en-GB"
-        : "ar-SA";
+      window.walajna_language && typeof window.walajna_language.localeForDates === "function"
+        ? window.walajna_language.localeForDates()
+        : window.walajna_language && window.walajna_language.get() === "en"
+          ? "en-GB"
+          : "ar-SA";
     return date.toLocaleDateString(loc);
   }
 
@@ -524,9 +528,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
     const loc =
-      window.walajna_language && window.walajna_language.get() === "en"
-        ? "en-GB"
-        : "ar-SA";
+      window.walajna_language && typeof window.walajna_language.localeForDates === "function"
+        ? window.walajna_language.localeForDates()
+        : window.walajna_language && window.walajna_language.get() === "en"
+          ? "en-GB"
+          : "ar-SA";
     const formattedDate = dueDate.toLocaleDateString(loc);
 
     dateEl.textContent = "— " + formattedDate;

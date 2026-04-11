@@ -1,80 +1,88 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <script>(function(){try{var l=localStorage.getItem("walajna_language")||"ar";document.documentElement.setAttribute("lang",l==="en"?"en":"ar");document.documentElement.setAttribute("dir",l==="en"?"ltr":"rtl");}catch(e){}})();</script>
+  <script>(function(){try{var l=localStorage.getItem("walajna_language")||"ar";if(l!=="en"&&l!=="ar"&&l!=="ur")l="ar";document.documentElement.setAttribute("lang",l==="en"?"en":(l==="ur"?"ur":"ar"));document.documentElement.setAttribute("dir",l==="en"?"ltr":"rtl");}catch(e){}})();</script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title data-i18n="meta.registerTitle"></title>
   <link rel="stylesheet" href="../css/theme.css" />
   <link rel="stylesheet" href="../css/register.css" />
+  <script src="../js/main/walajna-i18n-ur.js"></script>
   <script src="../js/main/walajna-i18n.js"></script>
 </head>
 
-<body data-global-back="false">
+<body class="auth-page" data-global-back="false">
   <script src="../js/main/theme.js"></script>
-  <div class="register-bg"></div>
+  <div class="register-bg" aria-hidden="true"></div>
 
-  <!-- Logo (top-right) -->
-  <a href="../auth/login.html" class="logo" data-i18n-aria-label="common.logo" aria-label="">
-    <img src="../pics/logo.png" alt="ALAJNA" class="brand-logo">
-  </a>
+  <main class="register-wrap auth-shell">
+    <div class="auth-stack auth-stack--wide">
+        <a href="../auth/login.html" class="auth-logo-top" data-i18n-aria-label="common.logo" aria-label="">
+          <img src="../pics/logo.png" alt="ALAJNA" class="auth-hero-logo" />
+        </a>
+    <div class="auth-card auth-card--wide">
+      <header class="auth-card__head">
+        <h1 class="auth-card__title" data-i18n="auth.registerTitle"></h1>
+        <p class="auth-card__sub" data-i18n="auth.registerSub"></p>
+      </header>
 
-  <main class="register-wrap">
-    <form class="register-form" id="registerForm">
-      <h2 class="title" data-i18n="auth.registerTitle"></h2>
+      <form class="register-form" id="registerForm">
+        <div class="row auth-field">
+          <label for="fullName" data-i18n="auth.fullName"></label>
+          <input id="fullName" name="fullName" type="text" autocomplete="name" required />
+        </div>
 
-      <div class="row">
-        <label for="fullName" data-i18n="auth.fullName"></label>
-        <input id="fullName" name="fullName" type="text" autocomplete="name" required />
-      </div>
+        <div class="row auth-field">
+          <label for="username" data-i18n="auth.username"></label>
+          <input id="username" name="username" type="text" required />
+        </div>
 
-      <div class="row">
-        <label for="username" data-i18n="auth.username"></label>
-        <input id="username" name="username" type="text" required />
-      </div>
-      <div class="row">
-        <label for="phoneNumber" data-i18n="auth.phone"></label>
-        <input
-          id="phoneNumber"
-          name="phoneNumber"
-          type="tel"
-          inputmode="numeric"
-          maxlength="10"
-          data-i18n-placeholder="auth.placeholderPhone"
-          placeholder=""
-          required
+        <div class="row auth-field">
+          <label for="phoneNumber" data-i18n="auth.phone"></label>
+          <input
+            id="phoneNumber"
+            name="phoneNumber"
+            type="tel"
+            inputmode="numeric"
+            maxlength="10"
+            data-i18n-placeholder="auth.placeholderPhone"
+            placeholder=""
+            required
           />
-          </div>
-      <div class="row">
-        <label for="email" data-i18n="auth.email"></label>
-        <input id="email" name="email" type="email" required />
-      </div>
+        </div>
 
-      <div class="row">
-        <label for="nationalId" data-i18n="auth.nationalId"></label>
-        <input id="nationalId" name="nationalId" type="text" inputmode="numeric" maxlength="10" data-i18n-placeholder="auth.placeholderNationalId" placeholder="" required />
-        <small class="hint" data-i18n="auth.nationalIdHint"></small>
-      </div>
+        <div class="row auth-field">
+          <label for="email" data-i18n="auth.email"></label>
+          <input id="email" name="email" type="email" required />
+        </div>
 
+        <div class="row auth-field">
+          <label for="nationalId" data-i18n="auth.nationalId"></label>
+          <input id="nationalId" name="nationalId" type="text" inputmode="numeric" maxlength="10" data-i18n-placeholder="auth.placeholderNationalId" placeholder="" required />
+          <small class="hint" data-i18n="auth.nationalIdHint"></small>
+        </div>
 
-      <div class="row">
-        <label for="password" data-i18n="auth.password"></label>
-        <input id="password" name="password" type="password" minlength="4" required />
-      </div>
+        <div class="row auth-field">
+          <label for="password" data-i18n="auth.password"></label>
+          <input id="password" name="password" type="password" minlength="4" required />
+        </div>
 
-      <div class="row">
-        <label for="confirmPassword" data-i18n="auth.confirmPassword"></label>
-        <input id="confirmPassword" name="confirmPassword" type="password" minlength="4" required />
-      </div>
+        <div class="row auth-field">
+          <label for="confirmPassword" data-i18n="auth.confirmPassword"></label>
+          <input id="confirmPassword" name="confirmPassword" type="password" minlength="4" required />
+        </div>
 
-      <p class="error" id="errorBox" aria-live="polite"></p>
+        <p class="error" id="errorBox" aria-live="polite"></p>
 
-      <button class="register-btn" type="submit" data-i18n="auth.registerSubmit"></button>
+        <button class="register-btn" type="submit" data-i18n="auth.registerSubmit"></button>
 
-      <p class="footer">
-        <span data-i18n="auth.hasAccount"></span> <a href="../auth/login.html" data-i18n="auth.loginBtn"></a>
-      </p>
-    </form>
+        <p class="footer">
+          <span data-i18n="auth.hasAccount"></span>
+          <a href="../auth/login.html" data-i18n="auth.loginBtn"></a>
+        </p>
+      </form>
+    </div>
+    </div>
   </main>
 
   <script src="../js/main/register.js"></script>

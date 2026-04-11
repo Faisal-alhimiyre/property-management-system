@@ -1,12 +1,13 @@
 /**
  * Walajna global i18n — single source of truth.
- * localStorage key: walajna_language — values "ar" (default) | "en"
+ * localStorage key: walajna_language — values "ar" (default) | "en" | "ur"
+ * Urdu strings: js/main/walajna-i18n-ur.js (var WALAJNA_UR_DICT) — load before this file.
  */
 (function (global) {
   var STORAGE_KEY = "walajna_language";
   var FALLBACK_LANG = "ar";
 
-  var DICT = { ar: {}, en: {} };
+  var DICT = { ar: {}, en: {}, ur: {} };
 
   function assignBatch(lang, obj) {
     var target = DICT[lang];
@@ -75,6 +76,8 @@
     "auth.username": "اسم المستخدم",
     "auth.password": "كلمة المرور",
     "auth.loginBtn": "تسجيل الدخول",
+    "auth.loginHeading": "مرحبًا بك",
+    "auth.loginSub": "سجّل الدخول للوصول إلى حسابك",
     "auth.forgotPassword": "نسيت كلمة المرور؟",
     "auth.noAccount": "ليس لديك حساب؟",
     "auth.createAccount": "إنشاء حساب",
@@ -85,6 +88,7 @@
     "auth.nationalId": "رقم الهوية الوطنية",
     "auth.confirmPassword": "تأكيد كلمة المرور",
     "auth.registerTitle": "إنشاء حساب",
+    "auth.registerSub": "أدخل بياناتك للبدء",
     "auth.registerSubmit": "إنشاء الحساب",
     "auth.nationalIdHint": "يجب إدخال 10 أرقام صحيحة.",
     "auth.placeholderPhone": "05XXXXXXXX",
@@ -122,6 +126,7 @@
     "settings.lang.subtitle": "اختر لغة الواجهة (تُحفظ في المتصفح)",
     "settings.lang.ar": "العربية (افتراضي)",
     "settings.lang.en": "English",
+    "settings.lang.ur": "اردو",
     "settings.supportPanel.title": "الدعم",
     "settings.supportPanel.subtitle": "الوصول السريع إلى الدعم الفني",
     "settings.supportNeedHelp": "تحتاج مساعدة؟",
@@ -200,6 +205,32 @@
     "messages.sentRequest": "تم إرسال طلب",
     "messages.requestAlertPrefix": "تنبيه طلب",
     "messages.tenantReplyNotif": "🔔 تم الرد على طلبك",
+    "aptReq.modal.viewSub.owner": "عرض طلبات المستأجر الحالية والرد عليها",
+    "aptReq.modal.viewSub.tenant": "عرض طلباتك الخاصة بالعقد الحالي",
+    "aptReq.list.emptyTitle": "لا توجد طلبات",
+    "aptReq.list.emptyDesc": "لا توجد طلبات مرتبطة بالعقد الحالي حتى الآن",
+    "aptReq.label.status": "الحالة",
+    "aptReq.desc.maintenance": "مشكلة فنية داخل الشقة أو المرافق",
+    "aptReq.desc.complaint": "بلاغ أو ملاحظة تحتاج متابعة",
+    "aptReq.desc.suggestion": "فكرة لتحسين السكن أو الخدمات",
+    "aptReq.desc.request": "طلب عام (وثائق، تمديد، استفسار)",
+    "aptReq.alert.vacant": "هذه الشقة غير مرتبطة بعقد حاليًا",
+    "aptReq.alert.pickType": "اختر نوع الطلب أولاً",
+    "aptReq.alert.writeMessage": "اكتب تفاصيل الطلب",
+    "aptReq.alert.noContract": "تعذر تحديد العقد الحالي لهذه الشقة",
+    "aptReq.alert.sentSuccess": "تم إرسال الطلب بنجاح ✅",
+    "aptReq.alert.resolvedSuccess": "تمت معالجة الطلب ✅",
+    "aptReq.alert.pickRequestFirst": "اختر طلبًا أولاً",
+    "aptReq.alert.writeReplyFirst": "اكتب الرد أولاً",
+    "aptReq.alert.replySuccess": "تم إرسال الرد بنجاح ✅",
+    "aptDoc.emptyTitle": "لا توجد وثائق",
+    "aptDoc.emptyDesc": "لا توجد ملفات مرتبطة بالعقد الحالي حتى الآن",
+    "aptDoc.fileFallback": "ملف",
+    "aptDoc.uploadedPrefix": "تم الرفع",
+    "aptDoc.contractLabel": "العقد",
+    "aptDoc.open": "فتح",
+    "aptDoc.htmlDocName": "وثيقة.html",
+    "aptDoc.viewerDoc": "وثيقة",
     "payments.paid": "مدفوع",
     "payments.due": "مستحق",
     "payments.overdue": "متأخر",
@@ -318,7 +349,6 @@
     "owner.selectCity": "اختر المدينة",
     "owner.saveEdits": "حفظ التعديلات",
     "owner.buildingNotFoundEdit": "لم يتم العثور على بيانات العمارة المطلوب تعديلها",
-    "owner.aptNameArabicOnly": "اسم الشقة يجب أن يكون بالعربية فقط",
     "owner.fillBasics": "يرجى تعبئة البيانات الأساسية بشكل صحيح",
     "owner.floorsInvalid": "يرجى إدخال عدد الطوابق بشكل صحيح",
     "owner.aptPerFloorInvalid": "يرجى إدخال عدد الشقق في كل طابق بشكل صحيح",
@@ -842,6 +872,11 @@
     "tenant.unitsTitle": "وحداتي السكنية",
     "role.chooseOwner": "مالك",
     "role.chooseTenant": "مستأجر",
+    "role.choosePrompt": "كيف تحب أن تستخدم ولجنا؟",
+    "role.pageTitle": "كيف تحب أن تستخدم ولجنا؟",
+    "role.pageSub": "اختر أحد الخيارين أدناه.",
+    "role.ownerHint": "إدارة المباني والوحدات والعقود",
+    "role.tenantHint": "متابعة الإيجار والطلبات والرسائل",
     "home.badge": "منصة ذكية لإدارة العقارات",
     "home.heroTitle1": "إدارة عقاراتك",
     "home.heroAccent": "بشكل احترافي وذكي",
@@ -1011,6 +1046,8 @@
     "auth.username": "Username",
     "auth.password": "Password",
     "auth.loginBtn": "Sign in",
+    "auth.loginHeading": "Welcome back",
+    "auth.loginSub": "Sign in to continue to your account",
     "auth.forgotPassword": "Forgot password?",
     "auth.noAccount": "Don't have an account?",
     "auth.createAccount": "Create account",
@@ -1021,6 +1058,7 @@
     "auth.nationalId": "National ID number",
     "auth.confirmPassword": "Confirm password",
     "auth.registerTitle": "Create account",
+    "auth.registerSub": "Fill in your details to get started",
     "auth.registerSubmit": "Create account",
     "auth.nationalIdHint": "Enter 10 valid digits.",
     "auth.placeholderPhone": "05XXXXXXXX",
@@ -1058,6 +1096,7 @@
     "settings.lang.subtitle": "UI language (saved in the browser)",
     "settings.lang.ar": "Arabic (default)",
     "settings.lang.en": "English",
+    "settings.lang.ur": "Urdu",
     "settings.supportPanel.title": "Support",
     "settings.supportPanel.subtitle": "Quick access to help",
     "settings.supportNeedHelp": "Need help?",
@@ -1136,6 +1175,32 @@
     "messages.sentRequest": "Request sent",
     "messages.requestAlertPrefix": "Request alert",
     "messages.tenantReplyNotif": "🔔 Your request has a new reply",
+    "aptReq.modal.viewSub.owner": "View the tenant’s current requests and reply",
+    "aptReq.modal.viewSub.tenant": "View your requests for the current lease",
+    "aptReq.list.emptyTitle": "No requests",
+    "aptReq.list.emptyDesc": "No requests linked to the current contract yet",
+    "aptReq.label.status": "Status",
+    "aptReq.desc.maintenance": "Technical issue in the unit or facilities",
+    "aptReq.desc.complaint": "Report or note that needs follow-up",
+    "aptReq.desc.suggestion": "Idea to improve housing or services",
+    "aptReq.desc.request": "General request (documents, extension, inquiry)",
+    "aptReq.alert.vacant": "This unit is not linked to an active contract",
+    "aptReq.alert.pickType": "Choose a request type first",
+    "aptReq.alert.writeMessage": "Enter the request details",
+    "aptReq.alert.noContract": "Could not determine the current contract for this unit",
+    "aptReq.alert.sentSuccess": "Request sent successfully ✅",
+    "aptReq.alert.resolvedSuccess": "Request marked resolved ✅",
+    "aptReq.alert.pickRequestFirst": "Select a request first",
+    "aptReq.alert.writeReplyFirst": "Enter your reply first",
+    "aptReq.alert.replySuccess": "Reply sent successfully ✅",
+    "aptDoc.emptyTitle": "No documents",
+    "aptDoc.emptyDesc": "No files linked to the current contract yet",
+    "aptDoc.fileFallback": "File",
+    "aptDoc.uploadedPrefix": "Uploaded",
+    "aptDoc.contractLabel": "Contract",
+    "aptDoc.open": "Open",
+    "aptDoc.htmlDocName": "document.html",
+    "aptDoc.viewerDoc": "Document",
     "payments.paid": "Paid",
     "payments.due": "Due",
     "payments.overdue": "Overdue",
@@ -1254,7 +1319,6 @@
     "owner.selectCity": "Select city",
     "owner.saveEdits": "Save changes",
     "owner.buildingNotFoundEdit": "Building data not found",
-    "owner.aptNameArabicOnly": "Apartment name must be Arabic only",
     "owner.fillBasics": "Please fill the basic fields correctly",
     "owner.floorsInvalid": "Enter a valid floor count",
     "owner.aptPerFloorInvalid": "Enter a valid apartments-per-floor count",
@@ -1778,6 +1842,11 @@
     "tenant.unitsTitle": "My residential units",
     "role.chooseOwner": "Owner",
     "role.chooseTenant": "Tenant",
+    "role.choosePrompt": "How would you like to use Walajna?",
+    "role.pageTitle": "How would you like to use Walajna?",
+    "role.pageSub": "Choose one of the options below.",
+    "role.ownerHint": "Manage buildings, units, and leases",
+    "role.tenantHint": "Track rent, requests, and messages",
     "home.badge": "Smart property management platform",
     "home.heroTitle1": "Manage your properties",
     "home.heroAccent": "professionally and smartly",
@@ -1885,10 +1954,26 @@
     "apt.label.leaseStatus": "Status"
   });
 
+  if (typeof WALAJNA_UR_DICT !== "undefined" && WALAJNA_UR_DICT && typeof WALAJNA_UR_DICT === "object") {
+    assignBatch("ur", WALAJNA_UR_DICT);
+  } else {
+    (function urFallbackFromAr() {
+      var k;
+      for (k in DICT.ar) {
+        if (Object.prototype.hasOwnProperty.call(DICT.ar, k)) DICT.ur[k] = DICT.ar[k];
+      }
+      for (k in DICT.en) {
+        if (Object.prototype.hasOwnProperty.call(DICT.en, k) && DICT.ur[k] === undefined) {
+          DICT.ur[k] = DICT.en[k];
+        }
+      }
+    })();
+  }
+
   function getLang() {
     try {
       var v = localStorage.getItem(STORAGE_KEY);
-      if (v === "en" || v === "ar") return v;
+      if (v === "en" || v === "ar" || v === "ur") return v;
     } catch (e) {}
     return FALLBACK_LANG;
   }
@@ -1896,7 +1981,7 @@
   function applyDocumentLocale(lang) {
     var l = lang || getLang();
     var html = document.documentElement;
-    html.setAttribute("lang", l === "en" ? "en" : "ar");
+    html.setAttribute("lang", l === "en" ? "en" : l === "ur" ? "ur" : "ar");
     html.setAttribute("dir", l === "en" ? "ltr" : "rtl");
     if (document.body) {
       document.body.classList.toggle("walajna-ltr", l === "en");
@@ -1908,7 +1993,15 @@
     var lang = getLang();
     var table = DICT[lang] || {};
     var s = table[key];
-    if (s === undefined) s = (DICT.ar && DICT.ar[key]) || key;
+    if (s === undefined || s === null) {
+      if (lang === "ur") {
+        if (DICT.ar && DICT.ar[key] !== undefined && DICT.ar[key] !== null) s = DICT.ar[key];
+        else if (DICT.en && DICT.en[key] !== undefined && DICT.en[key] !== null) s = DICT.en[key];
+        else s = key;
+      } else {
+        s = (DICT.ar && DICT.ar[key]) || key;
+      }
+    }
     if (params && typeof params === "object") {
       for (var k in params) {
         if (Object.prototype.hasOwnProperty.call(params, k)) {
@@ -1968,7 +2061,7 @@
   }
 
   function setLang(code) {
-    var c = code === "en" ? "en" : "ar";
+    var c = code === "en" ? "en" : code === "ur" ? "ur" : "ar";
     try {
       localStorage.setItem(STORAGE_KEY, c);
     } catch (e) {}
@@ -1979,11 +2072,36 @@
     } catch (e2) {}
   }
 
+  function mergeLang(lang, obj) {
+    assignBatch(lang, obj);
+    if (getLang() === lang) {
+      applyDocumentLocale(lang);
+      applyI18n(document);
+      try {
+        global.dispatchEvent(new CustomEvent("walajna:i18n-applied", { detail: { lang: lang } }));
+      } catch (e2) {}
+    }
+  }
+
+  function localeForDates() {
+    var l = getLang();
+    if (l === "en") return "en-GB";
+    if (l === "ur") return "ur-PK";
+    return "ar-SA";
+  }
+
+  function localeForNumbers() {
+    var l = getLang();
+    if (l === "en") return "en-SA";
+    if (l === "ur") return "ur-PK";
+    return "ar-SA";
+  }
+
   function formatDateTime(iso) {
     if (!iso) return t("common.dash");
     var d = new Date(iso);
     if (Number.isNaN(d.getTime())) return String(iso);
-    var loc = getLang() === "en" ? "en-US" : "ar-SA";
+    var loc = getLang() === "en" ? "en-US" : getLang() === "ur" ? "ur-PK" : "ar-SA";
     return new Intl.DateTimeFormat(loc, {
       year: "numeric",
       month: "long",
@@ -2002,11 +2120,14 @@
     STORAGE_KEY: STORAGE_KEY,
     get: getLang,
     set: setLang,
+    mergeLang: mergeLang,
     t: t,
     tAr: tAr,
     apply: applyI18n,
     applyDocumentLocale: applyDocumentLocale,
-    formatDateTime: formatDateTime
+    formatDateTime: formatDateTime,
+    localeForDates: localeForDates,
+    localeForNumbers: localeForNumbers
   };
 
   global.t = t;
