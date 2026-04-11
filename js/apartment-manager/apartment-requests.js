@@ -2,12 +2,12 @@
    Apartment Requests — server-only (maintenance_requests)
    ======================================== */
 
-function initRequestsSystem(aptId, activeRole, currentUser, leaseStatus) {
+function initRequestsSystem(aptId, activeRole, currentUser, leaseStatus, pageApartment) {
   const serverApartmentOverlay =
-  pageApartment && typeof pageApartment === "object" ? pageApartment : null;
+    pageApartment && typeof pageApartment === "object" ? pageApartment : null;
 
-const W = () =>
-  typeof WalajnaTenantRequests !== "undefined" ? WalajnaTenantRequests : null;
+  const W = () =>
+    typeof WalajnaTenantRequests !== "undefined" ? WalajnaTenantRequests : null;
 
   const T = (key, params) =>
     window.walajna_language && window.walajna_language.t
@@ -36,6 +36,7 @@ const W = () =>
         : "request";
     return T("messages.type." + id);
   }
+
   const modal = document.getElementById("requestModal");
   const openModalBtn = document.getElementById("mainActionBtn");
   const closeModalBtn = document.getElementById("closeRequestModal");
@@ -60,10 +61,10 @@ const W = () =>
   const submitOwnerReplyBtn = document.getElementById("submitOwnerReplyBtn");
 
   const requestTypes = [
-    { id: "maintenance", title: "صيانة", desc: "مشكلة فنية داخل الشقة أو المرافق", color: "#f59e0b" },
-    { id: "complaint", title: "شكوى", desc: "بلاغ أو ملاحظة تحتاج متابعة", color: "#facc15" },
-    { id: "suggestion", title: "اقتراح", desc: "فكرة لتحسين السكن أو الخدمات", color: "#3b82f6" },
-    { id: "request", title: "طلب", desc: "طلب عام (وثائق، تمديد، استفسار)", color: "#22c55e" }
+    { id: "maintenance", descKey: "aptReq.desc.maintenance", color: "#f59e0b" },
+    { id: "complaint", descKey: "aptReq.desc.complaint", color: "#facc15" },
+    { id: "suggestion", descKey: "aptReq.desc.suggestion", color: "#3b82f6" },
+    { id: "request", descKey: "aptReq.desc.request", color: "#22c55e" },
   ];
 
   let selectedRequestType = null;
@@ -138,13 +139,12 @@ const W = () =>
         currentUser?.fullName ||
         currentUser?.name ||
         currentUser?.username ||
-        "المالك"
+        T("common.landlord")
       );
     }
     const users = typeof getUsers === "function" ? getUsers() : getLocalArray("walajna_users");
     const owner = users.find((u) => u.id === apartment?.ownerId);
-
-    return owner?.fullName || owner?.name || owner?.username || "المالك";
+    return owner?.fullName || owner?.name || owner?.username || T("common.landlord");
   }
 
   function serverApartmentNumericId() {
@@ -183,14 +183,11 @@ const W = () =>
   }
 
   function getRequestsForCurrentContext() {
-    // `cachedRequests` is already scoped to this apartment (GET /api/maintenance?apartment_id=…).
     const currentContractId = getCurrentContractId();
     if (!currentContractId) {
-      // No lease id on the client (stale cache / API gap): still show this apartment's rows.
       return cachedRequests.slice();
     }
     return cachedRequests.filter((req) => {
-      // Match current lease, or legacy rows saved without contract_id (minimal insert / older clients).
       if (req.contractId == null || req.contractId === "") {
         return true;
       }
@@ -212,7 +209,7 @@ const W = () =>
     listEl.innerHTML = items
       .map(
         (x) => `
-      <div class="wl-item" role="option" tabindex="0" data-type="${x.id}">
+      <div class="wl-item" role="option" tabindex="0" data-type="${escapeHtml(x.id)}">
         <div class="wl-item__left">
           <span class="wl-dot" style="background:${x.color}"></span>
           <div>
@@ -303,19 +300,21 @@ const W = () =>
           <div class="wl-item__left">
             <span class="wl-dot" style="background:${req.typeColor || "#94a3b8"}"></span>
             <div>
-              <div class="wl-item__title">${req.typeTitle || "طلب"}</div>
-              <div class="wl-item__desc">${escapeHtml(req.message || "—")}</div>
+              <div class="wl-item__title">${escapeHtml(
+                requestTypeLabel(req.typeId) || req.typeTitle || T("messages.type.request")
+              )}</div>
+              <div class="wl-item__desc">${escapeHtml(req.message || T("common.dash"))}</div>
 
               <div class="wl-item__desc">
                 ${escapeHtml(T("messages.sentAt"))}: ${escapeHtml(formatRequestDateTime(req.createdAt))}
               </div>
 
               <div class="wl-item__desc">
-                من: ${escapeHtml(req.senderName || "—")}
+                ${escapeHtml(T("messages.metaFrom"))}: ${escapeHtml(req.senderName || T("common.dash"))}
               </div>
 
               <div class="wl-item__desc">
-                إلى: ${escapeHtml(req.receiverName || "—")}
+                ${escapeHtml(T("messages.metaTo"))}: ${escapeHtml(req.receiverName || T("common.dash"))}
               </div>
 
               <div class="wl-item__desc">
@@ -324,20 +323,23 @@ const W = () =>
                   req.status === "resolved"
                     ? escapeHtml(T("messages.statusResolved"))
                     : req.status === "replied"
-                    ? "تم الرد"
-                    : "جديد"
+                      ? escapeHtml(T("messages.statusReplied"))
+                      : escapeHtml(T("messages.statusNew"))
                 }
               </div>
+
               ${
                 activeRole === "tenant" && req.status === "replied" && !req.tenantReplySeenAt
-                  ? `<div class="wl-item__desc"><strong>🔔 تم الرد على طلبك</strong></div>`
+                  ? `<div class="wl-item__desc"><strong>${escapeHtml(T("messages.tenantReplyNotif"))}</strong></div>`
                   : ""
               }
+
               ${
                 req.ownerReply
                   ? `<div class="wl-item__desc"><strong>${escapeHtml(T("messages.ownerReply"))}:</strong> ${escapeHtml(req.ownerReply)}</div>`
                   : ""
               }
+
               ${
                 activeRole === "owner" && req.status !== "resolved"
                   ? `
@@ -345,9 +347,9 @@ const W = () =>
                       <button
                         type="button"
                         class="resolve-request-btn"
-                        data-resolve-id="${req.id}"
+                        data-resolve-id="${escapeHtml(req.id)}"
                       >
-                        تمت المعالجة
+                        ${escapeHtml(T("messages.statusResolved"))}
                       </button>
                     </div>
                   `
@@ -356,7 +358,7 @@ const W = () =>
             </div>
           </div>
 
-          <span class="wl-badge">${req.typeId || "request"}</span>
+          <span class="wl-badge">${escapeHtml(requestTypeLabel(req.typeId))}</span>
         </div>
       `
       )
@@ -434,55 +436,37 @@ const W = () =>
           alert(T("aptReq.alert.writeMessage"));
           return;
         }
-        const apartment = getApartmentById();
         const currentContractId = getCurrentContractId();
         if (!currentContractId) {
           alert(T("aptReq.alert.noContract"));
           return;
         }
         const chosen = requestTypes.find((t) => t.id === selectedRequestType);
-        const all = getRequests();
+        const api = W();
+        const apartmentIdNum = serverApartmentNumericId();
+        if (apartmentIdNum == null) {
+          alert(T("aptReq.alert.noServerApt"));
+          return;
+        }
+        if (!api) {
+          alert(T("aptReq.alert.noRequestApi"));
+          return;
+        }
+        try {
+          await api.create({
+            apartment_id: apartmentIdNum,
+            title: requestTypeLabel(chosen?.id || selectedRequestType).slice(0, 250),
+            description: message,
+            priority: "medium",
+            request_type: chosen?.id || selectedRequestType || "maintenance",
+            contract_id: Number(currentContractId) || null,
+          });
+        } catch (e) {
+          alert(String(e?.message || e));
+          return;
+        }
 
-        const newReq = {
-          id: "R" + Date.now(),
-
-          apartmentId: aptId,
-          contractId: currentContractId,
-
-          apartmentNumber: apartment?.number || apartment?.apartmentNumber || "-",
-
-          buildingId: apartment?.buildingId || null,
-          buildingName: building?.name || apartment?.buildingName || "-",
-          buildingNumber: building?.number || "-",
-
-          tenantUserId: currentUser?.id || apartment?.tenantUserId || null,
-          tenantNationalId: currentUser?.nationalId || apartment?.tenantNationalId || null,
-
-          senderRole: "tenant",
-          senderName: getCurrentTenantDisplayName(),
-          receiverRole: "owner",
-          receiverName: getCurrentOwnerDisplayName(),
-
-          typeId: chosen?.id || selectedRequestType,
-          typeTitle: chosen?.title || "",
-          typeColor: chosen?.color || "#94a3b8",
-
-          message: message,
-          createdAt: new Date().toISOString(),
-
-          status: "new",
-          ownerSeen: false,
-          ownerSeenAt: null,
-
-          ownerReply: "",
-          repliedAt: null,
-          tenantReplySeenAt: null,
-          resolvedAt: null,
-        };
-
-        all.unshift(newReq);
-        saveRequests(all);
-
+        await refreshRequests();
         closeModal();
         alert(T("aptReq.alert.sentSuccess"));
       });
@@ -513,15 +497,14 @@ const W = () =>
           try {
             await api.putStatus(sid, "resolved");
           } catch (err) {
-            alert("تعذر تحديث حالة الطلب: " + (err?.message || err));
+            alert(String(err?.message || err));
             return;
           }
         }
         await refreshRequests();
         renderViewRequests();
         resetOwnerReplyUI();
-
-        alert("تمت معالجة الطلب ✅");
+        alert(T("aptReq.alert.resolvedSuccess"));
         return;
       }
 
@@ -550,31 +533,26 @@ const W = () =>
         alert(T("aptReq.alert.writeReplyFirst"));
         return;
       }
-
-      const allRequests = getRequests();
-
-      const updated = allRequests.map((req) => {
-        if (req.id === selectedOwnerRequestId) {
-          return {
-            ...req,
-            ownerReply: reply,
-            receiverRole: "tenant",
-            receiverName: req.senderName || "المستأجر",
-            repliedAt: new Date().toISOString(),
-            status: "replied",
-            tenantReplySeenAt: null,
-          };
-        }
-
-        return req;
-      });
-
-      saveRequests(updated);
-
+      const target = cachedRequests.find((r) => String(r.id) === String(selectedOwnerRequestId));
+      const api = W();
+      if (!api) {
+        alert(T("aptReq.alert.noRequestApi"));
+        return;
+      }
+      if (!target?.serverId) {
+        alert(T("aptReq.alert.pickRequestFirst"));
+        return;
+      }
+      try {
+        await api.patch(target.serverId, { owner_reply: reply });
+      } catch (e) {
+        alert(String(e?.message || e));
+        return;
+      }
+      await refreshRequests();
       renderViewRequests();
       resetOwnerReplyUI();
-
-      alert("تم إرسال الرد بنجاح ✅");
+      alert(T("aptReq.alert.replySuccess"));
     });
   }
 }
