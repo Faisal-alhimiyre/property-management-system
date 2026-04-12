@@ -85,11 +85,17 @@ body{
 
 .settings-wrap{
   width:min(1200px, 92%);
-  margin:0 auto 30px;
+  margin:clamp(28px, 4vh, 52px) auto 30px;
   display:grid;
   grid-template-columns:280px 1fr;
   gap:22px;
   align-items:start;
+}
+
+/* Guest settings (e.g. from homepage): no sidebar — single column appearance only */
+.settings-wrap.settings-wrap--guest{
+  grid-template-columns:1fr;
+  max-width:min(720px, 94%);
 }
 
 .sidebar{

@@ -7,7 +7,7 @@ function wlT(key, params) {
 
 let walajnaTopbarResizeObserver = null;
 
-/** Keeps sticky bars (e.g. #walajna-breadcrumb) flush under the real topbar when height is not 78px (wrapped nav on small screens). */
+/** Keeps sticky bars (e.g. #walajna-breadcrumb) flush under the real measured topbar height (e.g. wrapped nav on small screens). */
 function syncWalajnaTopbarHeight() {
   const bar = document.querySelector("#navbar-container .walajna-topbar");
   if (!bar) return;
@@ -27,7 +27,41 @@ function observeWalajnaTopbarHeight() {
   syncWalajnaTopbarHeight();
 }
 
+/** Pages with `data-nav-adaptive` set guest vs user from session (settings, support). */
+function syncAdaptiveNavType() {
+  if (document.body.getAttribute("data-nav-adaptive") !== "true") return;
+
+  let currentUser = null;
+  if (typeof WalajnaAuth !== "undefined" && typeof WalajnaAuth.getCurrentUser === "function") {
+    currentUser = WalajnaAuth.getCurrentUser();
+  }
+  if (!currentUser) {
+    try {
+      currentUser = JSON.parse(sessionStorage.getItem("walajna_current_user") || "null");
+    } catch {
+      currentUser = null;
+    }
+  }
+  if (!currentUser) {
+    try {
+      currentUser = JSON.parse(localStorage.getItem("walajna_current_user") || "null");
+    } catch {
+      currentUser = null;
+    }
+  }
+
+  let token = null;
+  try {
+    token = localStorage.getItem("access_token");
+  } catch {
+    token = null;
+  }
+
+  document.body.dataset.nav = currentUser || token ? "user" : "guest";
+}
+
 function setupNavbar() {
+  syncAdaptiveNavType();
   const navType = document.body.dataset.nav || "user";
   const activeRole =
     typeof WalajnaAuth !== "undefined" && typeof WalajnaAuth.getActiveRole === "function"
@@ -78,12 +112,16 @@ function setupNavbar() {
 
     logoLink.href = "../index.html";
 
-    supportLink.href = "../main/contact.html";
-    supportLink.title = wlT("nav.supportGuest");
-    supportLink.setAttribute("aria-label", wlT("nav.supportGuest"));
-    supportLink.textContent = "✉️";
+    supportLink.href = "../main/support.html";
+    supportLink.title = wlT("nav.support");
+    supportLink.setAttribute("aria-label", wlT("nav.support"));
+    supportLink.textContent = "🎧";
 
-    settingsLink.style.display = "none";
+    settingsLink.href = "../main/settings.html";
+    settingsLink.title = wlT("nav.settings");
+    settingsLink.setAttribute("aria-label", wlT("nav.settings"));
+    settingsLink.textContent = "⚙️";
+    settingsLink.style.display = "grid";
 
     setActiveLinkByPage(navType);
     return;
@@ -156,6 +194,8 @@ function setupNavbar() {
   }
 
   setActiveLinkByPage(navType);
+
+  document.dispatchEvent(new Event("walajna:navbar-ready"));
 }
 
 function insertRoleSwitcher({ roles, activeRole, afterElement }) {

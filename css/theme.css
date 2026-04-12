@@ -249,87 +249,17 @@ body.dark-mode button.walajna-global-back{
   box-sizing:border-box;
   width:100%;
   padding:10px 26px 14px;
-  border-bottom:1px solid var(--wl-border-soft);
-  background:rgba(15, 23, 42, 0.35);
+  border-bottom:none;
+  background:transparent;
   position:sticky;
   top:var(--walajna-topbar-height);
   z-index:90;
-  box-shadow:0 6px 18px rgba(15, 23, 42, 0.12);
-  backdrop-filter:blur(10px);
-  -webkit-backdrop-filter:blur(10px);
+  box-shadow:none;
 }
 
-body:not(.dark-mode) .walajna-breadcrumb{
-  background:#ffffff;
-  border-bottom-color:rgba(26, 47, 74, 0.1);
-  box-shadow:0 6px 18px rgba(26, 47, 74, 0.06);
-}
-
-body.dark-mode .walajna-breadcrumb{
-  background:var(--wl-surface-muted);
-  border-bottom-color:var(--wl-border-subtle);
-  box-shadow:0 8px 24px rgba(0, 0, 0, 0.35);
-}
-
-.walajna-breadcrumb__bar{
-  display:flex;
-  align-items:center;
-  gap:12px;
+.walajna-breadcrumb > .walajna-breadcrumb__list{
   width:100%;
-}
-
-.walajna-breadcrumb__bar .walajna-breadcrumb__list{
-  flex:1;
   min-width:0;
-}
-
-.walajna-breadcrumb__bar-back{
-  flex-shrink:0;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  width:36px;
-  height:36px;
-  margin:0;
-  padding:0;
-  border:1px solid var(--wl-border-subtle);
-  border-radius:12px;
-  background:rgba(34, 211, 238, 0.12);
-  color:var(--wl-accent);
-  font-family:var(--wl-font-family);
-  font-size:18px;
-  font-weight:900;
-  line-height:1;
-  direction:ltr;
-  unicode-bidi:isolate;
-  cursor:pointer;
-  transition:
-    background .15s ease,
-    color .15s ease,
-    border-color .15s ease,
-    transform .12s ease;
-}
-
-.walajna-breadcrumb__bar-back:hover{
-  background:rgba(34, 211, 238, 0.22);
-  color:var(--wl-text-on-dark);
-  border-color:rgba(34, 211, 238, 0.45);
-}
-
-.walajna-breadcrumb__bar-back:active{
-  transform:scale(0.96);
-}
-
-body:not(.dark-mode) .walajna-breadcrumb__bar-back{
-  background:rgba(54, 215, 232, 0.28);
-  color:#1a2f4a;
-  border-color:rgba(26, 47, 74, 0.15);
-}
-
-body:not(.dark-mode) .walajna-breadcrumb__bar-back:hover{
-  background:rgba(54, 215, 232, 0.45);
-  color:#1a2f4a;
-  border-color:rgba(26, 47, 74, 0.22);
 }
 
 .walajna-breadcrumb__list{
@@ -398,6 +328,6 @@ body:not(.dark-mode) .walajna-breadcrumb__current{
 }
 
 body:has(#walajna-breadcrumb) .walajna-global-back{
-  top:max(128px, calc(env(safe-area-inset-top, 0px) + var(--walajna-topbar-height) + 46px));
+  top:max(118px, calc(env(safe-area-inset-top, 0px) + var(--walajna-topbar-height) + 40px));
 }
 
