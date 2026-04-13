@@ -601,6 +601,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     currentUser.id
   );
 
+  if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.persistSessionList) {
+    WalajnaApartmentsApi.persistSessionList(apartments);
+  }
+
   if (!buildings.length) {
     if (emptyState) {
       emptyState.style.display = "block";

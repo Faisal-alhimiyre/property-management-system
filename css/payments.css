@@ -424,9 +424,76 @@ body.dark-mode .table-wrap,
 body.dark-mode .empty,
 body.dark-mode #paymentsReminder,
 body.dark-mode #paymentsSummary{
-  background:#101825;
-  border-color:rgba(148,163,184,.35);
-  box-shadow:0 18px 40px rgba(15,23,42,.7);
+  background:transparent;
+  border-color:transparent;
+  box-shadow:none;
+}
+
+body.dark-mode .payments-dash{
+  background:#101825 !important;
+  border-color:rgba(148,163,184,.35) !important;
+  box-shadow:0 18px 40px rgba(15,23,42,.7) !important;
+}
+
+body.dark-mode .payments-dash__titlebar,
+body.dark-mode .payments-dash__header{
+  border-bottom-color:rgba(148,163,184,.22) !important;
+}
+
+body.dark-mode .payments-dash__page-title{
+  color:#e5edf7 !important;
+}
+
+body.dark-mode .payments-dash__page-sub{
+  color:#9ca9bf !important;
+}
+
+body.dark-mode .payments-dash__search{
+  background:#020617 !important;
+  border-color:rgba(148,163,184,.35) !important;
+  color:#e5edf7 !important;
+}
+
+body.dark-mode .payments-dash__search:focus{
+  border-color:#06b6d4 !important;
+}
+
+body.dark-mode .payments-dash__tenant-name{
+  color:#e5edf7 !important;
+}
+
+body.dark-mode .payments-dash__chip,
+body.dark-mode .payments-dash__chip--accent{
+  background:#0b111c !important;
+  border-color:rgba(148,163,184,.35) !important;
+  color:#cbd5e1 !important;
+}
+
+body.dark-mode .payments-dash__chip b{
+  color:#f8fafc !important;
+}
+
+body.dark-mode .payments-dash__count{
+  background:#0b111c !important;
+  border-color:rgba(148,163,184,.35) !important;
+  color:#cbd5e1 !important;
+}
+
+body.dark-mode .payments-dash__stat{
+  background:#0b111c !important;
+  border-color:rgba(148,163,184,.35) !important;
+}
+
+body.dark-mode .payments-dash__stat .label{
+  color:#9ca9bf !important;
+}
+
+body.dark-mode .payments-dash__stat .value{
+  color:#f8fafc !important;
+}
+
+body.dark-mode .payments-dash__stat .sub{
+  color:#94a3b8 !important;
 }
 
 body.dark-mode .pay-header h2,
@@ -774,4 +841,29 @@ body.dark-mode #recordPaymentModal .wl-modal__header{
 
 body.dark-mode #recordPaymentModal .wl-modal__footer{
   border-top-color:rgba(148,163,184,0.2) !important;
+}
+
+/* Footer buttons: JS injects light-theme #recordPaymentModal .wl-btn rules (high specificity).
+   Force readable dark-mode pair: cyan primary + dark bordered ghost. */
+body.dark-mode #recordPaymentModal .wl-btn--primary{
+  background:#36d7e8 !important;
+  color:#052626 !important;
+  -webkit-text-fill-color:#052626 !important;
+}
+body.dark-mode #recordPaymentModal .wl-btn--primary:hover{
+  background:#2ec8d8 !important;
+  color:#021212 !important;
+  -webkit-text-fill-color:#021212 !important;
+}
+body.dark-mode #recordPaymentModal .wl-btn--ghost{
+  background:#0b111c !important;
+  color:#e5edf7 !important;
+  -webkit-text-fill-color:#e5edf7 !important;
+  border:1px solid rgba(148,163,184,0.45) !important;
+}
+body.dark-mode #recordPaymentModal .wl-btn--ghost:hover{
+  background:#172033 !important;
+  color:#f8fafc !important;
+  -webkit-text-fill-color:#f8fafc !important;
+  border-color:rgba(186,198,216,0.55) !important;
 }

@@ -25,28 +25,58 @@ print("Auth router created successfully")
 print("User model imported:", User)
 
 
+def normalize_saudi_national_id(value) -> str | None:
+    """Digits-only 10-digit Saudi national / iqama id for consistent DB matching."""
+    if value is None:
+        return None
+    digits = "".join(c for c in str(value) if c.isdigit())
+    if not digits:
+        return None
+    if len(digits) > 10:
+        digits = digits[-10:]
+    if len(digits) != 10:
+        return None
+    return digits
+
+
+def national_id_lookup_variants(raw: str | None) -> list[str]:
+    """Values that may appear in apartments.tenant_national_id for the same person."""
+    out: list[str] = []
+    n = normalize_saudi_national_id(raw)
+    if n:
+        out.append(n)
+    if raw is not None:
+        stripped = str(raw).strip()
+        if stripped and stripped not in out:
+            out.append(stripped)
+    return out
+
+
 def _claim_pending_tenant_assignments(user_id: int, national_id: str | None):
-    if not national_id:
+    canon = normalize_saudi_national_id(national_id)
+    variants = national_id_lookup_variants(national_id)
+    if not variants:
         return
 
     apartments_result = (
         supabase.table("apartments")
-        .select("id,current_contract_id,tenant_user_id")
-        .eq("tenant_national_id", national_id)
+        .select("id,current_contract_id,tenant_user_id,tenant_national_id")
+        .in_("tenant_national_id", variants)
         .execute()
     )
     apartments = getattr(apartments_result, "data", None) or []
-    print("Pending tenant assignments found:", apartments)
+    print("Apartments matching tenant_national_id variants:", len(apartments))
 
-    # Claim only one pending apartment row to avoid attaching the same user
-    # to every historical apartment with the same tenant_national_id.
-    pending = [a for a in apartments if a.get("tenant_user_id") in (None, "", 0, "0")]
-    if pending:
-        apartments = [max(pending, key=lambda x: int(x.get("id") or 0))]
-    else:
-        apartments = []
+    # Link every pending unit whose stored id normalizes to the same 10 digits (same person, multiple units).
+    pending = []
+    for a in apartments:
+        if a.get("tenant_user_id") not in (None, "", 0, "0"):
+            continue
+        apt_nid = normalize_saudi_national_id(a.get("tenant_national_id"))
+        if canon and apt_nid == canon:
+            pending.append(a)
 
-    for apartment in apartments:
+    for apartment in pending:
         apartment_id = apartment.get("id")
         current_contract_id = apartment.get("current_contract_id")
 
@@ -80,6 +110,54 @@ def _claim_pending_tenant_assignments(user_id: int, national_id: str | None):
         if tenant_lookup.data:
             supabase.table("tenants").update({"user_id": user_id}).eq("id", tenant_lookup.data[0]["id"]).execute()
 
+    _link_tenant_profile_rows_by_national_id(user_id, national_id)
+
+
+def _link_tenant_profile_rows_by_national_id(user_id: int, national_id: str | None):
+    """
+    Fill tenants.user_id using tenants.national_id when the apartment/contract path
+    missed a row (e.g. apartment.tenant_national_id out of sync or multiple tenant rows).
+    """
+    canon = normalize_saudi_national_id(national_id)
+    variants = national_id_lookup_variants(national_id)
+    if not canon or not variants:
+        return
+
+    try:
+        res = (
+            supabase.table("tenants")
+            .select("id,apartment_id,national_id,user_id")
+            .in_("national_id", variants)
+            .execute()
+        )
+    except Exception as exc:
+        print("tenants.national_id link skipped:", exc)
+        return
+
+    for row in getattr(res, "data", None) or []:
+        if row.get("user_id") not in (None, "", 0, "0"):
+            continue
+        if normalize_saudi_national_id(row.get("national_id")) != canon:
+            continue
+        tid = row.get("id")
+        aid = row.get("apartment_id")
+        if tid is None:
+            continue
+        supabase.table("tenants").update({"user_id": user_id}).eq("id", tid).execute()
+        if aid is not None:
+            apt_row = (
+                supabase.table("apartments")
+                .select("tenant_user_id")
+                .eq("id", aid)
+                .limit(1)
+                .execute()
+            )
+            cur = None
+            if apt_row.data:
+                cur = apt_row.data[0].get("tenant_user_id")
+            if cur in (None, "", 0, "0"):
+                supabase.table("apartments").update({"tenant_user_id": user_id}).eq("id", aid).execute()
+
 @router.post("/test")
 async def test_endpoint():
     print("Test endpoint called")
@@ -99,15 +177,26 @@ async def register(user: User):
         # Hash the password
         hashed_password = get_password_hash(user.password)
         
-        # Create user data for database
+        nid_stored = normalize_saudi_national_id(user.national_id) or str(user.national_id).strip()
+
+        raw_role = (user.role or "").strip().lower()
+        if raw_role not in ("owner", "tenant"):
+            raw_role = "pending"
+
+        # Create user data for database — real owner/tenant is set on auth/role.html via PUT /users/me.
         user_data = {
             "email": user.email,
             "password": hashed_password,
-            "role": user.role,
+            "role": raw_role,
             "name": user.name,
-            "national_id": user.national_id,
-            "created_at": datetime.utcnow().isoformat()
+            "national_id": nid_stored,
+            "created_at": datetime.utcnow().isoformat(),
         }
+        if raw_role == "pending":
+            user_data["roles"] = []
+        else:
+            user_data["roles"] = [raw_role]
+            user_data["active_role"] = raw_role
         # Only include phone if it's provided
         if user.phone:
             user_data["phone"] = user.phone
@@ -118,8 +207,10 @@ async def register(user: User):
         if result.data:
             print("User registered successfully:", result.data[0])
             created_user = result.data[0]
-            if created_user.get("role") == "tenant":
-                _claim_pending_tenant_assignments(created_user["id"], created_user.get("national_id"))
+            # Owners often register first then pick "tenant" in the UI; claim by national id regardless of role.
+            _claim_pending_tenant_assignments(
+                created_user["id"], created_user.get("national_id")
+            )
             return {"message": "User registered successfully", "user_id": created_user["id"]}
         else:
             raise HTTPException(status_code=500, detail="Failed to create user")
@@ -163,10 +254,25 @@ def _login_from_json_dict(body: dict) -> dict:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     user_data = result.data[0]
+    try:
+        _claim_pending_tenant_assignments(
+            int(user_data["id"]), user_data.get("national_id")
+        )
+    except Exception as claim_exc:
+        print("claim_pending_tenant_assignments on login:", claim_exc)
+
     access_token = create_access_token(
         data={"sub": f"uid:{user_data['id']}"},
         expires_delta=timedelta(minutes=30),
     )
+
+    lg = str(user_data.get("role") or "").lower()
+    roles_out = user_data.get("roles")
+    if not isinstance(roles_out, list) or len(roles_out) == 0:
+        roles_out = [] if lg == "pending" else ([user_data["role"]] if lg else [])
+    active_out = user_data.get("active_role")
+    if active_out is None and lg and lg != "pending":
+        active_out = user_data.get("role")
 
     return {
         "access_token": access_token,
@@ -176,6 +282,8 @@ def _login_from_json_dict(body: dict) -> dict:
             "email": user_data.get("email"),
             "name": user_data.get("name"),
             "role": user_data.get("role"),
+            "roles": roles_out,
+            "active_role": active_out,
             "phone": user_data.get("phone"),
             "national_id": user_data.get("national_id"),
         },
@@ -226,6 +334,23 @@ def get_current_user(
     request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ):
+    def fetch_user_by(column: str, value):
+        """
+        Supabase/httpx can rarely throw transient LocalProtocolError; retry once so
+        protected endpoints don't fail with 500 and break the UI.
+        """
+        last_exc = None
+        for attempt in range(2):
+            try:
+                return supabase.table("users").select("*").eq(column, value).execute()
+            except Exception as exc:
+                last_exc = exc
+                if attempt == 0 and "LocalProtocolError" in str(exc):
+                    continue
+                break
+        print(f"get_current_user lookup failed on {column}={value!r}: {last_exc}")
+        raise HTTPException(status_code=401, detail="Session validation failed")
+
     token = None
     if credentials and credentials.credentials:
         token = credentials.credentials
@@ -242,15 +367,15 @@ def get_current_user(
             user_id = int(subject[4:])
         except (TypeError, ValueError):
             raise HTTPException(status_code=401, detail="Invalid token")
-        user = supabase.table("users").select("*").eq("id", user_id).execute()
+        user = fetch_user_by("id", user_id)
         if not user.data:
             raise HTTPException(status_code=401, detail="User not found")
         return user.data[0]
 
     if "@" in subject:
-        user = supabase.table("users").select("*").eq("email", subject).execute()
+        user = fetch_user_by("email", subject)
     else:
-        user = supabase.table("users").select("*").eq("national_id", subject).execute()
+        user = fetch_user_by("national_id", subject)
     if not user.data:
         raise HTTPException(status_code=401, detail="User not found")
     return user.data[0]

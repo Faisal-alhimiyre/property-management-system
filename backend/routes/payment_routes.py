@@ -3,9 +3,9 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
-from models import GenerateInstallmentsBody, InstallmentUpdate, Payment
+from models import GenerateInstallmentsBody, InstallmentUpdate
 from config import supabase
-from routes.auth_routes import get_current_user
+from routes.auth_routes import get_current_user, normalize_saudi_national_id
 from installment_service import generate_installment_rows
 
 router = APIRouter()
@@ -64,80 +64,22 @@ def _authorize_contract_access(contract_id: int, user: dict) -> tuple[dict, dict
                     is_tenant = False
 
     # Fallback for recently linked tenants where user_id linkage is not yet backfilled
-    # but apartment tenant_national_id is already set.
+    # but apartment tenant_national_id is already set (compare normalized Saudi IDs).
     if not is_tenant:
-        user_national_id = user.get("national_id")
-        apartment_national_id = apartment.get("tenant_national_id")
-        if user_national_id is not None and apartment_national_id is not None:
-            is_tenant = str(user_national_id).strip() == str(apartment_national_id).strip()
+        u_n = normalize_saudi_national_id(user.get("national_id"))
+        a_n = normalize_saudi_national_id(apartment.get("tenant_national_id"))
+        if u_n and a_n and u_n == a_n:
+            is_tenant = True
+        elif user.get("national_id") is not None and apartment.get("tenant_national_id") is not None:
+            is_tenant = (
+                str(user.get("national_id")).strip()
+                == str(apartment.get("tenant_national_id")).strip()
+            )
 
     if not (is_owner or is_tenant):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     return contract, apartment
-
-
-@router.post("/payments")
-async def create_payment(payment: Payment, current_user: dict = Depends(get_current_user)):
-    # Assume tenant creates payment
-    if current_user["role"] != "tenant":
-        raise HTTPException(status_code=403, detail="Only tenants can create payments")
-
-    # Check if tenant is linked to the apartment
-    tenant = supabase.table("tenants").select("*").eq("user_id", current_user["id"]).eq("id", payment.tenant_id).execute()
-    if not tenant.data:
-        raise HTTPException(status_code=403, detail="Not authorized")
-
-    payment_data = payment.model_dump(exclude_none=True)
-    response = supabase.table("payments").insert(payment_data).execute()
-    return response.data[0]
-
-
-@router.get("/payments")
-async def get_payments(current_user: dict = Depends(get_current_user)):
-    if current_user["role"] == "tenant":
-        tenants = (
-            supabase.table("tenants")
-            .select("id,apartment_id")
-            .eq("user_id", current_user["id"])
-            .execute()
-        )
-        tenant_rows = tenants.data or []
-        tenant_ids = [row["id"] for row in tenant_rows if row.get("id") is not None]
-        apartment_by_tenant_id = {
-            row["id"]: row.get("apartment_id")
-            for row in tenant_rows
-            if row.get("id") is not None
-        }
-        if tenant_ids:
-            payments = supabase.table("payments").select("*").in_("tenant_id", tenant_ids).execute()
-            payment_rows = payments.data or []
-            # Add apartment_id for UI filtering on tenant pages.
-            for p in payment_rows:
-                p["apartment_id"] = apartment_by_tenant_id.get(p.get("tenant_id"))
-            return payment_rows
-        else:
-            payments = {"data": []}
-    elif current_user["role"] == "owner":
-        # Get payments for owner's apartments
-        apartments = supabase.table("apartments").select("id").eq("owner_id", current_user["id"]).execute()
-        apt_rows = apartments.data or []
-        apt_ids = [apt["id"] for apt in apt_rows]
-
-        if apt_ids:
-            tenants = supabase.table("tenants").select("id").in_("apartment_id", apt_ids).execute()
-            tenant_rows = tenants.data or []
-            tenant_ids = [t["id"] for t in tenant_rows]
-            if tenant_ids:
-                payments = supabase.table("payments").select("*").in_("tenant_id", tenant_ids).execute()
-            else:
-                payments = {"data": []}
-        else:
-            payments = {"data": []}
-    else:
-        payments = {"data": []}
-
-    return payments.data or []
 
 
 @router.get("/contracts/{contract_id}/installments")

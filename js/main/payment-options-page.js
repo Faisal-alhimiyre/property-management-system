@@ -19,7 +19,9 @@ document.addEventListener("DOMContentLoaded", async function () {
         ? "en-SA"
         : "ar-SA";
 
-  const payments = JSON.parse(localStorage.getItem("walajna_payments") || "[]");
+  if (window.WalajnaAuth && typeof WalajnaAuth.hydrateSession === "function") {
+    await WalajnaAuth.hydrateSession();
+  }
 
   /** Unified shape: { id, amount, dueDate } */
   let payment = null;
@@ -40,7 +42,6 @@ document.addEventListener("DOMContentLoaded", async function () {
     typeof WalajnaAuth.fetchWithAuth === "function"
   ) {
     payViaApi = true;
-    await WalajnaAuth.hydrateSession();
     const apiBase = WalajnaAuth.API_BASE;
     try {
       const res = await WalajnaAuth.fetchWithAuth(
@@ -69,15 +70,19 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
   }
 
-  if (!payment && paymentId) {
-    const local = payments.find((item) => String(item.id) === String(paymentId));
-    if (local) {
-      payment = {
-        id: String(local.id),
-        amount: Number(local.amount || 0),
-        dueDate: local.dueDate || "",
-      };
-      payViaApi = false;
+  if (!payment && paymentId && typeof WalajnaPaymentsApi !== "undefined" && WalajnaPaymentsApi.listMapped) {
+    try {
+      const rows = await WalajnaPaymentsApi.listMapped();
+      const row = (rows || []).find((item) => String(item.id) === String(paymentId));
+      if (row && row.dueDate) {
+        payment = {
+          id: String(row.id),
+          amount: Number(row.amount || 0),
+          dueDate: row.dueDate,
+        };
+      }
+    } catch (e) {
+      console.warn(e);
     }
   }
 
@@ -154,22 +159,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         return;
       }
 
-      const updatedPayments = payments.map((item) => {
-        if (String(item.id) !== String(payment.id)) return item;
-
-        return {
-          ...item,
-          status: "paid",
-          paymentMethod: method,
-          paidAt: new Date().toISOString().slice(0, 10),
-          notes: T("paymentOpt.paidNote"),
-        };
-      });
-
-      localStorage.setItem("walajna_payments", JSON.stringify(updatedPayments));
-
-      alert(T("paymentOpt.success"));
-      window.location.href = `../main/payments.html?id=${encodeURIComponent(apartmentId)}`;
+      alert(T("paymentOpt.networkErr"));
     });
   });
 });

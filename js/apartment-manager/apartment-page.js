@@ -7,6 +7,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (typeof WalajnaAuth !== "undefined" && WalajnaAuth.hydrateSession) {
     await WalajnaAuth.hydrateSession();
   }
+  if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.refreshForSession) {
+    try {
+      await WalajnaApartmentsApi.refreshForSession();
+    } catch (e) {
+      console.warn("[apartment-page] apartments cache refresh failed", e);
+    }
+  }
+  if (typeof ensureRoleSetup === "function") {
+    ensureRoleSetup();
+  }
   /* =========================
      1) PAGE ELEMENTS
      ========================= */
@@ -47,6 +57,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const evictTenantBtn = document.getElementById("evictTenantBtn");
   const tenantPayBtn = document.getElementById("tenantPayBtn");
   const viewCostsBtn = document.getElementById("viewCostsBtn");
+  const actionsSection = document.querySelector("section.actions");
 
   if (!title && !number && !building && !status && !rent) return;
 
@@ -60,6 +71,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (!aptId) {
     if (title) title.textContent = T("aptPage.notFound");
+    if (actionsSection) {
+      actionsSection.classList.remove("actions--pending");
+      actionsSection.removeAttribute("aria-busy");
+    }
     return;
   }
 
@@ -209,6 +224,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (!data) {
     if (title) title.textContent = T("aptPage.notFound");
+    if (actionsSection) {
+      actionsSection.classList.remove("actions--pending");
+      actionsSection.removeAttribute("aria-busy");
+    }
     return;
   }
 
@@ -362,12 +381,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     const end = new Date(endDate);
 
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 0;
-    if (end < start) return 0;
+    if (end <= start) return 0;
 
     return (
       (end.getFullYear() - start.getFullYear()) * 12 +
-      (end.getMonth() - start.getMonth()) +
-      1
+      (end.getMonth() - start.getMonth())
     );
   }
 
@@ -393,6 +411,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   function updateRentDisplay(contractData) {
     if (!rent) return;
 
+    const ls = String(data.leaseStatus || effectiveLeaseStatus || "").toLowerCase();
+    if (ls === "vacant" || !getCurrentContractId()) {
+      rent.textContent = "—";
+      return;
+    }
+
     const monthlyRent = getMonthlyRent(contractData);
     const paymentCycle = contractData?.paymentCycle || "monthly";
     const installmentAmount = getInstallmentAmount(contractData);
@@ -412,51 +436,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
- function getPaymentsForApartment() {
-  try {
-    const contractId = getCurrentContractId();
-    if (!contractId) return [];
-
-    const payments = JSON.parse(localStorage.getItem("walajna_payments") || "[]");
-
-    return Array.isArray(payments)
-      ? payments.filter((payment) => payment.contractId === contractId)
-      : [];
-  } catch (error) {
-    console.error(T("aptPage.payError"), error);
-    return [];
-  }
-}
-
-  function getNextDuePayment(apartmentId) {
-    const payments = getPaymentsForApartment();
-
-    if (!payments.length) return null;
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const normalizedPayments = payments.map((payment) => {
-      const dueDate = new Date(payment.dueDate);
-      dueDate.setHours(0, 0, 0, 0);
-
-      let normalizedStatus = payment.status;
-
-      if (payment.status === "pending" && dueDate < today) {
-        normalizedStatus = "overdue";
-      }
-
-      return {
-        ...payment,
-        status: normalizedStatus,
-      };
-    });
-
-    const unpaidPayments = normalizedPayments
-      .filter((payment) => payment.status !== "paid" && payment.status !== "cancelled")
-      .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
-
-    return unpaidPayments[0] || null;
+  /** @deprecated Local `walajna_payments` removed; use `fetchNextUnpaidInstallmentFromApi` when online. */
+  function getNextDuePayment(_apartmentId) {
+    return null;
   }
 
   async function fetchNextUnpaidInstallmentFromApi(contractId) {
@@ -698,16 +680,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   /**
-   * Show "معلومات المالك" for tenant-style viewing.
-   * Hide only for مالك mode when this user is the landlord but not the linked tenant (same-person test: still show).
+   * Show "معلومات المالك" only when not browsing as مالك (tenant / other roles).
+   * Owner view must never show this block — it depended on tenant_user_id before and looked random across units.
    */
   function shouldShowLandlordCard() {
     if (!data) return false;
-    if (activeRole !== "owner") return true;
-    const uid = currentUser ? String(currentUser.id ?? "") : "";
-    const tid =
-      data.tenantUserId != null ? String(data.tenantUserId) : "";
-    return Boolean(uid && tid && uid === tid);
+    return activeRole !== "owner";
   }
 
   function fillOwnerInfoForTenantOnly() {
@@ -861,6 +839,10 @@ document.addEventListener("DOMContentLoaded", async () => {
           mainActionBtn.textContent = T("aptPage.linkTenant");
           showElement(mainActionBtn);
         }
+        if (actionsSection) {
+          actionsSection.classList.remove("actions--pending");
+          actionsSection.removeAttribute("aria-busy");
+        }
         return;
       }
 
@@ -885,10 +867,18 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
 
       hideElement(tenantPayBtn);
+      if (actionsSection) {
+        actionsSection.classList.remove("actions--pending");
+        actionsSection.removeAttribute("aria-busy");
+      }
       return;
     }
 
     if (effectiveLeaseStatus === "vacant") {
+      if (actionsSection) {
+        actionsSection.classList.remove("actions--pending");
+        actionsSection.removeAttribute("aria-busy");
+      }
       return;
     }
 
@@ -904,6 +894,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (tenantPayBtn) {
       showElement(tenantPayBtn);
       applyTenantPayStyle();
+    }
+    if (actionsSection) {
+      actionsSection.classList.remove("actions--pending");
+      actionsSection.removeAttribute("aria-busy");
     }
   }
 
@@ -1025,12 +1019,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       null;
 
     let openRequests = [];
-    const apiAid = data.apiId != null ? Number(data.apiId) : null;
+    const apiAid =
+      data.apiId != null ? Number(data.apiId) : Number(aptId);
     if (
       currentContractId &&
       typeof WalajnaTenantRequests !== "undefined" &&
       WalajnaAuth?.fetchWithAuth &&
-      apiAid != null &&
       Number.isFinite(apiAid)
     ) {
       try {
@@ -1052,6 +1046,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     if (!confirm(T("aptPage.confirmEvict"))) return;
+
+    const authed =
+      typeof WalajnaAuth !== "undefined" && WalajnaAuth.getCurrentUser?.();
+    if (
+      authed &&
+      typeof WalajnaApartmentsApi !== "undefined" &&
+      WalajnaApartmentsApi.vacateTenant &&
+      Number.isFinite(apiAid)
+    ) {
+      try {
+        await WalajnaApartmentsApi.vacateTenant(apiAid);
+        alert(T("aptPage.evicted"));
+        window.location.reload();
+        return;
+      } catch (e) {
+        alert(e?.message || String(e));
+        return;
+      }
+    }
 
     const updatedApartments = getApartments().map((apt) => {
       if (apt.id !== aptId) return apt;

@@ -55,9 +55,10 @@ The API will be available at http://localhost:8000
   - POST /api/apartments - Create apartment (owners only)
   - GET /api/apartments - Get apartments
 
-- **Payments:**
-  - POST /api/payments - Create payment
-  - GET /api/payments - Get payments
+- **Payment installments (schedule):**
+  - GET /api/contracts/{contract_id}/installments - List installments
+  - POST /api/contracts/{contract_id}/installments/generate - Generate schedule (owner)
+  - PATCH /api/payment-installments/{installment_id} - Update installment (mark paid, etc.)
 
 - **Contracts:**
   - POST /api/contracts - Create contract

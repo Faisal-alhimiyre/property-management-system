@@ -1,4 +1,4 @@
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   const T = (k, p) =>
     window.walajna_language && window.walajna_language.t
       ? window.walajna_language.t(k, p)
@@ -11,6 +11,17 @@ document.addEventListener("DOMContentLoaded", () => {
   if (!apartmentId) {
     alert(T("aptPage.cannotIdentify"));
     return;
+  }
+
+  if (typeof WalajnaAuth !== "undefined" && WalajnaAuth.hydrateSession) {
+    await WalajnaAuth.hydrateSession();
+  }
+  if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.refreshForSession) {
+    try {
+      await WalajnaApartmentsApi.refreshForSession();
+    } catch (e) {
+      console.warn("[apartment-costs] apartments cache failed", e);
+    }
   }
 
   const COSTS_KEY = "walajna_costs";
@@ -47,13 +58,16 @@ document.addEventListener("DOMContentLoaded", () => {
     return v === k ? "—" : v;
   }
 
-  function getApartments() {
+  function getApartmentsList() {
+    if (typeof getApartments === "function") {
+      return getApartments();
+    }
     return JSON.parse(localStorage.getItem("walajna_apartments") || "[]");
   }
 
   function getApartment() {
-    const apartments = getApartments();
-    return apartments.find((apt) => apt.id === apartmentId) || null;
+    const apartments = getApartmentsList();
+    return apartments.find((apt) => String(apt.id) === String(apartmentId)) || null;
   }
 
   function getCurrentContractId(apartment) {

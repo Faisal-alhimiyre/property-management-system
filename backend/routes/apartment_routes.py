@@ -5,7 +5,8 @@ from datetime import date, datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from models import Apartment, ApartmentResponse
 from config import supabase
-from routes.auth_routes import get_current_user
+from routes.auth_routes import get_current_user, normalize_saudi_national_id, national_id_lookup_variants
+from user_roles import has_role
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -24,6 +25,9 @@ def _normalize_assign_payload(payload: dict) -> dict:
     )
     if tenant_national_id is not None:
         tenant_national_id = str(tenant_national_id).strip() or None
+        nn = normalize_saudi_national_id(tenant_national_id)
+        if nn:
+            tenant_national_id = nn
 
     normalized = {
         "tenant_user_id": payload.get("tenant_user_id", payload.get("tenantUserId")),
@@ -53,10 +57,12 @@ def _resolve_tenant_user_id(assign_payload: dict) -> int | None:
     if not tenant_national_id:
         return None
 
+    nid_key = normalize_saudi_national_id(tenant_national_id) or str(tenant_national_id).strip()
+
     user_lookup = (
         supabase.table("users")
         .select("id")
-        .eq("national_id", tenant_national_id)
+        .eq("national_id", nid_key)
         .limit(1)
         .execute()
     )
@@ -251,8 +257,9 @@ def _reconcile_owner_apartment_maintenance_pointers(apartments_data: list[dict])
     for row in getattr(res, "data", None) or []:
         if not _maintenance_request_is_open(row.get("status")):
             continue
+        # Include all request categories created via POST /api/maintenance (not only literal "maintenance").
         rt = str(row.get("request_type") or "maintenance").lower()
-        if rt != "maintenance":
+        if rt not in ("maintenance", "complaint", "suggestion", "request"):
             continue
         aid = row.get("apartment_id")
         rid = row.get("id")
@@ -383,7 +390,7 @@ def _get_or_create_tenant_row(tenant_user_id: int | None, apartment_id: int, sta
 
 @router.post("/apartments", response_model=ApartmentResponse)
 async def create_apartment(apartment: Apartment, current_user: dict = Depends(get_current_user)):
-    if current_user["role"] != "owner":
+    if not has_role(current_user, "owner"):
         raise HTTPException(status_code=403, detail="Only owners can create apartments")
     
     apartment_data = apartment.dict()
@@ -400,7 +407,7 @@ async def get_apartments(
 
     as_tenant_view = (view or "").strip().lower() == "as_tenant"
 
-    if current_user["role"] == "owner" and not as_tenant_view:
+    if has_role(current_user, "owner") and not as_tenant_view:
         owner_rows_result = (
             supabase.table("apartments")
             .select("*")
@@ -419,15 +426,20 @@ async def get_apartments(
         )
         rows = getattr(by_user_result, "data", None) or []
 
-        national_id = current_user.get("national_id")
-        if national_id:
+        national_id_raw = current_user.get("national_id")
+        variants = national_id_lookup_variants(national_id_raw)
+        canon = normalize_saudi_national_id(national_id_raw)
+        if variants:
             by_national_result = (
                 supabase.table("apartments")
                 .select("*")
-                .eq("tenant_national_id", national_id)
+                .in_("tenant_national_id", variants)
                 .execute()
             )
             for apartment in getattr(by_national_result, "data", None) or []:
+                apt_nid = normalize_saudi_national_id(apartment.get("tenant_national_id"))
+                if canon and apt_nid != canon:
+                    continue
                 if not any(existing.get("id") == apartment.get("id") for existing in rows):
                     rows.append(apartment)
 
@@ -526,6 +538,134 @@ async def get_apartment(apartment_id: int, current_user: dict = Depends(get_curr
     return ApartmentResponse(**row)
 
 
+def _contract_snapshot_for_history(contract_id) -> dict | None:
+    if contract_id is None:
+        return None
+    try:
+        cid = int(contract_id)
+    except (TypeError, ValueError):
+        return None
+    try:
+        cres = (
+            supabase.table("contracts")
+            .select("id, start_date, end_date")
+            .eq("id", cid)
+            .limit(1)
+            .execute()
+        )
+        rows = getattr(cres, "data", None) or []
+        if not rows:
+            return None
+        c = rows[0]
+        return {
+            "id": c.get("id"),
+            "startDate": str(c["start_date"])[:10] if c.get("start_date") else None,
+            "endDate": str(c["end_date"])[:10] if c.get("end_date") else None,
+        }
+    except Exception:
+        logger.exception("contract snapshot for apartment_history")
+        return None
+
+
+def _building_name_from_id(building_id) -> str | None:
+    if building_id is None:
+        return None
+    try:
+        bid = int(building_id)
+    except (TypeError, ValueError):
+        return None
+    try:
+        bres = (
+            supabase.table("buildings")
+            .select("name")
+            .eq("id", bid)
+            .limit(1)
+            .execute()
+        )
+        rows = getattr(bres, "data", None) or []
+        if not rows:
+            return None
+        return rows[0].get("name")
+    except Exception:
+        logger.exception("buildings name lookup for apartment_history")
+        return None
+
+
+def _user_can_view_apartment_row(apt: dict, current_user: dict) -> bool:
+    try:
+        viewer_id = int(current_user["id"])
+    except (TypeError, ValueError):
+        return False
+    apt_owner_id = apt.get("owner_id")
+    try:
+        if apt_owner_id is not None and int(apt_owner_id) == viewer_id:
+            return True
+    except (TypeError, ValueError):
+        pass
+    current_national_id = current_user.get("national_id")
+    if (
+        apt.get("tenant_user_id") == viewer_id
+        or (current_national_id and apt.get("tenant_national_id") == current_national_id)
+    ):
+        return True
+    try:
+        tenant = (
+            supabase.table("tenants")
+            .select("id")
+            .eq("user_id", viewer_id)
+            .eq("apartment_id", apt.get("id"))
+            .limit(1)
+            .execute()
+        )
+        if getattr(tenant, "data", None):
+            return True
+    except Exception:
+        logger.exception("tenant fallback auth for apartment_history")
+    return False
+
+
+@router.get("/apartments/{apartment_id}/tenant-history")
+async def get_apartment_tenant_history(
+    apartment_id: int,
+    current_user: dict = Depends(get_current_user),
+):
+    """Rows from public.apartment_history for this unit (e.g. vacate snapshots)."""
+    try:
+        aid = int(apartment_id)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Invalid apartment_id")
+
+    apt_res = supabase.table("apartments").select("*").eq("id", aid).limit(1).execute()
+    if not apt_res.data:
+        raise HTTPException(status_code=404, detail="Apartment not found")
+    apt = apt_res.data[0]
+    if not _user_can_view_apartment_row(apt, current_user):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    try:
+        hres = (
+            supabase.table("apartment_history")
+            .select("*")
+            .eq("apartment_id", aid)
+            .order("changed_at", desc=True)
+            .execute()
+        )
+    except Exception as exc:
+        logger.exception("apartment_history select failed apartment_id=%s", aid)
+        raise HTTPException(status_code=503, detail=f"apartment_history query failed: {exc!s}") from exc
+
+    rows = getattr(hres, "data", None) or []
+    default_building_name = _building_name_from_id(apt.get("building_id"))
+    enriched: list[dict] = []
+    for row in rows:
+        r = dict(row)
+        od = r.get("old_data")
+        if isinstance(od, dict) and default_building_name and not od.get("buildingName"):
+            r["old_data"] = {**od, "buildingName": default_building_name}
+        enriched.append(r)
+    return enriched
+
+
 @router.patch("/apartments/{apartment_id}/assign-tenant")
 async def assign_tenant_to_apartment(
     apartment_id: int,
@@ -534,7 +674,7 @@ async def assign_tenant_to_apartment(
 ):
     logger.info("assign-tenant route entered: apartment_id=%s current_user_id=%s", apartment_id, current_user.get("id"))
     try:
-        if current_user["role"] != "owner":
+        if not has_role(current_user, "owner"):
             raise HTTPException(status_code=403, detail="Only owners can assign tenants")
 
         logger.info("assign-tenant incoming payload: apartment_id=%s payload=%s", apartment_id, payload)
@@ -702,3 +842,128 @@ async def assign_tenant_to_apartment(
     except Exception as exc:
         logger.exception("assign-tenant unexpected exception apartment_id=%s", apartment_id)
         raise HTTPException(status_code=500, detail=f"assign-tenant internal error: {str(exc)}")
+
+
+@router.patch("/apartments/{apartment_id}/vacate-tenant", response_model=ApartmentResponse)
+async def vacate_tenant(apartment_id: int, current_user: dict = Depends(get_current_user)):
+    """
+    End the active tenancy on the apartment row. Does not delete the contract row (history);
+    clears tenant links and current_contract_id on the apartment only.
+    """
+    if not has_role(current_user, "owner"):
+        raise HTTPException(status_code=403, detail="Only owners can vacate tenants")
+
+    try:
+        apt_id_int = int(apartment_id)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Invalid apartment_id")
+
+    apt_result = supabase.table("apartments").select("*").eq("id", apt_id_int).execute()
+    if not apt_result.data:
+        raise HTTPException(status_code=404, detail="Apartment not found")
+    apartment = apt_result.data[0]
+
+    apt_owner = apartment.get("owner_id")
+    try:
+        if apt_owner is None or int(apt_owner) != int(current_user["id"]):
+            raise HTTPException(status_code=403, detail="Not authorized: apartment belongs to a different owner")
+    except HTTPException:
+        raise
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=403, detail="Not authorized: apartment belongs to a different owner")
+
+    old_tuid = apartment.get("tenant_user_id")
+
+    tenant_info_pre = apartment.get("tenant_info") or {}
+    had_tenancy = bool(
+        apartment.get("tenant_user_id")
+        or apartment.get("tenant_national_id")
+        or tenant_info_pre.get("fullName")
+        or tenant_info_pre.get("full_name")
+        or apartment.get("current_contract_id")
+    )
+    if had_tenancy:
+        old_data_hist: dict = {
+            "tenantInfo": tenant_info_pre,
+            "tenantNationalId": apartment.get("tenant_national_id"),
+            "tenantUserId": apartment.get("tenant_user_id"),
+            "currentContractId": apartment.get("current_contract_id"),
+            "rent": apartment.get("rent"),
+        }
+        bn_hist = _building_name_from_id(apartment.get("building_id"))
+        if bn_hist:
+            old_data_hist["buildingName"] = bn_hist
+        apt_num = apartment.get("apartment_number")
+        if apt_num is not None and str(apt_num).strip() != "":
+            old_data_hist["apartmentNumber"] = str(apt_num).strip()
+        csnap = _contract_snapshot_for_history(apartment.get("current_contract_id"))
+        if csnap:
+            old_data_hist["contract"] = csnap
+        try:
+            supabase.table("apartment_history").insert(
+                {
+                    "apartment_id": apt_id_int,
+                    "user_id": int(current_user["id"]),
+                    "change_type": "tenant_vacated",
+                    "old_data": old_data_hist,
+                    "new_data": {"lease_status": "vacant", "current_contract_id": None},
+                }
+            ).execute()
+        except Exception:
+            logger.exception("apartment_history insert failed on vacate apartment_id=%s", apt_id_int)
+
+    update_payload = {
+        "tenant_user_id": None,
+        "tenant_national_id": None,
+        "tenant_info": {},
+        "current_contract_id": None,
+        "lease_status": "vacant",
+        "rent": 0,
+    }
+
+    try:
+        if old_tuid is not None:
+            supabase.table("tenants").update({"apartment_id": None}).eq("apartment_id", apt_id_int).eq(
+                "user_id", int(old_tuid)
+            ).execute()
+    except Exception:
+        logger.exception("vacate-tenant: failed to detach tenants row for apartment_id=%s", apt_id_int)
+
+    try:
+        update_result = supabase.table("apartments").update(update_payload).eq("id", apt_id_int).execute()
+    except Exception as exc:
+        logger.exception("vacate-tenant apartment update failed apartment_id=%s", apt_id_int)
+        raise HTTPException(status_code=500, detail=f"Apartment update failed: {str(exc)}") from exc
+
+    if not update_result.data:
+        raise HTTPException(status_code=500, detail="Apartment update failed: empty response")
+
+    updated_apt = update_result.data[0]
+    reconciled = _reconcile_owner_apartment_statuses([dict(updated_apt)])
+    reconciled = _reconcile_owner_apartment_maintenance_pointers(reconciled)
+    row = reconciled[0] if reconciled else updated_apt
+
+    if row.get("owner_id") is not None:
+        try:
+            oid = int(row["owner_id"])
+            ures = (
+                supabase.table("users")
+                .select("*")
+                .eq("id", oid)
+                .limit(1)
+                .execute()
+            )
+            if getattr(ures, "data", None):
+                ou = ures.data[0]
+                row["owner_public_name"] = (
+                    ou.get("name")
+                    or ou.get("full_name")
+                    or ou.get("fullName")
+                )
+                row["owner_public_national_id"] = (
+                    ou.get("national_id") or ou.get("nationalId")
+                )
+        except Exception:
+            logger.exception("vacate-tenant owner_public lookup failed apartment_id=%s", apt_id_int)
+
+    return ApartmentResponse(**row)

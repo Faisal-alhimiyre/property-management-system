@@ -68,6 +68,60 @@
     };
 
     let selectedPaymentId = null;
+    let selectedFilterMonth = "";
+    let selectedFilterYear = "";
+
+    function getFilterableDateString(payment) {
+      if (!payment) return "";
+      return String(payment.dueDate || payment.paidAt || "").slice(0, 10);
+    }
+
+    function parseMonthYear(dateString) {
+      if (!dateString) return { month: "", year: "" };
+      const raw = String(dateString).slice(0, 10);
+      const m = raw.match(/^(\d{4})-(\d{2})-\d{2}$/);
+      if (!m) return { month: "", year: "" };
+      return { year: m[1], month: m[2] };
+    }
+
+    function buildPeriodFilterOptions(payments) {
+      const years = new Set();
+      (payments || []).forEach((payment) => {
+        const { year } = parseMonthYear(getFilterableDateString(payment));
+        if (year) years.add(year);
+      });
+
+      const monthFmt = new Intl.DateTimeFormat(
+        window.walajna_language?.localeForDates?.() || "ar-SA",
+        { month: "long" }
+      );
+
+      const months = Array.from({ length: 12 }, (_, idx) => {
+        const monthNumber = String(idx + 1).padStart(2, "0");
+        const label = monthFmt.format(new Date(2026, idx, 1));
+        return { value: monthNumber, label };
+      });
+
+      const sortedYears = Array.from(years).sort((a, b) => Number(b) - Number(a));
+
+      return { months, years: sortedYears };
+    }
+
+    function filterPaymentsByPeriod(payments, month, year) {
+      const monthKey = String(month || "");
+      const yearKey = String(year || "");
+      if (!monthKey && !yearKey) return payments;
+
+      return (payments || []).filter((payment) => {
+        const { month: paymentMonth, year: paymentYear } = parseMonthYear(
+          getFilterableDateString(payment)
+        );
+        if (!paymentMonth || !paymentYear) return false;
+        if (monthKey && paymentMonth !== monthKey) return false;
+        if (yearKey && paymentYear !== yearKey) return false;
+        return true;
+      });
+    }
 
     function getHistoryEntry() {
       if (mode !== "history" || !historyId) return null;
@@ -254,7 +308,7 @@
       }
     }
 
-    function getContractInfo() {
+    function getContractInfo(payments) {
       const historyEntry = getHistoryEntry();
       const historyContract = historyEntry?.contract || {};
 
@@ -285,7 +339,16 @@
             }
           : utils.getEffectivePaymentSettings(apartment);
 
-      const paymentCycle = effectiveSettings.paymentCycle || "monthly";
+      let paymentCycle = effectiveSettings.paymentCycle || "monthly";
+      if (mode !== "history" && Array.isArray(payments) && payments.length) {
+        const inferred = utils.inferPaymentCycleFromInstallments(
+          payments,
+          monthlyRent
+        );
+        if (inferred && paymentCycle === "monthly") {
+          paymentCycle = inferred;
+        }
+      }
       const installmentAmount =
         monthlyRent * utils.getCycleMonths(paymentCycle);
 
@@ -305,6 +368,7 @@
         installmentAmount,
         contractStartDate: contract.startDate || "",
         contractEndDate: contract.endDate || "",
+        installmentCount: Array.isArray(payments) ? payments.length : 0,
       };
     }
 
@@ -312,13 +376,19 @@
       if (!elements.summaryContainer) return;
 
       const summary = utils.calculatePaymentsSummary(payments);
-      const contractInfo = getContractInfo();
+      const contractInfo = getContractInfo(payments);
+      const filterOptions = buildPeriodFilterOptions(payments);
 
       ui.renderSummary(
         elements.summaryContainer,
         summary,
         utils,
-        contractInfo
+        contractInfo,
+        {
+          options: filterOptions,
+          selectedMonth: selectedFilterMonth,
+          selectedYear: selectedFilterYear,
+        }
       );
     }
 
@@ -332,6 +402,17 @@
     }
 
     function renderPaymentsPage() {
+      const prevMonth =
+        (document.getElementById("monthFilterInput") &&
+          document.getElementById("monthFilterInput").value) ||
+        selectedFilterMonth ||
+        "";
+      const prevYear =
+        (document.getElementById("yearFilterInput") &&
+          document.getElementById("yearFilterInput").value) ||
+        selectedFilterYear ||
+        "";
+
       const payments = getSortedApartmentPayments();
 
       renderReminder(payments);
@@ -346,8 +427,23 @@
         );
       }
       renderSummary(payments);
-      renderTable(payments);
-      bindTableActions(payments);
+      const monthInput = document.getElementById("monthFilterInput");
+      const yearInput = document.getElementById("yearFilterInput");
+      if (monthInput) {
+        monthInput.value = prevMonth;
+        selectedFilterMonth = prevMonth;
+      }
+      if (yearInput) {
+        yearInput.value = prevYear;
+        selectedFilterYear = prevYear;
+      }
+      const filtered = filterPaymentsByPeriod(
+        payments,
+        monthInput ? monthInput.value : prevMonth,
+        yearInput ? yearInput.value : prevYear
+      );
+      renderTable(filtered);
+      bindTableActions(filtered);
     }
 
     window.renderPayments = renderPaymentsPage;
@@ -528,6 +624,30 @@
     }
 
     ensureScheduleForCurrentContract();
+
+    const payWrap = document.querySelector(".pay-wrap");
+    if (payWrap && !payWrap.dataset.paymentsSearchBound) {
+      payWrap.dataset.paymentsSearchBound = "1";
+      payWrap.addEventListener("change", function (e) {
+        if (!e.target) return;
+        if (e.target.id !== "monthFilterInput" && e.target.id !== "yearFilterInput") {
+          return;
+        }
+        selectedFilterMonth =
+          document.getElementById("monthFilterInput")?.value || "";
+        selectedFilterYear =
+          document.getElementById("yearFilterInput")?.value || "";
+        const list = getSortedApartmentPayments();
+        const filtered = filterPaymentsByPeriod(
+          list,
+          selectedFilterMonth,
+          selectedFilterYear
+        );
+        renderTable(filtered);
+        bindTableActions(filtered);
+      });
+    }
+
     renderPaymentsPage();
     bindPaymentForm();
 

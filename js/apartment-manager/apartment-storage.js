@@ -31,9 +31,8 @@ function saveArray(key, value) {
 }
 
 function replaceById(items, updatedItem) {
-  return items.map((item) =>
-    item.id === updatedItem.id ? updatedItem : item
-  );
+  const uid = String(updatedItem.id ?? "");
+  return items.map((item) => (String(item.id) === uid ? updatedItem : item));
 }
 
 function removeBy(items, predicate) {
@@ -79,19 +78,60 @@ function saveBuildings(buildings) {
 }
 
 /* =========================
-   Apartments
+   Apartments — session mirror from /api/apartments when logged in; localStorage fallback for demo/offline.
 ========================= */
 
+function isWalajnaAuthed() {
+  try {
+    return (
+      typeof WalajnaAuth !== "undefined" &&
+      typeof WalajnaAuth.getCurrentUser === "function" &&
+      !!WalajnaAuth.getCurrentUser()
+    );
+  } catch {
+    return false;
+  }
+}
+
 function getApartments() {
+  if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.getSessionList) {
+    const s = WalajnaApartmentsApi.getSessionList();
+    if (Array.isArray(s) && s.length) return s;
+  }
+  try {
+    const raw = sessionStorage.getItem(
+      typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.SESSION_KEY
+        ? WalajnaApartmentsApi.SESSION_KEY
+        : "walajna_apartments_session"
+    );
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length) return parsed;
+    }
+  } catch {
+    /* ignore */
+  }
   return getArray(StorageKeys.APARTMENTS);
 }
 
 function saveApartments(apartments) {
-  saveArray(StorageKeys.APARTMENTS, apartments);
+  const arr = Array.isArray(apartments) ? apartments : [];
+  if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.persistSessionList) {
+    WalajnaApartmentsApi.persistSessionList(arr);
+  } else {
+    try {
+      sessionStorage.setItem("walajna_apartments_session", JSON.stringify(arr));
+    } catch {
+      /* ignore */
+    }
+  }
+  if (!isWalajnaAuthed()) {
+    saveArray(StorageKeys.APARTMENTS, arr);
+  }
 }
 
 function findApartmentById(aptId) {
-  return getApartments().find((apt) => apt.id === aptId) || null;
+  return getApartments().find((apt) => String(apt.id) === String(aptId)) || null;
 }
 
 function saveUpdatedApartment(updatedApartment) {

@@ -67,92 +67,91 @@
         </section>
 
         <section class="details-card">
-          <h3 class="section-title" data-i18n="aptInfo.aptSection"></h3>
+      <h3 class="section-title" data-i18n="aptInfo.aptSection"></h3>
+      <div class="details-grid">
+        <div class="item">
+          <span class="label" data-i18n="aptInfo.aptNumber"></span>
+          <span class="value" id="aptNumber">—</span>
+        </div>
+        <div class="item">
+          <span class="label" data-i18n="aptInfo.buildingName"></span>
+          <span class="value" id="buildingName">—</span>
+        </div>
+        <div class="item">
+          <span class="label" data-i18n="common.status"></span>
+          <span class="value" id="leaseStatus">—</span>
+        </div>
+        <div class="item">
+          <span class="label" data-i18n="paymentsUi.monthlyRent"></span>
+          <span class="value" id="rentAmount">—</span>
+        </div>
+        <div class="item">
+          <span class="label" data-i18n="common.floorWord"></span>
+          <span class="value" id="floorNumber">—</span>
+        </div>
+        <div class="item">
+          <span class="label" data-i18n="ownerEdit.bedrooms"></span>
+          <span class="value" id="bedrooms">—</span>
+        </div>
+        <div class="item">
+          <span class="label" data-i18n="ownerEdit.bathrooms"></span>
+          <span class="value" id="bathrooms">—</span>
+        </div>
+        <div class="item">
+          <span class="label" data-i18n="ownerEdit.livingRooms"></span>
+          <span class="value" id="livingRooms">—</span>
+        </div>
+      </div>
+        </section>
+
+        <section class="details-card">
+          <h3 class="section-title" data-i18n="aptInfo.extraSection"></h3>
           <div class="details-grid">
             <div class="item">
-              <span class="label" data-i18n="aptInfo.aptNumber"></span>
-              <span class="value" id="aptNumber">—</span>
+              <span class="label" data-i18n="apt.html.label.contractStart"></span>
+              <span class="value" id="startDate">—</span>
             </div>
             <div class="item">
-              <span class="label" data-i18n="aptInfo.buildingName"></span>
-              <span class="value" id="buildingName">—</span>
+              <span class="label" data-i18n="apt.html.label.contractEnd"></span>
+              <span class="value" id="endDate">—</span>
             </div>
             <div class="item">
-              <span class="label" data-i18n="common.status"></span>
-              <span class="value" id="leaseStatus">—</span>
+              <span class="label" data-i18n="lease.meter"></span>
+              <span class="value" id="meterNumber">—</span>
             </div>
             <div class="item">
-              <span class="label" data-i18n="paymentsUi.monthlyRent"></span>
-              <span class="value" id="rentAmount">—</span>
+              <span class="label" data-i18n="common.note"></span>
+              <span class="value" id="notes">—</span>
             </div>
             <div class="item">
-              <span class="label" data-i18n="common.floorWord"></span>
-              <span class="value" id="floorNumber">—</span>
-            </div>
-            <div class="item">
-              <span class="label" data-i18n="ownerEdit.bedrooms"></span>
-              <span class="value" id="bedrooms">—</span>
-            </div>
-            <div class="item">
-              <span class="label" data-i18n="ownerEdit.bathrooms"></span>
-              <span class="value" id="bathrooms">—</span>
-            </div>
-            <div class="item">
-              <span class="label" data-i18n="ownerEdit.livingRooms"></span>
-              <span class="value" id="livingRooms">—</span>
+              <span class="label">
+                <span data-i18n="aptInfo.nextPayment"></span>
+                <span id="nextPaymentDate" class="next-payment-date"></span>
+              </span>
+              <span class="value" id="nextPaymentAmount">—</span>
             </div>
           </div>
         </section>
       </div>
 
-      <section class="details-card">
-        <h3 class="section-title" data-i18n="aptInfo.extraSection"></h3>
-        <div class="details-grid">
-          <div class="item">
-            <span class="label" data-i18n="apt.html.label.contractStart"></span>
-            <span class="value" id="startDate">—</span>
-          </div>
-          <div class="item">
-            <span class="label" data-i18n="apt.html.label.contractEnd"></span>
-            <span class="value" id="endDate">—</span>
-          </div>
-          <div class="item">
-            <span class="label" data-i18n="lease.meter"></span>
-            <span class="value" id="meterNumber">—</span>
-          </div>
-          <div class="item">
-            <span class="label" data-i18n="common.note"></span>
-            <span class="value" id="notes">—</span>
-          </div>
-          <div class="item">
-            <span class="label"
-              ><span data-i18n="aptInfo.nextPayment"></span>
-              <span id="nextPaymentDate" class="next-payment-date"></span
-            ></span>
-            <span class="value" id="nextPaymentAmount">—</span>
-          </div>
-        </div>
-      </section>
+      <div id="apartmentPaymentReminder" class="apartment-payment-reminder-box"></div>
 
-      <div class="apt-page-actions">
-        <div class="actions">
-          <div class="actions-row">
-            <button id="mainActionBtn" class="action-btn" type="button" data-i18n="aptPage.maintenanceRequest"></button>
-            <button id="paymentsBtn" class="action-btn" type="button" data-i18n="aptInfo.actions.viewPayments"></button>
-            <button id="documentsBtn" class="action-btn" type="button" data-i18n="aptInfo.actions.viewDocuments"></button>
-            <button id="viewRequestsBtn" class="action-btn" type="button" data-i18n="aptInfo.actions.viewRequests"></button>
-            <button id="viewCostsBtn" class="action-btn" type="button" data-i18n="aptInfo.actions.viewCosts"></button>
-            <button id="tenantPayBtn" class="action-btn action-black" type="button" data-i18n="aptInfo.actions.payRent"></button>
-          </div>
-          <div class="actions-row actions-row-bottom">
-            <button id="evictTenantBtn" class="action-btn action-red" type="button" data-i18n="aptInfo.actions.evict"></button>
-            <button id="renewContractBtn" class="action-btn action-blue" type="button" data-i18n="aptInfo.actions.renew"></button>
-          </div>
-        </div>
+      <section class="actions actions--pending" aria-busy="true">
+      <div class="actions-row">
+        <button id="mainActionBtn" class="action-btn" type="button" data-i18n="aptPage.maintenanceRequest"></button>
+        <button id="paymentsBtn" class="action-btn" type="button" data-i18n="aptInfo.actions.viewPayments"></button>
+        <button id="documentsBtn" class="action-btn" type="button" data-i18n="aptInfo.actions.viewDocuments"></button>
+        <button id="viewRequestsBtn" class="action-btn" type="button" data-i18n="aptInfo.actions.viewRequests"></button>
+        <button id="viewCostsBtn" class="action-btn" type="button" data-i18n="aptInfo.actions.viewCosts"></button>
+        <button id="tenantPayBtn" class="action-btn action-black" type="button" data-i18n="aptInfo.actions.payRent"></button>
       </div>
-    </div>
 
-    <div id="apartmentPaymentReminder" class="apartment-payment-reminder-box"></div>
+      <div class="actions-row actions-row-bottom">
+        <button id="evictTenantBtn" class="action-btn action-red" type="button" data-i18n="aptInfo.actions.evict"></button>
+        <button id="renewContractBtn" class="action-btn action-blue" type="button" data-i18n="aptInfo.actions.renew"></button>
+      </div>
+      </section>
+    </div>
   </main>
 
   <div id="requestModal" class="wl-modal" aria-hidden="true">
@@ -242,7 +241,7 @@
             <input id="linkPhoneNumber" type="text" maxlength="10" />
           </div>
           <div class="item">
-            <label class="label" for="linkRent" data-i18n="paymentsUi.monthlyRent"></label>
+            <label class="label" for="linkRent" data-i18n="paymentsUi.annualRent"></label>
             <input id="linkRent" type="number" min="0" step="0.01" />
           </div>
           <div class="item">
@@ -384,6 +383,8 @@
   <script src="../js/main/auth.js"></script>
   <script src="../js/main/nav.js"></script>
   <script src="../js/main/tenant-requests-api.js"></script>
+  <script src="../js/main/apartments-api.js"></script>
+  <script src="../js/main/saudi-national-id.js"></script>
   <script src="../js/apartment-manager/apartment-storage.js"></script>
   <script src="../js/apartment-manager/apartment-utils.js"></script>
   <script src="../js/apartment-manager/apartment-ui.js"></script>

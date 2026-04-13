@@ -6,7 +6,8 @@ class User(BaseModel):
     id: Optional[int] = None
     email: str
     password: str
-    role: str  # owner or tenant
+    # Omitted at signup until auth/role.html; server stores "pending" until then.
+    role: Optional[str] = None
     name: str
     phone: Optional[str] = None
     national_id: str
@@ -36,15 +37,6 @@ class Tenant(BaseModel):
     lease_start: datetime
     lease_end: datetime
     created_at: Optional[datetime] = None
-
-class Payment(BaseModel):
-    id: Optional[int] = None
-    tenant_id: int
-    amount: float
-    date: datetime
-    status: str  # paid, pending, etc.
-    created_at: Optional[datetime] = None
-
 
 class InstallmentUpdate(BaseModel):
     status: Optional[str] = None
@@ -147,6 +139,22 @@ class UserResponse(BaseModel):
     phone: Optional[str] = None
     national_id: Optional[str] = None
     created_at: Optional[datetime] = None
+    roles: Optional[List[str]] = None
+    active_role: Optional[str] = None
+
+
+class UserSelfUpdate(BaseModel):
+    """Allowed fields for PUT /users/me."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    national_id: Optional[str] = None
+    # Replace entire roles list (advanced); prefer active_role from role.html
+    roles: Optional[List[str]] = None
+    # Last choice on auth/role.html — merged into roles and sets legacy role column
+    active_role: Optional[str] = None
 
 class ApartmentResponse(BaseModel):
     model_config = ConfigDict(extra="ignore")

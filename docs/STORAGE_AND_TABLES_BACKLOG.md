@@ -10,11 +10,11 @@ Numbered backlog for moving off `localStorage` and wiring every Supabase table t
 
 ## Priority A — Core money & property (high impact)
 
-1. [ ] **Payments (`payments` + `payment_installments`)**  
-   Replace `walajna_payments` in owner-building, finance-summary, payment-options-page, and related JS with `GET/PATCH` flows against existing `/api` payment routes only.
+1. [x] **Payments (`payments` + `payment_installments`)**  
+   Owner/finance/payment-options/apartment page use **`GET /api/payments`** via `js/main/payments-api.js` (`WalajnaPaymentsApi.listMapped`); installments still use contract endpoints + `PATCH /api/payment-installments/{id}`. **`walajna_payments`** no longer read/written there. **`WalajnaPaymentsStorage`** remains for apartment payments **history / offline** paths only (`apartment-payments.js` when not server mode).
 
-2. [ ] **Apartments cache (`apartments`)**  
-   Stop using `walajna_apartments` as source of truth; load/save via `/api/apartments` only, with optional in-memory cache if needed (no persistent duplicate).
+2. [x] **Apartments cache (`apartments`)**  
+   **`GET /api/apartments`** is canonical when logged in; UI reads **`walajna_apartments_session`** (and `getApartments()` in `apartment-storage.js`) after `WalajnaApartmentsApi.refreshForSession()`. **`walajna_apartments`** in localStorage remains for demo/offline only (`saveApartments` skips it when authed).
 
 3. [ ] **Documents (`documents`)**  
    Remove `walajna_documents` reads/writes; use document API for list/upload/delete; fix owner-building delete path so it does not rely on local document arrays.
@@ -81,8 +81,8 @@ Numbered backlog for moving off `localStorage` and wiring every Supabase table t
 
 | Key | Target |
 |-----|--------|
-| `walajna_payments` | API payments + installments |
-| `walajna_apartments` | API apartments only |
+| `walajna_payments` | Deprecated for main flows; optional legacy in `WalajnaPaymentsStorage` |
+| `walajna_apartments` | Session mirror + API; local key demo/offline only |
 | `walajna_documents` | API documents |
 | `walajna_buildings` | API buildings |
 | `walajna_costs` | New costs table + API (if needed) |
@@ -92,4 +92,30 @@ Numbered backlog for moving off `localStorage` and wiring every Supabase table t
 
 ---
 
-*Last updated: 2026 — Messages tab aligned to `maintenance_requests` only; `messages` table optional.*
+## Priority E — API performance & fetch efficiency (do last)
+
+**Intent:** Cut latency and duplicate work (fewer Supabase round trips, less data per screen). This is **separate** from storage migration: it can start in small slices anytime, but treat **full** alignment (scoped endpoints + reconcile review) as **after** Priority A–D items that touch the same routes and pages—so you do not thrash `owner-building`, `apartment_routes`, and finance flows twice.
+
+**Rough effort:** quick wins (indexes, one scoped read + client switch) are **short**; deeper changes (aggregated “building dashboard” response, reconcile-on-read policy) are **medium** and need regression checks on lease status and `maintenance_id` sync.
+
+### Plan (ordered)
+
+1. [ ] **Measure** — In the browser Network tab, note TTFB and payload size for `GET /api/apartments`, `GET /api/buildings`, `GET /api/maintenance`, and `GET /api/contracts/.../installments` on the owner building and apartment detail flows. Optionally add simple timing logs around Supabase calls in FastAPI for the same routes.
+
+2. [ ] **Database indexes** — In Supabase, confirm indexes exist on columns the API filters often (at minimum: `apartments.owner_id`, `apartments.building_id`, `apartments.tenant_user_id`, FK-style columns used in joins/filters). Add missing indexes; re-measure list endpoints.
+
+3. [ ] **Scoped apartment reads** — Add a server route that returns apartments **for one `building_id` only** (with the same auth rules as today: owner must own the building). Example shape: `GET /api/buildings/{building_id}/apartments` or `GET /api/apartments?building_id=...`. Implement the same response shape / reconciliation behavior as `GET /api/apartments` for owners, but **only for rows in that building**, so payload and work shrink.
+
+4. [ ] **Wire owner building page** — Point `owner-building.js` at the scoped apartments call (and keep `GET /api/buildings` as today). Stop downloading the full owner apartment list for that screen when a building id is known. Align with checklist item 4 when you remove local building fallbacks.
+
+5. [ ] **Optional: building “summary” bundle** — If still slow, add one read that returns building + apartments (+ minimal finance hints) in **one** handler and one round trip from the browser; use only where it clearly wins over (3)+(4).
+
+6. [ ] **Reconcile policy** — Review `_reconcile_owner_apartment_statuses` and `_reconcile_owner_apartment_maintenance_pointers` on `GET /api/apartments`: avoid **writing** to `apartments` on every list request if reads can stay correct with computed fields or less frequent sync (detail page, PATCH flows, or a periodic job). Any change here needs explicit tests for overdue / maintenance pointer behavior.
+
+7. [ ] **Installments / finance** — Prefer **one** batched installments query for many contracts (or server-side aggregation) over N calls to `GET /api/contracts/{id}/installments` from the client for the same page load.
+
+8. [ ] **Re-verify UI** — After backend changes, confirm apartment detail action buttons, finance cards, and tenant vs owner views still match; keep any client-side “don’t block UI on slow sub-requests” patterns you already added.
+
+---
+
+*Last updated: 2026 — Added Priority E (API performance plan). Priority A item 2: apartments list from `/api/apartments` + session (`walajna_apartments_session`); item 1 (payments) wired to `/api/payments` + installments.*

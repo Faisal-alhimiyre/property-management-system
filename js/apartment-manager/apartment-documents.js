@@ -63,7 +63,7 @@ function getApartmentByIdForDocuments(aptId) {
         ? getApartments()
         : JSON.parse(localStorage.getItem("walajna_apartments") || "[]");
 
-    return apartments.find((apt) => apt.id === aptId) || null;
+    return apartments.find((apt) => String(apt.id) === String(aptId)) || null;
   } catch {
     return null;
   }
