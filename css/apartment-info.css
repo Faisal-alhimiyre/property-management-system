@@ -45,6 +45,62 @@ body{
   padding:0 20px;
 }
 
+/* Rows below the full-width title: tenant|apt, full-width معلومات إضافية, then actions (no card) */
+.details-layout{
+  display:flex;
+  flex-direction:column;
+  gap:20px;
+}
+
+.details-layout > .details-card{
+  margin-bottom:0;
+}
+
+.details-row--cols-2{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:20px;
+  align-items:stretch;
+}
+
+.details-row--cols-2 > .details-card{
+  margin-bottom:0;
+  min-width:0;
+}
+
+/* Actions sit below the extra-info card, same order, not inside the white box */
+.apt-page-actions{
+  width:100%;
+  align-self:stretch;
+}
+
+.apt-page-actions .actions{
+  margin-top:0;
+  gap:18px;
+}
+
+.apt-page-actions .actions-row{
+  flex-direction:row;
+  justify-content:center;
+  align-items:center;
+  flex-wrap:wrap;
+  width:100%;
+  gap:14px;
+}
+
+@media (max-width: 960px){
+  .details-row--cols-2{
+    grid-template-columns:1fr;
+  }
+}
+
+@media (max-width: 520px){
+  .details-layout,
+  .details-row--cols-2{
+    gap:14px;
+  }
+}
+
 /* Header */
 .header{
   background:linear-gradient(135deg, rgba(255,255,255,0.82), rgba(255,255,255,0.68));

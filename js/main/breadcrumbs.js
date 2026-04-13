@@ -118,7 +118,7 @@
     return t("aptPage.titleDynamic", { n: aptN, b: bName });
   }
 
-  /** Owner: Home → Buildings → Building → Apartment (link to details). */
+  /** Owner: Home → Building → Apartment (link to details). */
   function ownerApartmentPrefix(apt) {
     if (!apt) return null;
     const buildings = readLocalJson("walajna_buildings", "[]");
@@ -127,7 +127,6 @@
     const bid = apt.buildingId;
     return [
       { href: resolveHref("owner_home"), labelKey: "nav.home" },
-      { href: resolveHref("owner_home"), labelKey: "owner.pageTitle" },
       { href: resolveHref("owner_building", { buildingId: bid }), label: bName },
       { href: hrefApartmentInfo(apt.id), label: aptTitleFromRecord(apt) },
     ];
@@ -140,22 +139,6 @@
       { href: resolveHref("tenant_home"), labelKey: "nav.home" },
       { href: hrefApartmentInfo(apt.id), label: aptTitleFromRecord(apt) },
     ];
-  }
-
-  /** English → ">", Arabic → "<" (follows <html lang> / dir, then localStorage). */
-  function barBackChevronChar() {
-    const html = document.documentElement;
-    const lang = (html.getAttribute("lang") || "").toLowerCase().split("-")[0];
-    const dir = (html.getAttribute("dir") || "").toLowerCase();
-    if (lang === "ar" || lang === "ur") return "<";
-    if (lang === "en") return ">";
-    if (dir === "rtl") return "<";
-    if (dir === "ltr") return ">";
-    const stored =
-      global.walajna_language && typeof global.walajna_language.get === "function"
-        ? global.walajna_language.get()
-        : "ar";
-    return stored === "en" ? ">" : "<";
   }
 
   function segmentText(seg) {
@@ -205,27 +188,7 @@
       ol.appendChild(li);
     }
 
-    const useBarBack =
-      document.body &&
-      document.body.getAttribute("data-nav") === "user" &&
-      document.body.dataset.bcBarBack !== "false";
-    if (useBarBack) {
-      const bar = document.createElement("div");
-      bar.className = "walajna-breadcrumb__bar";
-      bar.appendChild(ol);
-      const backBtn = document.createElement("button");
-      backBtn.type = "button";
-      backBtn.className = "walajna-breadcrumb__bar-back";
-      backBtn.setAttribute("aria-label", t("history.back"));
-      backBtn.textContent = barBackChevronChar();
-      backBtn.addEventListener("click", () => {
-        global.history.back();
-      });
-      bar.appendChild(backBtn);
-      nav.replaceChildren(bar);
-    } else {
-      nav.replaceChildren(ol);
-    }
+    nav.replaceChildren(ol);
   }
 
   function set(segments) {
@@ -243,7 +206,7 @@
     let segments = [];
 
     if (bc === "owner-buildings") {
-      segments = [{ labelKey: "owner.pageTitle", current: true }];
+      segments = [{ labelKey: "nav.home", current: true }];
     } else if (bc === "tenant-units") {
       segments = [{ labelKey: "tenant.unitsTitle", current: true }];
     } else if (bc === "owner-building") {
@@ -253,7 +216,6 @@
       const bname = (building && building.name) || t("building.notFound");
       segments = [
         { href: resolveHref("owner_home"), labelKey: "nav.home" },
-        { href: resolveHref("owner_home"), labelKey: "owner.pageTitle" },
         { label: bname, current: true },
       ];
     } else if (bc === "apartment-details") {
@@ -279,7 +241,6 @@
         const bName = (bData && bData.name) || apt.buildingName || "—";
         segments = [
           { href: resolveHref("owner_home"), labelKey: "nav.home" },
-          { href: resolveHref("owner_home"), labelKey: "owner.pageTitle" },
           { href: resolveHref("owner_building", { buildingId: bid }), label: bName },
           { label: aptTitleFromRecord(apt), current: true },
         ];
@@ -361,14 +322,12 @@
         const bname = (b && b.name) || t("building.notFound");
         segments = [
           { href: resolveHref("owner_home"), labelKey: "nav.home" },
-          { href: resolveHref("owner_home"), labelKey: "owner.pageTitle" },
           { href: resolveHref("owner_building", { buildingId: editBuildingId }), label: bname },
           { labelKey: "owner.formTitleEdit", current: true },
         ];
       } else {
         segments = [
           { href: resolveHref("owner_home"), labelKey: "nav.home" },
-          { href: resolveHref("owner_home"), labelKey: "owner.pageTitle" },
           { labelKey: "owner.formTitleAdd", current: true },
         ];
       }
@@ -423,7 +382,6 @@
       const bname = (building && building.name) || t("building.notFound");
       segments = [
         { href: resolveHref("owner_home"), labelKey: "nav.home" },
-        { href: resolveHref("owner_home"), labelKey: "owner.pageTitle" },
         { href: resolveHref("owner_building", { buildingId: buildingId }), label: bname },
         { labelKey: "bc.financeSummary", current: true },
       ];

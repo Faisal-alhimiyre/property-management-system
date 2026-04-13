@@ -7,6 +7,37 @@ function wlT(key, params) {
 const sideLinks = document.querySelectorAll(".side-link");
 const panels = document.querySelectorAll(".panel");
 
+function applyGuestSettingsLayout() {
+  const wrap = document.querySelector(".settings-wrap");
+  const sidebar = document.querySelector(".settings-wrap .sidebar");
+
+  if (document.body.getAttribute("data-nav") !== "guest") {
+    wrap?.classList.remove("settings-wrap--guest");
+    if (sidebar) {
+      sidebar.removeAttribute("hidden");
+      sidebar.style.display = "";
+    }
+    sideLinks.forEach((btn) => {
+      btn.removeAttribute("hidden");
+      btn.style.display = "";
+    });
+    return;
+  }
+
+  /* Guest: only appearance — hide redundant sidebar; main panel already has the title. */
+  wrap?.classList.add("settings-wrap--guest");
+  if (sidebar) {
+    sidebar.setAttribute("hidden", "");
+    sidebar.style.display = "none";
+  }
+
+  panels.forEach((p) => {
+    p.classList.toggle("active", p.id === "appearance");
+  });
+}
+
+applyGuestSettingsLayout();
+
 sideLinks.forEach((btn) => {
   btn.addEventListener("click", () => {
     sideLinks.forEach((b) => b.classList.remove("active"));
@@ -514,7 +545,16 @@ document.getElementById("verifyPhoneBtn")?.addEventListener("click", () => {
   });
 })();
 
+document.addEventListener("DOMContentLoaded", () => {
+  applyGuestSettingsLayout();
+});
+
+document.addEventListener("walajna:navbar-ready", () => {
+  applyGuestSettingsLayout();
+});
+
 document.addEventListener("walajna:i18n-applied", () => {
+  applyGuestSettingsLayout();
   loadProfile();
   const sel = document.getElementById("walajnaLangSelect");
   if (sel && window.walajna_language) sel.value = walajna_language.get();

@@ -10,7 +10,22 @@
   <script src="../js/main/walajna-i18n-ur.js"></script>
   <script src="../js/main/walajna-i18n.js"></script>
 </head>
-<body data-nav="user" data-wl-bc="settings">
+<body data-nav-adaptive="true" data-wl-bc="settings">
+  <script>
+    (function () {
+      try {
+        var logged =
+          !!(
+            sessionStorage.getItem("walajna_current_user") ||
+            localStorage.getItem("walajna_current_user") ||
+            localStorage.getItem("access_token")
+          );
+        document.body.setAttribute("data-nav", logged ? "user" : "guest");
+      } catch (e) {
+        document.body.setAttribute("data-nav", "guest");
+      }
+    })();
+  </script>
   <div id="navbar-container"></div>
 
   <main class="settings-wrap">
