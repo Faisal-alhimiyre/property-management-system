@@ -10,7 +10,6 @@ from passlib.context import CryptContext
 users_db = []
 apartments_db = []
 tenants_db = []
-payments_db = []
 messages_db = []
 contracts_db = []
 maintenance_db = []

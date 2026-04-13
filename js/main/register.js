@@ -11,14 +11,18 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function isValidSaudiId(id) {
-    if (!/^\d{10}$/.test(id)) return false;
-    const first = id[0];
-
-    if (first !== "1" && first !== "2") return false;
+    const s = String(id).trim();
+    if (
+      typeof isSaudiNationalOrIqamaFormat === "function"
+        ? !isSaudiNationalOrIqamaFormat(s)
+        : !/^[12]\d{9}$/.test(s)
+    ) {
+      return false;
+    }
 
     let sum = 0;
     for (let i = 0; i < 10; i++) {
-      const digit = Number(id[i]);
+      const digit = Number(s[i]);
       if ((i + 1) % 2 === 1) {
         const doubled = digit * 2;
         sum += doubled > 9 ? doubled - 9 : doubled;
@@ -69,7 +73,6 @@ document.addEventListener("DOMContentLoaded", () => {
           password,
           national_id: nationalId,
           phone: phoneNumber,
-          role: 'owner'  // Default to owner, can be changed later
         }),
       });
 

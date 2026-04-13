@@ -12,6 +12,19 @@
     }
   }
 
+  function readApartmentsForBreadcrumb() {
+    try {
+      const ses = global.sessionStorage.getItem("walajna_apartments_session");
+      if (ses) {
+        const parsed = JSON.parse(ses);
+        if (Array.isArray(parsed) && parsed.length) return parsed;
+      }
+    } catch {
+      /* ignore */
+    }
+    return readLocalJson("walajna_apartments", "[]");
+  }
+
   function pathFlags() {
     const path = String(global.location.pathname || "").replace(/\\/g, "/");
     return {
@@ -245,7 +258,7 @@
       ];
     } else if (bc === "apartment-details") {
       const aptId = params.get("id");
-      const apartments = readLocalJson("walajna_apartments", "[]");
+      const apartments = readApartmentsForBreadcrumb();
       const apt = apartments.find((a) => String(a.id) === String(aptId));
 
       if (!apt) {
@@ -288,7 +301,7 @@
       ];
     } else if (bc === "costs") {
       const aptId = params.get("id");
-      const apartments = readLocalJson("walajna_apartments", "[]");
+      const apartments = readApartmentsForBreadcrumb();
       const apt = apartments.find((a) => String(a.id) === String(aptId));
       if (!apt) {
         segments = [
@@ -304,7 +317,7 @@
       }
     } else if (bc === "payments") {
       const aptId = params.get("id") || params.get("apartmentId");
-      const apartments = readLocalJson("walajna_apartments", "[]");
+      const apartments = readApartmentsForBreadcrumb();
       const apt = apartments.find((a) => String(a.id) === String(aptId));
       if (!apt) {
         segments = [
@@ -321,7 +334,7 @@
     } else if (bc === "payment-options") {
       const aptId = params.get("id");
       const paymentId = params.get("paymentId");
-      const apartments = readLocalJson("walajna_apartments", "[]");
+      const apartments = readApartmentsForBreadcrumb();
       const apt = apartments.find((a) => String(a.id) === String(aptId));
       if (!apt) {
         segments = [
@@ -361,7 +374,7 @@
       }
     } else if (bc === "apartment-history") {
       const apartmentId = params.get("apartmentId");
-      const apartments = readLocalJson("walajna_apartments", "[]");
+      const apartments = readApartmentsForBreadcrumb();
       const apt = apartments.find((a) => String(a.id) === String(apartmentId));
       if (!apt) {
         segments = [
@@ -377,7 +390,7 @@
       }
     } else if (bc === "apartment-history-details") {
       const apartmentId = params.get("apartmentId");
-      const apartments = readLocalJson("walajna_apartments", "[]");
+      const apartments = readApartmentsForBreadcrumb();
       const apt = apartments.find((a) => String(a.id) === String(apartmentId));
       if (!apt) {
         segments = [

@@ -68,6 +68,31 @@
     };
 
     let selectedPaymentId = null;
+    let paymentsSearchKeyword = "";
+
+    function filterPaymentsByKeyword(payments, keyword) {
+      const q = (keyword || "").trim().toLowerCase();
+      if (!q) return payments;
+      return payments.filter((p) => {
+        const blob = [
+          p.dueDate,
+          p.paidAt,
+          p.amount,
+          p.originalAmount,
+          p.status,
+          p.paymentMethod,
+          p.notes,
+          utils.getPaymentStatusLabel(p.status),
+          utils.formatCurrency(p.amount),
+          utils.formatDate(p.dueDate),
+          p.paidAt ? utils.formatDate(p.paidAt) : "",
+        ]
+          .filter((x) => x != null && x !== "")
+          .join(" ")
+          .toLowerCase();
+        return blob.includes(q);
+      });
+    }
 
     function getHistoryEntry() {
       if (mode !== "history" || !historyId) return null;
@@ -254,7 +279,7 @@
       }
     }
 
-    function getContractInfo() {
+    function getContractInfo(payments) {
       const historyEntry = getHistoryEntry();
       const historyContract = historyEntry?.contract || {};
 
@@ -285,7 +310,16 @@
             }
           : utils.getEffectivePaymentSettings(apartment);
 
-      const paymentCycle = effectiveSettings.paymentCycle || "monthly";
+      let paymentCycle = effectiveSettings.paymentCycle || "monthly";
+      if (mode !== "history" && Array.isArray(payments) && payments.length) {
+        const inferred = utils.inferPaymentCycleFromInstallments(
+          payments,
+          monthlyRent
+        );
+        if (inferred && paymentCycle === "monthly") {
+          paymentCycle = inferred;
+        }
+      }
       const installmentAmount =
         monthlyRent * utils.getCycleMonths(paymentCycle);
 
@@ -305,6 +339,7 @@
         installmentAmount,
         contractStartDate: contract.startDate || "",
         contractEndDate: contract.endDate || "",
+        installmentCount: Array.isArray(payments) ? payments.length : 0,
       };
     }
 
@@ -312,7 +347,7 @@
       if (!elements.summaryContainer) return;
 
       const summary = utils.calculatePaymentsSummary(payments);
-      const contractInfo = getContractInfo();
+      const contractInfo = getContractInfo(payments);
 
       ui.renderSummary(
         elements.summaryContainer,
@@ -332,6 +367,12 @@
     }
 
     function renderPaymentsPage() {
+      const prevSearch =
+        (document.getElementById("searchInput") &&
+          document.getElementById("searchInput").value) ||
+        paymentsSearchKeyword ||
+        "";
+
       const payments = getSortedApartmentPayments();
 
       renderReminder(payments);
@@ -346,7 +387,16 @@
         );
       }
       renderSummary(payments);
-      renderTable(payments);
+      const searchInput = document.getElementById("searchInput");
+      if (searchInput) {
+        searchInput.value = prevSearch;
+        paymentsSearchKeyword = prevSearch;
+      }
+      const filtered = filterPaymentsByKeyword(
+        payments,
+        searchInput ? searchInput.value : prevSearch
+      );
+      renderTable(filtered);
       bindTableActions(payments);
     }
 
@@ -528,6 +578,19 @@
     }
 
     ensureScheduleForCurrentContract();
+
+    const payWrap = document.querySelector(".pay-wrap");
+    if (payWrap && !payWrap.dataset.paymentsSearchBound) {
+      payWrap.dataset.paymentsSearchBound = "1";
+      payWrap.addEventListener("input", function (e) {
+        if (!e.target || e.target.id !== "searchInput") return;
+        paymentsSearchKeyword = e.target.value || "";
+        const list = getSortedApartmentPayments();
+        renderTable(filterPaymentsByKeyword(list, paymentsSearchKeyword));
+        bindTableActions(list);
+      });
+    }
+
     renderPaymentsPage();
     bindPaymentForm();
 

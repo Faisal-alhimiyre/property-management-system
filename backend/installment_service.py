@@ -44,7 +44,8 @@ def generate_installment_rows(
     idx = 0
     current = start_date
 
-    while current <= end_date:
+    # end_date is exclusive (e.g. lease Mar 1 2026 → Mar 1 2027 = 12 monthly dues, last due Feb 1 2027).
+    while current < end_date:
         inst_amount = monthly_rent * Decimal(cm)
         rows.append(
             {

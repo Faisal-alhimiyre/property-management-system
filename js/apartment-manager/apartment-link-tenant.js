@@ -206,12 +206,24 @@ function syncEndDateWithStartDate(force = false) {
     }
   }
 
+  /** Form field is yearly rent; `data.rent` is monthly equivalent (yearly/12) for API/storage. */
+  function getYearlyRentFromFormData(data) {
+    if (!data) return 0;
+    if (data.yearlyRent != null && data.yearlyRent !== "") {
+      const y = Number(data.yearlyRent);
+      return Number.isFinite(y) ? y : 0;
+    }
+    const m = Number(data.rent);
+    return Number.isFinite(m) && m > 0 ? m * 12 : 0;
+  }
+
   function buildInstallmentsSchedule(data) {
     const count = Number(data.installmentsCount || 0);
     const startDate = data.startDate ? new Date(data.startDate) : null;
     const cycleMonths = getCycleMonths(data.paymentCycle);
-    const totalRent = Number(data.rent || 0);
-    const installmentAmount = count > 0 ? totalRent / count : totalRent;
+    const yearly = getYearlyRentFromFormData(data);
+    const monthlyEq = yearly > 0 ? yearly / 12 : 0;
+    const perPayment = monthlyEq * cycleMonths;
 
     if (!startDate || Number.isNaN(startDate.getTime()) || count < 1) {
       return [];
@@ -225,7 +237,7 @@ function syncEndDateWithStartDate(force = false) {
           : window.walajna_language && window.walajna_language.get() === "en"
             ? "en-SA"
             : "ar-SA";
-      const amt = Math.round(installmentAmount);
+      const amt = Math.round(perPayment);
       const amountStr =
         amt === 0
           ? T("common.sarZero")
@@ -515,7 +527,7 @@ function syncEndDateWithStartDate(force = false) {
       <div class="section-title">${escapeHtml(T("lease.financial"))}</div>
       <div class="section-body">
         <div class="grid">
-          <div class="field"><div class="label">${escapeHtml(T("lease.rentValue"))}</div><div class="value">${escapeHtml(formatCurrency(data.rent))}</div></div>
+          <div class="field"><div class="label">${escapeHtml(T("lease.rentValue"))}</div><div class="value">${escapeHtml(formatCurrency(getYearlyRentFromFormData(data)))}</div></div>
           <div class="field"><div class="label">${escapeHtml(T("lease.insurance"))}</div><div class="value">${escapeHtml(formatCurrency(data.insurancePaid))}</div></div>
           <div class="field"><div class="label">${escapeHtml(T("lease.payCycle"))}</div><div class="value">${escapeHtml(getPaymentCycleLabel(data.paymentCycle))}</div></div>
           <div class="field"><div class="label">${escapeHtml(T("lease.installments"))}</div><div class="value">${escapeHtml(data.installmentsCount)}</div></div>
@@ -757,7 +769,11 @@ function resetForm() {
   setFieldValue(elements.nationality, tenantInfo.nationality);
   setFieldValue(elements.tenantType, tenantInfo.tenantType);
   setFieldValue(elements.phoneNumber, tenantInfo.phoneNumber);
-  setFieldValue(elements.rent, apartmentData.rent || contract.rentAmount || "");
+  {
+    const monthly = Number(apartmentData.rent || contract.rentAmount || 0);
+    const yearlyField = monthly > 0 ? String(monthly * 12) : "";
+    setFieldValue(elements.rent, yearlyField);
+  }
 
   setFieldValue(
     elements.paymentCycle,
@@ -836,15 +852,20 @@ function resetForm() {
       getFieldValue(elements.installmentsCount) || 0
     );
 
+    const rawYearly = getFieldValue(elements.rent);
+    const yearlyNum =
+      rawYearly !== "" && rawYearly != null ? Number(rawYearly) : NaN;
+    const monthlyStored =
+      Number.isFinite(yearlyNum) && yearlyNum > 0 ? yearlyNum / 12 : "";
+
     return {
       fullName: getFieldValue(elements.fullName),
       nationalId: getFieldValue(elements.nationalId),
       nationality: getFieldValue(elements.nationality),
       tenantType: getFieldValue(elements.tenantType),
       phone: getFieldValue(elements.phoneNumber),
-      rent: getFieldValue(elements.rent),
-
-      brokerName: getFieldValue(elements.brokerName),
+      yearlyRent: yearlyNum,
+      rent: monthlyStored === "" ? "" : monthlyStored,
 
       brokerName: getFieldValue(elements.brokerName),
       brokerCommercialRegister: getFieldValue(elements.brokerCommercialRegister),
@@ -887,7 +908,9 @@ function resetForm() {
     if (!data.nationality) return T("linkModal.val.nationality");
     if (!data.tenantType) return T("linkModal.val.tenantType");
     if (!data.phone) return T("linkModal.val.phone");
-    if (!data.rent) return T("linkModal.val.rent");
+    if (!Number.isFinite(data.yearlyRent) || data.yearlyRent <= 0) {
+      return T("linkModal.val.rent");
+    }
     if (!data.paymentCycle) return T("linkModal.val.paymentCycle");
 
     if (!data.installmentsCount || Number(data.installmentsCount) < 1) {
@@ -898,7 +921,11 @@ function resetForm() {
       return T("linkModal.val.dates");
     }
 
-    if (!/^\d{10}$/.test(data.nationalId)) {
+    const nidOk =
+      typeof isSaudiNationalOrIqamaFormat === "function"
+        ? isSaudiNationalOrIqamaFormat(data.nationalId)
+        : /^[12]\d{9}$/.test(String(data.nationalId || "").trim());
+    if (!nidOk) {
       return T("linkModal.val.nationalIdDigits");
     }
 
@@ -1394,7 +1421,7 @@ function resetForm() {
     reader.onload = function (e) {
       const text = e.target.result || "";
 
-      const nationalIdMatch = text.match(/\b\d{10}\b/);
+      const nationalIdMatch = text.match(/\b[12]\d{9}\b/);
       const phoneMatch = text.match(/05\d{8}/);
 
       if (nationalIdMatch && elements.nationalId) {

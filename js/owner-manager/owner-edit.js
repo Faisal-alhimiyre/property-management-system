@@ -65,6 +65,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
+  function listApartmentsForEdit() {
+    if (typeof getApartments === "function") return getApartments();
+    return getLocalArray("walajna_apartments");
+  }
+
   function saveLocalArray(key, value) {
     localStorage.setItem(key, JSON.stringify(value));
   }
@@ -288,6 +293,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   await WalajnaAuth.hydrateSession();
+  if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.refreshForSession) {
+    try {
+      await WalajnaApartmentsApi.refreshForSession();
+    } catch (e) {
+      console.warn("[owner-edit] apartments cache failed", e);
+    }
+  }
 
   refreshFormChrome();
   document.addEventListener("walajna:i18n-applied", () => {
@@ -438,7 +450,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     const buildings = getLocalArray("walajna_buildings");
-    const apartments = getLocalArray("walajna_apartments");
+    const apartments = listApartmentsForEdit();
 
     const normalizeLower = (value) => String(value || "").trim().toLowerCase();
 
@@ -555,7 +567,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       });
 
       saveLocalArray("walajna_buildings", updatedBuildings);
-      saveLocalArray("walajna_apartments", updatedApartments);
+      if (typeof saveApartments === "function") {
+        saveApartments(updatedApartments);
+      } else {
+        saveLocalArray("walajna_apartments", updatedApartments);
+      }
 
       if (!apiSucceeded) {
         showSuccess(T("owner.updatedOffline"));
@@ -577,7 +593,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       apartments.push(...newApartments);
 
       saveLocalArray("walajna_buildings", buildings);
-      saveLocalArray("walajna_apartments", apartments);
+      if (typeof saveApartments === "function") {
+        saveApartments(apartments);
+      } else {
+        saveLocalArray("walajna_apartments", apartments);
+      }
 
       // Backend create-building already seeds apartments.
       // Keep local state for rendering, but do not re-insert apartments via /api/apartments.

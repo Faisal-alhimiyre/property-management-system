@@ -1,4 +1,5 @@
 (function () {
+  /** @deprecated Prefer server `payment_installments` via apartment payments page / contract APIs. */
   const PAYMENTS_KEY = "walajna_payments";
 
   function getPayments() {

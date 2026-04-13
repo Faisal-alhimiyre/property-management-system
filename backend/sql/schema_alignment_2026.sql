@@ -80,7 +80,6 @@ CREATE INDEX IF NOT EXISTS tenants_user_id_idx ON public.tenants(user_id);
 CREATE INDEX IF NOT EXISTS tenants_apartment_id_idx ON public.tenants(apartment_id);
 CREATE INDEX IF NOT EXISTS contracts_apartment_id_idx ON public.contracts(apartment_id);
 CREATE INDEX IF NOT EXISTS contracts_tenant_id_idx ON public.contracts(tenant_id);
-CREATE INDEX IF NOT EXISTS payments_tenant_id_idx ON public.payments(tenant_id);
 
 COMMIT;
 

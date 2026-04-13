@@ -36,6 +36,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (typeof WalajnaAuth !== "undefined" && WalajnaAuth.hydrateSession) {
     await WalajnaAuth.hydrateSession();
   }
+  if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.refreshForSession) {
+    try {
+      await WalajnaApartmentsApi.refreshForSession();
+    } catch (e) {
+      console.warn("[messages] apartments cache failed", e);
+    }
+  }
 
   function getSessionStoredUser() {
     try {
@@ -458,7 +465,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const buildings = getLocalArray("walajna_buildings");
     const users = getLocalArray(STORAGE_KEYS.USERS);
-    const apartments = getLocalArray("walajna_apartments");
+    const apartments =
+      typeof getApartments === "function"
+        ? getApartments()
+        : getLocalArray("walajna_apartments");
 
     const currentNationalId = String(currentUser?.nationalId || "");
 

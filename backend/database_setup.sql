@@ -1,5 +1,5 @@
 -- Database schema for Property Management App
--- Includes tables for users, apartments, tenants, payments, messages, contracts, documents, maintenance requests, notifications, and apartment history
+-- Includes tables for users, apartments, tenants, messages, contracts, documents, maintenance requests, notifications, and apartment history
 
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
@@ -26,15 +26,6 @@ CREATE TABLE tenants (
     apartment_id INTEGER REFERENCES apartments(id) ON DELETE CASCADE,
     lease_start DATE NOT NULL,
     lease_end DATE NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE payments (
-    id SERIAL PRIMARY KEY,
-    tenant_id INTEGER REFERENCES tenants(id) ON DELETE CASCADE,
-    amount DECIMAL(10,2) NOT NULL,
-    date DATE NOT NULL,
-    status VARCHAR(50) DEFAULT 'pending', -- 'paid', 'pending', etc.
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

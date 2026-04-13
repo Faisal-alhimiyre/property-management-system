@@ -34,9 +34,10 @@ document.addEventListener("DOMContentLoaded", async function () {
   }
 
   if (mode === "history" && historyId) {
-    const apartments = JSON.parse(
-      localStorage.getItem("walajna_apartments") || "[]"
-    );
+    const apartments =
+      typeof getApartments === "function"
+        ? getApartments()
+        : JSON.parse(localStorage.getItem("walajna_apartments") || "[]");
     const apartment = apartments.find(
       (apt) => String(apt.id) === String(apartmentId)
     );
@@ -94,26 +95,51 @@ document.addEventListener("DOMContentLoaded", async function () {
       throw new Error("apartment fetch failed");
     }
     const apiApartment = await apartmentResponse.json();
-    const currentContractId =
-      apiApartment.current_contract_id ?? null;
+    const aptIdStr = String(apiApartment.id);
 
-    let contract = null;
-    if (currentContractId) {
-      const contractsResponse = await WalajnaAuth.fetchWithAuth(
-        `${apiBase}/api/contracts`,
-        { method: "GET" }
-      );
-      if (contractsResponse.ok) {
-        const contracts = await contractsResponse.json();
-        contract = Array.isArray(contracts)
-          ? contracts.find(
-              (item) => String(item.id) === String(currentContractId)
-            )
-          : null;
-      }
+    let contractsList = [];
+    const contractsResponse = await WalajnaAuth.fetchWithAuth(
+      `${apiBase}/api/contracts`,
+      { method: "GET" }
+    );
+    if (contractsResponse.ok) {
+      const raw = await contractsResponse.json();
+      contractsList = Array.isArray(raw) ? raw : [];
     }
 
-    return { apiApartment, contract, currentContractId };
+    const contractsForApartment = contractsList.filter(
+      (c) => c && String(c.apartment_id) === aptIdStr
+    );
+
+    let pinnedId = apiApartment.current_contract_id ?? null;
+    if (
+      pinnedId != null &&
+      !contractsForApartment.some((c) => String(c.id) === String(pinnedId))
+    ) {
+      pinnedId = null;
+    }
+
+    let primaryContractId = pinnedId;
+    if (!primaryContractId && contractsForApartment.length) {
+      const sorted = [...contractsForApartment].sort(
+        (a, b) => Number(b.id) - Number(a.id)
+      );
+      primaryContractId = sorted[0].id;
+    }
+
+    const contract =
+      primaryContractId != null
+        ? contractsForApartment.find(
+            (item) => String(item.id) === String(primaryContractId)
+          ) || null
+        : null;
+
+    return {
+      apiApartment,
+      contract,
+      currentContractId: primaryContractId,
+      contractsForApartment,
+    };
   }
 
   function mapInstallmentRows(rows, apiApartment, contractIdStr) {
@@ -146,31 +172,18 @@ document.addEventListener("DOMContentLoaded", async function () {
     });
   }
 
-  function mapLegacyPaymentRows(rows, apiApartment, contractIdStr) {
-    const aid = String(apiApartment.id ?? apartmentId);
-    return (rows || []).map((r, idx) => {
-      const dateRaw = r.date || r.paid_at || r.paidAt || r.due_date || "";
-      const dateOnly = dateRaw ? String(dateRaw).slice(0, 10) : "";
-      const amount = Number(r.amount ?? 0);
-      return {
-        id: String(r.id ?? `legacy_${idx}_${Date.now()}`),
-        contractId: String(r.contract_id ?? contractIdStr ?? ""),
-        apartmentId: String(r.apartment_id ?? aid),
-        dueDate: dateOnly,
-        amount,
-        originalAmount: amount,
-        status: (r.status || "pending").toLowerCase(),
-        paymentMethod: r.payment_method || "",
-        paidAt: (r.status || "").toLowerCase() === "paid" ? dateOnly : "",
-        notes: r.notes || "",
-      };
-    });
-  }
-
   let apartment;
+  /** Contracts for this apartment from GET /api/contracts (resolves stale current_contract_id). */
+  let contractsForThisApartment = [];
   try {
-    const { apiApartment, contract, currentContractId } =
-      await fetchApartmentFromApi();
+    const {
+      apiApartment,
+      contract,
+      currentContractId,
+      contractsForApartment,
+    } = await fetchApartmentFromApi();
+
+    contractsForThisApartment = contractsForApartment || [];
 
     apartment = {
       id: String(apiApartment.id),
@@ -186,7 +199,10 @@ document.addEventListener("DOMContentLoaded", async function () {
             startDate: contract.start_date || "",
             endDate: contract.end_date || "",
             rentAmount: Number(apiApartment.rent ?? 0),
-            paymentCycle: "monthly",
+            paymentCycle:
+              contract.payment_cycle ||
+              contract.paymentCycle ||
+              "monthly",
           }
         : {},
     };
@@ -202,60 +218,67 @@ document.addEventListener("DOMContentLoaded", async function () {
   const serverPaymentsRef = { current: [] };
   let installmentsApiError = null;
 
-  async function loadLegacyPaymentsFallback() {
-    const legacyRes = await WalajnaAuth.fetchWithAuth(
-      `${apiBase}/api/payments`,
-      { method: "GET" }
-    );
-    if (!legacyRes.ok) {
-      return [];
-    }
-    const legacyRows = await legacyRes.json();
-    const wantedApartmentId = String(apartment.apiId ?? apartment.id);
-    const filtered = (Array.isArray(legacyRows) ? legacyRows : []).filter((r) => {
-      if (r.apartment_id == null) return false;
-      return String(r.apartment_id) === wantedApartmentId;
-    });
-    return mapLegacyPaymentRows(
-      filtered,
-      apartment,
-      String(contractIdForServer || "")
-    );
-  }
-
   async function reloadServerPayments() {
-    if (!contractIdForServer) {
-      serverPaymentsRef.current = await loadLegacyPaymentsFallback();
+    const contractIds = (contractsForThisApartment || [])
+      .map((c) => c.id)
+      .filter((id) => id != null)
+      .sort((a, b) => Number(a) - Number(b));
+
+    if (!contractIds.length) {
+      serverPaymentsRef.current = [];
       return;
     }
+
+    const primaryCid =
+      contractIdForServer != null
+        ? String(contractIdForServer)
+        : String(contractIds[contractIds.length - 1]);
+
     try {
-      const listRes = await WalajnaAuth.fetchWithAuth(
-        `${apiBase}/api/contracts/${encodeURIComponent(contractIdForServer)}/installments`,
-        { method: "GET" }
-      );
-      if (listRes.status === 401) {
-        if (typeof WalajnaAuth.handleUnauthorized === "function") {
-          WalajnaAuth.handleUnauthorized();
+      const byRowId = new Map();
+      for (const cid of contractIds) {
+        const listRes = await WalajnaAuth.fetchWithAuth(
+          `${apiBase}/api/contracts/${encodeURIComponent(String(cid))}/installments`,
+          { method: "GET" }
+        );
+        if (listRes.status === 401) {
+          if (typeof WalajnaAuth.handleUnauthorized === "function") {
+            WalajnaAuth.handleUnauthorized();
+          }
+          serverPaymentsRef.current = [];
+          return;
         }
-        serverPaymentsRef.current = [];
-        return;
+        if (!listRes.ok) {
+          continue;
+        }
+        const chunk = await listRes.json();
+        for (const row of Array.isArray(chunk) ? chunk : []) {
+          if (row && row.id != null) {
+            byRowId.set(String(row.id), row);
+          }
+        }
       }
-      if (!listRes.ok) {
-        // Contract installments may return 403 for some mixed role/account states.
-        // Fallback to legacy /api/payments so tenant table still renders.
-        serverPaymentsRef.current = await loadLegacyPaymentsFallback();
-        return;
-      }
-      let rows = await listRes.json();
+
+      let merged = Array.from(byRowId.values());
+      merged.sort((a, b) => {
+        const da = String(a.due_date || "");
+        const db = String(b.due_date || "");
+        if (da !== db) return da.localeCompare(db);
+        return (
+          Number(a.installment_index || 0) - Number(b.installment_index || 0)
+        );
+      });
+
       if (
-        (!rows || rows.length === 0) &&
+        (!merged || merged.length === 0) &&
         activeRole === "owner" &&
         apartment.contract?.startDate &&
-        apartment.contract?.endDate
+        apartment.contract?.endDate &&
+        primaryCid
       ) {
         const cycle = apartment.contract?.paymentCycle || "monthly";
         const genRes = await WalajnaAuth.fetchWithAuth(
-          `${apiBase}/api/contracts/${encodeURIComponent(contractIdForServer)}/installments/generate`,
+          `${apiBase}/api/contracts/${encodeURIComponent(primaryCid)}/installments/generate`,
           {
             method: "POST",
             body: JSON.stringify({ payment_cycle: cycle }),
@@ -263,34 +286,30 @@ document.addEventListener("DOMContentLoaded", async function () {
         );
         if (genRes.ok) {
           const listRes2 = await WalajnaAuth.fetchWithAuth(
-            `${apiBase}/api/contracts/${encodeURIComponent(contractIdForServer)}/installments`,
+            `${apiBase}/api/contracts/${encodeURIComponent(primaryCid)}/installments`,
             { method: "GET" }
           );
           if (listRes2.ok) {
-            rows = await listRes2.json();
+            const rows = await listRes2.json();
+            merged = Array.isArray(rows) ? rows : [];
           }
         }
       }
-      serverPaymentsRef.current = mapInstallmentRows(
-        rows,
-        apartment,
-        String(contractIdForServer)
-      );
 
-      // Fallback: if installments are empty, load legacy /api/payments rows
-      // so tenant payment table still renders.
-      if (!serverPaymentsRef.current.length) {
-        serverPaymentsRef.current = await loadLegacyPaymentsFallback();
-      }
+      serverPaymentsRef.current = mapInstallmentRows(
+        merged,
+        apartment,
+        primaryCid
+      );
     } catch (e) {
       console.warn("installments fetch failed (network/CORS/server):", e);
       installmentsApiError =
         "تعذر جلب جدول الدفعات من الخادم. تأكد أن الـ API يعمل على المنفذ 8002 ثم أعد تحميل الصفحة.";
-      serverPaymentsRef.current = await loadLegacyPaymentsFallback();
+      serverPaymentsRef.current = [];
     }
   }
 
-  if (contractIdForServer) {
+  if (contractIdForServer || (contractsForThisApartment || []).length) {
     await reloadServerPayments();
   }
 
@@ -302,7 +321,9 @@ document.addEventListener("DOMContentLoaded", async function () {
       historyId,
       historyContractId,
       paymentsFromApi: true,
-      serverMode: Boolean(contractIdForServer),
+      serverMode: Boolean(
+        contractIdForServer || (contractsForThisApartment || []).length
+      ),
       contractIdForServer,
       serverPaymentsRef,
       reloadServerPayments,

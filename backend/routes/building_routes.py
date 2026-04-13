@@ -1,11 +1,82 @@
 import logging
+from collections import defaultdict
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException
+from installment_service import cycle_months
 from models import Building, BuildingResponse
 from config import supabase
 from routes.auth_routes import get_current_user
+from user_roles import has_role
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+def _parse_iso_date(val) -> date | None:
+    if val is None:
+        return None
+    if isinstance(val, date):
+        return val
+    try:
+        return date.fromisoformat(str(val)[:10])
+    except (TypeError, ValueError):
+        return None
+
+
+def _contract_id_to_period_months(
+    contract_rows: list[dict], installment_rows: list[dict]
+) -> dict[int, int]:
+    """
+    Months covered by one installment row for that contract (1=monthly, 3=quarterly, …).
+    Prefer contracts.payment_cycle; else infer from spacing between consecutive due_dates.
+    """
+    result: dict[int, int] = {}
+    for c in contract_rows or []:
+        cid = c.get("id")
+        if cid is None:
+            continue
+        try:
+            ic = int(cid)
+        except (TypeError, ValueError):
+            continue
+        pc = c.get("payment_cycle")
+        if pc is not None and str(pc).strip() != "":
+            result[ic] = cycle_months(str(pc))
+
+    by_cid: dict[int, list[dict]] = defaultdict(list)
+    for r in installment_rows or []:
+        cid = r.get("contract_id")
+        if cid is None:
+            continue
+        try:
+            by_cid[int(cid)].append(r)
+        except (TypeError, ValueError):
+            continue
+
+    for cid, group in by_cid.items():
+        if cid in result and result[cid] >= 1:
+            continue
+        sorted_g = sorted(group, key=lambda x: str(x.get("due_date") or ""))
+        if len(sorted_g) >= 2:
+            d0 = _parse_iso_date(sorted_g[0].get("due_date"))
+            d1 = _parse_iso_date(sorted_g[1].get("due_date"))
+            if d0 and d1:
+                months = (d1.year - d0.year) * 12 + (d1.month - d0.month)
+                result[cid] = max(1, months)
+        if cid not in result:
+            result[cid] = 1
+
+    for c in contract_rows or []:
+        if c.get("id") is None:
+            continue
+        try:
+            ic = int(c["id"])
+        except (TypeError, ValueError):
+            continue
+        result.setdefault(ic, 1)
+
+    return result
 
 
 def _to_int(value, default: int = 0) -> int:
@@ -138,7 +209,7 @@ def _filter_new_apartment_rows(building_id: int, rows: list[dict]) -> list[dict]
 
 @router.post("/buildings", response_model=BuildingResponse)
 async def create_building(building: dict, current_user: dict = Depends(get_current_user)):
-    if current_user["role"] != "owner":
+    if not has_role(current_user, "owner"):
         raise HTTPException(status_code=403, detail="Only owners can create buildings")
 
     logger.info("Create building incoming payload: %s", building)
@@ -225,7 +296,7 @@ async def create_building(building: dict, current_user: dict = Depends(get_curre
 
 @router.get("/buildings", response_model=list[BuildingResponse])
 async def get_buildings(current_user: dict = Depends(get_current_user)):
-    if current_user["role"] != "owner":
+    if not has_role(current_user, "owner"):
         raise HTTPException(status_code=403, detail="Only owners can list buildings")
 
     result = supabase.table("buildings").select("*").eq("owner_id", current_user["id"]).execute()
@@ -233,7 +304,7 @@ async def get_buildings(current_user: dict = Depends(get_current_user)):
 
 @router.patch("/buildings/{building_id}", response_model=BuildingResponse)
 async def update_building(building_id: int, building: Building, current_user: dict = Depends(get_current_user)):
-    if current_user["role"] != "owner":
+    if not has_role(current_user, "owner"):
         raise HTTPException(status_code=403, detail="Only owners can edit buildings")
 
     existing = supabase.table("buildings").select("*").eq("id", building_id).execute()
@@ -250,7 +321,7 @@ async def update_building(building_id: int, building: Building, current_user: di
 
 @router.delete("/buildings/{building_id}")
 async def delete_building(building_id: int, current_user: dict = Depends(get_current_user)):
-    if current_user["role"] != "owner":
+    if not has_role(current_user, "owner"):
         raise HTTPException(status_code=403, detail="Only owners can delete buildings")
 
     existing = supabase.table("buildings").select("*").eq("id", building_id).execute()
@@ -266,7 +337,7 @@ async def delete_building(building_id: int, current_user: dict = Depends(get_cur
 
 @router.post("/buildings/{building_id}/seed-apartments")
 async def seed_building_apartments(building_id: int, current_user: dict = Depends(get_current_user)):
-    if current_user["role"] != "owner":
+    if not has_role(current_user, "owner"):
         raise HTTPException(status_code=403, detail="Only owners can seed apartments")
 
     existing = supabase.table("buildings").select("*").eq("id", building_id).execute()
@@ -300,4 +371,84 @@ async def seed_building_apartments(building_id: int, current_user: dict = Depend
     except Exception as seed_error:
         logger.exception("Seed endpoint failed for building_id=%s", building_id)
         raise HTTPException(status_code=500, detail=str(seed_error))
+
+
+@router.get("/buildings/{building_id}/installments")
+async def list_building_installments(
+    building_id: int,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    All payment_installments for contracts tied to apartments in this building — including
+    ended tenancies (vacated units no longer have current_contract_id on the apartment row).
+    Used for owner-building monthly income so realized rent in-range is not lost after vacate.
+    """
+    if not has_role(current_user, "owner"):
+        raise HTTPException(status_code=403, detail="Only owners can list building installments")
+
+    try:
+        uid = int(current_user["id"])
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    existing = supabase.table("buildings").select("id, owner_id").eq("id", building_id).execute()
+    if not existing.data:
+        raise HTTPException(status_code=404, detail="Building not found")
+    if int(existing.data[0].get("owner_id") or -1) != uid:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    ar = supabase.table("apartments").select("id").eq("building_id", building_id).execute()
+    apt_ids = [int(a["id"]) for a in (ar.data or []) if a.get("id") is not None]
+    if not apt_ids:
+        return []
+
+    cr = (
+        supabase.table("contracts")
+        .select("*")
+        .in_("apartment_id", apt_ids)
+        .execute()
+    )
+    contract_rows = cr.data or []
+    cids = [int(c["id"]) for c in contract_rows if c.get("id") is not None]
+    cid_to_apt = {
+        int(c["id"]): int(c["apartment_id"])
+        for c in contract_rows
+        if c.get("id") is not None and c.get("apartment_id") is not None
+    }
+    if not cids:
+        return []
+
+    try:
+        res = (
+            supabase.table("payment_installments")
+            .select("*")
+            .in_("contract_id", cids)
+            .execute()
+        )
+    except Exception:
+        logger.exception("list_building_installments: payment_installments query failed building_id=%s", building_id)
+        return []
+
+    out: list[dict] = []
+    for row in res.data or []:
+        r = dict(row)
+        if r.get("apartment_id") is None and r.get("contract_id") is not None:
+            try:
+                cid = int(r["contract_id"])
+                if cid in cid_to_apt:
+                    r["apartment_id"] = cid_to_apt[cid]
+            except (TypeError, ValueError):
+                pass
+        out.append(r)
+
+    period_map = _contract_id_to_period_months(contract_rows, out)
+    for r in out:
+        try:
+            cid = int(r.get("contract_id"))
+        except (TypeError, ValueError):
+            r["period_months"] = 1
+            continue
+        r["period_months"] = max(1, int(period_map.get(cid, 1)))
+
+    return out
 

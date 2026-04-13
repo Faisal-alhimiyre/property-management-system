@@ -11,17 +11,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   const buildingId = normalizeId(rawBuildingId);
 
   const buildings = JSON.parse(localStorage.getItem("walajna_buildings") || "[]");
-  const apartments = JSON.parse(localStorage.getItem("walajna_apartments") || "[]");
+  let apartments = [];
   const costs = JSON.parse(localStorage.getItem("walajna_costs") || "[]");
-  const payments = JSON.parse(localStorage.getItem("walajna_payments") || "[]");
+  let payments = [];
 
   let building = buildings.find((b) => normalizeId(b.id) === buildingId) || null;
-  let buildingApartments = apartments.filter(
-    (a) => normalizeId(a.buildingId) === buildingId
-  );
+  let buildingApartments = [];
 
-  /** contractId -> installment rows from API (paid income) */
-  let serverInstallmentsByContract = new Map();
+  /** Paid installments for this building (includes vacated units; GET /api/buildings/:id/installments). */
+  let serverInstallmentsForBuilding = [];
   let incomeFromApi = false;
 
   function mapApiApartmentToFinance(api) {
@@ -72,48 +70,61 @@ document.addEventListener("DOMContentLoaded", async () => {
     return Array.from(byKey.values());
   }
 
-  async function loadInstallmentsForFinanceApartments(apts) {
-    serverInstallmentsByContract = new Map();
+  async function loadInstallmentsForFinanceApartments() {
+    serverInstallmentsForBuilding = [];
     if (
       typeof WalajnaAuth === "undefined" ||
       !WalajnaAuth.fetchWithAuth ||
-      !apts?.length
+      !buildingId
     ) {
       return;
     }
-    const cids = [
-      ...new Set(
-        apts
-          .map((a) => getApartmentCurrentContractId(a))
-          .filter((id) => id != null && String(id) !== "")
-      ),
-    ];
-    await Promise.all(
-      cids.map(async (cid) => {
-        const key = String(cid);
-        try {
-          const res = await WalajnaAuth.fetchWithAuth(
-            `${WalajnaAuth.API_BASE}/api/contracts/${encodeURIComponent(cid)}/installments`,
-            { method: "GET" }
-          );
-          if (!res.ok) {
-            serverInstallmentsByContract.set(key, []);
-            return;
-          }
-          const rows = await res.json();
-          serverInstallmentsByContract.set(
-            key,
-            Array.isArray(rows) ? rows : []
-          );
-        } catch {
-          serverInstallmentsByContract.set(key, []);
-        }
-      })
-    );
+    try {
+      const res = await WalajnaAuth.fetchWithAuth(
+        `${WalajnaAuth.API_BASE}/api/buildings/${encodeURIComponent(buildingId)}/installments`,
+        { method: "GET" }
+      );
+      if (!res.ok) {
+        return;
+      }
+      const data = await res.json();
+      serverInstallmentsForBuilding = Array.isArray(data) ? data : [];
+    } catch (e) {
+      console.warn("finance-summary: building installments fetch failed", e);
+    }
   }
 
   if (typeof WalajnaAuth !== "undefined" && WalajnaAuth.hydrateSession) {
     await WalajnaAuth.hydrateSession();
+  }
+
+  if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.refreshForSession) {
+    try {
+      await WalajnaApartmentsApi.refreshForSession();
+      apartments = WalajnaApartmentsApi.getSessionList();
+    } catch (e) {
+      console.warn("finance-summary: apartments API failed", e);
+      apartments = JSON.parse(localStorage.getItem("walajna_apartments") || "[]");
+    }
+  } else {
+    apartments = JSON.parse(localStorage.getItem("walajna_apartments") || "[]");
+  }
+
+  buildingApartments = apartments.filter(
+    (a) => normalizeId(a.buildingId) === buildingId
+  );
+
+  if (
+    typeof WalajnaPaymentsApi !== "undefined" &&
+    WalajnaPaymentsApi.listMapped &&
+    typeof WalajnaAuth !== "undefined" &&
+    WalajnaAuth.fetchWithAuth
+  ) {
+    try {
+      payments = await WalajnaPaymentsApi.listMapped();
+    } catch (e) {
+      console.warn("finance-summary: payments API failed", e);
+    }
   }
 
   if (
@@ -156,7 +167,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (mapped.length) {
           buildingApartments = dedupeFinanceApartments(mapped, buildingId);
           incomeFromApi = true;
-          await loadInstallmentsForFinanceApartments(buildingApartments);
+          await loadInstallmentsForFinanceApartments();
         }
       }
     } catch (e) {
@@ -386,18 +397,38 @@ document.addEventListener("DOMContentLoaded", async () => {
     return date;
   }
 
-  function calendarDayTime(d) {
-    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  function installmentCoverageMonths(row) {
+    const n = Number(row.period_months);
+    if (Number.isFinite(n) && n > 0) {
+      return Math.min(12, Math.max(1, Math.floor(n)));
+    }
+    return 1;
   }
 
-  function paymentAnchorInRange(anchorRaw, rangeStart, rangeEnd) {
-    if (!anchorRaw) return false;
-    const d = new Date(anchorRaw);
-    if (Number.isNaN(d.getTime())) return false;
-    const day = calendarDayTime(d);
-    return (
-      day >= calendarDayTime(rangeStart) && day <= calendarDayTime(rangeEnd)
-    );
+  function paidInstallmentIncomeAttributedToRange(row, rangeStart, rangeEnd) {
+    if (String(row.status || "").toLowerCase() !== "paid") {
+      return 0;
+    }
+    const cycleMonths = installmentCoverageMonths(row);
+    const total = Number(row.amount || 0);
+    if (!cycleMonths || !Number.isFinite(total)) {
+      return 0;
+    }
+    const monthlyAmount = total / cycleMonths;
+    const rawDue = row.due_date || row.dueDate;
+    if (!rawDue) return 0;
+    const coverageStartDate = new Date(rawDue);
+    if (Number.isNaN(coverageStartDate.getTime())) return 0;
+    let income = 0;
+    for (let i = 0; i < cycleMonths; i++) {
+      const coveredMonthDate = addMonths(coverageStartDate, i);
+      const coveredStart = startOfMonth(coveredMonthDate);
+      const coveredEnd = endOfMonth(coveredMonthDate);
+      if (rangesOverlap(coveredStart, coveredEnd, rangeStart, rangeEnd)) {
+        income += monthlyAmount;
+      }
+    }
+    return income;
   }
 
   function getApartmentRealizedIncomeForRange(apartment, rangeStart, rangeEnd) {
@@ -408,28 +439,24 @@ document.addEventListener("DOMContentLoaded", async () => {
       apartment.apiId != null ? String(apartment.apiId) : String(apartmentId);
     const currentContractId = getApartmentCurrentContractId(apartment);
 
-    if (!apartmentId || !currentContractId) {
+    if (!apartmentId) {
       return 0;
     }
 
     if (incomeFromApi) {
-      const rows =
-        serverInstallmentsByContract.get(String(currentContractId)) || [];
+      const rows = serverInstallmentsForBuilding || [];
       let apiIncome = 0;
       rows.forEach((row) => {
-        if (String(row.status || "").toLowerCase() !== "paid") return;
-        if (
-          row.apartment_id != null &&
-          String(row.apartment_id) !== apiAptId
-        ) {
-          return;
-        }
-        const anchor =
-          row.paid_at || row.paidAt || row.due_date || row.dueDate;
-        if (!paymentAnchorInRange(anchor, rangeStart, rangeEnd)) return;
-        apiIncome += Number(row.amount || 0);
+        const rowApt =
+          row.apartment_id != null ? String(row.apartment_id) : "";
+        if (rowApt !== String(apiAptId)) return;
+        apiIncome += paidInstallmentIncomeAttributedToRange(row, rangeStart, rangeEnd);
       });
       return apiIncome;
+    }
+
+    if (!currentContractId) {
+      return 0;
     }
 
     const apartmentPayments = payments.filter((payment) => {
@@ -437,7 +464,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         return false;
       }
 
-      if (normalizeId(payment.contractId) !== normalizeId(currentContractId)) {
+      const pc = normalizeId(payment.contractId);
+      const cc = normalizeId(currentContractId);
+      if (pc && cc && pc !== cc) {
         return false;
       }
 

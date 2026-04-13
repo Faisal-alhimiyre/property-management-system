@@ -6,6 +6,7 @@ from models import MaintenanceRequestCreate, MaintenanceRequestPatch
 from config import supabase
 from routes.auth_routes import get_current_user
 from routes.apartment_routes import reconcile_apartment_maintenance_pointer
+from user_roles import has_role
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -17,47 +18,51 @@ class MarkOwnerSeenBody(BaseModel):
 
 def _fetch_requests_for_user(current_user: dict, apartment_id: int | None) -> list[dict]:
     uid = current_user.get("id")
-    role = str(current_user.get("role") or "").lower()
+    rows_by_id: dict[int, dict] = {}
 
-    if role == "tenant":
+    def add_rows(items: list[dict] | None) -> None:
+        for row in items or []:
+            rid = row.get("id")
+            if rid is not None:
+                rows_by_id[int(rid)] = row
+
+    if has_role(current_user, "tenant"):
         tenant = supabase.table("tenants").select("*").eq("user_id", uid).execute()
-        if not tenant.data:
-            return []
-        tenant_ids = [t["id"] for t in tenant.data]
-        q = supabase.table("maintenance_requests").select("*").in_("tenant_id", tenant_ids)
-        if apartment_id is not None:
-            q = q.eq("apartment_id", int(apartment_id))
-        return getattr(q.execute(), "data", None) or []
+        if tenant.data:
+            tenant_ids = [t["id"] for t in tenant.data]
+            q = supabase.table("maintenance_requests").select("*").in_("tenant_id", tenant_ids)
+            if apartment_id is not None:
+                q = q.eq("apartment_id", int(apartment_id))
+            add_rows(getattr(q.execute(), "data", None))
 
-    if role == "owner":
+    if has_role(current_user, "owner"):
         apartments = supabase.table("apartments").select("id").eq("owner_id", uid).execute()
         apt_rows = apartments.data or []
         apt_ids = [apt["id"] for apt in apt_rows]
-        if not apt_ids:
-            return []
-        if apartment_id is not None:
-            try:
-                aid = int(apartment_id)
-            except (TypeError, ValueError):
-                return []
-            if aid not in apt_ids:
-                return []
-            res = (
-                supabase.table("maintenance_requests")
-                .select("*")
-                .eq("apartment_id", aid)
-                .execute()
-            )
-            return getattr(res, "data", None) or []
-        res = (
-            supabase.table("maintenance_requests")
-            .select("*")
-            .in_("apartment_id", apt_ids)
-            .execute()
-        )
-        return getattr(res, "data", None) or []
+        if apt_ids:
+            if apartment_id is not None:
+                try:
+                    aid = int(apartment_id)
+                except (TypeError, ValueError):
+                    aid = None
+                if aid is not None and aid in apt_ids:
+                    res = (
+                        supabase.table("maintenance_requests")
+                        .select("*")
+                        .eq("apartment_id", aid)
+                        .execute()
+                    )
+                    add_rows(getattr(res, "data", None))
+            else:
+                res = (
+                    supabase.table("maintenance_requests")
+                    .select("*")
+                    .in_("apartment_id", apt_ids)
+                    .execute()
+                )
+                add_rows(getattr(res, "data", None))
 
-    return []
+    return sorted(rows_by_id.values(), key=lambda r: int(r.get("id") or 0))
 
 
 def _tenant_linked_to_apartment(apt_row: dict, current_user: dict) -> bool:
@@ -339,8 +344,8 @@ async def create_maintenance_request(
         raise HTTPException(status_code=404, detail="Apartment not found")
 
     apt_row = apt_rows[0]
-    # DB role may be "owner" while the UI is in tenant mode — allow if this user is the linked tenant.
-    if str(current_user.get("role") or "").lower() != "tenant" and not _tenant_linked_to_apartment(
+    # Legacy role column may not list "tenant" if user also owns units — allow when linked as tenant.
+    if not has_role(current_user, "tenant") and not _tenant_linked_to_apartment(
         apt_row, current_user
     ):
         raise HTTPException(status_code=403, detail="Only tenants can create maintenance requests")
@@ -476,7 +481,7 @@ async def mark_owner_seen_for_building(
     body: MarkOwnerSeenBody,
     current_user: dict = Depends(get_current_user),
 ):
-    if str(current_user.get("role") or "").lower() != "owner":
+    if not has_role(current_user, "owner"):
         raise HTTPException(status_code=403, detail="Only owners can mark requests seen")
 
     try:
@@ -573,7 +578,7 @@ async def patch_maintenance_request(
 
 @router.put("/maintenance/{request_id}")
 async def update_maintenance_request(request_id: int, status: str, current_user: dict = Depends(get_current_user)):
-    if str(current_user.get("role") or "").lower() != "owner":
+    if not has_role(current_user, "owner"):
         raise HTTPException(status_code=403, detail="Only owners can update maintenance requests")
 
     request = supabase.table("maintenance_requests").select("apartment_id").eq("id", request_id).execute()

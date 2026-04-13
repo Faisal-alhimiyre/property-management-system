@@ -177,6 +177,42 @@
     };
   }
 
+  /**
+   * When contract.paymentCycle is missing or wrong, infer from installment due spacing or amount vs monthly rent.
+   */
+  function inferPaymentCycleFromInstallments(payments, monthlyRent) {
+    const rows = (payments || [])
+      .filter((p) => p && p.dueDate)
+      .sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate)));
+    if (rows.length >= 2) {
+      const d0 = new Date(rows[0].dueDate);
+      const d1 = new Date(rows[1].dueDate);
+      if (Number.isNaN(d0.getTime()) || Number.isNaN(d1.getTime())) return null;
+      const months =
+        (d1.getFullYear() - d0.getFullYear()) * 12 + (d1.getMonth() - d0.getMonth());
+      if (months <= 0) return null;
+      if (months === 1) return "monthly";
+      if (months === 3) return "quarterly";
+      if (months === 6) return "semi_annual";
+      if (months === 12) return "annual";
+      if (months <= 2) return "monthly";
+      if (months <= 4) return "quarterly";
+      if (months <= 9) return "semi_annual";
+      return "annual";
+    }
+    if (rows.length === 1 && monthlyRent > 0) {
+      const amt = Number(rows[0].originalAmount ?? rows[0].amount ?? 0);
+      const m = monthlyRent;
+      const tol = Math.max(1, m * 0.02);
+      if (Math.abs(amt - m) <= tol) return "monthly";
+      if (Math.abs(amt - m * 3) <= tol * 3) return "quarterly";
+      if (Math.abs(amt - m * 6) <= tol * 6) return "semi_annual";
+      if (Math.abs(amt - m * 12) <= tol * 12) return "annual";
+    }
+    return null;
+  }
+
+  /** Whole months from start through the day before endDate (endDate = move-out / expiry, exclusive). */
   function getContractMonths(startDate, endDate) {
     if (!startDate || !endDate) return 0;
 
@@ -184,12 +220,11 @@
     const end = new Date(endDate);
 
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 0;
-    if (end < start) return 0;
+    if (end <= start) return 0;
 
     return (
       (end.getFullYear() - start.getFullYear()) * 12 +
-      (end.getMonth() - start.getMonth()) +
-      1
+      (end.getMonth() - start.getMonth())
     );
   }
 
@@ -282,7 +317,7 @@
 
       let current = getFirstDayOfNextMonth(start);
 
-      while (current && current <= end) {
+      while (current && current < end) {
         const cycleAmount = monthlyRent * cycleMonths;
 
         payments.push({
@@ -319,7 +354,7 @@
     // Standard schedule when start is on the 1st
     let current = new Date(start);
 
-    while (current <= end) {
+    while (current < end) {
       const cycleAmount = monthlyRent * cycleMonths;
 
       payments.push({
@@ -479,6 +514,7 @@
     getMonthlyRentAmount,
     getApartmentPaymentDefaults,
     getEffectivePaymentSettings,
+    inferPaymentCycleFromInstallments,
     getContractMonths,
     getContractTotalRent,
     getInstallmentAmount,

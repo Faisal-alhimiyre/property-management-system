@@ -234,6 +234,12 @@ body{
   font-weight:700;
 }
 
+/* Actions — hidden until apartment-page applies owner vs tenant visibility (avoids wrong-button flash). */
+.actions.actions--pending{
+  visibility:hidden;
+  pointer-events:none;
+}
+
 /* Actions */
 .actions{
   display:flex;

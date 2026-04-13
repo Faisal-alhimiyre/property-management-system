@@ -1,4 +1,6 @@
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  /** @type {Array<object>|null} */
+  let serverTenantHistory = null;
   const T = (k, p) =>
     window.walajna_language && window.walajna_language.t
       ? window.walajna_language.t(k, p)
@@ -19,6 +21,22 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch {
       return [];
     }
+  }
+
+  if (typeof WalajnaAuth !== "undefined" && WalajnaAuth.hydrateSession) {
+    await WalajnaAuth.hydrateSession();
+  }
+  if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.refreshForSession) {
+    try {
+      await WalajnaApartmentsApi.refreshForSession();
+    } catch (e) {
+      console.warn("[apartment-history] apartments cache failed", e);
+    }
+  }
+
+  function listApartmentsForHistory() {
+    if (typeof getApartments === "function") return getApartments();
+    return getLocalArray("walajna_apartments");
   }
 
   function formatDate(dateString) {
@@ -64,10 +82,100 @@ document.addEventListener("DOMContentLoaded", () => {
     );
   }
 
-  const apartments = getLocalArray("walajna_apartments");
+  const apartments = listApartmentsForHistory();
   const costs = getLocalArray("walajna_costs");
 
   const apartment = apartments.find((a) => String(a.id) === String(apartmentId));
+
+  function mapApartmentHistoryApiRow(row) {
+    const old = row.old_data || {};
+    const c = old.contract || {};
+    const cid =
+      old.currentContractId != null && old.currentContractId !== ""
+        ? old.currentContractId
+        : c.id != null
+          ? c.id
+          : null;
+    return {
+      historyId: String(row.id),
+      apartmentId: String(apartmentId),
+      buildingName:
+        old.buildingName ||
+        old.building_name ||
+        apartment?.buildingName ||
+        apartment?.building_name ||
+        "",
+      apartmentNumber:
+        old.apartmentNumber ||
+        old.apartment_number ||
+        apartment?.number ||
+        apartment?.apartmentNumber ||
+        "",
+      tenantInfo: old.tenantInfo || old.tenant_info || {},
+      tenantNationalId: old.tenantNationalId ?? old.tenant_national_id ?? null,
+      tenantUserId: old.tenantUserId ?? old.tenant_user_id ?? null,
+      contract: {
+        id: cid,
+        startDate: c.startDate || c.start_date,
+        endDate: c.endDate || c.end_date,
+        rentAmount:
+          old.rent != null && old.rent !== ""
+            ? Number(old.rent) * 12
+            : undefined,
+      },
+      contractId: cid,
+      currentContractId: cid,
+      archivedAt: row.changed_at,
+      archiveReason: row.change_type || "tenant_vacated",
+    };
+  }
+
+  function mergeTenantHistories() {
+    const local = Array.isArray(apartment?.tenantHistory)
+      ? apartment.tenantHistory
+      : [];
+    const server = Array.isArray(serverTenantHistory) ? serverTenantHistory : [];
+    const byId = new Map();
+    for (const h of server) {
+      if (h?.historyId) byId.set(String(h.historyId), h);
+    }
+    for (const h of local) {
+      if (h?.historyId && !byId.has(String(h.historyId))) {
+        byId.set(String(h.historyId), h);
+      }
+    }
+    return [...byId.values()].sort((a, b) => {
+      const aTime = new Date(a.archivedAt || a.createdAt || 0).getTime();
+      const bTime = new Date(b.archivedAt || b.createdAt || 0).getTime();
+      return bTime - aTime;
+    });
+  }
+
+  async function loadServerTenantHistory() {
+    if (!apartment) return;
+    const apiAid =
+      apartment.apiId != null ? Number(apartment.apiId) : Number(apartmentId);
+    if (
+      typeof WalajnaAuth === "undefined" ||
+      !WalajnaAuth.getCurrentUser?.() ||
+      !WalajnaAuth.fetchWithAuth ||
+      !WalajnaAuth.API_BASE ||
+      !Number.isFinite(apiAid)
+    ) {
+      return;
+    }
+    try {
+      const res = await WalajnaAuth.fetchWithAuth(
+        `${WalajnaAuth.API_BASE}/api/apartments/${apiAid}/tenant-history`
+      );
+      if (!res.ok) return;
+      const rows = await res.json();
+      if (!Array.isArray(rows)) return;
+      serverTenantHistory = rows.map(mapApartmentHistoryApiRow);
+    } catch (e) {
+      console.warn("[apartment-history] tenant-history API", e);
+    }
+  }
 
   function renderNotFound() {
     if (sectionTitle) {
@@ -95,6 +203,8 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
+  await loadServerTenantHistory();
+
   const buildingName = apartment.buildingName || T("common.dash");
   const aptNumber = getApartmentNumber(apartment);
 
@@ -114,15 +224,7 @@ document.addEventListener("DOMContentLoaded", () => {
       sectionTitle.textContent = T("history.sectionTenants");
     }
 
-    const history = Array.isArray(apartment.tenantHistory)
-      ? apartment.tenantHistory
-          .slice()
-          .sort((a, b) => {
-            const aTime = new Date(a.archivedAt || a.createdAt || 0).getTime();
-            const bTime = new Date(b.archivedAt || b.createdAt || 0).getTime();
-            return bTime - aTime;
-          })
-      : [];
+    const history = mergeTenantHistories();
 
     if (!history.length) {
       content.innerHTML = `

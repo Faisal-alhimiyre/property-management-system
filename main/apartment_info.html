@@ -80,7 +80,7 @@
           <span class="value" id="leaseStatus">—</span>
         </div>
         <div class="item">
-          <span class="label" data-i18n="paymentsUi.monthlyRent"></span>
+          <span class="label" data-i18n="paymentsUi.annualRent"></span>
           <span class="value" id="rentAmount">—</span>
         </div>
         <div class="item">
@@ -133,7 +133,7 @@
 
     <div id="apartmentPaymentReminder" class="apartment-payment-reminder-box"></div>
 
-    <section class="actions">
+    <section class="actions actions--pending" aria-busy="true">
       <div class="actions-row">
         <button id="mainActionBtn" class="action-btn" type="button" data-i18n="aptPage.maintenanceRequest"></button>
         <button id="paymentsBtn" class="action-btn" type="button" data-i18n="aptInfo.actions.viewPayments"></button>
@@ -237,7 +237,7 @@
             <input id="linkPhoneNumber" type="text" maxlength="10" />
           </div>
           <div class="item">
-            <label class="label" for="linkRent" data-i18n="paymentsUi.monthlyRent"></label>
+            <label class="label" for="linkRent" data-i18n="paymentsUi.annualRent"></label>
             <input id="linkRent" type="number" min="0" step="0.01" />
           </div>
           <div class="item">
@@ -379,6 +379,8 @@
   <script src="../js/main/auth.js"></script>
   <script src="../js/main/nav.js"></script>
   <script src="../js/main/tenant-requests-api.js"></script>
+  <script src="../js/main/apartments-api.js"></script>
+  <script src="../js/main/saudi-national-id.js"></script>
   <script src="../js/apartment-manager/apartment-storage.js"></script>
   <script src="../js/apartment-manager/apartment-utils.js"></script>
   <script src="../js/apartment-manager/apartment-ui.js"></script>

@@ -7,6 +7,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (typeof WalajnaAuth !== "undefined" && WalajnaAuth.hydrateSession) {
     await WalajnaAuth.hydrateSession();
   }
+  if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.refreshForSession) {
+    try {
+      await WalajnaApartmentsApi.refreshForSession();
+    } catch (e) {
+      console.warn("[history-details] apartments cache failed", e);
+    }
+  }
 
   const params = new URLSearchParams(window.location.search);
   const apartmentId = params.get("apartmentId");
@@ -231,7 +238,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (contractHint && message) contractHint.textContent = message;
   }
 
-  const apartments = getLocalArray("walajna_apartments");
+  const apartments =
+    typeof getApartments === "function"
+      ? getApartments()
+      : getLocalArray("walajna_apartments");
   const documents = getLocalArray("walajna_documents");
   let dbRequestsRaw = [];
 
@@ -443,9 +453,79 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  const historyList = Array.isArray(apartment.tenantHistory)
-    ? apartment.tenantHistory
+  function mapApartmentHistoryApiRow(row, apt, aidStr) {
+    const old = row.old_data || {};
+    const c = old.contract || {};
+    const cid =
+      old.currentContractId != null && old.currentContractId !== ""
+        ? old.currentContractId
+        : c.id != null
+          ? c.id
+          : null;
+    return {
+      historyId: String(row.id),
+      apartmentId: aidStr,
+      buildingName:
+        old.buildingName ||
+        old.building_name ||
+        apt.buildingName ||
+        apt.building_name ||
+        "",
+      apartmentNumber:
+        old.apartmentNumber ||
+        old.apartment_number ||
+        apt.number ||
+        apt.apartmentNumber ||
+        "",
+      tenantInfo: old.tenantInfo || old.tenant_info || {},
+      tenantNationalId: old.tenantNationalId ?? old.tenant_national_id ?? null,
+      tenantUserId: old.tenantUserId ?? old.tenant_user_id ?? null,
+      contract: {
+        id: cid,
+        startDate: c.startDate || c.start_date,
+        endDate: c.endDate || c.end_date,
+        rentAmount:
+          old.rent != null && old.rent !== ""
+            ? Number(old.rent) * 12
+            : undefined,
+      },
+      contractId: cid,
+      currentContractId: cid,
+      archivedAt: row.changed_at,
+      archiveReason: row.change_type || "tenant_vacated",
+    };
+  }
+
+  let historyList = Array.isArray(apartment.tenantHistory)
+    ? [...apartment.tenantHistory]
     : [];
+
+  {
+    const apiAid = Number(apartment.apiId ?? apartment.id);
+    if (
+      typeof WalajnaAuth !== "undefined" &&
+      WalajnaAuth.getCurrentUser?.() &&
+      WalajnaAuth.fetchWithAuth &&
+      WalajnaAuth.API_BASE &&
+      Number.isFinite(apiAid)
+    ) {
+      try {
+        const res = await WalajnaAuth.fetchWithAuth(
+          `${WalajnaAuth.API_BASE}/api/apartments/${apiAid}/tenant-history`
+        );
+        if (res.ok) {
+          const rows = await res.json();
+          if (Array.isArray(rows) && rows.length) {
+            historyList = rows.map((r) =>
+              mapApartmentHistoryApiRow(r, apartment, apartmentId)
+            );
+          }
+        }
+      } catch (e) {
+        console.warn("[history-details] tenant-history API", e);
+      }
+    }
+  }
 
   historyEntry = historyList.find(
     (item) => String(item.historyId) === String(historyId)
