@@ -680,16 +680,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   /**
-   * Show "معلومات المالك" for tenant-style viewing.
-   * Hide only for مالك mode when this user is the landlord but not the linked tenant (same-person test: still show).
+   * Show "معلومات المالك" only when not browsing as مالك (tenant / other roles).
+   * Owner view must never show this block — it depended on tenant_user_id before and looked random across units.
    */
   function shouldShowLandlordCard() {
     if (!data) return false;
-    if (activeRole !== "owner") return true;
-    const uid = currentUser ? String(currentUser.id ?? "") : "";
-    const tid =
-      data.tenantUserId != null ? String(data.tenantUserId) : "";
-    return Boolean(uid && tid && uid === tid);
+    return activeRole !== "owner";
   }
 
   function fillOwnerInfoForTenantOnly() {

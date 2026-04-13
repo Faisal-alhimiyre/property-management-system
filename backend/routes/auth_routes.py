@@ -334,6 +334,23 @@ def get_current_user(
     request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ):
+    def fetch_user_by(column: str, value):
+        """
+        Supabase/httpx can rarely throw transient LocalProtocolError; retry once so
+        protected endpoints don't fail with 500 and break the UI.
+        """
+        last_exc = None
+        for attempt in range(2):
+            try:
+                return supabase.table("users").select("*").eq(column, value).execute()
+            except Exception as exc:
+                last_exc = exc
+                if attempt == 0 and "LocalProtocolError" in str(exc):
+                    continue
+                break
+        print(f"get_current_user lookup failed on {column}={value!r}: {last_exc}")
+        raise HTTPException(status_code=401, detail="Session validation failed")
+
     token = None
     if credentials and credentials.credentials:
         token = credentials.credentials
@@ -350,15 +367,15 @@ def get_current_user(
             user_id = int(subject[4:])
         except (TypeError, ValueError):
             raise HTTPException(status_code=401, detail="Invalid token")
-        user = supabase.table("users").select("*").eq("id", user_id).execute()
+        user = fetch_user_by("id", user_id)
         if not user.data:
             raise HTTPException(status_code=401, detail="User not found")
         return user.data[0]
 
     if "@" in subject:
-        user = supabase.table("users").select("*").eq("email", subject).execute()
+        user = fetch_user_by("email", subject)
     else:
-        user = supabase.table("users").select("*").eq("national_id", subject).execute()
+        user = fetch_user_by("national_id", subject)
     if not user.data:
         raise HTTPException(status_code=401, detail="User not found")
     return user.data[0]

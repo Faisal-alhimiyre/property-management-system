@@ -68,29 +68,58 @@
     };
 
     let selectedPaymentId = null;
-    let paymentsSearchKeyword = "";
+    let selectedFilterMonth = "";
+    let selectedFilterYear = "";
 
-    function filterPaymentsByKeyword(payments, keyword) {
-      const q = (keyword || "").trim().toLowerCase();
-      if (!q) return payments;
-      return payments.filter((p) => {
-        const blob = [
-          p.dueDate,
-          p.paidAt,
-          p.amount,
-          p.originalAmount,
-          p.status,
-          p.paymentMethod,
-          p.notes,
-          utils.getPaymentStatusLabel(p.status),
-          utils.formatCurrency(p.amount),
-          utils.formatDate(p.dueDate),
-          p.paidAt ? utils.formatDate(p.paidAt) : "",
-        ]
-          .filter((x) => x != null && x !== "")
-          .join(" ")
-          .toLowerCase();
-        return blob.includes(q);
+    function getFilterableDateString(payment) {
+      if (!payment) return "";
+      return String(payment.dueDate || payment.paidAt || "").slice(0, 10);
+    }
+
+    function parseMonthYear(dateString) {
+      if (!dateString) return { month: "", year: "" };
+      const raw = String(dateString).slice(0, 10);
+      const m = raw.match(/^(\d{4})-(\d{2})-\d{2}$/);
+      if (!m) return { month: "", year: "" };
+      return { year: m[1], month: m[2] };
+    }
+
+    function buildPeriodFilterOptions(payments) {
+      const years = new Set();
+      (payments || []).forEach((payment) => {
+        const { year } = parseMonthYear(getFilterableDateString(payment));
+        if (year) years.add(year);
+      });
+
+      const monthFmt = new Intl.DateTimeFormat(
+        window.walajna_language?.localeForDates?.() || "ar-SA",
+        { month: "long" }
+      );
+
+      const months = Array.from({ length: 12 }, (_, idx) => {
+        const monthNumber = String(idx + 1).padStart(2, "0");
+        const label = monthFmt.format(new Date(2026, idx, 1));
+        return { value: monthNumber, label };
+      });
+
+      const sortedYears = Array.from(years).sort((a, b) => Number(b) - Number(a));
+
+      return { months, years: sortedYears };
+    }
+
+    function filterPaymentsByPeriod(payments, month, year) {
+      const monthKey = String(month || "");
+      const yearKey = String(year || "");
+      if (!monthKey && !yearKey) return payments;
+
+      return (payments || []).filter((payment) => {
+        const { month: paymentMonth, year: paymentYear } = parseMonthYear(
+          getFilterableDateString(payment)
+        );
+        if (!paymentMonth || !paymentYear) return false;
+        if (monthKey && paymentMonth !== monthKey) return false;
+        if (yearKey && paymentYear !== yearKey) return false;
+        return true;
       });
     }
 
@@ -348,12 +377,18 @@
 
       const summary = utils.calculatePaymentsSummary(payments);
       const contractInfo = getContractInfo(payments);
+      const filterOptions = buildPeriodFilterOptions(payments);
 
       ui.renderSummary(
         elements.summaryContainer,
         summary,
         utils,
-        contractInfo
+        contractInfo,
+        {
+          options: filterOptions,
+          selectedMonth: selectedFilterMonth,
+          selectedYear: selectedFilterYear,
+        }
       );
     }
 
@@ -367,10 +402,15 @@
     }
 
     function renderPaymentsPage() {
-      const prevSearch =
-        (document.getElementById("searchInput") &&
-          document.getElementById("searchInput").value) ||
-        paymentsSearchKeyword ||
+      const prevMonth =
+        (document.getElementById("monthFilterInput") &&
+          document.getElementById("monthFilterInput").value) ||
+        selectedFilterMonth ||
+        "";
+      const prevYear =
+        (document.getElementById("yearFilterInput") &&
+          document.getElementById("yearFilterInput").value) ||
+        selectedFilterYear ||
         "";
 
       const payments = getSortedApartmentPayments();
@@ -387,17 +427,23 @@
         );
       }
       renderSummary(payments);
-      const searchInput = document.getElementById("searchInput");
-      if (searchInput) {
-        searchInput.value = prevSearch;
-        paymentsSearchKeyword = prevSearch;
+      const monthInput = document.getElementById("monthFilterInput");
+      const yearInput = document.getElementById("yearFilterInput");
+      if (monthInput) {
+        monthInput.value = prevMonth;
+        selectedFilterMonth = prevMonth;
       }
-      const filtered = filterPaymentsByKeyword(
+      if (yearInput) {
+        yearInput.value = prevYear;
+        selectedFilterYear = prevYear;
+      }
+      const filtered = filterPaymentsByPeriod(
         payments,
-        searchInput ? searchInput.value : prevSearch
+        monthInput ? monthInput.value : prevMonth,
+        yearInput ? yearInput.value : prevYear
       );
       renderTable(filtered);
-      bindTableActions(payments);
+      bindTableActions(filtered);
     }
 
     window.renderPayments = renderPaymentsPage;
@@ -582,12 +628,23 @@
     const payWrap = document.querySelector(".pay-wrap");
     if (payWrap && !payWrap.dataset.paymentsSearchBound) {
       payWrap.dataset.paymentsSearchBound = "1";
-      payWrap.addEventListener("input", function (e) {
-        if (!e.target || e.target.id !== "searchInput") return;
-        paymentsSearchKeyword = e.target.value || "";
+      payWrap.addEventListener("change", function (e) {
+        if (!e.target) return;
+        if (e.target.id !== "monthFilterInput" && e.target.id !== "yearFilterInput") {
+          return;
+        }
+        selectedFilterMonth =
+          document.getElementById("monthFilterInput")?.value || "";
+        selectedFilterYear =
+          document.getElementById("yearFilterInput")?.value || "";
         const list = getSortedApartmentPayments();
-        renderTable(filterPaymentsByKeyword(list, paymentsSearchKeyword));
-        bindTableActions(list);
+        const filtered = filterPaymentsByPeriod(
+          list,
+          selectedFilterMonth,
+          selectedFilterYear
+        );
+        renderTable(filtered);
+        bindTableActions(filtered);
       });
     }
 

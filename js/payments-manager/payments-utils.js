@@ -406,6 +406,7 @@
   let paid = 0;
   let overdue = 0;
   let pending = 0;
+  let unpaidTotal = 0;
   let discountsTotal = 0;
   let upcomingCount = 0;
 
@@ -427,6 +428,9 @@
     if (payment.status === "paid") paid += currentAmount;
     if (payment.status === "overdue") overdue += currentAmount;
     if (payment.status === "pending") pending += currentAmount;
+    if (payment.status === "pending" || payment.status === "overdue") {
+      unpaidTotal += currentAmount;
+    }
 
     if (payment.status === "pending" && payment.dueDate >= today) {
       upcomingCount += 1;
@@ -439,6 +443,7 @@
     paid,
     overdue,
     pending,
+    unpaidTotal,
     discountsTotal,
     upcomingCount
   };

@@ -69,8 +69,14 @@
       .payments-dash__search-wrap{
         flex-shrink:0;
       }
+      .payments-dash__filters{
+        display:flex;
+        gap:10px;
+        align-items:center;
+        flex-wrap:wrap;
+      }
       .payments-dash__search{
-        width:min(320px, 100%);
+        width:min(190px, 100%);
         box-sizing:border-box;
         border:1px solid rgba(15,23,42,0.12);
         border-radius:14px;
@@ -631,7 +637,13 @@
       .replace(/"/g, "&quot;");
   }
 
-  function renderSummary(container, summary, utils, contractInfo = null) {
+  function renderSummary(
+    container,
+    summary,
+    utils,
+    contractInfo = null,
+    periodFilter = null
+  ) {
     if (!container) return;
 
     const lateTotal = Number(summary.overdue || 0);
@@ -640,6 +652,32 @@
         ? contractInfo.installmentCount
         : 0;
 
+    const allMonthsLabel = "كل الشهور";
+    const allYearsLabel = "كل السنوات";
+    const monthOptions = Array.isArray(periodFilter?.options?.months)
+      ? periodFilter.options.months
+      : [];
+    const yearOptions = Array.isArray(periodFilter?.options?.years)
+      ? periodFilter.options.years
+      : [];
+    const selectedMonth = String(periodFilter?.selectedMonth || "");
+    const selectedYear = String(periodFilter?.selectedYear || "");
+    const monthOptionsHtml = monthOptions
+      .map((m) => {
+        const value = escSummaryHtml(String(m?.value || ""));
+        const label = escSummaryHtml(String(m?.label || m?.value || ""));
+        const selected = String(m?.value || "") === selectedMonth ? " selected" : "";
+        return `<option value="${value}"${selected}>${label}</option>`;
+      })
+      .join("");
+    const yearOptionsHtml = yearOptions
+      .map((y) => {
+        const value = escSummaryHtml(String(y || ""));
+        const selected = String(y || "") === selectedYear ? " selected" : "";
+        return `<option value="${value}"${selected}>${value}</option>`;
+      })
+      .join("");
+
     const titleBar = `
       <div class="payments-dash__titlebar">
         <div>
@@ -647,7 +685,16 @@
           <p class="payments-dash__page-sub">${wt("payments.pageSub")}</p>
         </div>
         <div class="payments-dash__search-wrap">
-          <input id="searchInput" class="payments-dash__search" type="search" autocomplete="off" data-i18n-placeholder="payments.searchPh" placeholder="" />
+          <div class="payments-dash__filters">
+            <select id="monthFilterInput" class="payments-dash__search">
+              <option value="">${allMonthsLabel}</option>
+              ${monthOptionsHtml}
+            </select>
+            <select id="yearFilterInput" class="payments-dash__search">
+              <option value="">${allYearsLabel}</option>
+              ${yearOptionsHtml}
+            </select>
+          </div>
         </div>
       </div>
     `;
@@ -684,12 +731,12 @@
         </div>
         <div class="payments-dash__stat">
           <span class="label">${wt("paymentsUi.remaining")}</span>
-          <span class="value">${utils.formatCurrency(summary.pending)}</span>
+          <span class="value">${utils.formatCurrency(summary.unpaidTotal)}</span>
         </div>
         <div class="payments-dash__stat">
           <span class="label">${wt("paymentsUi.paid")}</span>
           <span class="value">${utils.formatCurrency(summary.paid)}</span>
-          <span class="sub">${wt("paymentsUi.ofTotal", { a: utils.formatCurrency(summary.adjustedTotal) })}</span>
+          <span class="sub">${wt("paymentsUi.ofTotal", { a: utils.formatCurrency(summary.annualOriginalTotal) })}</span>
         </div>
       </div>
     `;
