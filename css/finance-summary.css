@@ -184,7 +184,8 @@ body{
 
 .finance-table thead th{
   background:#2c5b8a;
-  color:#fff;
+  color:#fff !important;
+  -webkit-text-fill-color:#fff;
   font-size:17px;
   font-weight:900;
   padding:16px 14px;
@@ -408,7 +409,8 @@ body.dark-mode .finance-table{
 
 body.dark-mode .finance-table thead th{
   background:#020617;
-  color:#cbd5e1;
+  color:#fff !important;
+  -webkit-text-fill-color:#fff;
   border-bottom:1px solid rgba(148,163,184,.25);
 }
 

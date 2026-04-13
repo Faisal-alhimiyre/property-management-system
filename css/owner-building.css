@@ -411,7 +411,8 @@ body{
 
 .rented-badge{
   background:#16a34a;
-  color:#fff;
+  color:#fff !important;
+  -webkit-text-fill-color:#fff;
   border:1px solid #15803d;
   box-shadow:0 1px 2px rgba(0,0,0,0.12);
 }
@@ -538,7 +539,7 @@ body{
   width:28px;
   height:28px;
   border:none;
-  background:rgba(255,255,255,0.92);
+  background:transparent;
   border-radius:8px;
   cursor:pointer;
   display:flex;
@@ -551,7 +552,30 @@ body{
 }
 
 .apartment-more-btn:hover{
-  background:#f1f5f9;
+  background:rgba(15,23,42,0.08);
+}
+
+/* Icon readable on tinted cards (no white tile behind the dots) */
+.apartment-card.rent-overdue .apartment-more-btn,
+.apartment-card.maintenance .apartment-more-btn,
+.apartment-card.suggestion .apartment-more-btn,
+.apartment-card.request .apartment-more-btn{
+  color:#fff;
+}
+
+.apartment-card.rent-overdue .apartment-more-btn:hover,
+.apartment-card.maintenance .apartment-more-btn:hover,
+.apartment-card.suggestion .apartment-more-btn:hover,
+.apartment-card.request .apartment-more-btn:hover{
+  background:rgba(255,255,255,0.2);
+}
+
+.apartment-card.complaint .apartment-more-btn{
+  color:#111827;
+}
+
+.apartment-card.complaint .apartment-more-btn:hover{
+  background:rgba(15,23,42,0.08);
 }
 
 .apartment-card-menu{
@@ -1013,8 +1037,7 @@ body.dark-mode .floor-section,
 body.dark-mode .floor-apartments,
 body.dark-mode .building-legend-card,
 body.dark-mode .apartment-card-menu,
-body.dark-mode .apartment-card-menu button,
-body.dark-mode .apartment-more-btn{
+body.dark-mode .apartment-card-menu button{
   background:#0b111c;
   border-color:rgba(148,163,184,.35);
 }
@@ -1087,7 +1110,8 @@ body.dark-mode .apartment-badge{
 body.dark-mode .rented-badge{
   background:#16a34a;
   border-color:#14532d;
-  color:#fff;
+  color:#fff !important;
+  -webkit-text-fill-color:#fff;
   box-shadow:0 1px 3px rgba(0,0,0,0.35);
 }
 
@@ -1096,11 +1120,20 @@ body.dark-mode .apartment-card-menu button:hover{
 }
 
 body.dark-mode .apartment-more-btn{
+  background:transparent;
   color:#f8fafc;
 }
 
 body.dark-mode .apartment-more-btn:hover{
-  background:#172033;
+  background:rgba(255,255,255,0.12);
+}
+
+body.dark-mode .apartment-card.none .apartment-more-btn{
+  color:#e5edf7;
+}
+
+body.dark-mode .apartment-card.none .apartment-more-btn:hover{
+  background:rgba(255,255,255,0.1);
 }
 
 body.dark-mode .apartment-edit-btn.ghost{

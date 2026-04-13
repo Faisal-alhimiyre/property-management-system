@@ -184,7 +184,6 @@
 .nav-role-switcher__select{
   border: 1px solid rgba(255,255,255,0.24);
   background: rgba(255,255,255,0.16);
-  color: inherit;
   border-radius: 10px;
   padding: 8px 12px;
   font: inherit;
@@ -197,6 +196,13 @@
     background .18s ease,
     box-shadow .18s ease,
     border-color .18s ease;
+}
+
+/* theme.css forces all <select> to page ink; bar stays dark — need ID scope to win specificity */
+#navbar-container .nav-role-switcher__select{
+  color: #fff;
+  -webkit-text-fill-color: #fff;
+  caret-color: #fff;
 }
 
 .nav-role-switcher__select:hover{
@@ -261,10 +267,13 @@ body.dark-mode .brand-logo{
   filter: drop-shadow(0 2px 14px rgba(0, 0, 0, 0.45));
 }
 
-body.dark-mode .nav-role-switcher__select{
+body.dark-mode #navbar-container .nav-role-switcher__select{
   border: 1px solid var(--walajna-border);
   background: rgba(15,23,42,.9);
   box-shadow: 0 10px 26px rgba(15,23,42,.9);
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+  caret-color: #fff;
 }
 
 body.dark-mode .nav-role-switcher__select:hover{
@@ -317,4 +326,10 @@ body.dark-mode .nav-role-switcher__select option{
   .walajna-topbar__brand{
     max-width: min(88vw, 560px);
   }
+}
+
+/* Pages (e.g. messages.css) use `* { font-family: ... }` after this file; keep bar chrome consistent */
+.walajna-topbar,
+.walajna-topbar *{
+  font-family: var(--wl-font-family, system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif);
 }

@@ -255,6 +255,12 @@ body.dark-mode button.walajna-global-back{
   top:var(--walajna-topbar-height);
   z-index:90;
   box-shadow:none;
+  margin-top:0;
+  font-family:var(--wl-font-family, system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif);
+}
+
+.walajna-breadcrumb *{
+  font-family:inherit;
 }
 
 .walajna-breadcrumb > .walajna-breadcrumb__list{

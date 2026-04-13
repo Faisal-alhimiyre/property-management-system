@@ -5,6 +5,20 @@ function wlT(key, params) {
   return key;
 }
 
+/** Marketing / public home (`main/homepage.html`). Does not sign the user out. */
+function walajnaPublicHomeHref() {
+  const p = String(window.location.pathname || "").replace(/\\/g, "/");
+  if (p.includes("/main/")) return "homepage.html";
+  return "../main/homepage.html";
+}
+
+/** Guest nav "How it works" → in-page section on homepage (`#how`). */
+function walajnaHowItWorksHref() {
+  const p = String(window.location.pathname || "").replace(/\\/g, "/");
+  if (/\/homepage\.html$/i.test(p)) return "#how";
+  return walajnaPublicHomeHref() + "#how";
+}
+
 let walajnaTopbarResizeObserver = null;
 
 /** Keeps sticky bars (e.g. #walajna-breadcrumb) flush under the real measured topbar height (e.g. wrapped nav on small screens). */
@@ -102,7 +116,7 @@ function setupNavbar() {
     homeLink.href = "../main/homepage.html";
 
     link2.textContent = wlT("nav.howItWorks");
-    link2.href = "../main/how-it-works.html";
+    link2.href = walajnaHowItWorksHref();
 
     link3.textContent = wlT("nav.about");
     link3.href = "../main/about.html";
@@ -110,7 +124,7 @@ function setupNavbar() {
     link4.textContent = wlT("nav.login");
     link4.href = "../auth/login.html";
 
-    logoLink.href = "../index.html";
+    logoLink.href = walajnaPublicHomeHref();
 
     supportLink.href = "../main/support.html";
     supportLink.title = wlT("nav.support");
@@ -128,14 +142,16 @@ function setupNavbar() {
   }
 
   let homeHref = "../auth/login.html";
+  let homeLabelKey = "nav.home";
 
   if (activeRole === "tenant") {
     homeHref = "../tenants/tenant_home.html";
   } else if (activeRole === "owner") {
     homeHref = "../owners/owner_home.html";
+    homeLabelKey = "owner.pageTitle";
   }
 
-  homeLink.textContent = wlT("nav.home");
+  homeLink.textContent = wlT(homeLabelKey);
   homeLink.href = homeHref;
 
   link2.textContent = wlT("nav.services");
@@ -169,7 +185,7 @@ function setupNavbar() {
     window.location.href = "../auth/login.html";
   });
 
-  logoLink.href = homeHref;
+  logoLink.href = walajnaPublicHomeHref();
 
   supportLink.href = "../main/support.html";
   supportLink.title = wlT("nav.support");
@@ -257,10 +273,12 @@ function setActiveLinkByPage(navType) {
   if (!homeLink || !link2 || !link3 || !link4) return;
 
   if (navType === "guest") {
-    if (currentPath.includes("index")) {
-      homeLink.classList.add("is-active");
-    } else if (currentPath.includes("how-it-works")) {
-      link2.classList.add("is-active");
+    if (currentPath.includes("homepage") || currentPath.includes("index")) {
+      if (String(window.location.hash || "").toLowerCase() === "#how") {
+        link2.classList.add("is-active");
+      } else {
+        homeLink.classList.add("is-active");
+      }
     } else if (currentPath.includes("about")) {
       link3.classList.add("is-active");
     } else if (currentPath.includes("login")) {
@@ -316,6 +334,15 @@ function initNavbar() {
 }
 
 document.addEventListener("DOMContentLoaded", initNavbar);
+
+window.addEventListener("hashchange", () => {
+  const navType = document.body.dataset.nav || "user";
+  if (navType !== "guest") return;
+  const p = String(window.location.pathname || "").replace(/\\/g, "/");
+  if (!p.includes("homepage") && !p.includes("index")) return;
+  clearActiveLinks();
+  setActiveLinkByPage("guest");
+});
 
 document.addEventListener("walajna:i18n-applied", () => {
   if (document.getElementById("nav-home")) {

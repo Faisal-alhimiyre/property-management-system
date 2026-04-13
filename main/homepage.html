@@ -6,12 +6,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title data-i18n="meta.homepage"></title>
   <link rel="stylesheet" href="../css/theme.css" />
+  <link rel="stylesheet" href="../css/navstyle.css" />
   <link rel="stylesheet" href="../css/homepage.css" />
   <script src="../js/main/walajna-i18n-ur.js"></script>
   <script src="../js/main/walajna-i18n.js"></script>
 </head>
 
-<body data-nav="guest" data-global-back="false">
+<body data-nav-adaptive="true" data-global-back="false">
+  <script>
+    (function () {
+      try {
+        var logged = !!(
+          sessionStorage.getItem("walajna_current_user") ||
+          localStorage.getItem("walajna_current_user") ||
+          localStorage.getItem("access_token")
+        );
+        document.body.setAttribute("data-nav", logged ? "user" : "guest");
+      } catch (e) {
+        document.body.setAttribute("data-nav", "guest");
+      }
+    })();
+  </script>
 
   <div id="navbar-container"></div>
 
@@ -262,6 +277,7 @@
     document.addEventListener("walajna:i18n-applied", setHomeFooter);
   </script>
   <script src="../js/main/theme.js"></script>
+  <script src="../js/main/auth.js"></script>
   <script src="../js/main/nav.js"></script>
 </body>
 </html>

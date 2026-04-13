@@ -38,6 +38,11 @@ padding:24px 8%;
 min-height:100vh;
 }
 
+/* Fixed topbar + breadcrumb: avoid an extra band of page bg before the grid (other dashboards feel tighter) */
+body:has(#walajna-breadcrumb) .messages-shell{
+padding-top:12px;
+}
+
 /* Dark mode overrides */
 body.dark-mode{
   background:
@@ -110,7 +115,8 @@ gap:12px;
 margin-bottom:24px;
 }
 
-.brand-logo{
+/* Only the sidebar — not #navbar-container .brand-logo (same class as the top bar image) */
+.sidebar .brand-logo{
 width:54px;
 height:54px;
 border-radius:16px;

@@ -109,6 +109,11 @@
     return global.localStorage.getItem("activeRole") === "tenant" ? "tenant_home" : "owner_home";
   }
 
+  /** Label for crumb linking to owner home (matches nav first item). */
+  function homeBreadcrumbLabelKey() {
+    return global.localStorage.getItem("activeRole") === "owner" ? "owner.pageTitle" : "nav.home";
+  }
+
   function aptTitleFromRecord(apt) {
     if (!apt) return "—";
     const buildings = readLocalJson("walajna_buildings", "[]");
@@ -126,7 +131,7 @@
     const bName = (bData && bData.name) || apt.buildingName || "—";
     const bid = apt.buildingId;
     return [
-      { href: resolveHref("owner_home"), labelKey: "nav.home" },
+      { href: resolveHref("owner_home"), labelKey: "owner.pageTitle" },
       { href: resolveHref("owner_building", { buildingId: bid }), label: bName },
       { href: hrefApartmentInfo(apt.id), label: aptTitleFromRecord(apt) },
     ];
@@ -206,7 +211,7 @@
     let segments = [];
 
     if (bc === "owner-buildings") {
-      segments = [{ labelKey: "nav.home", current: true }];
+      segments = [{ labelKey: "owner.pageTitle", current: true }];
     } else if (bc === "tenant-units") {
       segments = [{ labelKey: "tenant.unitsTitle", current: true }];
     } else if (bc === "owner-building") {
@@ -215,7 +220,7 @@
       const building = buildings.find((b) => String(b.id) === String(buildingId));
       const bname = (building && building.name) || t("building.notFound");
       segments = [
-        { href: resolveHref("owner_home"), labelKey: "nav.home" },
+        { href: resolveHref("owner_home"), labelKey: homeBreadcrumbLabelKey() },
         { label: bname, current: true },
       ];
     } else if (bc === "apartment-details") {
@@ -226,7 +231,7 @@
       if (!apt) {
         const hk = homeKind();
         segments = [
-          { href: resolveHref(hk), labelKey: "nav.home" },
+          { href: resolveHref(hk), labelKey: homeBreadcrumbLabelKey() },
           { labelKey: "meta.apartmentDetails", current: true },
         ];
       } else if (role === "tenant") {
@@ -240,24 +245,24 @@
         const bData = buildings.find((b) => String(b.id) === String(bid));
         const bName = (bData && bData.name) || apt.buildingName || "—";
         segments = [
-          { href: resolveHref("owner_home"), labelKey: "nav.home" },
+          { href: resolveHref("owner_home"), labelKey: "owner.pageTitle" },
           { href: resolveHref("owner_building", { buildingId: bid }), label: bName },
           { label: aptTitleFromRecord(apt), current: true },
         ];
       }
     } else if (bc === "messages") {
       segments = [
-        { href: resolveHref(homeKind()), labelKey: "nav.home" },
+        { href: resolveHref(homeKind()), labelKey: homeBreadcrumbLabelKey() },
         { labelKey: "bc.messages", current: true },
       ];
     } else if (bc === "settings") {
       segments = [
-        { href: resolveHref(homeKind()), labelKey: "nav.home" },
+        { href: resolveHref(homeKind()), labelKey: homeBreadcrumbLabelKey() },
         { labelKey: "bc.settings", current: true },
       ];
     } else if (bc === "support") {
       segments = [
-        { href: resolveHref(homeKind()), labelKey: "nav.home" },
+        { href: resolveHref(homeKind()), labelKey: homeBreadcrumbLabelKey() },
         { labelKey: "bc.support", current: true },
       ];
     } else if (bc === "costs") {
@@ -266,7 +271,7 @@
       const apt = apartments.find((a) => String(a.id) === String(aptId));
       if (!apt) {
         segments = [
-          { href: resolveHref(homeKind()), labelKey: "nav.home" },
+          { href: resolveHref(homeKind()), labelKey: homeBreadcrumbLabelKey() },
           { labelKey: "bc.costs", current: true },
         ];
       } else if (role === "tenant") {
@@ -299,7 +304,7 @@
       const apt = apartments.find((a) => String(a.id) === String(aptId));
       if (!apt) {
         segments = [
-          { href: resolveHref(homeKind()), labelKey: "nav.home" },
+          { href: resolveHref(homeKind()), labelKey: homeBreadcrumbLabelKey() },
           { labelKey: "bc.paymentOptions", current: true },
         ];
       } else if (role === "tenant") {
@@ -337,7 +342,7 @@
       const apt = apartments.find((a) => String(a.id) === String(apartmentId));
       if (!apt) {
         segments = [
-          { href: resolveHref(homeKind()), labelKey: "nav.home" },
+          { href: resolveHref(homeKind()), labelKey: homeBreadcrumbLabelKey() },
           { labelKey: "history.pageTitle", current: true },
         ];
       } else if (role === "tenant") {
@@ -353,7 +358,7 @@
       const apt = apartments.find((a) => String(a.id) === String(apartmentId));
       if (!apt) {
         segments = [
-          { href: resolveHref(homeKind()), labelKey: "nav.home" },
+          { href: resolveHref(homeKind()), labelKey: homeBreadcrumbLabelKey() },
           { labelKey: "historyDet.badge", current: true },
         ];
       } else if (role === "tenant") {
@@ -381,7 +386,7 @@
       const building = buildings.find((b) => String(b.id) === String(buildingId));
       const bname = (building && building.name) || t("building.notFound");
       segments = [
-        { href: resolveHref("owner_home"), labelKey: "nav.home" },
+        { href: resolveHref("owner_home"), labelKey: homeBreadcrumbLabelKey() },
         { href: resolveHref("owner_building", { buildingId: buildingId }), label: bname },
         { labelKey: "bc.financeSummary", current: true },
       ];
