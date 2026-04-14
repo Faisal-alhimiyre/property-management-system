@@ -103,6 +103,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         null,
       buildingId:
         apiApartment.building_id != null ? String(apiApartment.building_id) : null,
+      buildingName:
+        apiApartment.building_name ?? apiApartment.buildingName ?? "",
       number:
         apiApartment.apartment_number != null
           ? String(apiApartment.apartment_number)
@@ -140,6 +142,47 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
   }
 
+  function inferPaymentCycleFromInstallments(rows) {
+    const list = Array.isArray(rows) ? rows : [];
+    if (list.length < 2) return undefined;
+    const sorted = list
+      .map((r) => String(r?.due_date || r?.dueDate || ""))
+      .filter(Boolean)
+      .sort();
+    if (sorted.length < 2) return undefined;
+    const d0 = new Date(sorted[0]);
+    const d1 = new Date(sorted[1]);
+    if (Number.isNaN(d0.getTime()) || Number.isNaN(d1.getTime())) return undefined;
+    const months = Math.max(
+      1,
+      (d1.getFullYear() - d0.getFullYear()) * 12 + (d1.getMonth() - d0.getMonth())
+    );
+    if (months >= 12) return "annual";
+    if (months >= 6) return "semi_annual";
+    if (months >= 3) return "quarterly";
+    return "monthly";
+  }
+
+  async function fetchInstallmentsMeta(contractId) {
+    if (!contractId || typeof WalajnaAuth === "undefined") return null;
+    try {
+      const res = await WalajnaAuth.fetchWithAuth(
+        `${WalajnaAuth.API_BASE}/api/contracts/${encodeURIComponent(String(contractId))}/installments`,
+        { method: "GET" }
+      );
+      if (!res.ok) return null;
+      const rows = await res.json();
+      const list = Array.isArray(rows) ? rows : [];
+      if (!list.length) return null;
+      return {
+        paymentCycle: inferPaymentCycleFromInstallments(list),
+        installmentsCount: list.length,
+      };
+    } catch {
+      return null;
+    }
+  }
+
   async function fetchContractById(contractId) {
     if (!contractId || typeof WalajnaAuth === "undefined") return null;
     try {
@@ -160,13 +203,16 @@ document.addEventListener("DOMContentLoaded", async () => {
           parsedTerms = null;
         }
       }
+      const installmentsMeta = await fetchInstallmentsMeta(contractId);
       return {
         id: match.id,
         startDate: match.start_date || "",
         endDate: match.end_date || "",
         notes:
           (parsedTerms && (parsedTerms.notes || parsedTerms.note)) ||
-          match.terms ||
+          (typeof match.terms === "string" && !String(match.terms).trim().startsWith("{")
+            ? match.terms
+            : "") ||
           "",
         meterNumber:
           (parsedTerms &&
@@ -174,6 +220,24 @@ document.addEventListener("DOMContentLoaded", async () => {
               parsedTerms.meter_number ||
               parsedTerms.meter)) ||
           "",
+        paymentCycle:
+          match.payment_cycle ||
+          parsedTerms?.paymentCycle ||
+          parsedTerms?.payment_cycle ||
+          installmentsMeta?.paymentCycle ||
+          undefined,
+        installmentsCount:
+          match.installments_count ??
+          parsedTerms?.installmentsCount ??
+          parsedTerms?.installments_count ??
+          installmentsMeta?.installmentsCount ??
+          undefined,
+        rentAmount:
+          match.rent_amount ??
+          match.monthly_rent ??
+          parsedTerms?.rentAmount ??
+          parsedTerms?.rent ??
+          undefined,
       };
     } catch {
       return null;
@@ -934,6 +998,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   /* =========================
      6) INIT FEATURES
      ========================= */
+  if (typeof WalajnaDocumentsApi !== "undefined" && WalajnaDocumentsApi.refreshForApartment) {
+    try {
+      await WalajnaDocumentsApi.refreshForApartment(aptId);
+    } catch (e) {
+      console.warn("[apartment-page] documents refresh failed", e);
+    }
+  }
   initDocumentsSystem(aptId);
   initRequestsSystem(aptId, uiRoleForWidgets, currentUser, effectiveLeaseStatus, data);
   const linkTenantSystem = initLinkTenantSystem(aptId, currentUser);

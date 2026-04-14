@@ -319,6 +319,141 @@ def _reconcile_owner_apartment_maintenance_pointers(apartments_data: list[dict])
     return reconciled
 
 
+def _denormalized_tenant_present(apt: dict) -> bool:
+    if apt.get("tenant_user_id") is not None:
+        return True
+    if apt.get("tenant_national_id"):
+        return True
+    ti = apt.get("tenant_info") or {}
+    if isinstance(ti, dict) and (ti.get("fullName") or ti.get("full_name")):
+        return True
+    return False
+
+
+def _repair_stale_apartment_tenant_columns(rows: list[dict]) -> list[dict]:
+    """
+    Persist a fix when contracts were removed in SQL/Table Editor but apartments still hold tenant_*.
+    Also clears when current_contract_id points at a missing contract id.
+    """
+    if not rows:
+        return rows
+    to_fix: set[int] = set()
+
+    cids: list[int] = []
+    for r in rows:
+        aid = r.get("id")
+        if aid is None:
+            continue
+        try:
+            iaid = int(aid)
+        except (TypeError, ValueError):
+            continue
+        cid = r.get("current_contract_id")
+        if cid is None:
+            if _denormalized_tenant_present(r):
+                to_fix.add(iaid)
+            continue
+        try:
+            icid = int(cid)
+        except (TypeError, ValueError):
+            to_fix.add(iaid)
+            continue
+        cids.append(icid)
+
+    existing_contracts: set[int] = set()
+    if cids:
+        unique_cids = list(dict.fromkeys(cids))
+        try:
+            cr = supabase.table("contracts").select("id").in_("id", unique_cids).execute()
+            for row in getattr(cr, "data", None) or []:
+                if row.get("id") is not None:
+                    existing_contracts.add(int(row["id"]))
+        except Exception:
+            logger.exception("repair: contract batch lookup failed")
+
+    for r in rows:
+        aid = r.get("id")
+        if aid is None:
+            continue
+        try:
+            iaid = int(aid)
+        except (TypeError, ValueError):
+            continue
+        cid = r.get("current_contract_id")
+        if cid is None:
+            continue
+        try:
+            icid = int(cid)
+        except (TypeError, ValueError):
+            continue
+        if icid not in existing_contracts:
+            to_fix.add(iaid)
+
+    if not to_fix:
+        return rows
+
+    fix_list = list(to_fix)
+    clear_payload = {
+        "tenant_user_id": None,
+        "tenant_national_id": None,
+        "tenant_info": None,
+        "current_contract_id": None,
+        "lease_status": "vacant",
+        "maintenance_id": None,
+        "rent": 0,
+    }
+    try:
+        for aid in fix_list:
+            try:
+                supabase.table("tenants").update({"apartment_id": None}).eq("apartment_id", aid).execute()
+            except Exception:
+                logger.exception("repair: detach tenants for apartment_id=%s", aid)
+        supabase.table("apartments").update(clear_payload).in_("id", fix_list).execute()
+        logger.info("repair stale apartment tenant columns: apartment_ids=%s", fix_list)
+    except Exception:
+        logger.exception("repair: batch clear apartment tenant columns failed")
+        return rows
+
+    try:
+        refreshed = supabase.table("apartments").select("*").in_("id", fix_list).execute()
+        fresh_by_id = {int(x["id"]): x for x in (getattr(refreshed, "data", None) or [])}
+    except Exception:
+        logger.exception("repair: re-fetch apartments failed")
+        fresh_by_id = {}
+
+    out: list[dict] = []
+    for r in rows:
+        rid = r.get("id")
+        try:
+            ir = int(rid)
+        except (TypeError, ValueError):
+            out.append(r)
+            continue
+        if ir in fresh_by_id:
+            out.append(fresh_by_id[ir])
+        else:
+            out.append(r)
+    return out
+
+
+def _is_contract_row_active(row: dict) -> bool:
+    return str(row.get("status") or "active").lower() == "active"
+
+
+def _active_contract_rows_for_apartment(apartment_id: int) -> list[dict]:
+    try:
+        res = (
+            supabase.table("contracts")
+            .select("id, status, apartment_id")
+            .eq("apartment_id", apartment_id)
+            .execute()
+        )
+    except Exception:
+        logger.exception("contracts list failed apartment_id=%s", apartment_id)
+        return []
+    return [r for r in (getattr(res, "data", None) or []) if _is_contract_row_active(r)]
+
+
 def reconcile_apartment_maintenance_pointer(apartment_id: int) -> None:
     """Call after maintenance_requests create/update to refresh FK on apartments."""
     res = supabase.table("apartments").select("id, maintenance_id").eq("id", apartment_id).execute()
@@ -396,7 +531,9 @@ async def create_apartment(apartment: Apartment, current_user: dict = Depends(ge
     apartment_data = apartment.dict()
     apartment_data["owner_id"] = current_user["id"]
     response = supabase.table("apartments").insert(apartment_data).execute()
-    return ApartmentResponse(**response.data[0])
+    row = dict(response.data[0])
+    _attach_building_names([row])
+    return ApartmentResponse(**row)
 
 @router.get("/apartments", response_model=list[ApartmentResponse])
 async def get_apartments(
@@ -415,6 +552,7 @@ async def get_apartments(
             .execute()
         )
         rows = getattr(owner_rows_result, "data", None) or []
+        rows = _repair_stale_apartment_tenant_columns(rows)
         rows = _reconcile_owner_apartment_statuses(rows)
         rows = _reconcile_owner_apartment_maintenance_pointers(rows)
     else:
@@ -465,6 +603,7 @@ async def get_apartments(
                 if not any(existing.get("id") == apartment.get("id") for existing in rows):
                     rows.append(apartment)
 
+    _attach_building_names(rows)
     return [ApartmentResponse(**apt) for apt in rows]
 
 @router.get("/apartments/{apartment_id}", response_model=ApartmentResponse)
@@ -504,7 +643,8 @@ async def get_apartment(apartment_id: int, current_user: dict = Depends(get_curr
                 raise HTTPException(status_code=403, detail="Not authorized")
 
     if is_landlord:
-        tmp = _reconcile_owner_apartment_statuses([dict(apt)])
+        tmp = _repair_stale_apartment_tenant_columns([dict(apt)])
+        tmp = _reconcile_owner_apartment_statuses(tmp)
         tmp = _reconcile_owner_apartment_maintenance_pointers(tmp)
         apt = tmp[0]
 
@@ -535,6 +675,7 @@ async def get_apartment(apartment_id: int, current_user: dict = Depends(get_curr
                 "owner_public lookup failed for tenant apartment_id=%s", apartment_id
             )
 
+    _attach_building_names([row])
     return ApartmentResponse(**row)
 
 
@@ -589,6 +730,47 @@ def _building_name_from_id(building_id) -> str | None:
     except Exception:
         logger.exception("buildings name lookup for apartment_history")
         return None
+
+
+def _attach_building_names(rows: list[dict] | None) -> None:
+    """Set building_name on each row from buildings.name (batch lookup)."""
+    if not rows:
+        return
+    ids: list[int] = []
+    for r in rows:
+        bid = r.get("building_id")
+        if bid is None:
+            continue
+        try:
+            ids.append(int(bid))
+        except (TypeError, ValueError):
+            continue
+    ids = list(dict.fromkeys(ids))
+    if not ids:
+        return
+    bmap: dict[int, str | None] = {}
+    try:
+        bres = supabase.table("buildings").select("id,name").in_("id", ids).execute()
+        for brow in getattr(bres, "data", None) or []:
+            try:
+                bid = int(brow.get("id"))
+            except (TypeError, ValueError):
+                continue
+            bmap[bid] = brow.get("name")
+    except Exception:
+        logger.exception("batch building name lookup for apartment responses")
+        return
+    for r in rows:
+        bid = r.get("building_id")
+        if bid is None:
+            continue
+        try:
+            bid_int = int(bid)
+        except (TypeError, ValueError):
+            continue
+        name = bmap.get(bid_int)
+        if name is not None:
+            r["building_name"] = name
 
 
 def _user_can_view_apartment_row(apt: dict, current_user: dict) -> bool:
@@ -718,8 +900,7 @@ async def assign_tenant_to_apartment(
         )
         logger.info("assign-tenant tenant row used: %s", tenant_row)
 
-        # Build and insert contract row.
-        # Persist meter number inside `terms` as JSON to avoid adding another DB column.
+        # Build contract terms (meter + notes in JSON when needed).
         meter_number = normalized_payload.get("meter_number")
         notes_value = normalized_payload.get("notes") or ""
         if meter_number is not None and str(meter_number).strip() != "":
@@ -733,24 +914,98 @@ async def assign_tenant_to_apartment(
         else:
             contract_terms = notes_value
 
-        contract_data = {
-            "apartment_id": apartment_id,
+        contract_update_body = {
             "tenant_id": tenant_row.get("id"),
             "start_date": lease_start,
             "end_date": lease_end,
             "terms": contract_terms,
         }
-        contract_data = {k: v for k, v in contract_data.items() if v is not None}
-        logger.info("assign-tenant contract data payload: %s", contract_data)
+        contract_update_body = {k: v for k, v in contract_update_body.items() if v is not None}
 
-        contract_result = supabase.table("contracts").insert(contract_data).execute()
-        logger.info("assign-tenant contract insert response: %s", getattr(contract_result, "data", None))
-        if not contract_result.data:
-            raise HTTPException(status_code=500, detail="Failed to create contract record: empty response from Supabase")
+        existing_ccid = apartment.get("current_contract_id")
+        try:
+            existing_ccid_int = int(existing_ccid) if existing_ccid is not None else None
+        except (TypeError, ValueError):
+            existing_ccid_int = None
 
-        created_contract = contract_result.data[0]
-        contract_id = created_contract.get("id")
-        logger.info("assign-tenant created contract id=%s", contract_id)
+        contract_id: int | None = None
+
+        if existing_ccid_int is not None:
+            ver = (
+                supabase.table("contracts")
+                .select("id, apartment_id")
+                .eq("id", existing_ccid_int)
+                .limit(1)
+                .execute()
+            )
+            vr = getattr(ver, "data", None) or []
+            if not vr:
+                raise HTTPException(status_code=400, detail="current_contract_id not found")
+            try:
+                if int(vr[0].get("apartment_id")) != int(apartment_id):
+                    raise HTTPException(
+                        status_code=400,
+                        detail="current_contract_id does not belong to this apartment",
+                    )
+            except HTTPException:
+                raise
+            except (TypeError, ValueError):
+                raise HTTPException(status_code=400, detail="Invalid contract apartment reference") from None
+
+            try:
+                upd_c = (
+                    supabase.table("contracts")
+                    .update(contract_update_body)
+                    .eq("id", existing_ccid_int)
+                    .execute()
+                )
+            except Exception as exc:
+                logger.exception("assign-tenant contract update failed contract_id=%s", existing_ccid_int)
+                raise HTTPException(status_code=500, detail=f"Contract update failed: {str(exc)}") from exc
+            if not getattr(upd_c, "data", None):
+                raise HTTPException(status_code=500, detail="Contract update returned empty response")
+            contract_id = existing_ccid_int
+            logger.info("assign-tenant updated existing contract id=%s", contract_id)
+        else:
+            apt_race = (
+                supabase.table("apartments")
+                .select("id, current_contract_id")
+                .eq("id", apartment_id)
+                .limit(1)
+                .execute()
+            )
+            ar = getattr(apt_race, "data", None) or []
+            if ar and ar[0].get("current_contract_id"):
+                raise HTTPException(
+                    status_code=409,
+                    detail="Tenant link was already saved for this apartment. Refresh the page.",
+                )
+
+            active_for_apt = _active_contract_rows_for_apartment(apartment_id)
+            if active_for_apt:
+                raise HTTPException(
+                    status_code=409,
+                    detail="This apartment already has an active contract. Refresh the page or end the current lease first.",
+                )
+
+            contract_data = {
+                "apartment_id": apartment_id,
+                "tenant_id": tenant_row.get("id"),
+                "start_date": lease_start,
+                "end_date": lease_end,
+                "terms": contract_terms,
+            }
+            contract_data = {k: v for k, v in contract_data.items() if v is not None}
+            logger.info("assign-tenant contract insert payload: %s", contract_data)
+
+            contract_result = supabase.table("contracts").insert(contract_data).execute()
+            logger.info("assign-tenant contract insert response: %s", getattr(contract_result, "data", None))
+            if not contract_result.data:
+                raise HTTPException(status_code=500, detail="Failed to create contract record: empty response from Supabase")
+
+            created_contract = contract_result.data[0]
+            contract_id = created_contract.get("id")
+            logger.info("assign-tenant created contract id=%s", contract_id)
 
         tenant_info = normalized_payload.get("tenant_info") or {}
         full_name = tenant_info.get("fullName", tenant_info.get("full_name"))
@@ -820,10 +1075,11 @@ async def assign_tenant_to_apartment(
 
         if not update_result.data:
             logger.error("assign-tenant apartment update failed, rolling back contract_id=%s", contract_id)
-            try:
-                supabase.table("contracts").delete().eq("id", contract_id).execute()
-            except Exception:
-                logger.exception("assign-tenant rollback failed for contract_id=%s", contract_id)
+            if existing_ccid_int is None and contract_id is not None:
+                try:
+                    supabase.table("contracts").delete().eq("id", contract_id).execute()
+                except Exception:
+                    logger.exception("assign-tenant rollback failed for contract_id=%s", contract_id)
             raise HTTPException(
                 status_code=500,
                 detail="Apartment update failed: empty response from Supabase. "
@@ -835,6 +1091,7 @@ async def assign_tenant_to_apartment(
         reconciled = _reconcile_owner_apartment_statuses([dict(updated_apt)])
         reconciled = _reconcile_owner_apartment_maintenance_pointers(reconciled)
         updated_apt = reconciled[0]
+        _attach_building_names([updated_apt])
         logger.info("assign-tenant final response apartment_id=%s response=%s", apartment_id, updated_apt)
         return updated_apt
     except HTTPException:
@@ -871,8 +1128,6 @@ async def vacate_tenant(apartment_id: int, current_user: dict = Depends(get_curr
         raise
     except (TypeError, ValueError):
         raise HTTPException(status_code=403, detail="Not authorized: apartment belongs to a different owner")
-
-    old_tuid = apartment.get("tenant_user_id")
 
     tenant_info_pre = apartment.get("tenant_info") or {}
     had_tenancy = bool(
@@ -912,22 +1167,29 @@ async def vacate_tenant(apartment_id: int, current_user: dict = Depends(get_curr
         except Exception:
             logger.exception("apartment_history insert failed on vacate apartment_id=%s", apt_id_int)
 
+    ccid_end = apartment.get("current_contract_id")
+    if ccid_end is not None:
+        try:
+            supabase.table("contracts").update({"status": "terminated"}).eq("id", int(ccid_end)).execute()
+        except Exception:
+            logger.exception("vacate: could not mark contract terminated id=%s", ccid_end)
+
+    # Clear tenant snapshot including agreed/listed rent on the apartment row (vacant unit).
     update_payload = {
         "tenant_user_id": None,
         "tenant_national_id": None,
-        "tenant_info": {},
+        "tenant_info": None,
         "current_contract_id": None,
         "lease_status": "vacant",
+        "maintenance_id": None,
         "rent": 0,
     }
 
     try:
-        if old_tuid is not None:
-            supabase.table("tenants").update({"apartment_id": None}).eq("apartment_id", apt_id_int).eq(
-                "user_id", int(old_tuid)
-            ).execute()
+        # Detach all tenant profile rows pointing at this unit (covers national-id-only links and stale user_id).
+        supabase.table("tenants").update({"apartment_id": None}).eq("apartment_id", apt_id_int).execute()
     except Exception:
-        logger.exception("vacate-tenant: failed to detach tenants row for apartment_id=%s", apt_id_int)
+        logger.exception("vacate-tenant: failed to detach tenants rows for apartment_id=%s", apt_id_int)
 
     try:
         update_result = supabase.table("apartments").update(update_payload).eq("id", apt_id_int).execute()
@@ -966,4 +1228,5 @@ async def vacate_tenant(apartment_id: int, current_user: dict = Depends(get_curr
         except Exception:
             logger.exception("vacate-tenant owner_public lookup failed apartment_id=%s", apt_id_int)
 
+    _attach_building_names([row])
     return ApartmentResponse(**row)

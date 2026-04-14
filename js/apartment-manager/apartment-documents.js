@@ -80,16 +80,40 @@ function getCurrentContractIdForApartment(aptId) {
   );
 }
 
+function normalizeContractKey(value) {
+  return value == null ? "" : String(value).trim();
+}
+
 function getDocumentsForApartmentContext(aptId) {
   const documents = getDocuments();
   const currentContractId = getCurrentContractIdForApartment(aptId);
+  const currentKey = normalizeContractKey(currentContractId);
 
-  // 🔥 مهم: لا fallback على apartmentId إذا يوجد عقد حالي
-  if (currentContractId) {
-    return documents.filter((doc) => doc.contractId === currentContractId);
+  // For active contract view, compare normalized IDs so number/string mismatches do not hide docs.
+  if (currentKey) {
+    const matched = documents.filter(
+      (doc) => normalizeContractKey(doc.contractId) === currentKey
+    );
+
+    if (matched.length > 0) {
+      return matched;
+    }
+
+    // If a generated contract exists without contractId (older data), keep showing it for this apartment.
+    return documents.filter((doc) => {
+      if (String(doc.apartmentId) !== String(aptId)) return false;
+      if (doc.docType !== "auto_lease_contract") return false;
+      return !normalizeContractKey(doc.contractId);
+    });
   }
 
-  // إذا ما فيه عقد حالي، لا نعرض وثائق قديمة
+  // If no active contract id is available, show only apartment docs that are not tied to old contracts.
+  const apartmentDocs = documents.filter(
+    (doc) => String(doc.apartmentId) === String(aptId)
+  );
+  const safeDocs = apartmentDocs.filter((doc) => !normalizeContractKey(doc.contractId));
+  if (safeDocs.length > 0) return safeDocs;
+
   return [];
 }
 
@@ -151,32 +175,65 @@ function renderDocumentsList(documentsList, aptId) {
    Save Document
    ======================================== */
 
-function saveDocumentForApartment(file, aptId, extraData = {}) {
-  const reader = new FileReader();
-
-  reader.onload = function (e) {
-    const documents = getDocuments();
-
-    documents.push({
-      id: "DOC" + Date.now(),
-      apartmentId: aptId,
-      fileName: file.name,
-      fileData: e.target.result,
-      mimeType: file.type || "",
-      uploadedAt: new Date().toISOString(),
-      ...extraData,
-    });
-
-    saveDocuments(documents);
-  };
-
-  reader.readAsDataURL(file);
+function useServerDocuments() {
+  return (
+    typeof WalajnaAuth !== "undefined" &&
+    typeof WalajnaAuth.getCurrentUser === "function" &&
+    !!WalajnaAuth.getCurrentUser() &&
+    typeof WalajnaDocumentsApi !== "undefined" &&
+    typeof WalajnaDocumentsApi.createOnServer === "function"
+  );
 }
 
-function saveHtmlDocumentForApartment(htmlContent, aptId, fileName, extraData = {}) {
-  const documents = getDocuments();
+function saveDocumentForApartment(file, aptId, extraData = {}) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("read failed"));
 
-  documents.push({
+    reader.onload = function (e) {
+      const base = {
+        id: "DOC" + Date.now(),
+        apartmentId: aptId,
+        fileName: file.name,
+        fileData: e.target.result,
+        mimeType: file.type || "",
+        uploadedAt: new Date().toISOString(),
+        ...extraData,
+      };
+
+      void (async () => {
+        try {
+          if (useServerDocuments()) {
+            try {
+              const created = await WalajnaDocumentsApi.createOnServer(base);
+              const documents = getDocuments().slice();
+              documents.push(created);
+              saveDocuments(documents);
+            } catch (err) {
+              console.warn("[apartment-documents] server upload failed", err);
+              const documents = getDocuments().slice();
+              documents.push(base);
+              saveDocuments(documents);
+            }
+            resolve();
+            return;
+          }
+          const documents = getDocuments().slice();
+          documents.push(base);
+          saveDocuments(documents);
+          resolve();
+        } catch (err) {
+          reject(err);
+        }
+      })();
+    };
+
+    reader.readAsDataURL(file);
+  });
+}
+
+async function saveHtmlDocumentForApartment(htmlContent, aptId, fileName, extraData = {}) {
+  const base = {
     id: "DOC" + Date.now(),
     apartmentId: aptId,
     fileName: fileName || docT("aptDoc.htmlDocName"),
@@ -184,18 +241,76 @@ function saveHtmlDocumentForApartment(htmlContent, aptId, fileName, extraData = 
     mimeType: "text/html",
     uploadedAt: new Date().toISOString(),
     ...extraData,
-  });
-
+  };
+  if (useServerDocuments()) {
+    try {
+      const created = await WalajnaDocumentsApi.createOnServer(base);
+      const documents = getDocuments().slice();
+      documents.push(created);
+      saveDocuments(documents);
+    } catch (err) {
+      console.warn("[apartment-documents] server html save failed", err);
+      const documents = getDocuments().slice();
+      documents.push(base);
+      saveDocuments(documents);
+    }
+    return;
+  }
+  const documents = getDocuments().slice();
+  documents.push(base);
   saveDocuments(documents);
 }
 
-function upsertHtmlDocumentForApartment(htmlContent, aptId, fileName, matcher = {}) {
-  const documents = getDocuments();
+async function upsertDocumentForApartment(fileData, mimeType, aptId, fileName, matcher = {}) {
+  const matcherContractKey = normalizeContractKey(matcher.contractId);
 
+  /* One auto-generated lease PDF per apartment+contract: remove prior rows (fixes dupes + legacy rows without doc_type). */
+  if (
+    useServerDocuments() &&
+    matcher.docType === "auto_lease_contract" &&
+    matcher.generatedAutomatically &&
+    matcherContractKey
+  ) {
+    const victims = getDocuments().filter((doc) => {
+      if (String(doc.apartmentId) !== String(aptId)) return false;
+      const isAuto =
+        doc.docType === "auto_lease_contract" ||
+        (!doc.docType && doc.generatedAutomatically);
+      if (!isAuto) return false;
+      const dc = normalizeContractKey(doc.contractId);
+      if (matcherContractKey && dc && dc !== matcherContractKey) return false;
+      return true;
+    });
+    for (const doc of victims) {
+      if (doc.serverId == null) continue;
+      try {
+        await WalajnaDocumentsApi.deleteOnServer(doc.serverId);
+      } catch (e) {
+        console.warn("[apartment-documents] could not remove prior auto lease row", e);
+      }
+    }
+  }
+
+  const documents = getDocuments().slice();
   const index = documents.findIndex((doc) => {
-    if (doc.apartmentId !== aptId) return false;
-    if (matcher.contractId && doc.contractId !== matcher.contractId) return false;
-    if (matcher.docType && doc.docType !== matcher.docType) return false;
+    if (String(doc.apartmentId) !== String(aptId)) return false;
+    if (
+      matcherContractKey &&
+      normalizeContractKey(doc.contractId) !== matcherContractKey
+    )
+      return false;
+    if (matcher.docType) {
+      const got = doc.docType || "";
+      if (got && got !== matcher.docType) return false;
+      if (
+        !got &&
+        matcher.docType === "auto_lease_contract" &&
+        matcher.generatedAutomatically &&
+        !doc.generatedAutomatically
+      ) {
+        return false;
+      }
+    }
     return true;
   });
 
@@ -203,19 +318,52 @@ function upsertHtmlDocumentForApartment(htmlContent, aptId, fileName, matcher = 
     id: index >= 0 ? documents[index].id : "DOC" + Date.now(),
     apartmentId: aptId,
     fileName: fileName || docT("aptDoc.htmlDocName"),
-    fileData: buildHtmlDataUrl(htmlContent),
-    mimeType: "text/html",
+    fileData,
+    mimeType: mimeType || "application/octet-stream",
     uploadedAt: new Date().toISOString(),
     ...matcher,
   };
 
-  if (index >= 0) {
-    documents[index] = newDoc;
-  } else {
-    documents.push(newDoc);
+  if (useServerDocuments()) {
+    const prev = index >= 0 ? documents[index] : null;
+    try {
+      const created = await WalajnaDocumentsApi.createOnServer({
+        apartmentId: aptId,
+        fileName: newDoc.fileName,
+        fileData: newDoc.fileData,
+        mimeType: newDoc.mimeType,
+        docType: newDoc.docType || null,
+        contractId: newDoc.contractId,
+        generatedAutomatically: !!newDoc.generatedAutomatically,
+      });
+      if (prev && prev.serverId && prev.serverId !== created.serverId) {
+        await WalajnaDocumentsApi.deleteOnServer(prev.serverId);
+      }
+      if (index >= 0) documents[index] = created;
+      else documents.push(created);
+      saveDocuments(documents);
+    } catch (err) {
+      console.warn("[apartment-documents] server upsert failed", err);
+      if (index >= 0) documents[index] = newDoc;
+      else documents.push(newDoc);
+      saveDocuments(documents);
+    }
+    return;
   }
 
+  if (index >= 0) documents[index] = newDoc;
+  else documents.push(newDoc);
   saveDocuments(documents);
+}
+
+async function upsertHtmlDocumentForApartment(htmlContent, aptId, fileName, matcher = {}) {
+  return upsertDocumentForApartment(
+    buildHtmlDataUrl(htmlContent),
+    "text/html",
+    aptId,
+    fileName,
+    matcher
+  );
 }
 
 /* ========================================
@@ -224,12 +372,42 @@ function upsertHtmlDocumentForApartment(htmlContent, aptId, fileName, matcher = 
 
 function openDocumentById(docId) {
   const documents = getDocuments();
-  const doc = documents.find((d) => d.id === docId);
+  const doc = documents.find((d) => String(d.id) === String(docId));
 
   if (!doc) return;
 
+  const data = String(doc.fileData || "").trim();
+  if (!data) {
+    window.alert(docT("aptDoc.missingData"));
+    return;
+  }
+
+  const mime = String(doc.mimeType || "").toLowerCase();
+  const isHtml =
+    mime.includes("text/html") ||
+    mime.includes("html") ||
+    data.startsWith("data:text/html") ||
+    data.startsWith("data:text%2Fhtml");
+  const isPdf =
+    mime.includes("application/pdf") ||
+    data.startsWith("data:application/pdf") ||
+    data.startsWith("data:application%2Fpdf");
+
   const win = window.open();
-  if (!win) return;
+  if (!win) {
+    window.alert(docT("aptDoc.popupBlocked"));
+    return;
+  }
+
+  if (/^https?:\/\//i.test(data)) {
+    win.location.href = data;
+    return;
+  }
+
+  if (isPdf && !isHtml) {
+    win.location.href = data;
+    return;
+  }
 
   const lang = window.walajna_language && window.walajna_language.get ? window.walajna_language.get() : "ar";
   const htmlLang = lang === "en" ? "en" : lang === "ur" ? "ur" : "ar";

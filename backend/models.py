@@ -66,13 +66,32 @@ class Contract(BaseModel):
     terms: Optional[str] = None
     created_at: Optional[datetime] = None
 
-class Document(BaseModel):
-    id: Optional[int] = None
-    user_id: int
-    apartment_id: Optional[int] = None
+class DocumentCreate(BaseModel):
+    """POST /api/documents — server sets user_id from the session."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    apartment_id: int
     name: str
-    type: Optional[str] = None
     url: str
+    mime_type: Optional[str] = None
+    doc_type: Optional[str] = None
+    contract_id: Optional[int] = None
+    generated_automatically: Optional[bool] = False
+
+
+class DocumentResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    id: int
+    user_id: int
+    apartment_id: int
+    contract_id: Optional[int] = None
+    name: str
+    mime_type: Optional[str] = None
+    doc_type: Optional[str] = None
+    url: str
+    generated_automatically: Optional[bool] = False
     uploaded_at: Optional[datetime] = None
 
 class MaintenanceRequestCreate(BaseModel):
@@ -162,6 +181,8 @@ class ApartmentResponse(BaseModel):
     id: int
     owner_id: Optional[int] = None
     building_id: Optional[int] = None
+    # From buildings.name via join lookup — not a column on apartments.
+    building_name: Optional[str] = None
     apartment_number: Optional[str] = None
     floor_number: Optional[int] = None
     bedrooms: Optional[int] = None

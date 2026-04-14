@@ -222,6 +222,64 @@ async def register(user: User):
         raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
 
 
+@router.post("/api/reset-password")
+@router.post("/reset-password")
+async def reset_password(body: dict):
+    """
+    Demo reset endpoint for current frontend flow.
+    Accepts any of: user_id, national_id, email, phone + new_password.
+    """
+    new_password = str(body.get("new_password", "")).strip()
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+
+    user_row = None
+    user_id = body.get("user_id")
+    national_id = str(body.get("national_id", "")).strip()
+    email = str(body.get("email", "")).strip()
+    phone = str(body.get("phone", "")).strip()
+
+    if user_id not in (None, ""):
+        try:
+            uid = int(user_id)
+        except (TypeError, ValueError):
+            uid = None
+        if uid is not None:
+            res = supabase.table("users").select("*").eq("id", uid).limit(1).execute()
+            if res.data:
+                user_row = res.data[0]
+
+    if user_row is None and national_id:
+        res = supabase.table("users").select("*").eq("national_id", national_id).limit(1).execute()
+        if res.data:
+            user_row = res.data[0]
+
+    if user_row is None and email:
+        res = supabase.table("users").select("*").eq("email", email).limit(1).execute()
+        if res.data:
+            user_row = res.data[0]
+
+    if user_row is None and phone:
+        res = supabase.table("users").select("*").eq("phone", phone).limit(1).execute()
+        if res.data:
+            user_row = res.data[0]
+
+    if user_row is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    hashed = get_password_hash(new_password)
+    upd = (
+        supabase.table("users")
+        .update({"password": hashed})
+        .eq("id", user_row["id"])
+        .execute()
+    )
+    if not upd.data:
+        raise HTTPException(status_code=500, detail="Failed to update password")
+
+    return {"ok": True, "user_id": user_row["id"]}
+
+
 def _login_from_json_dict(body: dict) -> dict:
     raw_nid = body.get("national_id", body.get("nationalId"))
     national_id = str(raw_nid).strip() if raw_nid is not None else ""
