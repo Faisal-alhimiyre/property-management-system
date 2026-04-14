@@ -95,6 +95,65 @@
     return mapRow(row);
   }
 
+  async function uploadGeneratedFileOnServer(doc, blob) {
+    if (!blob) throw new Error("Missing file blob");
+    const cidRaw = doc.contractId;
+    let contractId = null;
+    if (cidRaw != null && cidRaw !== "") {
+      const n = Number(cidRaw);
+      if (Number.isFinite(n)) contractId = n;
+    }
+    const fd = new FormData();
+    fd.append("apartment_id", String(Number(doc.apartmentId)));
+    fd.append("name", doc.fileName || "document.pdf");
+    if (contractId != null) fd.append("contract_id", String(contractId));
+    if (doc.docType) fd.append("doc_type", String(doc.docType));
+    fd.append("generated_automatically", doc.generatedAutomatically ? "true" : "false");
+    fd.append("file", blob, doc.fileName || "document.pdf");
+
+    const res = await WalajnaAuth.fetchWithAuth(`${apiBase()}/api/documents/upload-generated`, {
+      method: "POST",
+      body: fd,
+    });
+    if (!res.ok) {
+      const t = await res.text();
+      throw new Error(t || `HTTP ${res.status}`);
+    }
+    const row = await res.json();
+    return mapRow(row);
+  }
+
+  async function renderContractPdfOnServer(doc, html) {
+    const cidRaw = doc.contractId;
+    let contractId = null;
+    if (cidRaw != null && cidRaw !== "") {
+      const n = Number(cidRaw);
+      if (Number.isFinite(n)) contractId = n;
+    }
+    const body = {
+      apartment_id: Number(doc.apartmentId),
+      name: doc.fileName || "contract.pdf",
+      html: String(html || ""),
+      contract_id: contractId,
+      doc_type: doc.docType || "auto_lease_contract",
+      generated_automatically: !!doc.generatedAutomatically,
+    };
+    const res = await WalajnaAuth.fetchWithAuth(
+      `${apiBase()}/api/documents/render-upload-contract-pdf`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }
+    );
+    if (!res.ok) {
+      const t = await res.text();
+      throw new Error(t || `HTTP ${res.status}`);
+    }
+    const row = await res.json();
+    return mapRow(row);
+  }
+
   async function deleteOnServer(serverId) {
     const res = await WalajnaAuth.fetchWithAuth(
       `${apiBase()}/api/documents/${encodeURIComponent(String(serverId))}`,
@@ -121,6 +180,8 @@
     setSessionList,
     refreshForApartment,
     createOnServer,
+    uploadGeneratedFileOnServer,
+    renderContractPdfOnServer,
     deleteOnServer,
     deleteByApartment,
   };

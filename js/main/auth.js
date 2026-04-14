@@ -135,7 +135,10 @@ function getAuthHeaders(additional = {}) {
 function fetchWithAuth(url, options = {}) {
   const { headers: optHeaders, ...rest } = options;
   const method = String(rest.method || 'GET').toUpperCase();
-  const useJsonHeaders = method !== 'GET' && method !== 'HEAD';
+  const isMultipartBody =
+    typeof FormData !== 'undefined' && rest.body instanceof FormData;
+  const useJsonHeaders =
+    method !== 'GET' && method !== 'HEAD' && !isMultipartBody;
   return fetch(url, {
     credentials: 'include',
     ...rest,

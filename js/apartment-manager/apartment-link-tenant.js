@@ -852,6 +852,70 @@ function syncEndDateWithStartDate(force = false) {
     `;
   }
 
+  let html2pdfLoaderPromise = null;
+  function ensureHtml2PdfLoaded() {
+    if (typeof window !== "undefined" && typeof window.html2pdf === "function") {
+      return Promise.resolve();
+    }
+    if (html2pdfLoaderPromise) return html2pdfLoaderPromise;
+    html2pdfLoaderPromise = new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
+      s.async = true;
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error("Could not load PDF generator"));
+      document.head.appendChild(s);
+    });
+    return html2pdfLoaderPromise;
+  }
+
+  async function buildLeaseContractPdfBlob(contractHtml) {
+    await ensureHtml2PdfLoaded();
+    let parsedBodyHtml = contractHtml;
+    let parsedStyles = "";
+    try {
+      const parsed = new DOMParser().parseFromString(contractHtml, "text/html");
+      parsedBodyHtml = parsed?.body?.innerHTML || contractHtml;
+      parsedStyles = Array.from(parsed.querySelectorAll("style"))
+        .map((s) => s.textContent || "")
+        .join("\n");
+    } catch {
+      /* fallback to raw html */
+    }
+    const host = document.createElement("div");
+    host.style.position = "fixed";
+    host.style.left = "0";
+    host.style.top = "0";
+    host.style.width = "210mm";
+    host.style.opacity = "0";
+    host.style.pointerEvents = "none";
+    host.style.zIndex = "-1";
+    host.style.background = "#ffffff";
+    host.innerHTML = `${parsedStyles ? `<style>${parsedStyles}</style>` : ""}${parsedBodyHtml}`;
+    document.body.appendChild(host);
+    try {
+      await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+      await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+      const worker = window.html2pdf().set({
+        margin: [0, 0, 0, 0],
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          scrollX: 0,
+          scrollY: 0,
+          backgroundColor: "#ffffff",
+          windowWidth: host.scrollWidth || 794,
+          windowHeight: host.scrollHeight || 1123,
+        },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+      });
+      return await worker.from(host).outputPdf("blob");
+    } finally {
+      host.remove();
+    }
+  }
+
   function sanitizeFileNamePart(value) {
     return String(value || "")
       .replace(/[\\/:*?"<>|]/g, "-")
@@ -859,12 +923,13 @@ function syncEndDateWithStartDate(force = false) {
       .trim();
   }
 
-  function buildOfficialLeaseFileName(apartment, data, contractId) {
+  function buildOfficialLeaseFileName(apartment, data, contractId, ext = "pdf") {
     const building = sanitizeFileNamePart(resolveBuildingDisplayName(apartment) || "Building");
     const unit = sanitizeFileNamePart(apartment?.number || "Unit");
     const cid = sanitizeFileNamePart(contractId || "NA");
     const start = String(data?.startDate || "").slice(0, 10) || new Date().toISOString().slice(0, 10);
-    return `عقد إيجار سكني موحد - رقم ${cid} - ${building} - وحدة ${unit} - ${start}.html`;
+    const safeExt = String(ext || "pdf").replace(/[^a-z0-9]/gi, "").toLowerCase() || "pdf";
+    return `عقد إيجار سكني موحد - رقم ${cid} - ${building} - وحدة ${unit} - ${start}.${safeExt}`;
   }
 
   async function saveAutoLeaseContractDocument(apartment, data) {
@@ -879,14 +944,75 @@ function syncEndDateWithStartDate(force = false) {
         : apartment.contract?.id != null
           ? String(apartment.contract.id)
           : null;
-    const fileName = buildOfficialLeaseFileName(apartment, data, contractKey);
+    const pdfFileName = buildOfficialLeaseFileName(apartment, data, contractKey, "pdf");
+    const htmlFileName = buildOfficialLeaseFileName(apartment, data, contractKey, "html");
     const matcher = {
       contractId: contractKey,
       docType: "auto_lease_contract",
       generatedAutomatically: true,
     };
 
-    await upsertHtmlDocumentForApartment(html, apartment.id, fileName, matcher);
+    if (
+      typeof useServerDocuments === "function" &&
+      useServerDocuments() &&
+      typeof WalajnaDocumentsApi !== "undefined" &&
+      typeof WalajnaDocumentsApi.renderContractPdfOnServer === "function"
+    ) {
+      try {
+        const existingAuto = getDocuments().filter((d) => {
+          if (String(d.apartmentId) !== String(apartment.id)) return false;
+          const isAuto =
+            d.docType === "auto_lease_contract" ||
+            (!!d.generatedAutomatically && !d.docType);
+          if (!isAuto) return false;
+          const dc = String(d.contractId || "");
+          const sameContract = dc === String(contractKey || "");
+          if (sameContract) return true;
+          // Legacy rows may not have contract_id in documents schema — still treat as replaceable.
+          return !dc;
+        });
+        for (const d of existingAuto) {
+          if (d.serverId != null && typeof WalajnaDocumentsApi.deleteOnServer === "function") {
+            try {
+              await WalajnaDocumentsApi.deleteOnServer(d.serverId);
+            } catch (e) {
+              console.warn("[link-tenant] remove old contract doc failed", e);
+            }
+          }
+        }
+        const uploaded = await WalajnaDocumentsApi.renderContractPdfOnServer(
+          {
+            apartmentId: apartment.id,
+            contractId: contractKey,
+            fileName: pdfFileName,
+            docType: matcher.docType,
+            generatedAutomatically: true,
+          },
+          html
+        );
+        const docs = getDocuments().slice().filter((d) => {
+          if (String(d.apartmentId) !== String(apartment.id)) return true;
+          if (String(d.contractId || "") !== String(contractKey || "")) return true;
+          if (d.docType === "auto_lease_contract") return false;
+          if (!!d.generatedAutomatically && !d.docType) return false;
+          return true;
+        });
+        docs.push(uploaded);
+        saveDocuments(docs);
+        return;
+      } catch (e) {
+        console.warn("[link-tenant] storage PDF upload failed", e);
+        throw new Error(
+          `${T("linkModal.errPdfUpload")} ${e?.message || ""}`.trim()
+        );
+      }
+    }
+
+    if (typeof useServerDocuments === "function" && useServerDocuments()) {
+      throw new Error(T("linkModal.errPdfUpload"));
+    }
+
+    await upsertHtmlDocumentForApartment(html, apartment.id, htmlFileName, matcher);
   }
 
   function parseMergedContractTerms(contract) {
@@ -986,6 +1112,18 @@ function syncEndDateWithStartDate(force = false) {
     if (!currentContractId || !hasTenant) return;
 
     const contractKey = String(currentContractId);
+    const hasAutoForCurrentContract =
+      typeof getDocuments === "function" &&
+      getDocuments().some((d) => {
+        if (String(d.apartmentId) !== String(apartment.id)) return false;
+        const isAuto =
+          d.docType === "auto_lease_contract" ||
+          (!!d.generatedAutomatically && !d.docType);
+        if (!isAuto) return false;
+        const dc = String(d.contractId || "");
+        return dc === contractKey || !dc;
+      });
+    if (hasAutoForCurrentContract) return;
 
     const normalizedApartment = {
       ...apartment,
@@ -1718,11 +1856,16 @@ function resetForm() {
       try {
         const cid = apiResponse.current_contract_id;
         const cycle = data.paymentCycle || "monthly";
+        const yearlyRentValue = Number(data?.yearlyRent);
+        const genBody = { payment_cycle: cycle };
+        if (Number.isFinite(yearlyRentValue) && yearlyRentValue > 0) {
+          genBody.yearly_rent = yearlyRentValue;
+        }
         const genRes = await WalajnaAuth.fetchWithAuth(
           `${WalajnaAuth.API_BASE}/api/contracts/${encodeURIComponent(cid)}/installments/generate?force=1`,
           {
             method: "POST",
-            body: JSON.stringify({ payment_cycle: cycle }),
+            body: JSON.stringify(genBody),
           }
         );
         if (!genRes.ok) {
@@ -1765,7 +1908,11 @@ function resetForm() {
     saveApartments(updatedApartments);
 
     if (savedApartment) {
-      await saveAutoLeaseContractDocument(savedApartment, data);
+      try {
+        await saveAutoLeaseContractDocument(savedApartment, data);
+      } catch (docErr) {
+        console.warn("[assign-tenant] auto contract document save failed; keeping tenant link", docErr);
+      }
     }
 
     if (
