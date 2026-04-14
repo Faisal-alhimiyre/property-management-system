@@ -37,7 +37,7 @@
   --wl-shadow-elevated: 0 24px 60px rgba(15, 23, 42, 0.68);
   --wl-font-family: system-ui, -apple-system, "Segoe UI", "Tahoma", sans-serif;
   /* Match .walajna-topbar height (navstyle.css) for sticky sub-bars */
-  --walajna-topbar-height: 78px;
+  --walajna-topbar-height: 88px;
 }
 
 html { scroll-behavior: smooth; }
@@ -255,6 +255,12 @@ body.dark-mode button.walajna-global-back{
   top:var(--walajna-topbar-height);
   z-index:90;
   box-shadow:none;
+  margin-top:0;
+  font-family:var(--wl-font-family, system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif);
+}
+
+.walajna-breadcrumb *{
+  font-family:inherit;
 }
 
 .walajna-breadcrumb > .walajna-breadcrumb__list{

@@ -68,6 +68,22 @@ body{
   min-width:0;
 }
 
+/* معلومات إضافية: full row under tenant + apartment cards */
+.details-row--cols-2 > .details-card--extra-full{
+  grid-column:1 / -1;
+}
+
+/* Two columns: rows 1–2 = dates / meter+note; last row = insurance + next payment (same line) */
+.details-grid--extra{
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 520px){
+  .details-grid--extra{
+    grid-template-columns:1fr;
+  }
+}
+
 /* Actions sit below the extra-info card, same order, not inside the white box */
 .apt-page-actions{
   width:100%;
