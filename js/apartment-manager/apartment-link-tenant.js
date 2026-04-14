@@ -54,6 +54,7 @@ function initLinkTenantSystem(aptId, currentUser) {
   };
 
   let currentMode = "create";
+  let linkTenantSaveInFlight = false;
 
   function showError(message) {
     if (elements.errorBox) {
@@ -217,6 +218,19 @@ function syncEndDateWithStartDate(force = false) {
     return Number.isFinite(m) && m > 0 ? m * 12 : 0;
   }
 
+  function reconcilePaymentScheduleData(raw) {
+    const out = { ...(raw || {}) };
+    let cycle = out.paymentCycle || out.payment_cycle || "quarterly";
+    let count = Number(out.installmentsCount ?? out.installments_count);
+    const def = getDefaultInstallmentsCount(cycle);
+    if (!Number.isFinite(count) || count < 1) count = def;
+    /* Stale merge: cycle is semi-annual but count still defaulted to quarterly (4). */
+    if (cycle === "semi_annual" && count === 4) count = 2;
+    out.paymentCycle = cycle;
+    out.installmentsCount = count;
+    return out;
+  }
+
   function buildInstallmentsSchedule(data) {
     const count = Number(data.installmentsCount || 0);
     const startDate = data.startDate ? new Date(data.startDate) : null;
@@ -265,9 +279,60 @@ function syncEndDateWithStartDate(force = false) {
       phoneNumber:
         currentUser?.phoneNumber ||
         currentUser?.phone ||
-        currentUser?.mobile ||
+        currentUser?.      mobile ||
         dash,
     };
+  }
+
+  function sameBuildingId(a, b) {
+    return String(a ?? "") === String(b ?? "");
+  }
+
+  /** API often sends building_id only; name lives on buildings / building_name. */
+  function resolveBuildingDisplayName(apartment) {
+    if (!apartment) return "";
+    const direct =
+      apartment.buildingName ||
+      apartment.building_name ||
+      "";
+    const trimmed = String(direct).trim();
+    if (trimmed) return trimmed;
+    const bid = apartment.buildingId ?? apartment.building_id;
+    if (bid == null || bid === "") return "";
+    if (typeof getBuildings === "function") {
+      const b = getBuildings().find((x) => sameBuildingId(x.id, bid));
+      const n = b && (b.name || "").trim();
+      if (n) return n;
+    }
+    return "";
+  }
+
+  function resolveBuildingFloorsDisplay(apartment) {
+    const fromApt =
+      apartment?.buildingFloors ??
+      apartment?.building_floors ??
+      null;
+    if (fromApt != null && String(fromApt).trim() !== "") return String(fromApt);
+    const bid = apartment?.buildingId ?? apartment?.building_id;
+    if (bid == null || typeof getBuildings !== "function") return "";
+    const b = getBuildings().find((x) => sameBuildingId(x.id, bid));
+    if (!b) return "";
+    const n = b.totalFloors ?? b.total_floors;
+    return n != null && n !== "" ? String(n) : "";
+  }
+
+  function resolveBuildingUnitsDisplay(apartment) {
+    const fromApt =
+      apartment?.buildingUnits ??
+      apartment?.building_units ??
+      null;
+    if (fromApt != null && String(fromApt).trim() !== "") return String(fromApt);
+    const bid = apartment?.buildingId ?? apartment?.building_id;
+    if (bid == null || typeof getBuildings !== "function") return "";
+    const b = getBuildings().find((x) => sameBuildingId(x.id, bid));
+    if (!b) return "";
+    const n = b.apartmentCount ?? b.apartments_count;
+    return n != null && n !== "" ? String(n) : "";
   }
 
   function buildLeaseContractHtml(apartment, data) {
@@ -278,11 +343,12 @@ function syncEndDateWithStartDate(force = false) {
     const leaseDir = g === "en" ? "ltr" : "rtl";
     const dash = T("common.dash");
     const owner = getCurrentOwnerInfo();
-
     const brokerInfo = {
       name: data.brokerName || dash,
       commercialRegister: data.brokerCommercialRegister || dash,
       phone: data.brokerPhone || dash,
+      address: data.brokerAddress || dash,
+      email: data.brokerEmail || dash,
     };
 
     const services = {
@@ -292,268 +358,409 @@ function syncEndDateWithStartDate(force = false) {
       ac: getServiceTypeLabel(data.acType),
     };
 
-    const scheduleRows = buildInstallmentsSchedule(data)
-      .map(
-        (item) => `
-          <tr>
-            <td>${item.number}</td>
-            <td>${escapeHtml(item.dueDate)}</td>
-            <td>${escapeHtml(item.amount)}</td>
-          </tr>
-        `
-      )
+    const schedData = reconcilePaymentScheduleData(data);
+    const schedule = buildInstallmentsSchedule(schedData);
+    const buildingName = resolveBuildingDisplayName(apartment) || dash;
+    const apartmentNumber = apartment?.number || dash;
+    const floorNumber = data.floorNumber || apartment?.floorNumber || dash;
+    const yearlyRent = getYearlyRentFromFormData(data);
+    const rentCycleLabel = getPaymentCycleLabel(schedData.paymentCycle);
+    const contractId =
+      apartment?.currentContractId ||
+      apartment?.contract?.id ||
+      apartment?.contractId ||
+      generateContractId();
+
+    const ownerNationality = currentUser?.nationality || "المملكة العربية السعودية";
+    const tenantNationality = data.nationality || ownerNationality || dash;
+
+    const val = (value) => escapeHtml(value || dash);
+    const td = (value) => `<td>${escapeHtml(value || dash)}</td>`;
+
+    const sectionRow = (enLabel, arLabel, value) => `
+      <tr>
+        <td class="label-cell">${escapeHtml(enLabel)}<span>${escapeHtml(arLabel)}</span></td>
+        ${td(value)}
+      </tr>
+    `;
+
+    const scheduleRows = schedule.length
+      ? schedule
+          .map(
+            (item) => `
+              <tr>
+                ${td(String(item.number))}
+                ${td(item.dueDate)}
+                ${td(item.amount)}
+              </tr>
+            `
+          )
+          .join("")
+      : `<tr><td colspan="3">${escapeHtml(T("lease.noPayments"))}</td></tr>`;
+
+    let contractLogoUrl = "";
+    try {
+      if (typeof document !== "undefined" && document.baseURI) {
+        contractLogoUrl = new URL("../pics/logo.png", document.baseURI).href;
+      } else if (typeof window !== "undefined" && window.location?.href) {
+        contractLogoUrl = new URL("../pics/logo.png", window.location.href).href;
+      }
+    } catch {
+      contractLogoUrl = "";
+    }
+
+    const legalArticles = [
+      "البند الأول: التعريفات. يقصد بالمصطلحات التالية أينما وردت في هذا العقد المعاني المبينة أمام كل منها ما لم يقتضِ السياق خلاف ذلك: المؤجر: مالك العقار أو من ينوب عنه نظامًا. المستأجر: الطرف المنتفع بالعقار بموجب هذا العقد. العين المؤجرة: الوحدة العقارية محل العقد. الأجرة: المقابل المالي المتفق عليه للانتفاع بالعقار.",
+      "البند الثاني: محل العقد. اتفق الطرفان على أن يقوم المؤجر بتأجير العين المؤجرة إلى المستأجر بغرض الانتفاع بها للغرض المحدد في هذا العقد، ويُقر المستأجر بأنه عاين العين المؤجرة معاينة تامة نافية للجهالة وقبلها بحالتها الراهنة الصالحة للانتفاع.",
+      "البند الثالث: مدة العقد. تكون مدة هذا العقد محددة ومتفق عليها بين الطرفين، وتبدأ من تاريخ سريان العقد وتنتهي بانتهاء مدته، ولا يتجدد العقد إلا بموافقة الطرفين أو وفق ما يتم الاتفاق عليه صراحة.",
+      "البند الرابع: الأجرة وطريقة السداد. يلتزم المستأجر بدفع الأجرة المتفق عليها في المواعيد المحددة، ويجوز سدادها دفعة واحدة أو على أقساط وفق الاتفاق، ويُعد السداد عبر الوسائل الإلكترونية المعتمدة هو الإثبات الرسمي للسداد.",
+      "البند الخامس: التأخر في السداد. في حال تأخر المستأجر عن سداد الأجرة في موعدها، يحق للمؤجر منحه مهلة مناسبة للسداد، وفي حال استمرار التأخير يحق للمؤجر اتخاذ الإجراءات النظامية بما في ذلك المطالبة بالفسخ والتعويض.",
+      "البند السادس: تسليم العين المؤجرة. يلتزم المؤجر بتسليم العين المؤجرة بحالة صالحة للانتفاع وفق الغرض المتفق عليه، ويُعد تسلم المستأجر للعقار إقرارًا بصلاحيته وخلوه من العيوب الظاهرة.",
+      "البند السابع: التزامات المؤجر. يلتزم المؤجر بضمان تمكين المستأجر من الانتفاع بالعين المؤجرة دون تعرض، وبإجراء الصيانة الأساسية اللازمة التي تضمن استمرار المنفعة، كما يلتزم بإصلاح أي عيب خفي يؤثر على الانتفاع.",
+      "البند الثامن: التزامات المستأجر. يلتزم المستأجر بما يلي: سداد الأجرة في مواعيدها، استخدام العين المؤجرة وفق الغرض المحدد، المحافظة على العقار وعدم إحداث أي ضرر به، عدم إجراء أي تعديل إلا بموافقة المؤجر، عدم التأجير من الباطن إلا بإذن، إعادة العين المؤجرة عند انتهاء العقد بالحالة التي تسلمها بها.",
+      "البند التاسع: استعمال العين المؤجرة. يلتزم المستأجر باستعمال العين المؤجرة استعمالًا معتادًا ومشروعًا، وبما لا يخالف الأنظمة أو يسبب ضررًا للغير أو إزعاجًا للجيران، ولا يجوز تغيير نشاط الاستخدام دون موافقة المؤجر.",
+      "البند العاشر: الصيانة. تكون الصيانة الأساسية على عاتق المؤجر، فيما تكون الصيانة التشغيلية الناتجة عن الاستخدام على عاتق المستأجر، ويلتزم كل طرف بإصلاح ما يخصه.",
+      "البند الحادي عشر: المرافق والخدمات. يلتزم المستأجر بسداد تكاليف استهلاك الخدمات المرتبطة بالعين المؤجرة، ما لم يتم الاتفاق على خلاف ذلك، كما يلتزم بنقل الخدمات باسمه إذا لزم الأمر.",
+      "البند الثاني عشر: مبلغ الضمان. إذا تم الاتفاق على مبلغ ضمان، فيلتزم المستأجر بدفعه، ويحق للمؤجر خصم أي مستحقات أو أضرار من هذا المبلغ عند انتهاء العقد، ويتم إعادة المتبقي خلال مدة معقولة.",
+      "البند الثالث عشر: الفسخ. يجوز لأي من الطرفين طلب فسخ العقد في حال إخلال الطرف الآخر بأي من التزاماته، وذلك بعد إشعاره ومنحه مهلة مناسبة لإزالة المخالفة، وفي حال عدم المعالجة يحق الفسخ مع المطالبة بالتعويض.",
+      "البند الرابع عشر: الفسخ بسبب عدم السداد. يحق للمؤجر فسخ العقد في حال تأخر المستأجر عن سداد الأجرة لمدة تتجاوز المهلة المحددة، مع احتفاظه بحقه في المطالبة بالمستحقات.",
+      "البند الخامس عشر: القوة القاهرة. في حال وقوع ظروف خارجة عن إرادة الطرفين تمنع الانتفاع بالعين المؤجرة، كالكوارث أو القرارات الحكومية، يجوز إنهاء العقد دون تحمل أي من الطرفين مسؤولية.",
+      "البند السادس عشر: انتهاء العقد. ينتهي العقد بانتهاء مدته أو باتفاق الطرفين أو بفسخه وفقًا لأحكام هذا العقد أو بموجب حكم قضائي.",
+      "البند السابع عشر: آثار انتهاء العقد. يلتزم المستأجر عند انتهاء العقد بإخلاء العين المؤجرة وتسليمها، وسداد جميع المستحقات، وفي حال التأخير يلتزم بتعويض المؤجر عن مدة الإشغال.",
+      "البند الثامن عشر: انتقال الملكية. في حال انتقال ملكية العقار إلى طرف آخر، فإن هذا العقد يظل نافذًا بكامل شروطه وينتقل إلى المالك الجديد.",
+      "البند التاسع عشر: الإشعارات. تكون جميع الإشعارات والمراسلات بين الطرفين مكتوبة أو إلكترونية، وتُعد ملزمة متى تم إرسالها عبر الوسائل المتفق عليها.",
+      "البند العشرون: تسوية النزاعات. يتم حل النزاعات وديًا، وفي حال تعذر ذلك تُحال إلى الجهة القضائية المختصة وفق الأنظمة المعمول بها في المملكة العربية السعودية.",
+      "البند الحادي والعشرون: أحكام عامة. هذا العقد ملزم للطرفين، ولا يجوز التعديل عليه إلا باتفاق الطرفين، وتسري عليه أنظمة المملكة العربية السعودية.",
+    ];
+
+    const appendixTerms = [
+      ["شبكة إيجار", "منصة إلكترونية لتوثيق عقود الإيجار وتنظيم العلاقة بين الأطراف."],
+      ["المؤجر", "مالك العقار أو من له صفة نظامية للتأجير."],
+      ["المستأجر", "الشخص الطبيعي أو الاعتباري المنتفع من الوحدة المؤجرة."],
+      ["نوع العقار", "الطبيعة العامة للأصل المؤجر (عمارة/فيلا/شقة...)."],
+      ["نوع الوحدة", "الوحدة محل العقد كما هي مثبتة في بيانات العقد."],
+      ["دورة السداد", "الفترة الزمنية المعتمدة لتكرار استحقاق الدفعات."],
+      ["عدد الدفعات", "عدد الدفعات المستحقة خلال كامل مدة العقد."],
+      ["إجمالي قيمة العقد", "مجموع الالتزامات المالية المتفق عليها طوال مدة العقد."],
+      ["التسليم والاستلام", "الإجراءات الموثقة لتسليم الوحدة واستلامها عند البداية والنهاية."],
+      ["مبلغ الضمان", "مبلغ تحفظي يودع وفق ما يتفق عليه الطرفان ويعاد بعد التسوية."],
+      ["الوسيط العقاري", "المنشأة أو الشخص المرخص لإدارة التوسط في العملية الإيجارية."],
+      ["المرفقات", "أي وثائق إضافية مرتبطة بالعقد وتعد جزءًا منه."],
+    ];
+
+    /* Clause text already includes "البند الأول" … "البند الحادي والعشرون" — no extra list numbers. */
+    const articleListPartOne = legalArticles
+      .slice(0, 11)
+      .map((text) => `<div class="article-para">${escapeHtml(text)}</div>`)
       .join("");
 
-    const buildingName = apartment?.buildingName || dash;
-    const apartmentNumber = apartment?.number || dash;
+    const articleListPartTwo = legalArticles
+      .slice(11)
+      .map((text) => `<div class="article-para">${escapeHtml(text)}</div>`)
+      .join("");
 
-    const servicesSentenceHtml = T("lease.servicesSentence", {
-      el: escapeHtml(services.electricity),
-      wa: escapeHtml(services.water),
-      ga: escapeHtml(services.gas),
-      ac: escapeHtml(services.ac),
-    });
-
-    const periodSummaryHtml = T("lease.periodText", {
-      start: `<strong>${escapeHtml(formatLeaseDate(data.startDate))}</strong>`,
-      end: `<strong>${escapeHtml(formatLeaseDate(data.endDate))}</strong>`,
-    });
+    const appendixRows = appendixTerms.map(
+      (row, idx) => `
+        <tr>
+          <td>${idx + 1}</td>
+          <td>${escapeHtml(row[0])}</td>
+          <td>${escapeHtml(row[1])}</td>
+        </tr>
+      `
+    );
+    const appendixRowsAll = appendixRows.join("");
 
     return `
 <!DOCTYPE html>
 <html lang="${leaseLang}" dir="${leaseDir}">
 <head>
   <meta charset="UTF-8" />
-  <title>${escapeHtml(
-    T("lease.title", {
-      building: buildingName,
-      apt: apartmentNumber,
-    })
-  )}</title>
+  <title>${escapeHtml(T("lease.title", { building: buildingName, apt: apartmentNumber }))}</title>
   <style>
-    @page { size: A4; margin: 18mm; }
+    @page { size: A4; margin: 10mm; }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: Arial, sans-serif;
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
       direction: ${leaseDir};
-      background: #eef2f7;
+      background: linear-gradient(160deg, #e0f2fe 0%, #ccfbf1 45%, #ecfeff 100%);
       color: #0f172a;
-      line-height: 1.8;
+      line-height: 1.5;
+      font-size: 12px;
     }
     .page {
       width: 210mm;
-      min-height: 297mm;
-      margin: 18px auto;
+      max-width: 100%;
+      min-height: auto;
+      margin: 8px auto;
       background: #fff;
-      padding: 18mm 16mm;
-      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.10);
-      page-break-after: always;
+      border: 1px solid rgba(14, 165, 233, 0.35);
+      border-radius: 10px;
+      padding: 9mm 9mm 14mm;
+      box-shadow: 0 8px 24px rgba(3, 105, 161, 0.12);
+      position: relative;
+      page-break-after: auto;
     }
     .page:last-child { page-break-after: auto; }
-    .header {
-      border: 2px solid #0f766e;
-      border-radius: 14px;
-      padding: 16px 18px;
-      margin-bottom: 18px;
-      background: linear-gradient(180deg, #f0fdfa 0%, #ffffff 100%);
-    }
-    .title {
-      margin: 0;
-      text-align: center;
-      font-size: 24px;
-      font-weight: 800;
-      color: #115e59;
-    }
-    .subtitle {
-      text-align: center;
-      margin-top: 6px;
-      font-size: 13px;
-      color: #475569;
-      font-weight: 700;
-    }
-    .section {
-      border: 1px solid #dbe4ee;
-      border-radius: 14px;
-      margin-bottom: 16px;
-      overflow: hidden;
-    }
-    .section-title {
-      background: #f8fafc;
-      padding: 10px 14px;
-      font-size: 15px;
-      font-weight: 800;
-      color: #0f172a;
-      border-bottom: 1px solid #e2e8f0;
-    }
-    .section-body { padding: 14px; }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px 14px;
-    }
-    .field {
-      border: 1px dashed #d6dde7;
+    .contract-head {
+      border: 1px solid rgba(13, 148, 136, 0.35);
       border-radius: 10px;
-      padding: 8px 10px;
-      min-height: 58px;
-    }
-    .label {
-      font-size: 12px;
-      color: #64748b;
-      margin-bottom: 4px;
-      font-weight: 700;
-    }
-    .value {
-      font-size: 14px;
-      color: #0f172a;
-      font-weight: 800;
-      word-break: break-word;
-    }
-    .full { grid-column: 1 / -1; }
-    .summary-box {
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
-      padding: 12px 14px;
-      margin-top: 8px;
-      font-size: 14px;
-      font-weight: 700;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 8px;
-      font-size: 13px;
-    }
-    th, td {
-      border: 1px solid #dbe4ee;
-      padding: 8px 10px;
-      text-align: center;
-    }
-    th { background: #f8fafc; font-weight: 800; }
-    .terms {
-      padding-inline-start: 20px;
-      margin: 0;
-    }
-    .terms li { margin-bottom: 10px; }
-    .signatures {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 14px;
-      margin-top: 22px;
-    }
-    .sign-box {
-      border: 1px solid #dbe4ee;
-      border-radius: 12px;
-      min-height: 120px;
-      padding: 14px;
-    }
-    .sign-title {
-      font-size: 15px;
-      font-weight: 800;
+      padding: 10px 12px;
+      background: linear-gradient(135deg, #0369a1 0%, #0d9488 55%, #14b8a6 100%);
       margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      color: #fff;
     }
-    .footer-note {
-      text-align: center;
-      color: #64748b;
-      font-size: 12px;
-      margin-top: 18px;
+    .contract-head__brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+    .contract-logo {
+      width: 56px;
+      height: 56px;
+      object-fit: contain;
+      flex-shrink: 0;
+      background: rgba(255,255,255,0.95);
+      border-radius: 10px;
+      padding: 4px;
+      border: 1px solid rgba(255,255,255,0.6);
+    }
+    .contract-head h1 {
+      margin: 0;
+      font-size: 20px;
+      color: #fff;
+      font-weight: 900;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.12);
+    }
+    .sub {
+      margin-top: 4px;
+      color: rgba(255,255,255,0.92);
+      font-size: 11px;
       font-weight: 700;
+    }
+    .meta {
+      text-align:${leaseDir === "rtl" ? "left" : "right"};
+      font-size:11px;
+      color:#e0f2fe;
+      font-weight:700;
+      min-width: 215px;
+    }
+    .meta div { margin-bottom: 3px; }
+    .sec {
+      border:1px solid rgba(14, 165, 233, 0.28);
+      border-radius:10px;
+      margin-bottom:9px;
+      overflow:hidden;
+      background:#fff;
+    }
+    .sec-title {
+      background: linear-gradient(90deg, #0284c7 0%, #0d9488 100%);
+      border-bottom:1px solid rgba(255,255,255,0.2);
+      padding:8px 11px;
+      font-size:13px;
+      font-weight:900;
+      color:#fff;
+    }
+    .sec-body { padding:7px 9px; }
+    table { width:100%; border-collapse: collapse; }
+    th, td { border:1px solid #d9e2ec; padding:5px 6px; vertical-align:top; }
+    th { background: linear-gradient(180deg, #e0f2fe 0%, #ccfbf1 100%); font-weight:900; text-align:center; color:#0c4a6e; }
+    .label-cell { width:46%; color:#0c4a6e; font-weight:800; }
+    .label-cell span { display:block; margin-top:2px; font-size:10px; color:#0d9488; }
+    .split { display:grid; grid-template-columns: 1fr 1fr; gap:8px; }
+    .articles { margin:0; }
+    .article-para {
+      margin-bottom: 10px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(13, 148, 136, 0.18);
+      color: #134e4a;
+      font-weight: 650;
+      line-height: 1.55;
+    }
+    .article-para:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .note-box {
+      margin-top:7px;
+      border:1px dashed rgba(13, 148, 136, 0.45);
+      border-radius:8px;
+      padding:8px;
+      background: linear-gradient(180deg, #f0fdfa 0%, #ecfeff 100%);
+      color:#134e4a;
+      font-weight:700;
+    }
+    .sign-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; }
+    .sign-box { border:1px solid rgba(14, 165, 233, 0.35); border-radius:8px; padding:8px; min-height:92px; background:#fafefe; }
+    .sign-title { font-size:12px; font-weight:900; color:#0369a1; margin-bottom:7px; }
+    .line { margin-top:6px; border-top:1px dashed #94a3b8; padding-top:4px; color:#334155; font-size:11px; font-weight:700; }
+    .page-no {
+      position:absolute;
+      bottom:7px;
+      left:0;
+      right:0;
+      text-align:center;
+      color:#0d9488;
+      font-size:11px;
+      font-weight:700;
+    }
+    .page-no .page-ltr {
+      direction:ltr;
+      unicode-bidi:isolate;
+      display:inline-block;
+      margin-inline-start:3px;
     }
     @media print {
-      body { background: #fff; }
+      body { background:#fff; }
       .page {
-        margin: 0;
-        box-shadow: none;
-        width: auto;
-        min-height: auto;
+        margin:0;
+        border:none;
+        border-radius:0;
+        box-shadow:none;
+        page-break-after: always;
       }
+      .page:last-child { page-break-after: auto; }
     }
   </style>
 </head>
 <body>
   <section class="page">
-    <div class="header">
-      <h1 class="title">${escapeHtml(T("lease.docTitle"))}</h1>
-      <div class="subtitle">${escapeHtml(T("lease.autoGen"))}</div>
+    <div class="contract-head">
+      <div class="contract-head__brand">
+        ${
+          contractLogoUrl
+            ? `<img class="contract-logo" src="${escapeHtml(contractLogoUrl)}" alt="ولجنا" />`
+            : ""
+        }
+        <div>
+          <h1>عقد إيجار سكني موحد</h1>
+          <div class="sub">Unified Residential Lease Contract</div>
+        </div>
+      </div>
+      <div class="meta">
+        <div>Contract No: ${val(contractId)}</div>
+        <div>Start Date: ${val(formatLeaseDate(data.startDate))}</div>
+        <div>End Date: ${val(formatLeaseDate(data.endDate))}</div>
+      </div>
     </div>
-
-    <div class="section">
-      <div class="section-title">${escapeHtml(T("lease.parties"))}</div>
-      <div class="section-body">
-        <div class="grid">
-          <div class="field"><div class="label">${escapeHtml(T("lease.ownerName"))}</div><div class="value">${escapeHtml(owner.fullName)}</div></div>
-          <div class="field"><div class="label">${escapeHtml(T("lease.ownerId"))}</div><div class="value">${escapeHtml(owner.nationalId)}</div></div>
-          <div class="field"><div class="label">${escapeHtml(T("lease.ownerPhone"))}</div><div class="value">${escapeHtml(owner.phoneNumber)}</div></div>
-          <div class="field"><div class="label">${escapeHtml(T("lease.tenantName"))}</div><div class="value">${escapeHtml(data.fullName)}</div></div>
-          <div class="field"><div class="label">${escapeHtml(T("lease.tenantId"))}</div><div class="value">${escapeHtml(data.nationalId)}</div></div>
-          <div class="field"><div class="label">${escapeHtml(T("lease.tenantPhone"))}</div><div class="value">${escapeHtml(data.phone)}</div></div>
-          <div class="field"><div class="label">${escapeHtml(T("lease.tenantNationality"))}</div><div class="value">${escapeHtml(data.nationality || dash)}</div></div>
-          <div class="field"><div class="label">${escapeHtml(T("lease.tenantType"))}</div><div class="value">${escapeHtml(data.tenantType || dash)}</div></div>
+    <div class="sec">
+      <div class="sec-title">1) بيانات العقد / Contract Data</div>
+      <div class="sec-body">
+        <table>
+          ${sectionRow("Contract Type", "نوع العقد", "جديد")}
+          ${sectionRow("Contract Number", "رقم العقد", contractId)}
+          ${sectionRow("Building", "اسم العقار", buildingName)}
+          ${sectionRow("Unit Number", "رقم الوحدة", apartmentNumber)}
+          ${sectionRow("Tenancy Period", "مدة الإيجار", `${formatLeaseDate(data.startDate)} - ${formatLeaseDate(data.endDate)}`)}
+        </table>
+      </div>
+    </div>
+    <div class="split">
+      <div class="sec">
+        <div class="sec-title">2) بيانات المؤجر / Lessor Data</div>
+        <div class="sec-body">
+          <table>
+            ${sectionRow("Name", "الاسم", owner.fullName)}
+            ${sectionRow("ID Number", "رقم الهوية", owner.nationalId)}
+            ${sectionRow("Mobile Number", "رقم الجوال", owner.phoneNumber)}
+            ${sectionRow("Nationality", "الجنسية", ownerNationality)}
+          </table>
+        </div>
+      </div>
+      <div class="sec">
+        <div class="sec-title">3) بيانات المستأجر / Tenant Data</div>
+        <div class="sec-body">
+          <table>
+            ${sectionRow("Name", "الاسم", data.fullName)}
+            ${sectionRow("ID Number", "رقم الهوية", data.nationalId)}
+            ${sectionRow("Mobile Number", "رقم الجوال", data.phone)}
+            ${sectionRow("Nationality", "الجنسية", tenantNationality)}
+          </table>
         </div>
       </div>
     </div>
-
-    <div class="section">
-      <div class="section-title">${escapeHtml(T("lease.broker"))}</div>
-      <div class="section-body">
-        <div class="grid">
-          <div class="field"><div class="label">${escapeHtml(T("lease.brokerName"))}</div><div class="value">${escapeHtml(brokerInfo.name)}</div></div>
-          <div class="field"><div class="label">${escapeHtml(T("lease.brokerCr"))}</div><div class="value">${escapeHtml(brokerInfo.commercialRegister)}</div></div>
-          <div class="field"><div class="label">${escapeHtml(T("lease.brokerPhone"))}</div><div class="value">${escapeHtml(brokerInfo.phone)}</div></div>
-          <div class="field"><div class="label">${escapeHtml(T("lease.brokerNotes"))}</div><div class="value">${brokerInfo.name === dash ? escapeHtml(dash) : escapeHtml(T("lease.brokerFilled"))}</div></div>
-        </div>
+    <div class="sec">
+      <div class="sec-title">4) بيانات الوسيط / Brokerage Entity and Broker Data</div>
+      <div class="sec-body">
+        <table>
+          ${sectionRow("Broker Name", "اسم الوسيط", brokerInfo.name)}
+          ${sectionRow("Commercial Register", "السجل التجاري", brokerInfo.commercialRegister)}
+          ${sectionRow("Mobile Number", "رقم الجوال", brokerInfo.phone)}
+          ${sectionRow("Email", "البريد الإلكتروني", brokerInfo.email)}
+          ${sectionRow("Address", "العنوان", brokerInfo.address)}
+        </table>
       </div>
     </div>
-
-    <div class="section">
-      <div class="section-title">${escapeHtml(T("lease.property"))}</div>
-      <div class="section-body">
-        <div class="grid">
-          <div class="field"><div class="label">${escapeHtml(T("lease.buildingName"))}</div><div class="value">${escapeHtml(buildingName)}</div></div>
-          <div class="field"><div class="label">${escapeHtml(T("lease.aptNumber"))}</div><div class="value">${escapeHtml(apartmentNumber)}</div></div>
-          <div class="field"><div class="label">${escapeHtml(T("lease.floor"))}</div><div class="value">${escapeHtml(data.floorNumber || apartment?.floorNumber || dash)}</div></div>
-          <div class="field"><div class="label">${escapeHtml(T("lease.rooms"))}</div><div class="value">${escapeHtml(data.roomsCount || apartment?.roomsCount || dash)}</div></div>
-          <div class="field"><div class="label">${escapeHtml(T("lease.bathrooms"))}</div><div class="value">${escapeHtml(data.bathroomsCount || apartment?.bathroomsCount || dash)}</div></div>
-          <div class="field"><div class="label">${escapeHtml(T("lease.living"))}</div><div class="value">${escapeHtml(data.livingRoomsCount || apartment?.livingRoomsCount || dash)}</div></div>
-          <div class="field"><div class="label">${escapeHtml(T("lease.meter"))}</div><div class="value">${escapeHtml(data.meterNumber || dash)}</div></div>
-          <div class="field"><div class="label">${escapeHtml(T("lease.period"))}</div><div class="value">${escapeHtml(formatLeaseDate(data.startDate))} ${escapeHtml(T("common.dash"))} ${escapeHtml(formatLeaseDate(data.endDate))}</div></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="section">
-      <div class="section-title">${escapeHtml(T("lease.financial"))}</div>
-      <div class="section-body">
-        <div class="grid">
-          <div class="field"><div class="label">${escapeHtml(T("lease.rentValue"))}</div><div class="value">${escapeHtml(formatCurrency(getYearlyRentFromFormData(data)))}</div></div>
-          <div class="field"><div class="label">${escapeHtml(T("lease.insurance"))}</div><div class="value">${escapeHtml(formatCurrency(data.insurancePaid))}</div></div>
-          <div class="field"><div class="label">${escapeHtml(T("lease.payCycle"))}</div><div class="value">${escapeHtml(getPaymentCycleLabel(data.paymentCycle))}</div></div>
-          <div class="field"><div class="label">${escapeHtml(T("lease.installments"))}</div><div class="value">${escapeHtml(data.installmentsCount)}</div></div>
-          <div class="field"><div class="label">${escapeHtml(T("lease.electricity"))}</div><div class="value">${escapeHtml(services.electricity)}</div></div>
-          <div class="field"><div class="label">${escapeHtml(T("lease.water"))}</div><div class="value">${escapeHtml(services.water)}</div></div>
-          <div class="field"><div class="label">${escapeHtml(T("lease.gas"))}</div><div class="value">${escapeHtml(services.gas)}</div></div>
-          <div class="field"><div class="label">${escapeHtml(T("lease.ac"))}</div><div class="value">${escapeHtml(services.ac)}</div></div>
-          <div class="field full">
-            <div class="label">${escapeHtml(T("lease.servicesDesc"))}</div>
-            <div class="value">${servicesSentenceHtml}</div>
-          </div>
-          <div class="field full"><div class="label">${escapeHtml(T("lease.extraNotes"))}</div><div class="value">${escapeHtml(data.notes || dash)}</div></div>
-        </div>
-      </div>
-    </div>
+    <div class="page-no">الصفحة <span class="page-ltr">1 / 7</span></div>
   </section>
 
   <section class="page">
-    <div class="header">
-      <h2 class="title" style="font-size:22px;">${escapeHtml(T("lease.page2Title"))}</h2>
-      <div class="subtitle">${escapeHtml(T("lease.page2Sub"))}</div>
+    <div class="sec">
+      <div class="sec-title">5) بيانات مستند الملكية / Ownership document Data</div>
+      <div class="sec-body">
+        <table>
+          ${sectionRow("Title Deed Number", "رقم الصك", apartment?.titleDeedNo || dash)}
+          ${sectionRow("Issue Date", "تاريخ الإصدار", apartment?.titleDeedDate || dash)}
+          ${sectionRow("Issuing Authority", "جهة الإصدار", apartment?.titleDeedIssuer || dash)}
+          ${sectionRow("Type", "نوع الصك", apartment?.titleDeedType || dash)}
+        </table>
+      </div>
     </div>
+    <div class="sec">
+      <div class="sec-title">6) بيانات العقار / Property Data</div>
+      <div class="sec-body">
+        <table>
+          ${sectionRow("Property Name", "اسم العقار", buildingName)}
+          ${sectionRow("Property Usage", "غرض الاستخدام", data.tenantType || "سكني")}
+          ${sectionRow("Number of Floors", "عدد الأدوار", resolveBuildingFloorsDisplay(apartment) || dash)}
+          ${sectionRow("Number of Units", "عدد الوحدات", resolveBuildingUnitsDisplay(apartment) || dash)}
+        </table>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="sec-title">7) بيانات الوحدة الإيجارية / Rental Unit Data</div>
+      <div class="sec-body">
+        <table>
+          ${sectionRow("Unit Number", "رقم الوحدة", apartmentNumber)}
+          ${sectionRow("Floor Number", "رقم الدور", floorNumber)}
+          ${sectionRow("Bedrooms", "عدد غرف النوم", data.roomsCount || apartment?.roomsCount || dash)}
+          ${sectionRow("Bathrooms", "عدد الحمامات", data.bathroomsCount || apartment?.bathroomsCount || dash)}
+          ${sectionRow("Living Rooms", "عدد الصالات", data.livingRoomsCount || apartment?.livingRoomsCount || dash)}
+          ${sectionRow("Electricity Meter", "رقم عداد الكهرباء", data.meterNumber || dash)}
+          ${sectionRow("Furnishing Status", "حالة التأثيث", "غير مفروشة")}
+        </table>
+      </div>
+    </div>
+    <div class="page-no">الصفحة <span class="page-ltr">2 / 7</span></div>
+  </section>
 
-    <div class="section">
-      <div class="section-title">${escapeHtml(T("lease.scheduleTitle"))}</div>
-      <div class="section-body">
+  <section class="page">
+    <div class="sec">
+      <div class="sec-title">8) صلاحيات المستأجر / Tenant Authority</div>
+      <div class="sec-body">
+        <div class="note-box">يلتزم المستأجر باستخدام الوحدة وفق ما هو منصوص عليه في هذا العقد والأنظمة ذات العلاقة.</div>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="sec-title">9) البيانات المالية / Financial Data</div>
+      <div class="sec-body">
+        <table>
+          ${sectionRow("Annual Rent", "الإيجار السنوي", formatCurrency(yearlyRent))}
+          ${sectionRow("Payment Cycle", "دورة السداد", rentCycleLabel)}
+          ${sectionRow("Installments Count", "عدد الدفعات", schedData.installmentsCount)}
+          ${sectionRow("Insurance Deposit", "مبلغ الضمان", formatCurrency(data.insurancePaid))}
+          ${sectionRow("Electricity Services", "خدمة الكهرباء", services.electricity)}
+          ${sectionRow("Water Services", "خدمة المياه", services.water)}
+          ${sectionRow("Gas Services", "خدمة الغاز", services.gas)}
+          ${sectionRow("AC Services", "خدمة التكييف", services.ac)}
+        </table>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="sec-title">10) جدول سداد الدفعات / Rent Payments Schedule</div>
+      <div class="sec-body">
         <table>
           <thead>
             <tr>
@@ -562,77 +769,235 @@ function syncEndDateWithStartDate(force = false) {
               <th>${escapeHtml(T("lease.th.amount"))}</th>
             </tr>
           </thead>
+          <tbody>${scheduleRows}</tbody>
+        </table>
+      </div>
+    </div>
+    <div class="page-no">الصفحة <span class="page-ltr">3 / 7</span></div>
+  </section>
+
+  <section class="page">
+    <div class="sec">
+      <div class="sec-title">11) التزامات الأطراف — الجزء الأول / Obligations by Parties (Part 1)</div>
+      <div class="sec-body">
+        <div class="articles">${articleListPartOne}</div>
+      </div>
+    </div>
+    <div class="page-no">الصفحة <span class="page-ltr">4 / 7</span></div>
+  </section>
+
+  <section class="page">
+    <div class="sec">
+      <div class="sec-title">12) استكمال الأحكام — الجزء الثاني / Legal Clauses (Part 2)</div>
+      <div class="sec-body">
+        <div class="articles">${articleListPartTwo}</div>
+        <div class="note-box">${escapeHtml(data.notes || dash)}</div>
+      </div>
+    </div>
+    <div class="page-no">الصفحة <span class="page-ltr">5 / 7</span></div>
+  </section>
+
+  <section class="page">
+    <div class="sec">
+      <div class="sec-title">13) ملحق المصطلحات / Appendix — Definitions Glossary</div>
+      <div class="sec-body">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:50px;">#</th>
+              <th style="width:180px;">المصطلح</th>
+              <th>التوضيح</th>
+            </tr>
+          </thead>
           <tbody>
-            ${scheduleRows || `<tr><td colspan="3">${escapeHtml(T("lease.noPayments"))}</td></tr>`}
+            ${appendixRowsAll}
           </tbody>
         </table>
-
-        <div class="summary-box">
-          ${periodSummaryHtml}
-        </div>
       </div>
     </div>
+    <div class="page-no">الصفحة <span class="page-ltr">6 / 7</span></div>
+  </section>
 
-    <div class="section">
-      <div class="section-title">${escapeHtml(T("lease.clausesTitle"))}</div>
-      <div class="section-body">
-        <ol class="terms">
-          <li>${escapeHtml(T("lease.clause1"))}</li>
-          <li>${escapeHtml(T("lease.clause2"))}</li>
-          <li>${escapeHtml(T("lease.clause3"))}</li>
-          <li>${escapeHtml(T("lease.clause4"))}</li>
-          <li>${escapeHtml(T("lease.clause5"))}</li>
-          <li>${escapeHtml(T("lease.clause6"))}</li>
-        </ol>
-      </div>
-    </div>
-
-    <div class="section">
-      <div class="section-title">${escapeHtml(T("lease.signSection"))}</div>
-      <div class="section-body">
-        <div class="signatures">
+  <section class="page">
+    <div class="sec">
+      <div class="sec-title">14) التوقيعات / Signatures</div>
+      <div class="sec-body">
+        <div class="sign-grid">
           <div class="sign-box">
-            <div class="sign-title">${escapeHtml(T("lease.signOwner"))}</div>
-            <div>${escapeHtml(T("lease.nameLabel", { name: owner.fullName }))}</div>
-            <div>${escapeHtml(T("lease.signLine"))}</div>
-            <div>${escapeHtml(T("lease.dateLine"))}</div>
+            <div class="sign-title">المؤجر / Lessor</div>
+            <div class="line">الاسم / Name: ${val(owner.fullName)}</div>
+            <div class="line">التوقيع / Signature:</div>
+            <div class="line">التاريخ / Date:</div>
           </div>
-
           <div class="sign-box">
-            <div class="sign-title">${escapeHtml(T("lease.signTenant"))}</div>
-            <div>${escapeHtml(T("lease.nameLabel", { name: data.fullName }))}</div>
-            <div>${escapeHtml(T("lease.signLine"))}</div>
-            <div>${escapeHtml(T("lease.dateLine"))}</div>
+            <div class="sign-title">المستأجر / Tenant</div>
+            <div class="line">الاسم / Name: ${val(data.fullName)}</div>
+            <div class="line">التوقيع / Signature:</div>
+            <div class="line">التاريخ / Date:</div>
+          </div>
+          <div class="sign-box">
+            <div class="sign-title">الوسيط / Broker</div>
+            <div class="line">الاسم / Name: ${val(brokerInfo.name)}</div>
+            <div class="line">التوقيع / Signature:</div>
+            <div class="line">التاريخ / Date:</div>
           </div>
         </div>
-
-        <div class="footer-note">
-          ${escapeHtml(T("lease.footerNote"))}
-        </div>
+        <div class="note-box">وثيقة مولدة تلقائياً من نظام ولجنا وتخضع للتحقق النظامي قبل الاعتماد النهائي.</div>
       </div>
     </div>
+    <div class="page-no">الصفحة <span class="page-ltr">7 / 7</span></div>
   </section>
 </body>
 </html>
     `;
   }
 
-  function saveAutoLeaseContractDocument(apartment, data) {
-    if (typeof upsertHtmlDocumentForApartment !== "function") return;
+  function sanitizeFileNamePart(value) {
+    return String(value || "")
+      .replace(/[\\/:*?"<>|]/g, "-")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function buildOfficialLeaseFileName(apartment, data, contractId) {
+    const building = sanitizeFileNamePart(resolveBuildingDisplayName(apartment) || "Building");
+    const unit = sanitizeFileNamePart(apartment?.number || "Unit");
+    const cid = sanitizeFileNamePart(contractId || "NA");
+    const start = String(data?.startDate || "").slice(0, 10) || new Date().toISOString().slice(0, 10);
+    return `عقد إيجار سكني موحد - رقم ${cid} - ${building} - وحدة ${unit} - ${start}.html`;
+  }
+
+  async function saveAutoLeaseContractDocument(apartment, data) {
+    if (typeof upsertHtmlDocumentForApartment !== "function") {
+      return;
+    }
 
     const html = buildLeaseContractHtml(apartment, data);
-    const apartmentNo = apartment?.number || T("common.dash");
-    const fileName = T("lease.fileName", { n: apartmentNo });
+    const contractKey =
+      apartment.currentContractId != null
+        ? String(apartment.currentContractId)
+        : apartment.contract?.id != null
+          ? String(apartment.contract.id)
+          : null;
+    const fileName = buildOfficialLeaseFileName(apartment, data, contractKey);
+    const matcher = {
+      contractId: contractKey,
+      docType: "auto_lease_contract",
+      generatedAutomatically: true,
+    };
 
-    upsertHtmlDocumentForApartment(
-      html,
-      apartment.id,
-      fileName,
-      {
-        contractId: apartment.currentContractId || apartment.contract?.id || null,
-        docType: "auto_lease_contract",
-        generatedAutomatically: true,
-      }
+    await upsertHtmlDocumentForApartment(html, apartment.id, fileName, matcher);
+  }
+
+  function parseMergedContractTerms(contract) {
+    if (!contract?.terms || typeof contract.terms !== "string") return null;
+    const t = contract.terms.trim();
+    if (!t.startsWith("{")) return null;
+    try {
+      return JSON.parse(contract.terms);
+    } catch {
+      return null;
+    }
+  }
+
+  function buildContractDocDataFromApartment(apartment) {
+    const contract = apartment?.contract || {};
+    const tenantInfo = apartment?.tenantInfo || {};
+    const termsJson = parseMergedContractTerms(contract);
+    let paymentCycle =
+      contract.paymentCycle ||
+      contract.payment_cycle ||
+      termsJson?.paymentCycle ||
+      termsJson?.payment_cycle ||
+      apartment?.paymentDefaults?.paymentCycle ||
+      "quarterly";
+    let installmentsCount = Number(
+      contract.installmentsCount ??
+        contract.installments_count ??
+        termsJson?.installmentsCount ??
+        termsJson?.installments_count ??
+        apartment?.paymentDefaults?.installmentsCount ??
+        getDefaultInstallmentsCount(paymentCycle)
+    );
+    if (!Number.isFinite(installmentsCount) || installmentsCount < 1) {
+      installmentsCount = getDefaultInstallmentsCount(paymentCycle);
+    }
+    if (paymentCycle === "semi_annual" && installmentsCount === 4) {
+      installmentsCount = 2;
+    }
+    const monthlyRent = Number(
+      contract.rentAmount ??
+        contract.rent_amount ??
+        termsJson?.rentAmount ??
+        apartment?.rent ??
+        0
+    );
+    const yearlyRent = monthlyRent > 0 ? monthlyRent * 12 : 0;
+
+    return {
+      fullName: tenantInfo.fullName || "",
+      nationalId: apartment?.tenantNationalId || "",
+      nationality: tenantInfo.nationality || "",
+      tenantType: tenantInfo.tenantType || "",
+      phone: tenantInfo.phoneNumber || "",
+      yearlyRent,
+      rent: monthlyRent || "",
+      paymentCycle,
+      installmentsCount: installmentsCount > 0 ? installmentsCount : getDefaultInstallmentsCount(paymentCycle),
+      floorNumber: apartment?.floorNumber ?? "",
+      bedrooms: apartment?.bedrooms ?? "",
+      bathrooms: apartment?.bathrooms ?? "",
+      livingRooms: apartment?.livingRooms ?? "",
+      insurancePaid: contract.insurancePaid || "",
+      startDate: contract.startDate || "",
+      endDate: contract.endDate || "",
+      meterNumber: contract.meterNumber || "",
+      notes: contract.notes || "",
+      brokerName: contract.brokerInfo?.name || "",
+      brokerCommercialRegister: contract.brokerInfo?.commercialRegister || "",
+      brokerPhone: contract.brokerInfo?.phone || "",
+      brokerAddress: contract.brokerInfo?.address || "",
+      brokerEmail: contract.brokerInfo?.email || "",
+      electricityIncluded: !!contract.services?.electricityIncluded,
+      waterIncluded: !!contract.services?.waterIncluded,
+      gasType: contract.services?.gasType || "none",
+      acType: contract.services?.acType || "none",
+    };
+  }
+
+  function ensureAutoContractDocumentForLinkedApartment() {
+    if (
+      typeof getDocuments !== "function" ||
+      typeof saveAutoLeaseContractDocument !== "function"
+    ) {
+      return;
+    }
+
+    const apartment = getCurrentApartment();
+    if (!apartment) return;
+
+    const currentContractId =
+      apartment.currentContractId || apartment.contract?.id || apartment.contractId || null;
+    const hasTenant =
+      apartment.tenantUserId ||
+      apartment.tenantNationalId ||
+      apartment.tenantInfo?.fullName;
+
+    if (!currentContractId || !hasTenant) return;
+
+    const contractKey = String(currentContractId);
+
+    const normalizedApartment = {
+      ...apartment,
+      currentContractId: contractKey,
+      contract: {
+        ...(apartment.contract || {}),
+        id: contractKey,
+      },
+    };
+    const fallbackData = buildContractDocDataFromApartment(normalizedApartment);
+    void saveAutoLeaseContractDocument(normalizedApartment, fallbackData).catch((e) =>
+      console.warn("[link-tenant] ensure auto contract doc failed", e)
     );
   }
 
@@ -658,9 +1023,18 @@ function syncEndDateWithStartDate(force = false) {
 
   function getApartmentPaymentDefaults() {
     const apartment = getCurrentApartment();
-    const defaults = apartment?.paymentDefaults || {};
+    const apartmentDefaults = apartment?.paymentDefaults || {};
+    let buildingDefaults = {};
+    if (typeof getBuildings === "function") {
+      const bid = apartment?.buildingId ?? apartment?.building_id;
+      if (bid != null && bid !== "") {
+        const building = getBuildings().find((b) => String(b.id ?? "") === String(bid));
+        buildingDefaults = building?.paymentDefaults || {};
+      }
+    }
+    const defaults = { ...buildingDefaults, ...apartmentDefaults };
 
-    const paymentCycle = defaults.paymentCycle || "quarterly";
+    const paymentCycle = defaults.paymentCycle || "semi_annual";
     const installmentsCount = Number(
       defaults.installmentsCount || getDefaultInstallmentsCount(paymentCycle)
     );
@@ -775,11 +1149,19 @@ function resetForm() {
     setFieldValue(elements.rent, yearlyField);
   }
 
-  setFieldValue(
-    elements.paymentCycle,
-    contract.paymentCycle || apartmentData.paymentDefaults?.paymentCycle || "quarterly"
-  );
-  setFieldValue(elements.installmentsCount, contract.installmentsCount || "");
+  const apartmentDefaults = getApartmentPaymentDefaults();
+  const preferredCycle =
+    apartmentDefaults.paymentCycle ||
+    contract.paymentCycle ||
+    contract.payment_cycle ||
+    "semi_annual";
+  const preferredInstallments =
+    apartmentDefaults.installmentsCount ||
+    Number(contract.installmentsCount || contract.installments_count || 0) ||
+    getDefaultInstallmentsCount(preferredCycle);
+
+  setFieldValue(elements.paymentCycle, preferredCycle);
+  setFieldValue(elements.installmentsCount, String(preferredInstallments));
 
   // take values from apartment saved in owner-edit
   setFieldValue(elements.floorNumber, apartmentData.floorNumber ?? "");
@@ -1278,6 +1660,16 @@ function resetForm() {
         }
         throw new Error(T("linkModal.err401"));
       }
+      if (response.status === 409) {
+        const d = responseJson?.detail;
+        const msg =
+          typeof d === "string"
+            ? d
+            : Array.isArray(d)
+              ? d.map((x) => x?.msg || x).join(" ")
+              : T("linkModal.err409Duplicate");
+        throw new Error(msg || T("linkModal.err409Duplicate"));
+      }
       if (
         response.status === 400 &&
         (
@@ -1326,13 +1718,23 @@ function resetForm() {
       try {
         const cid = apiResponse.current_contract_id;
         const cycle = data.paymentCycle || "monthly";
-        await WalajnaAuth.fetchWithAuth(
-          `${WalajnaAuth.API_BASE}/api/contracts/${encodeURIComponent(cid)}/installments/generate`,
+        const genRes = await WalajnaAuth.fetchWithAuth(
+          `${WalajnaAuth.API_BASE}/api/contracts/${encodeURIComponent(cid)}/installments/generate?force=1`,
           {
             method: "POST",
             body: JSON.stringify({ payment_cycle: cycle }),
           }
         );
+        if (!genRes.ok) {
+          let msg = `installments generate failed (${genRes.status})`;
+          try {
+            const err = await genRes.json();
+            msg = err?.detail || msg;
+          } catch {
+            /* ignore */
+          }
+          throw new Error(msg);
+        }
       } catch (genErr) {
         console.warn("[assign-tenant] installment generate request failed:", genErr);
       }
@@ -1363,7 +1765,7 @@ function resetForm() {
     saveApartments(updatedApartments);
 
     if (savedApartment) {
-      saveAutoLeaseContractDocument(savedApartment, data);
+      await saveAutoLeaseContractDocument(savedApartment, data);
     }
 
     if (
@@ -1372,7 +1774,7 @@ function resetForm() {
       elements.contractFile.files.length > 0
     ) {
       const file = elements.contractFile.files[0];
-      saveDocumentForApartment(file, aptId, {
+      await saveDocumentForApartment(file, aptId, {
         contractId: savedApartment?.currentContractId || savedApartment?.contract?.id || null,
         docType: "uploaded_lease_contract",
       });
@@ -1382,6 +1784,9 @@ function resetForm() {
   }
 
   async function handleSaveTenant() {
+    if (linkTenantSaveInFlight) {
+      return;
+    }
     console.log("[assign-tenant] Function entered: handleSaveTenant");
     const formData = readFormData();
     const validationMessage = validateFormData(formData);
@@ -1391,6 +1796,12 @@ function resetForm() {
     if (validationMessage) {
       showError(validationMessage);
       return;
+    }
+
+    linkTenantSaveInFlight = true;
+    if (elements.saveBtn) {
+      elements.saveBtn.disabled = true;
+      elements.saveBtn.setAttribute("aria-busy", "true");
     }
 
     try {
@@ -1406,6 +1817,12 @@ function resetForm() {
     } catch (error) {
       console.error("[assign-tenant] handleSaveTenant failed:", error);
       showError(error?.message || T("linkModal.failGeneric"));
+    } finally {
+      linkTenantSaveInFlight = false;
+      if (elements.saveBtn) {
+        elements.saveBtn.disabled = false;
+        elements.saveBtn.removeAttribute("aria-busy");
+      }
     }
   }
 
@@ -1497,6 +1914,7 @@ function resetForm() {
 
   bindModalEvents();
   bindActions();
+  ensureAutoContractDocumentForLinkedApartment();
 
   return {
     openLinkTenantModal: openModal,

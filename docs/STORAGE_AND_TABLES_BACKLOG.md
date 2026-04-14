@@ -16,8 +16,8 @@ Numbered backlog for moving off `localStorage` and wiring every Supabase table t
 2. [x] **Apartments cache (`apartments`)**  
    **`GET /api/apartments`** is canonical when logged in; UI reads **`walajna_apartments_session`** (and `getApartments()` in `apartment-storage.js`) after `WalajnaApartmentsApi.refreshForSession()`. **`walajna_apartments`** in localStorage remains for demo/offline only (`saveApartments` skips it when authed).
 
-3. [ ] **Documents (`documents`)**  
-   Remove `walajna_documents` reads/writes; use document API for list/upload/delete; fix owner-building delete path so it does not rely on local document arrays.
+3. [x] **Documents (`documents`)**  
+   Logged-in flows use **`GET/POST/DELETE /api/documents`** via `js/main/documents-api.js` (`WalajnaDocumentsApi`); apartment page refreshes per-unit list; auto-lease HTML and uploads persist to Supabase (`backend/sql/documents_table_2026.sql`). **`walajna_documents`** remains only when **not** authenticated (demo/offline). Owner-building delete calls **`DELETE /api/documents/by-apartment/{id}`** when logged in.
 
 4. [ ] **Buildings (`buildings`)**  
    Remove API-failure fallback to `walajna_buildings` in owner-building (or show empty state + retry). Point finance-summary at `/api/buildings` (and related) instead of local arrays.
@@ -83,7 +83,7 @@ Numbered backlog for moving off `localStorage` and wiring every Supabase table t
 |-----|--------|
 | `walajna_payments` | Deprecated for main flows; optional legacy in `WalajnaPaymentsStorage` |
 | `walajna_apartments` | Session mirror + API; local key demo/offline only |
-| `walajna_documents` | API documents |
+| `walajna_documents` | Deprecated when authed; API documents + session cache |
 | `walajna_buildings` | API buildings |
 | `walajna_costs` | New costs table + API (if needed) |
 | `walajna_messages` | Not used by Messages page (requests-only); safe to ignore or clear |

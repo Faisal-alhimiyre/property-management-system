@@ -17,6 +17,19 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const params = new URLSearchParams(window.location.search);
   const apartmentId = params.get("apartmentId");
+
+  if (
+    apartmentId &&
+    typeof WalajnaDocumentsApi !== "undefined" &&
+    WalajnaDocumentsApi.refreshForApartment &&
+    WalajnaAuth?.getCurrentUser?.()
+  ) {
+    try {
+      await WalajnaDocumentsApi.refreshForApartment(apartmentId);
+    } catch (e) {
+      console.warn("[history-details] documents refresh failed", e);
+    }
+  }
   const historyId = params.get("historyId");
 
   const pageTitle = document.getElementById("pageTitle");
@@ -242,7 +255,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     typeof getApartments === "function"
       ? getApartments()
       : getLocalArray("walajna_apartments");
-  const documents = getLocalArray("walajna_documents");
+  const documents =
+    typeof getDocuments === "function" ? getDocuments() : getLocalArray("walajna_documents");
   let dbRequestsRaw = [];
 
   const apartment = apartments.find(

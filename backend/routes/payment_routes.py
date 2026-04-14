@@ -2,7 +2,7 @@ import logging
 from datetime import date, datetime
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from models import GenerateInstallmentsBody, InstallmentUpdate
 from config import supabase
 from routes.auth_routes import get_current_user, normalize_saudi_national_id
@@ -109,6 +109,7 @@ async def list_contract_installments(
 async def generate_contract_installments(
     contract_id: int,
     body: GenerateInstallmentsBody,
+    force: bool = Query(False),
     current_user: dict = Depends(get_current_user),
 ):
     contract, apartment = _authorize_contract_access(contract_id, current_user)
@@ -134,7 +135,30 @@ async def generate_contract_installments(
         ) from exc
 
     if existing.data:
-        return {"message": "Schedule already exists", "inserted": 0}
+        if not force:
+            return {"message": "Schedule already exists", "inserted": 0}
+        try:
+            current_rows = (
+                supabase.table("payment_installments")
+                .select("id,status")
+                .eq("contract_id", contract_id)
+                .execute()
+            )
+        except Exception as exc:
+            logger.exception("payment_installments force-read failed contract_id=%s", contract_id)
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        rows_now = getattr(current_rows, "data", None) or []
+        has_paid = any(str(r.get("status") or "").lower() in ("paid", "partial_paid") for r in rows_now)
+        if has_paid:
+            raise HTTPException(
+                status_code=409,
+                detail="Cannot regenerate installments: some installments are already paid/partial_paid.",
+            )
+        try:
+            supabase.table("payment_installments").delete().eq("contract_id", contract_id).execute()
+        except Exception as exc:
+            logger.exception("payment_installments force-delete failed contract_id=%s", contract_id)
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     sd = _parse_date(contract.get("start_date"))
     ed = _parse_date(contract.get("end_date"))

@@ -219,12 +219,33 @@ function deleteApartmentRequests() {
    Documents
 ========================= */
 
+function isDocumentsServerMode() {
+  try {
+    return (
+      typeof isWalajnaAuthed === "function" &&
+      isWalajnaAuthed() &&
+      typeof WalajnaDocumentsApi !== "undefined" &&
+      typeof WalajnaDocumentsApi.getSessionList === "function"
+    );
+  } catch {
+    return false;
+  }
+}
+
 function getDocuments() {
+  if (isDocumentsServerMode()) {
+    return WalajnaDocumentsApi.getSessionList();
+  }
   return getArray(StorageKeys.DOCUMENTS);
 }
 
 function saveDocuments(documents) {
-  saveArray(StorageKeys.DOCUMENTS, documents);
+  const arr = Array.isArray(documents) ? documents : [];
+  if (isDocumentsServerMode()) {
+    WalajnaDocumentsApi.setSessionList(arr);
+    return;
+  }
+  saveArray(StorageKeys.DOCUMENTS, arr);
 }
 
 function getDocumentsByApartmentId(aptId) {
@@ -254,10 +275,18 @@ function getDocumentsForApartmentContext(aptId) {
 }
 
 function deleteApartmentDocuments(aptId) {
+  if (isDocumentsServerMode() && typeof WalajnaDocumentsApi.deleteByApartment === "function") {
+    void WalajnaDocumentsApi.deleteByApartment(aptId).catch((e) =>
+      console.warn("[apartment-storage] deleteByApartment failed", e)
+    );
+    const next = getDocuments().filter((d) => String(d.apartmentId) !== String(aptId));
+    saveDocuments(next);
+    return;
+  }
   const documents = getDocuments();
   const filteredDocuments = removeBy(
     documents,
-    (document) => document.apartmentId === aptId
+    (document) => String(document.apartmentId) === String(aptId)
   );
   saveDocuments(filteredDocuments);
 }

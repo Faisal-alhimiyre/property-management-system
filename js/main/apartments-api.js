@@ -13,17 +13,29 @@
   function mapApiRowToClient(apt) {
     if (!apt) return null;
     const id = apt.id;
+    const rawTi = apt.tenant_info;
+    const tenantInfo =
+      rawTi &&
+      typeof rawTi === "object" &&
+      !Array.isArray(rawTi) &&
+      Object.keys(rawTi).some((k) => {
+        const v = rawTi[k];
+        return v != null && String(v).trim() !== "";
+      })
+        ? rawTi
+        : null;
     return {
       id: String(id),
       apiId: id,
       buildingId: String(apt.building_id ?? ""),
+      buildingName: apt.building_name ?? apt.buildingName ?? "",
       number: String(apt.apartment_number ?? ""),
       floorNumber: Number(apt.floor_number ?? 0),
       leaseStatus: apt.lease_status || "vacant",
       rent: apt.rent,
       tenantUserId: apt.tenant_user_id ?? null,
       tenantNationalId: apt.tenant_national_id ?? null,
-      tenantInfo: apt.tenant_info || null,
+      tenantInfo,
       currentContractId: apt.current_contract_id ?? null,
       contractId: apt.current_contract_id ?? null,
       contract: apt.current_contract_id ? { id: apt.current_contract_id } : null,

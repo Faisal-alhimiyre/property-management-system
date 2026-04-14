@@ -1131,15 +1131,28 @@ async function evictApartment(apartmentId) {
     }
   }
 
-  function deleteApartment(apartmentId) {
+  async function deleteApartment(apartmentId) {
     const confirmed = confirm(T("building.confirmDeleteApt"));
     if (!confirmed) return;
 
     const updatedApartments = apartments.filter((apartment) => apartment.id !== apartmentId);
     const updatedCosts = costs.filter((cost) => cost.apartmentId !== apartmentId);
 
-    const documents = JSON.parse(localStorage.getItem("walajna_documents") || "[]");
-    const updatedDocuments = documents.filter((document) => document.apartmentId !== apartmentId);
+    if (
+      WalajnaAuth?.getCurrentUser?.() &&
+      typeof WalajnaDocumentsApi !== "undefined" &&
+      typeof WalajnaDocumentsApi.deleteByApartment === "function"
+    ) {
+      try {
+        await WalajnaDocumentsApi.deleteByApartment(apartmentId);
+      } catch (e) {
+        console.warn("owner-building: delete documents API failed", e);
+      }
+    } else {
+      const documents = JSON.parse(localStorage.getItem("walajna_documents") || "[]");
+      const updatedDocuments = documents.filter((document) => document.apartmentId !== apartmentId);
+      localStorage.setItem("walajna_documents", JSON.stringify(updatedDocuments));
+    }
 
     apartments = updatedApartments;
     if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.removeFromSession) {
@@ -1149,7 +1162,6 @@ async function evictApartment(apartmentId) {
       localStorage.setItem("walajna_apartments", JSON.stringify(updatedApartments));
     }
     localStorage.setItem("walajna_costs", JSON.stringify(updatedCosts));
-    localStorage.setItem("walajna_documents", JSON.stringify(updatedDocuments));
 
     alert(T("building.aptDeleted"));
     window.location.reload();
