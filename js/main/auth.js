@@ -7,30 +7,16 @@ const ACTIVE_ROLE_KEY = 'activeRole';
 
 function mapServerUser(u) {
   if (!u || typeof u !== 'object') return null;
-  const legacy = u.role != null ? String(u.role) : '';
-  const hasActive = u.active_role != null && String(u.active_role).trim() !== '';
-  const active = hasActive ? String(u.active_role) : '';
-  let role;
-  if (active) role = active;
-  else if (legacy === 'pending') role = 'pending';
-  else if (legacy) role = legacy;
-  else role = 'tenant';
-  const roles =
-    Array.isArray(u.roles) && u.roles.length
-      ? u.roles
-      : role && role !== 'pending'
-        ? [role]
-        : [];
+  const role = u.role || 'tenant';
   return {
     id: u.id,
     email: u.email,
     name: u.name,
     role,
-    active_role: hasActive ? u.active_role : active || null,
     phone: u.phone,
     nationalId: u.national_id ?? u.nationalId ?? null,
     national_id: u.national_id ?? null,
-    roles,
+    roles: Array.isArray(u.roles) ? u.roles : [role],
   };
 }
 
@@ -66,25 +52,17 @@ function setSession({ user }) {
   if (!user) return;
   const normalized = mapServerUser(user) || user;
   if (!Array.isArray(normalized.roles)) {
-    const r = normalized.role;
-    normalized.roles =
-      r && r !== 'pending' ? [r] : [];
+    normalized.roles = [normalized.role || 'tenant'];
   }
   sessionStorage.setItem(USER_KEY, JSON.stringify(normalized));
-  const ar =
-    normalized.active_role ||
-    (normalized.role && normalized.role !== 'pending' ? normalized.role : null) ||
-    (normalized.roles && normalized.roles[0]) ||
-    null;
-  if (ar) sessionStorage.setItem(ACTIVE_ROLE_KEY, ar);
-  else sessionStorage.removeItem(ACTIVE_ROLE_KEY);
+  const role = normalized.role || normalized.roles[0] || 'tenant';
+  sessionStorage.setItem(ACTIVE_ROLE_KEY, role);
 }
 
 function clearSession() {
   try {
     sessionStorage.removeItem(USER_KEY);
     sessionStorage.removeItem(ACTIVE_ROLE_KEY);
-    sessionStorage.removeItem('walajna_apartments_session');
   } catch {
     /* ignore */
   }
@@ -157,13 +135,8 @@ async function hydrateSession() {
     }
     const u = await r.json();
     setSession({ user: u });
-    if (!sessionStorage.getItem(ACTIVE_ROLE_KEY)) {
-      const pick =
-        u.active_role ||
-        (u.role && u.role !== 'pending' ? u.role : null) ||
-        (Array.isArray(u.roles) && u.roles[0]) ||
-        null;
-      if (pick) sessionStorage.setItem(ACTIVE_ROLE_KEY, pick);
+    if (!sessionStorage.getItem(ACTIVE_ROLE_KEY) && u.role) {
+      sessionStorage.setItem(ACTIVE_ROLE_KEY, u.role);
     }
     return true;
   } catch {
@@ -199,12 +172,7 @@ function ensureRoleSetup() {
   const user = getCurrentUser();
   if (!user) return;
   if (!getActiveRole()) {
-    const r = user.role;
-    if (r && r !== 'pending') {
-      sessionStorage.setItem(ACTIVE_ROLE_KEY, r);
-    } else if (user.roles && user.roles[0]) {
-      sessionStorage.setItem(ACTIVE_ROLE_KEY, user.roles[0]);
-    }
+    sessionStorage.setItem(ACTIVE_ROLE_KEY, user.role || (user.roles ? user.roles[0] : 'tenant'));
   }
 }
 

@@ -42,8 +42,6 @@ function initLinkTenantSystem(aptId, currentUser) {
     errorBox: document.getElementById("linkTenantError"),
 
     brokerName: document.getElementById("linkBrokerName"),
-
-    brokerName: document.getElementById("linkBrokerName"),
     brokerCommercialRegister: document.getElementById("linkBrokerCommercialRegister"),
     brokerPhone: document.getElementById("linkBrokerPhone"),
 
@@ -73,6 +71,31 @@ function initLinkTenantSystem(aptId, currentUser) {
     if (field) field.value = value ?? "";
   }
 
+  function setIncludedServiceField(field, includeYes) {
+    if (!field) return;
+    if (field.type === "checkbox") field.checked = Boolean(includeYes);
+    else field.value = includeYes ? "yes" : "no";
+  }
+
+  function setUtilityTypeField(field, value) {
+    if (!field) return;
+    const v = value || "none";
+    if (field.type === "checkbox") field.checked = v === "central";
+    else field.value = v;
+  }
+
+  function readIncludedServiceField(field) {
+    if (!field) return false;
+    if (field.type === "checkbox") return !!field.checked;
+    return (field.value || "").trim() === "yes";
+  }
+
+  function readUtilityTypeField(field) {
+    if (!field) return "none";
+    if (field.type === "checkbox") return field.checked ? "central" : "none";
+    const v = (field.value || "").trim();
+    return v === "central" ? "central" : "none";
+  }
 
   function getCheckboxOrSelectValue(field, defaultValue = "") {
     if (!field) return defaultValue;
@@ -206,24 +229,12 @@ function syncEndDateWithStartDate(force = false) {
     }
   }
 
-  /** Form field is yearly rent; `data.rent` is monthly equivalent (yearly/12) for API/storage. */
-  function getYearlyRentFromFormData(data) {
-    if (!data) return 0;
-    if (data.yearlyRent != null && data.yearlyRent !== "") {
-      const y = Number(data.yearlyRent);
-      return Number.isFinite(y) ? y : 0;
-    }
-    const m = Number(data.rent);
-    return Number.isFinite(m) && m > 0 ? m * 12 : 0;
-  }
-
   function buildInstallmentsSchedule(data) {
     const count = Number(data.installmentsCount || 0);
     const startDate = data.startDate ? new Date(data.startDate) : null;
     const cycleMonths = getCycleMonths(data.paymentCycle);
-    const yearly = getYearlyRentFromFormData(data);
-    const monthlyEq = yearly > 0 ? yearly / 12 : 0;
-    const perPayment = monthlyEq * cycleMonths;
+    const totalRent = Number(data.rent || 0);
+    const installmentAmount = count > 0 ? totalRent / count : totalRent;
 
     if (!startDate || Number.isNaN(startDate.getTime()) || count < 1) {
       return [];
@@ -237,7 +248,7 @@ function syncEndDateWithStartDate(force = false) {
           : window.walajna_language && window.walajna_language.get() === "en"
             ? "en-SA"
             : "ar-SA";
-      const amt = Math.round(perPayment);
+      const amt = Math.round(installmentAmount);
       const amountStr =
         amt === 0
           ? T("common.sarZero")
@@ -527,7 +538,7 @@ function syncEndDateWithStartDate(force = false) {
       <div class="section-title">${escapeHtml(T("lease.financial"))}</div>
       <div class="section-body">
         <div class="grid">
-          <div class="field"><div class="label">${escapeHtml(T("lease.rentValue"))}</div><div class="value">${escapeHtml(formatCurrency(getYearlyRentFromFormData(data)))}</div></div>
+          <div class="field"><div class="label">${escapeHtml(T("lease.rentValue"))}</div><div class="value">${escapeHtml(formatCurrency(data.rent))}</div></div>
           <div class="field"><div class="label">${escapeHtml(T("lease.insurance"))}</div><div class="value">${escapeHtml(formatCurrency(data.insurancePaid))}</div></div>
           <div class="field"><div class="label">${escapeHtml(T("lease.payCycle"))}</div><div class="value">${escapeHtml(getPaymentCycleLabel(data.paymentCycle))}</div></div>
           <div class="field"><div class="label">${escapeHtml(T("lease.installments"))}</div><div class="value">${escapeHtml(data.installmentsCount)}</div></div>
@@ -741,21 +752,10 @@ function resetForm() {
     clearField(elements.brokerCommercialRegister);
     clearField(elements.brokerPhone);
 
-  if (elements.electricityIncluded) {
-    elements.electricityIncluded.value = "no";
-  }
-
-  if (elements.waterIncluded) {
-    elements.waterIncluded.value = "no";
-  }
-
-  if (elements.gasType) {
-    elements.gasType.value = "none";
-  }
-
-  if (elements.acType) {
-    elements.acType.value = "none";
-  }
+  setIncludedServiceField(elements.electricityIncluded, false);
+  setIncludedServiceField(elements.waterIncluded, false);
+  setUtilityTypeField(elements.gasType, "none");
+  setUtilityTypeField(elements.acType, "none");
 }
 
   function fillFormFromApartment(apartmentData) {
@@ -769,11 +769,7 @@ function resetForm() {
   setFieldValue(elements.nationality, tenantInfo.nationality);
   setFieldValue(elements.tenantType, tenantInfo.tenantType);
   setFieldValue(elements.phoneNumber, tenantInfo.phoneNumber);
-  {
-    const monthly = Number(apartmentData.rent || contract.rentAmount || 0);
-    const yearlyField = monthly > 0 ? String(monthly * 12) : "";
-    setFieldValue(elements.rent, yearlyField);
-  }
+  setFieldValue(elements.rent, apartmentData.rent || contract.rentAmount || "");
 
   setFieldValue(
     elements.paymentCycle,
@@ -799,16 +795,10 @@ function resetForm() {
     );
     setFieldValue(elements.brokerPhone, contract.brokerInfo?.phone);
 
-  setFieldValue(
-    elements.electricityIncluded,
-    contract.services?.electricityIncluded ? "yes" : "no"
-  );
-  setFieldValue(
-    elements.waterIncluded,
-    contract.services?.waterIncluded ? "yes" : "no"
-  );
-  setFieldValue(elements.gasType, contract.services?.gasType || "none");
-  setFieldValue(elements.acType, contract.services?.acType || "none");
+  setIncludedServiceField(elements.electricityIncluded, !!contract.services?.electricityIncluded);
+  setIncludedServiceField(elements.waterIncluded, !!contract.services?.waterIncluded);
+  setUtilityTypeField(elements.gasType, contract.services?.gasType || "none");
+  setUtilityTypeField(elements.acType, contract.services?.acType || "none");
 }
 
   function openModal(apartmentData = null) {
@@ -852,31 +842,22 @@ function resetForm() {
       getFieldValue(elements.installmentsCount) || 0
     );
 
-    const rawYearly = getFieldValue(elements.rent);
-    const yearlyNum =
-      rawYearly !== "" && rawYearly != null ? Number(rawYearly) : NaN;
-    const monthlyStored =
-      Number.isFinite(yearlyNum) && yearlyNum > 0 ? yearlyNum / 12 : "";
-
     return {
       fullName: getFieldValue(elements.fullName),
       nationalId: getFieldValue(elements.nationalId),
       nationality: getFieldValue(elements.nationality),
       tenantType: getFieldValue(elements.tenantType),
       phone: getFieldValue(elements.phoneNumber),
-      yearlyRent: yearlyNum,
-      rent: monthlyStored === "" ? "" : monthlyStored,
+      rent: getFieldValue(elements.rent),
 
       brokerName: getFieldValue(elements.brokerName),
       brokerCommercialRegister: getFieldValue(elements.brokerCommercialRegister),
       brokerPhone: getFieldValue(elements.brokerPhone),
 
-      electricityIncluded:
-        getCheckboxOrSelectValue(elements.electricityIncluded, "no") === "yes",
-      waterIncluded:
-        getCheckboxOrSelectValue(elements.waterIncluded, "no") === "yes",
-      gasType: getCheckboxOrSelectValue(elements.gasType, "none"),
-      acType: getCheckboxOrSelectValue(elements.acType, "none"),
+      electricityIncluded: readIncludedServiceField(elements.electricityIncluded),
+      waterIncluded: readIncludedServiceField(elements.waterIncluded),
+      gasType: readUtilityTypeField(elements.gasType),
+      acType: readUtilityTypeField(elements.acType),
 
 
       paymentCycle,
@@ -908,9 +889,7 @@ function resetForm() {
     if (!data.nationality) return T("linkModal.val.nationality");
     if (!data.tenantType) return T("linkModal.val.tenantType");
     if (!data.phone) return T("linkModal.val.phone");
-    if (!Number.isFinite(data.yearlyRent) || data.yearlyRent <= 0) {
-      return T("linkModal.val.rent");
-    }
+    if (!data.rent) return T("linkModal.val.rent");
     if (!data.paymentCycle) return T("linkModal.val.paymentCycle");
 
     if (!data.installmentsCount || Number(data.installmentsCount) < 1) {
@@ -921,11 +900,7 @@ function resetForm() {
       return T("linkModal.val.dates");
     }
 
-    const nidOk =
-      typeof isSaudiNationalOrIqamaFormat === "function"
-        ? isSaudiNationalOrIqamaFormat(data.nationalId)
-        : /^[12]\d{9}$/.test(String(data.nationalId || "").trim());
-    if (!nidOk) {
+    if (!/^\d{10}$/.test(data.nationalId)) {
       return T("linkModal.val.nationalIdDigits");
     }
 
@@ -1421,7 +1396,7 @@ function resetForm() {
     reader.onload = function (e) {
       const text = e.target.result || "";
 
-      const nationalIdMatch = text.match(/\b[12]\d{9}\b/);
+      const nationalIdMatch = text.match(/\b\d{10}\b/);
       const phoneMatch = text.match(/05\d{8}/);
 
       if (nationalIdMatch && elements.nationalId) {
