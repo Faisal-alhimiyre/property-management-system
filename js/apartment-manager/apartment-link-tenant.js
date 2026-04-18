@@ -236,8 +236,9 @@ function syncEndDateWithStartDate(force = false) {
     const startDate = data.startDate ? new Date(data.startDate) : null;
     const cycleMonths = getCycleMonths(data.paymentCycle);
     const yearly = getYearlyRentFromFormData(data);
-    const monthlyEq = yearly > 0 ? yearly / 12 : 0;
-    const perPayment = monthlyEq * cycleMonths;
+    // Annual rent split across the number of installments (sums to yearly). Due dates still step by payment cycle.
+    // Old formula (monthly rent × cycle months) matched one cycle’s share (e.g. yearly/4 for quarterly) and was wrong when count was 1 but cycle was quarterly (showed 5k instead of 20k).
+    const perPayment = count > 0 && yearly > 0 ? yearly / count : 0;
 
     if (!startDate || Number.isNaN(startDate.getTime()) || count < 1) {
       return [];
@@ -279,7 +280,7 @@ function syncEndDateWithStartDate(force = false) {
       phoneNumber:
         currentUser?.phoneNumber ||
         currentUser?.phone ||
-        currentUser?.      mobile ||
+        currentUser?.mobile ||
         dash,
     };
   }
@@ -596,6 +597,15 @@ function syncEndDateWithStartDate(force = false) {
     .sign-box { border:1px solid rgba(14, 165, 233, 0.35); border-radius:8px; padding:8px; min-height:92px; background:#fafefe; }
     .sign-title { font-size:12px; font-weight:900; color:#0369a1; margin-bottom:7px; }
     .line { margin-top:6px; border-top:1px dashed #94a3b8; padding-top:4px; color:#334155; font-size:11px; font-weight:700; }
+    /* Keep rent schedule compact so it doesn't spill one orphan row to a new PDF page. */
+    .sec--payments .sec-body { padding: 5px 7px; }
+    .sec--payments table { font-size: 10.5px; line-height: 1.25; }
+    .sec--payments th,
+    .sec--payments td { padding: 3px 4px; }
+    .sec--payments tbody tr {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
     .page-no {
       position:absolute;
       bottom:7px;
@@ -758,10 +768,10 @@ function syncEndDateWithStartDate(force = false) {
         </table>
       </div>
     </div>
-    <div class="sec">
+    <div class="sec sec--payments">
       <div class="sec-title">10) جدول سداد الدفعات / Rent Payments Schedule</div>
       <div class="sec-body">
-        <table>
+        <table class="payments-table">
           <thead>
             <tr>
               <th>${escapeHtml(T("lease.th.no"))}</th>
@@ -1714,7 +1724,7 @@ function resetForm() {
     const apiBase =
       (typeof WalajnaAuth !== "undefined" && WalajnaAuth.API_BASE) ||
       window.API_BASE ||
-      "http://127.0.0.1:8000";
+      "http://127.0.0.1:8002";
 
     console.log("[assign-tenant] Function entered: sendTenantLinkToApi", {
       localApartmentId: savedApartment?.id,

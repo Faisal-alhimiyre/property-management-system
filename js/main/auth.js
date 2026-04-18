@@ -109,7 +109,11 @@ async function logoutOnServer() {
   }
 }
 
+let unauthorizedRedirectInFlight = false;
+
 function handleUnauthorized(message) {
+  if (unauthorizedRedirectInFlight) return;
+  unauthorizedRedirectInFlight = true;
   void logoutOnServer();
   clearSession();
   const reason = message || 'انتهت الجلسة أو التوكن غير صالح. سجل الدخول مرة أخرى.';
@@ -118,7 +122,22 @@ function handleUnauthorized(message) {
   } catch {
     /* ignore */
   }
-  window.location.href = '../auth/login.html';
+  try {
+    window.location.href = new URL('../auth/login.html', window.location.href).href;
+  } catch {
+    window.location.href = '../auth/login.html';
+  }
+}
+
+/** Hydration calls GET /users/me with no client user — 401 means "not logged in", not "session expired mid-app". */
+function isUsersMeProbeWithoutClientUser(url) {
+  try {
+    const s = typeof url === 'string' ? url : String(url);
+    if (!s.includes('/users/me')) return false;
+    return !getCurrentUser();
+  } catch {
+    return false;
+  }
 }
 
 function getAuthHeaders(additional = {}) {
@@ -146,6 +165,14 @@ function fetchWithAuth(url, options = {}) {
       ...(useJsonHeaders ? getAuthHeaders() : {}),
       ...(optHeaders || {}),
     },
+  }).then((response) => {
+    if (
+      response.status === 401 &&
+      !isUsersMeProbeWithoutClientUser(url)
+    ) {
+      handleUnauthorized();
+    }
+    return response;
   });
 }
 
