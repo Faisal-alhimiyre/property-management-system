@@ -289,41 +289,18 @@
             <label class="label" for="linkNotes" data-i18n="common.note"></label>
             <input id="linkNotes" type="text" />
           </div>
+        </div>
 
-          <div class="form-section">
-            <h4 class="form-section-title" data-i18n="linkModal.servicesTitle"></h4>
-            <div class="form-grid">
-              <div class="form-group">
-                <label for="linkElectricityIncluded" data-i18n="lease.electricity"></label>
-                <select id="linkElectricityIncluded">
-                  <option value="no" data-i18n-label="lease.exclude"></option>
-                  <option value="yes" data-i18n-label="lease.include"></option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label for="linkWaterIncluded" data-i18n="lease.water"></label>
-                <select id="linkWaterIncluded">
-                  <option value="no" data-i18n-label="lease.exclude"></option>
-                  <option value="yes" data-i18n-label="lease.include"></option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label for="linkGasType" data-i18n="lease.gas"></label>
-                <select id="linkGasType">
-                  <option value="none" data-i18n-label="lease.utilNone"></option>
-                  <option value="central" data-i18n-label="lease.central"></option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label for="linkAcType" data-i18n="lease.ac"></label>
-                <select id="linkAcType">
-                  <option value="none" data-i18n-label="lease.utilNone"></option>
-                  <option value="central" data-i18n-label="lease.central"></option>
-                </select>
-              </div>
+        <div class="link-tenant-modal__split">
+          <div class="link-tenant-modal__box">
+            <div class="item link-tenant-modal__box-item">
+              <label class="label" for="contractFile" data-i18n="linkModal.contractFile"></label>
+              <input id="contractFile" type="file" accept=".docx,.pdf,.txt,.jpg,.png" />
             </div>
-
-            <div class="form-section">
+            <div class="item link-tenant-modal__box-item link-tenant-modal__extract-wrap">
+              <button id="extractContractBtn" class="wl-btn wl-btn--ghost link-tenant-modal__extract-btn" type="button" data-i18n="linkModal.extractBtn"></button>
+            </div>
+            <div class="form-section link-tenant-modal__form-section">
               <h4 class="form-section-title" data-i18n="linkModal.brokerTitle"></h4>
               <div class="form-grid">
                 <div class="form-group">
@@ -334,20 +311,47 @@
                   <label for="linkBrokerCommercialRegister" data-i18n="lease.brokerCr"></label>
                   <input id="linkBrokerCommercialRegister" type="text" data-i18n-placeholder="linkModal.ph.brokerCr" placeholder="" />
                 </div>
-                <div class="form-group">
+                <div class="form-group form-group--full">
                   <label for="linkBrokerPhone" data-i18n="lease.brokerPhone"></label>
                   <input id="linkBrokerPhone" type="text" data-i18n-placeholder="linkModal.ph.brokerPhone" placeholder="" />
                 </div>
               </div>
             </div>
           </div>
-
-          <div class="item">
-            <label class="label" for="contractFile" data-i18n="linkModal.contractFile"></label>
-            <input id="contractFile" type="file" accept=".docx,.pdf,.txt,.jpg,.png" />
-          </div>
-          <div class="item">
-            <button id="extractContractBtn" class="wl-btn wl-btn--ghost" type="button" data-i18n="linkModal.extractBtn"></button>
+          <div class="link-tenant-modal__box">
+            <div class="form-section link-tenant-modal__form-section">
+              <h4 class="form-section-title" id="linkModalServicesHeading" data-i18n="linkModal.servicesTitle"></h4>
+              <div class="link-tenant-toggles" role="group" aria-labelledby="linkModalServicesHeading">
+                <div class="link-tenant-toggle-row">
+                  <span class="link-tenant-toggle-label" id="linkElectricityIncludedLabel" data-i18n="linkModal.toggleElectricity"></span>
+                  <label class="link-tenant-switch">
+                    <input type="checkbox" id="linkElectricityIncluded" aria-labelledby="linkElectricityIncludedLabel" />
+                    <span class="link-tenant-switch-slider" aria-hidden="true"></span>
+                  </label>
+                </div>
+                <div class="link-tenant-toggle-row">
+                  <span class="link-tenant-toggle-label" id="linkWaterIncludedLabel" data-i18n="linkModal.toggleWater"></span>
+                  <label class="link-tenant-switch">
+                    <input type="checkbox" id="linkWaterIncluded" aria-labelledby="linkWaterIncludedLabel" />
+                    <span class="link-tenant-switch-slider" aria-hidden="true"></span>
+                  </label>
+                </div>
+                <div class="link-tenant-toggle-row">
+                  <span class="link-tenant-toggle-label" id="linkGasTypeLabel" data-i18n="linkModal.toggleGas"></span>
+                  <label class="link-tenant-switch">
+                    <input type="checkbox" id="linkGasType" aria-labelledby="linkGasTypeLabel" />
+                    <span class="link-tenant-switch-slider" aria-hidden="true"></span>
+                  </label>
+                </div>
+                <div class="link-tenant-toggle-row">
+                  <span class="link-tenant-toggle-label" id="linkAcTypeLabel" data-i18n="linkModal.toggleAc"></span>
+                  <label class="link-tenant-switch">
+                    <input type="checkbox" id="linkAcType" aria-labelledby="linkAcTypeLabel" />
+                    <span class="link-tenant-switch-slider" aria-hidden="true"></span>
+                  </label>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
         <p id="linkTenantError" class="error"></p>

@@ -42,8 +42,6 @@ function initLinkTenantSystem(aptId, currentUser) {
     errorBox: document.getElementById("linkTenantError"),
 
     brokerName: document.getElementById("linkBrokerName"),
-
-    brokerName: document.getElementById("linkBrokerName"),
     brokerCommercialRegister: document.getElementById("linkBrokerCommercialRegister"),
     brokerPhone: document.getElementById("linkBrokerPhone"),
 
@@ -74,6 +72,31 @@ function initLinkTenantSystem(aptId, currentUser) {
     if (field) field.value = value ?? "";
   }
 
+  function setIncludedServiceField(field, includeYes) {
+    if (!field) return;
+    if (field.type === "checkbox") field.checked = Boolean(includeYes);
+    else field.value = includeYes ? "yes" : "no";
+  }
+
+  function setUtilityTypeField(field, value) {
+    if (!field) return;
+    const v = value || "none";
+    if (field.type === "checkbox") field.checked = v === "central";
+    else field.value = v;
+  }
+
+  function readIncludedServiceField(field) {
+    if (!field) return false;
+    if (field.type === "checkbox") return !!field.checked;
+    return (field.value || "").trim() === "yes";
+  }
+
+  function readUtilityTypeField(field) {
+    if (!field) return "none";
+    if (field.type === "checkbox") return field.checked ? "central" : "none";
+    const v = (field.value || "").trim();
+    return v === "central" ? "central" : "none";
+  }
 
   function getCheckboxOrSelectValue(field, defaultValue = "") {
     if (!field) return defaultValue;
@@ -224,7 +247,6 @@ function syncEndDateWithStartDate(force = false) {
     let count = Number(out.installmentsCount ?? out.installments_count);
     const def = getDefaultInstallmentsCount(cycle);
     if (!Number.isFinite(count) || count < 1) count = def;
-    /* Stale merge: cycle is semi-annual but count still defaulted to quarterly (4). */
     if (cycle === "semi_annual" && count === 4) count = 2;
     out.paymentCycle = cycle;
     out.installmentsCount = count;
@@ -735,9 +757,9 @@ function syncEndDateWithStartDate(force = false) {
         <table>
           ${sectionRow("Unit Number", "رقم الوحدة", apartmentNumber)}
           ${sectionRow("Floor Number", "رقم الدور", floorNumber)}
-          ${sectionRow("Bedrooms", "عدد غرف النوم", data.roomsCount || apartment?.roomsCount || dash)}
-          ${sectionRow("Bathrooms", "عدد الحمامات", data.bathroomsCount || apartment?.bathroomsCount || dash)}
-          ${sectionRow("Living Rooms", "عدد الصالات", data.livingRoomsCount || apartment?.livingRoomsCount || dash)}
+          ${sectionRow("Bedrooms", "عدد غرف النوم", data.bedrooms ?? data.roomsCount ?? apartment?.roomsCount ?? apartment?.bedrooms ?? dash)}
+          ${sectionRow("Bathrooms", "عدد الحمامات", data.bathrooms ?? data.bathroomsCount ?? apartment?.bathroomsCount ?? dash)}
+          ${sectionRow("Living Rooms", "عدد الصالات", data.livingRooms ?? data.livingRoomsCount ?? apartment?.livingRoomsCount ?? dash)}
           ${sectionRow("Electricity Meter", "رقم عداد الكهرباء", data.meterNumber || dash)}
           ${sectionRow("Furnishing Status", "حالة التأثيث", "غير مفروشة")}
         </table>
@@ -1263,21 +1285,10 @@ function resetForm() {
     clearField(elements.brokerCommercialRegister);
     clearField(elements.brokerPhone);
 
-  if (elements.electricityIncluded) {
-    elements.electricityIncluded.value = "no";
-  }
-
-  if (elements.waterIncluded) {
-    elements.waterIncluded.value = "no";
-  }
-
-  if (elements.gasType) {
-    elements.gasType.value = "none";
-  }
-
-  if (elements.acType) {
-    elements.acType.value = "none";
-  }
+  setIncludedServiceField(elements.electricityIncluded, false);
+  setIncludedServiceField(elements.waterIncluded, false);
+  setUtilityTypeField(elements.gasType, "none");
+  setUtilityTypeField(elements.acType, "none");
 }
 
   function fillFormFromApartment(apartmentData) {
@@ -1329,16 +1340,10 @@ function resetForm() {
     );
     setFieldValue(elements.brokerPhone, contract.brokerInfo?.phone);
 
-  setFieldValue(
-    elements.electricityIncluded,
-    contract.services?.electricityIncluded ? "yes" : "no"
-  );
-  setFieldValue(
-    elements.waterIncluded,
-    contract.services?.waterIncluded ? "yes" : "no"
-  );
-  setFieldValue(elements.gasType, contract.services?.gasType || "none");
-  setFieldValue(elements.acType, contract.services?.acType || "none");
+  setIncludedServiceField(elements.electricityIncluded, !!contract.services?.electricityIncluded);
+  setIncludedServiceField(elements.waterIncluded, !!contract.services?.waterIncluded);
+  setUtilityTypeField(elements.gasType, contract.services?.gasType || "none");
+  setUtilityTypeField(elements.acType, contract.services?.acType || "none");
 }
 
   function openModal(apartmentData = null) {
@@ -1401,12 +1406,10 @@ function resetForm() {
       brokerCommercialRegister: getFieldValue(elements.brokerCommercialRegister),
       brokerPhone: getFieldValue(elements.brokerPhone),
 
-      electricityIncluded:
-        getCheckboxOrSelectValue(elements.electricityIncluded, "no") === "yes",
-      waterIncluded:
-        getCheckboxOrSelectValue(elements.waterIncluded, "no") === "yes",
-      gasType: getCheckboxOrSelectValue(elements.gasType, "none"),
-      acType: getCheckboxOrSelectValue(elements.acType, "none"),
+      electricityIncluded: readIncludedServiceField(elements.electricityIncluded),
+      waterIncluded: readIncludedServiceField(elements.waterIncluded),
+      gasType: readUtilityTypeField(elements.gasType),
+      acType: readUtilityTypeField(elements.acType),
 
 
       paymentCycle,
@@ -1502,11 +1505,10 @@ function resetForm() {
   }
 
   function buildUpdatedApartment(apartment, tenantUserId, data) {
-    existingContractId =
-  apartment?.currentContractId ||
-  apartment?.contract?.id;
-  apartment?.contractId ||
-  
+    const existingContractId =
+      apartment?.currentContractId ||
+      apartment?.contract?.id ||
+      apartment?.contractId ||
       null;
 
     const finalContractId =
