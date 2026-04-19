@@ -15,13 +15,22 @@ def _add_months(d: date, months: int) -> date:
     return date(y, m, min(d.day, last))
 
 
-def cycle_months(payment_cycle: str) -> int:
-    c = (payment_cycle or "monthly").lower()
-    if c in ("quarterly", "quarter"):
+def cycle_months(payment_cycle: str | int | None) -> int:
+    """Months between installment due dates (1=monthly, 3=quarterly, …)."""
+    if isinstance(payment_cycle, bool):
+        c = str(payment_cycle).lower()
+    elif isinstance(payment_cycle, (int, float)):
+        c = str(int(payment_cycle))
+    else:
+        c = str(payment_cycle or "monthly").lower().strip()
+    # Some clients send payment "mode" as 1=monthly, 4=quarterly (payments per year).
+    if c in ("4", "quarterly", "quarter"):
         return 3
-    if c in ("semi_annual", "semi", "semi-annual"):
+    if c in ("1", "monthly", "month"):
+        return 1
+    if c in ("semi_annual", "semi", "semi-annual", "2"):
         return 6
-    if c in ("annual", "yearly"):
+    if c in ("annual", "yearly", "12"):
         return 12
     return 1
 

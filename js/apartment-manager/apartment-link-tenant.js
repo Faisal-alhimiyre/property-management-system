@@ -217,14 +217,20 @@ function syncEndDateWithStartDate(force = false) {
 
   /** Align with backend `installment_service.cycle_months` / API variants so we don't fall through to monthly (1). */
   function normalizePaymentCycle(paymentCycle) {
+    if (typeof paymentCycle === "number" && Number.isFinite(paymentCycle)) {
+      if (paymentCycle === 1) return "monthly";
+      if (paymentCycle === 4) return "quarterly";
+      if (paymentCycle === 2) return "semi_annual";
+      if (paymentCycle === 12) return "annual";
+    }
     const c = String(paymentCycle || "monthly")
       .toLowerCase()
       .trim()
       .replace(/-/g, "_");
-    if (c === "quarter" || c === "qtr") return "quarterly";
-    if (c === "semi" || c === "half_yearly" || c === "halfyearly") return "semi_annual";
-    if (c === "yearly") return "annual";
-    if (c === "month") return "monthly";
+    if (c === "1" || c === "month") return "monthly";
+    if (c === "4" || c === "quarter" || c === "qtr") return "quarterly";
+    if (c === "semi" || c === "half_yearly" || c === "halfyearly" || c === "2") return "semi_annual";
+    if (c === "yearly" || c === "12") return "annual";
     if (["monthly", "quarterly", "semi_annual", "annual"].includes(c)) return c;
     return "monthly";
   }
@@ -244,6 +250,38 @@ function syncEndDateWithStartDate(force = false) {
     }
   }
 
+  /**
+   * How many installment rows match the backend `generate_installment_rows` loop
+   * (due dates every `cycleMonths` from start until end, end exclusive).
+   */
+  function countInstallmentsForLeaseRange(startDateStr, endDateStr, paymentCycle) {
+    if (!startDateStr || !endDateStr) return null;
+    const start = new Date(startDateStr);
+    const end = new Date(endDateStr);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
+      return null;
+    }
+    const cycle = normalizePaymentCycle(paymentCycle);
+    const cm = getCycleMonths(cycle);
+    let n = 0;
+    let cur = new Date(start);
+    while (cur < end) {
+      n += 1;
+      cur = addMonths(cur, cm);
+    }
+    return n > 0 ? n : null;
+  }
+
+  /** Undo `yearly/12` rounding: `m*12` is often 20000.04 instead of 20000. */
+  function deriveYearlySARFromMonthlyStored(monthly) {
+    const m = Number(monthly);
+    if (!Number.isFinite(m) || m <= 0) return 0;
+    const raw = m * 12;
+    const nearestWhole = Math.round(raw);
+    if (Math.abs(raw - nearestWhole) < 0.06) return nearestWhole;
+    return Math.round(raw * 100) / 100;
+  }
+
   /** Form field is yearly rent; `data.rent` is monthly equivalent (yearly/12) for API/storage. */
   function getYearlyRentFromFormData(data) {
     if (!data) return 0;
@@ -251,18 +289,27 @@ function syncEndDateWithStartDate(force = false) {
       const y = Number(data.yearlyRent);
       return Number.isFinite(y) ? y : 0;
     }
-    const m = Number(data.rent);
-    return Number.isFinite(m) && m > 0 ? m * 12 : 0;
+    return deriveYearlySARFromMonthlyStored(data.rent);
   }
 
-  function reconcilePaymentScheduleData(raw) {
+  function reconcilePaymentScheduleData(raw, startDateStr, endDateStr) {
     const out = { ...(raw || {}) };
     let cycle = normalizePaymentCycle(
       out.paymentCycle || out.payment_cycle || "quarterly"
     );
     let count = Number(out.installmentsCount ?? out.installments_count);
     const def = getDefaultInstallmentsCount(cycle);
-    if (!Number.isFinite(count) || count < 1) count = def;
+    const fromLease = countInstallmentsForLeaseRange(
+      startDateStr || out.startDate,
+      endDateStr || out.endDate,
+      cycle
+    );
+    if (!Number.isFinite(count) || count < 1) {
+      count = fromLease != null && fromLease > 0 ? fromLease : def;
+    } else if (fromLease != null && fromLease > 0 && count !== fromLease) {
+      // Stored count often goes stale (e.g. quarterly + "1" left over from annual); match server schedule.
+      count = fromLease;
+    }
     if (cycle === "semi_annual" && count === 4) count = 2;
     out.paymentCycle = cycle;
     out.installmentsCount = count;
@@ -279,7 +326,7 @@ function syncEndDateWithStartDate(force = false) {
   }
 
   function buildInstallmentsSchedule(data) {
-    const merged = reconcilePaymentScheduleData(data);
+    const merged = reconcilePaymentScheduleData(data, data.startDate, data.endDate);
     const count = Number(merged.installmentsCount || 0);
     const startDate = data.startDate ? new Date(data.startDate) : null;
     const cycleMonths = getCycleMonths(merged.paymentCycle);
@@ -407,8 +454,8 @@ function syncEndDateWithStartDate(force = false) {
       ac: getServiceTypeLabel(data.acType),
     };
 
-    const schedData = reconcilePaymentScheduleData(data);
-    const schedule = buildInstallmentsSchedule(schedData);
+    const schedData = reconcilePaymentScheduleData(data, data.startDate, data.endDate);
+    const schedule = buildInstallmentsSchedule(data);
     const buildingName = resolveBuildingDisplayName(apartment) || dash;
     const apartmentNumber = apartment?.number || dash;
     const floorNumber = data.floorNumber || apartment?.floorNumber || dash;
@@ -1105,9 +1152,16 @@ function syncEndDateWithStartDate(force = false) {
         termsJson?.installmentsCount ??
         termsJson?.installments_count ??
         apartment?.paymentDefaults?.installmentsCount ??
-        getDefaultInstallmentsCount(paymentCycle)
+        NaN
     );
-    if (!Number.isFinite(installmentsCount) || installmentsCount < 1) {
+    const installmentsFromLease = countInstallmentsForLeaseRange(
+      contract.startDate,
+      contract.endDate,
+      paymentCycle
+    );
+    if (installmentsFromLease != null && installmentsFromLease > 0) {
+      installmentsCount = installmentsFromLease;
+    } else if (!Number.isFinite(installmentsCount) || installmentsCount < 1) {
       installmentsCount = getDefaultInstallmentsCount(paymentCycle);
     }
     if (paymentCycle === "semi_annual" && installmentsCount === 4) {
@@ -1120,8 +1174,16 @@ function syncEndDateWithStartDate(force = false) {
         apartment?.rent ??
         0
     );
-    const yearlyRent =
-      monthlyRent > 0 ? Math.round(monthlyRent * 12 * 100) / 100 : 0;
+    let yearlyRent = Number(
+      contract.yearlyRent ??
+        contract.yearly_rent ??
+        termsJson?.yearlyRent ??
+        termsJson?.yearly_rent ??
+        0
+    );
+    if (!Number.isFinite(yearlyRent) || yearlyRent <= 0) {
+      yearlyRent = deriveYearlySARFromMonthlyStored(monthlyRent);
+    }
 
     return {
       fullName: tenantInfo.fullName || "",
@@ -1334,8 +1396,15 @@ function resetForm() {
   setFieldValue(elements.tenantType, tenantInfo.tenantType);
   setFieldValue(elements.phoneNumber, tenantInfo.phoneNumber);
   {
-    const monthly = Number(apartmentData.rent || contract.rentAmount || 0);
-    const yearlyField = monthly > 0 ? String(monthly * 12) : "";
+    const ySaved = Number(contract.yearlyRent ?? contract.yearly_rent);
+    let yearlyField = "";
+    if (Number.isFinite(ySaved) && ySaved > 0) {
+      yearlyField = String(ySaved);
+    } else {
+      const monthly = Number(apartmentData.rent || contract.rentAmount || 0);
+      yearlyField =
+        monthly > 0 ? String(Math.round(monthly * 12 * 100) / 100) : "";
+    }
     setFieldValue(elements.rent, yearlyField);
   }
 
@@ -1345,10 +1414,18 @@ function resetForm() {
     contract.paymentCycle ||
     contract.payment_cycle ||
     "semi_annual";
+  const pcNorm = normalizePaymentCycle(preferredCycle);
+  const instFromLease = countInstallmentsForLeaseRange(
+    contract.startDate,
+    contract.endDate,
+    pcNorm
+  );
   const preferredInstallments =
-    apartmentDefaults.installmentsCount ||
-    Number(contract.installmentsCount || contract.installments_count || 0) ||
-    getDefaultInstallmentsCount(preferredCycle);
+    instFromLease != null && instFromLease > 0
+      ? instFromLease
+      : apartmentDefaults.installmentsCount ||
+        Number(contract.installmentsCount || contract.installments_count || 0) ||
+        getDefaultInstallmentsCount(pcNorm);
 
   setFieldValue(elements.paymentCycle, preferredCycle);
   setFieldValue(elements.installmentsCount, String(preferredInstallments));
@@ -1576,6 +1653,10 @@ function resetForm() {
         startDate: data.startDate,
         endDate: data.endDate,
         rentAmount: Number(data.rent),
+        yearlyRent:
+          Number.isFinite(Number(data.yearlyRent)) && Number(data.yearlyRent) > 0
+            ? Number(data.yearlyRent)
+            : null,
         paymentCycle: data.paymentCycle,
         installmentsCount: Number(data.installmentsCount),
         insurancePaid: data.insurancePaid,

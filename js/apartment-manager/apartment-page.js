@@ -320,14 +320,20 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function normalizePaymentCycleForUi(cycle) {
+    if (typeof cycle === "number" && Number.isFinite(cycle)) {
+      if (cycle === 1) return "monthly";
+      if (cycle === 4) return "quarterly";
+      if (cycle === 2) return "semi_annual";
+      if (cycle === 12) return "annual";
+    }
     const c = String(cycle || "monthly")
       .toLowerCase()
       .trim()
       .replace(/-/g, "_");
-    if (c === "quarter" || c === "qtr") return "quarterly";
-    if (c === "semi" || c === "half_yearly" || c === "halfyearly") return "semi_annual";
-    if (c === "yearly") return "annual";
-    if (c === "month") return "monthly";
+    if (c === "1" || c === "month") return "monthly";
+    if (c === "4" || c === "quarter" || c === "qtr") return "quarterly";
+    if (c === "semi" || c === "half_yearly" || c === "halfyearly" || c === "2") return "semi_annual";
+    if (c === "yearly" || c === "12") return "annual";
     if (["monthly", "quarterly", "semi_annual", "annual"].includes(c)) return c;
     return "monthly";
   }
@@ -459,6 +465,26 @@ document.addEventListener("DOMContentLoaded", async () => {
     return Number(contractData?.rentAmount || data?.rent || 0);
   }
 
+  /**
+   * When only monthly is stored (yearly ÷ 12 rounded to 2 decimals), `m * 12` becomes e.g. 20000.04.
+   * Snap to the nearest whole riyal if the drift is tiny; otherwise keep 2-decimal SAR.
+   */
+  function deriveYearlySARFromMonthlyStored(monthly) {
+    const m = Number(monthly);
+    if (!Number.isFinite(m) || m <= 0) return 0;
+    const raw = m * 12;
+    const nearestWhole = Math.round(raw);
+    if (Math.abs(raw - nearestWhole) < 0.06) return nearestWhole;
+    return roundMoneySAR(raw);
+  }
+
+  /** Prefer stored yearly rent (exact user input); else derive from monthly without ×12 float junk. */
+  function getYearlyRentForContract(contractData) {
+    const y = Number(contractData?.yearlyRent ?? contractData?.yearly_rent);
+    if (Number.isFinite(y) && y > 0) return roundMoneySAR(y);
+    return deriveYearlySARFromMonthlyStored(getMonthlyRent(contractData));
+  }
+
   function getContractMonths(startDate, endDate) {
     if (!startDate || !endDate) return 0;
 
@@ -476,23 +502,49 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function getInstallmentAmount(contractData) {
     const monthlyRent = getMonthlyRent(contractData);
+    const yearlyRent = getYearlyRentForContract(contractData);
     const paymentCycle = normalizePaymentCycleForUi(
       contractData?.paymentCycle || contractData?.payment_cycle || "monthly"
     );
-    const installmentsCount = Number(contractData?.installmentsCount || 0);
+    let installmentsCount = Number(contractData?.installmentsCount || 0);
 
     const contractMonths = getContractMonths(
       contractData?.startDate,
       contractData?.endDate
     );
 
+    const cm = getCycleMonthsCount(paymentCycle);
+    const fromLease =
+      contractData?.startDate && contractData?.endDate
+        ? (() => {
+            const start = new Date(contractData.startDate);
+            const end = new Date(contractData.endDate);
+            if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
+              return null;
+            }
+            let n = 0;
+            let cur = new Date(start);
+            while (cur < end) {
+              n += 1;
+              const d = new Date(cur);
+              const od = d.getDate();
+              d.setMonth(d.getMonth() + cm);
+              if (d.getDate() < od) d.setDate(0);
+              cur = d;
+            }
+            return n > 0 ? n : null;
+          })()
+        : null;
+    if (fromLease != null && fromLease > 0) installmentsCount = fromLease;
+
     if (installmentsCount > 0 && contractMonths > 0) {
-      const totalContractRent = roundMoneySAR(monthlyRent * contractMonths);
+      const impliedMonthly = yearlyRent > 0 ? yearlyRent / 12 : monthlyRent;
+      const totalContractRent = roundMoneySAR(impliedMonthly * contractMonths);
       return roundMoneySAR(totalContractRent / installmentsCount);
     }
 
     const monthsCount = getCycleMonthsCount(paymentCycle);
-    return roundMoneySAR(monthlyRent * monthsCount);
+    return roundMoneySAR((yearlyRent > 0 ? yearlyRent / 12 : monthlyRent) * monthsCount);
   }
 
   function updateRentDisplay(contractData) {
@@ -511,12 +563,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     const installmentAmount = getInstallmentAmount(contractData);
     const cycleLabel = getPaymentCycleLabel(paymentCycle);
 
-    if (!monthlyRent) {
+    if (!monthlyRent && !getYearlyRentForContract(contractData)) {
       rent.textContent = "—";
       return;
     }
 
-    const annualRent = roundMoneySAR(monthlyRent * 12);
+    const annualRent = getYearlyRentForContract(contractData);
 
     rent.textContent = T("aptPage.annualSummary", {
       a: formatMoney(annualRent),
