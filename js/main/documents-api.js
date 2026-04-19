@@ -40,15 +40,23 @@
     flatList = Array.isArray(list) ? list.slice() : [];
   }
 
-  async function refreshForApartment(apartmentId) {
+  /**
+   * @param {string|number} apartmentId - Local / UI apartment id (URL, sessionStorage key).
+   * @param {string|number} [serverApartmentId] - Supabase `apartments.id` when it differs from local id.
+   */
+  async function refreshForApartment(apartmentId, serverApartmentId) {
     if (typeof WalajnaAuth === "undefined" || !WalajnaAuth.fetchWithAuth) {
       return [];
     }
     if (!WalajnaAuth.getCurrentUser || !WalajnaAuth.getCurrentUser()) {
       return [];
     }
+    const qid =
+      serverApartmentId != null && String(serverApartmentId).trim() !== ""
+        ? serverApartmentId
+        : apartmentId;
     const res = await WalajnaAuth.fetchWithAuth(
-      `${apiBase()}/api/documents?apartment_id=${encodeURIComponent(String(apartmentId))}`,
+      `${apiBase()}/api/documents?apartment_id=${encodeURIComponent(String(qid))}`,
       { method: "GET" }
     );
     if (!res.ok) {
@@ -61,7 +69,11 @@
     } catch {
       return [];
     }
-    const mapped = (Array.isArray(rows) ? rows : []).map(mapRow);
+    const mapped = (Array.isArray(rows) ? rows : []).map((row) => {
+      const m = mapRow(row);
+      m.apartmentId = String(apartmentId);
+      return m;
+    });
     mergeApartmentSlice(apartmentId, mapped);
     return mapped;
   }

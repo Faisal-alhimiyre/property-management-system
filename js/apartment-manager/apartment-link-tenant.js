@@ -215,8 +215,22 @@ function syncEndDateWithStartDate(force = false) {
   }
 }
 
+  /** Align with backend `installment_service.cycle_months` / API variants so we don't fall through to monthly (1). */
+  function normalizePaymentCycle(paymentCycle) {
+    const c = String(paymentCycle || "monthly")
+      .toLowerCase()
+      .trim()
+      .replace(/-/g, "_");
+    if (c === "quarter" || c === "qtr") return "quarterly";
+    if (c === "semi" || c === "half_yearly" || c === "halfyearly") return "semi_annual";
+    if (c === "yearly") return "annual";
+    if (c === "month") return "monthly";
+    if (["monthly", "quarterly", "semi_annual", "annual"].includes(c)) return c;
+    return "monthly";
+  }
+
   function getCycleMonths(paymentCycle) {
-    switch (paymentCycle) {
+    switch (normalizePaymentCycle(paymentCycle)) {
       case "monthly":
         return 1;
       case "quarterly":
@@ -243,7 +257,9 @@ function syncEndDateWithStartDate(force = false) {
 
   function reconcilePaymentScheduleData(raw) {
     const out = { ...(raw || {}) };
-    let cycle = out.paymentCycle || out.payment_cycle || "quarterly";
+    let cycle = normalizePaymentCycle(
+      out.paymentCycle || out.payment_cycle || "quarterly"
+    );
     let count = Number(out.installmentsCount ?? out.installments_count);
     const def = getDefaultInstallmentsCount(cycle);
     if (!Number.isFinite(count) || count < 1) count = def;
@@ -253,14 +269,23 @@ function syncEndDateWithStartDate(force = false) {
     return out;
   }
 
+  /** Split yearly SAR into `count` parts using integer halalas so the sum matches yearly exactly (no 0.04 float junk). */
+  function splitYearlyIntoInstallmentHalalas(yearly, count) {
+    const cents = Math.round(Number(yearly) * 100);
+    if (count < 1 || cents < 0) return [];
+    const base = Math.floor(cents / count);
+    const remainder = cents - base * count;
+    return Array.from({ length: count }, (_, i) => base + (i < remainder ? 1 : 0));
+  }
+
   function buildInstallmentsSchedule(data) {
-    const count = Number(data.installmentsCount || 0);
+    const merged = reconcilePaymentScheduleData(data);
+    const count = Number(merged.installmentsCount || 0);
     const startDate = data.startDate ? new Date(data.startDate) : null;
-    const cycleMonths = getCycleMonths(data.paymentCycle);
-    const yearly = getYearlyRentFromFormData(data);
-    // Annual rent split across the number of installments (sums to yearly). Due dates still step by payment cycle.
-    // Old formula (monthly rent × cycle months) matched one cycle’s share (e.g. yearly/4 for quarterly) and was wrong when count was 1 but cycle was quarterly (showed 5k instead of 20k).
-    const perPayment = count > 0 && yearly > 0 ? yearly / count : 0;
+    const cycleMonths = getCycleMonths(merged.paymentCycle);
+    const yearly = getYearlyRentFromFormData({ ...data, ...merged });
+    const halalasList =
+      count > 0 && yearly > 0 ? splitYearlyIntoInstallmentHalalas(yearly, count) : [];
 
     if (!startDate || Number.isNaN(startDate.getTime()) || count < 1) {
       return [];
@@ -274,11 +299,12 @@ function syncEndDateWithStartDate(force = false) {
           : window.walajna_language && window.walajna_language.get() === "en"
             ? "en-SA"
             : "ar-SA";
-      const amt = Math.round(perPayment);
+      const hal = halalasList[index] ?? 0;
+      const amt = hal / 100;
       const amountStr =
         amt === 0
           ? T("common.sarZero")
-          : `${amt.toLocaleString(loc)} ${T("common.sar")}`;
+          : `${amt.toLocaleString(loc, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ${T("common.sar")}`;
       return {
         number: index + 1,
         dueDate: formatLeaseDate(dueDate.toISOString()),
@@ -1012,9 +1038,11 @@ function syncEndDateWithStartDate(force = false) {
             }
           }
         }
+        const serverApartmentIdForDocs =
+          apartment.apiId != null ? apartment.apiId : apartment.id;
         const uploaded = await WalajnaDocumentsApi.renderContractPdfOnServer(
           {
-            apartmentId: apartment.id,
+            apartmentId: serverApartmentIdForDocs,
             contractId: contractKey,
             fileName: pdfFileName,
             docType: matcher.docType,
@@ -1022,6 +1050,7 @@ function syncEndDateWithStartDate(force = false) {
           },
           html
         );
+        uploaded.apartmentId = String(apartment.id);
         const docs = getDocuments().slice().filter((d) => {
           if (String(d.apartmentId) !== String(apartment.id)) return true;
           if (String(d.contractId || "") !== String(contractKey || "")) return true;
@@ -1062,13 +1091,14 @@ function syncEndDateWithStartDate(force = false) {
     const contract = apartment?.contract || {};
     const tenantInfo = apartment?.tenantInfo || {};
     const termsJson = parseMergedContractTerms(contract);
-    let paymentCycle =
+    let paymentCycle = normalizePaymentCycle(
       contract.paymentCycle ||
-      contract.payment_cycle ||
-      termsJson?.paymentCycle ||
-      termsJson?.payment_cycle ||
-      apartment?.paymentDefaults?.paymentCycle ||
-      "quarterly";
+        contract.payment_cycle ||
+        termsJson?.paymentCycle ||
+        termsJson?.payment_cycle ||
+        apartment?.paymentDefaults?.paymentCycle ||
+        "quarterly"
+    );
     let installmentsCount = Number(
       contract.installmentsCount ??
         contract.installments_count ??
@@ -1090,7 +1120,8 @@ function syncEndDateWithStartDate(force = false) {
         apartment?.rent ??
         0
     );
-    const yearlyRent = monthlyRent > 0 ? monthlyRent * 12 : 0;
+    const yearlyRent =
+      monthlyRent > 0 ? Math.round(monthlyRent * 12 * 100) / 100 : 0;
 
     return {
       fullName: tenantInfo.fullName || "",

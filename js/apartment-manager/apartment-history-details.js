@@ -25,7 +25,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     WalajnaAuth?.getCurrentUser?.()
   ) {
     try {
-      await WalajnaDocumentsApi.refreshForApartment(apartmentId);
+      let serverAid = apartmentId;
+      if (typeof getApartments === "function") {
+        const apt = getApartments().find((a) => String(a.id) === String(apartmentId));
+        if (apt) serverAid = apt.apiId != null ? apt.apiId : apt.id;
+      }
+      await WalajnaDocumentsApi.refreshForApartment(apartmentId, serverAid);
     } catch (e) {
       console.warn("[history-details] documents refresh failed", e);
     }

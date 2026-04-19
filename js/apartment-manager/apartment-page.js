@@ -301,6 +301,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   /* =========================
      4) HELPERS
      ========================= */
+  /** Avoid float noise (e.g. 20000/12*12 → 20000.04) when showing SAR. */
+  function roundMoneySAR(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return 0;
+    return Math.round(n * 100) / 100;
+  }
+
   function formatMoney(value) {
     const loc =
       window.walajna_language && typeof window.walajna_language.localeForNumbers === "function"
@@ -308,7 +315,21 @@ document.addEventListener("DOMContentLoaded", async () => {
         : window.walajna_language && window.walajna_language.get() === "en"
           ? "en-SA"
           : "ar-SA";
-    return `${Number(value || 0).toLocaleString(loc)} ${T("common.sar")}`;
+    const rounded = roundMoneySAR(value);
+    return `${rounded.toLocaleString(loc, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ${T("common.sar")}`;
+  }
+
+  function normalizePaymentCycleForUi(cycle) {
+    const c = String(cycle || "monthly")
+      .toLowerCase()
+      .trim()
+      .replace(/-/g, "_");
+    if (c === "quarter" || c === "qtr") return "quarterly";
+    if (c === "semi" || c === "half_yearly" || c === "halfyearly") return "semi_annual";
+    if (c === "yearly") return "annual";
+    if (c === "month") return "monthly";
+    if (["monthly", "quarterly", "semi_annual", "annual"].includes(c)) return c;
+    return "monthly";
   }
 
   function formatDate(dateString) {
@@ -351,7 +372,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       annual: 12,
     };
 
-    return monthsMap[cycle] || 1;
+    return monthsMap[normalizePaymentCycleForUi(cycle)] || 1;
   }
 
   function hasTenantData(apartmentData) {
@@ -455,7 +476,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function getInstallmentAmount(contractData) {
     const monthlyRent = getMonthlyRent(contractData);
-    const paymentCycle = contractData?.paymentCycle || "monthly";
+    const paymentCycle = normalizePaymentCycleForUi(
+      contractData?.paymentCycle || contractData?.payment_cycle || "monthly"
+    );
     const installmentsCount = Number(contractData?.installmentsCount || 0);
 
     const contractMonths = getContractMonths(
@@ -464,12 +487,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     );
 
     if (installmentsCount > 0 && contractMonths > 0) {
-      const totalContractRent = monthlyRent * contractMonths;
-      return totalContractRent / installmentsCount;
+      const totalContractRent = roundMoneySAR(monthlyRent * contractMonths);
+      return roundMoneySAR(totalContractRent / installmentsCount);
     }
 
     const monthsCount = getCycleMonthsCount(paymentCycle);
-    return monthlyRent * monthsCount;
+    return roundMoneySAR(monthlyRent * monthsCount);
   }
 
   function updateRentDisplay(contractData) {
@@ -482,7 +505,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     const monthlyRent = getMonthlyRent(contractData);
-    const paymentCycle = contractData?.paymentCycle || "monthly";
+    const paymentCycle = normalizePaymentCycleForUi(
+      contractData?.paymentCycle || contractData?.payment_cycle || "monthly"
+    );
     const installmentAmount = getInstallmentAmount(contractData);
     const cycleLabel = getPaymentCycleLabel(paymentCycle);
 
@@ -491,7 +516,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
-    const annualRent = monthlyRent * 12;
+    const annualRent = roundMoneySAR(monthlyRent * 12);
 
     rent.textContent = T("aptPage.annualSummary", {
       a: formatMoney(annualRent),
@@ -1000,7 +1025,9 @@ document.addEventListener("DOMContentLoaded", async () => {
      ========================= */
   if (typeof WalajnaDocumentsApi !== "undefined" && WalajnaDocumentsApi.refreshForApartment) {
     try {
-      await WalajnaDocumentsApi.refreshForApartment(aptId);
+      const serverDocApartmentId =
+        data.apiId != null ? data.apiId : data.id != null ? data.id : aptId;
+      await WalajnaDocumentsApi.refreshForApartment(aptId, serverDocApartmentId);
     } catch (e) {
       console.warn("[apartment-page] documents refresh failed", e);
     }
