@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+import asyncio
 
 # Check if the application is running
 print("Starting the application...")
@@ -16,6 +17,15 @@ try:
 except Exception as e:
     print(f"Error during imports: {e}")
     sys.exit(1)
+
+# On Windows, Playwright needs a subprocess-capable event loop policy.
+# Selector policy raises NotImplementedError on create_subprocess_exec.
+if sys.platform.startswith("win"):
+    try:
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+        print("Windows Proactor event loop policy enabled.")
+    except Exception as e:
+        print(f"Could not set Windows Proactor event loop policy: {e}")
 
 _cors_raw = os.getenv(
     "CORS_ORIGINS",

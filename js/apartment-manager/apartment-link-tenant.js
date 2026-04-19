@@ -215,8 +215,28 @@ function syncEndDateWithStartDate(force = false) {
   }
 }
 
+  /** Align with backend `installment_service.cycle_months` / API variants so we don't fall through to monthly (1). */
+  function normalizePaymentCycle(paymentCycle) {
+    if (typeof paymentCycle === "number" && Number.isFinite(paymentCycle)) {
+      if (paymentCycle === 1) return "monthly";
+      if (paymentCycle === 4) return "quarterly";
+      if (paymentCycle === 2) return "semi_annual";
+      if (paymentCycle === 12) return "annual";
+    }
+    const c = String(paymentCycle || "monthly")
+      .toLowerCase()
+      .trim()
+      .replace(/-/g, "_");
+    if (c === "1" || c === "month") return "monthly";
+    if (c === "4" || c === "quarter" || c === "qtr") return "quarterly";
+    if (c === "semi" || c === "half_yearly" || c === "halfyearly" || c === "2") return "semi_annual";
+    if (c === "yearly" || c === "12") return "annual";
+    if (["monthly", "quarterly", "semi_annual", "annual"].includes(c)) return c;
+    return "monthly";
+  }
+
   function getCycleMonths(paymentCycle) {
-    switch (paymentCycle) {
+    switch (normalizePaymentCycle(paymentCycle)) {
       case "monthly":
         return 1;
       case "quarterly":
@@ -230,6 +250,38 @@ function syncEndDateWithStartDate(force = false) {
     }
   }
 
+  /**
+   * How many installment rows match the backend `generate_installment_rows` loop
+   * (due dates every `cycleMonths` from start until end, end exclusive).
+   */
+  function countInstallmentsForLeaseRange(startDateStr, endDateStr, paymentCycle) {
+    if (!startDateStr || !endDateStr) return null;
+    const start = new Date(startDateStr);
+    const end = new Date(endDateStr);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
+      return null;
+    }
+    const cycle = normalizePaymentCycle(paymentCycle);
+    const cm = getCycleMonths(cycle);
+    let n = 0;
+    let cur = new Date(start);
+    while (cur < end) {
+      n += 1;
+      cur = addMonths(cur, cm);
+    }
+    return n > 0 ? n : null;
+  }
+
+  /** Undo `yearly/12` rounding: `m*12` is often 20000.04 instead of 20000. */
+  function deriveYearlySARFromMonthlyStored(monthly) {
+    const m = Number(monthly);
+    if (!Number.isFinite(m) || m <= 0) return 0;
+    const raw = m * 12;
+    const nearestWhole = Math.round(raw);
+    if (Math.abs(raw - nearestWhole) < 0.06) return nearestWhole;
+    return Math.round(raw * 100) / 100;
+  }
+
   /** Form field is yearly rent; `data.rent` is monthly equivalent (yearly/12) for API/storage. */
   function getYearlyRentFromFormData(data) {
     if (!data) return 0;
@@ -237,29 +289,50 @@ function syncEndDateWithStartDate(force = false) {
       const y = Number(data.yearlyRent);
       return Number.isFinite(y) ? y : 0;
     }
-    const m = Number(data.rent);
-    return Number.isFinite(m) && m > 0 ? m * 12 : 0;
+    return deriveYearlySARFromMonthlyStored(data.rent);
   }
 
-  function reconcilePaymentScheduleData(raw) {
+  function reconcilePaymentScheduleData(raw, startDateStr, endDateStr) {
     const out = { ...(raw || {}) };
-    let cycle = out.paymentCycle || out.payment_cycle || "quarterly";
+    let cycle = normalizePaymentCycle(
+      out.paymentCycle || out.payment_cycle || "quarterly"
+    );
     let count = Number(out.installmentsCount ?? out.installments_count);
     const def = getDefaultInstallmentsCount(cycle);
-    if (!Number.isFinite(count) || count < 1) count = def;
+    const fromLease = countInstallmentsForLeaseRange(
+      startDateStr || out.startDate,
+      endDateStr || out.endDate,
+      cycle
+    );
+    if (!Number.isFinite(count) || count < 1) {
+      count = fromLease != null && fromLease > 0 ? fromLease : def;
+    } else if (fromLease != null && fromLease > 0 && count !== fromLease) {
+      // Stored count often goes stale (e.g. quarterly + "1" left over from annual); match server schedule.
+      count = fromLease;
+    }
     if (cycle === "semi_annual" && count === 4) count = 2;
     out.paymentCycle = cycle;
     out.installmentsCount = count;
     return out;
   }
 
+  /** Split yearly SAR into `count` parts using integer halalas so the sum matches yearly exactly (no 0.04 float junk). */
+  function splitYearlyIntoInstallmentHalalas(yearly, count) {
+    const cents = Math.round(Number(yearly) * 100);
+    if (count < 1 || cents < 0) return [];
+    const base = Math.floor(cents / count);
+    const remainder = cents - base * count;
+    return Array.from({ length: count }, (_, i) => base + (i < remainder ? 1 : 0));
+  }
+
   function buildInstallmentsSchedule(data) {
-    const count = Number(data.installmentsCount || 0);
+    const merged = reconcilePaymentScheduleData(data, data.startDate, data.endDate);
+    const count = Number(merged.installmentsCount || 0);
     const startDate = data.startDate ? new Date(data.startDate) : null;
-    const cycleMonths = getCycleMonths(data.paymentCycle);
-    const yearly = getYearlyRentFromFormData(data);
-    const monthlyEq = yearly > 0 ? yearly / 12 : 0;
-    const perPayment = monthlyEq * cycleMonths;
+    const cycleMonths = getCycleMonths(merged.paymentCycle);
+    const yearly = getYearlyRentFromFormData({ ...data, ...merged });
+    const halalasList =
+      count > 0 && yearly > 0 ? splitYearlyIntoInstallmentHalalas(yearly, count) : [];
 
     if (!startDate || Number.isNaN(startDate.getTime()) || count < 1) {
       return [];
@@ -273,11 +346,12 @@ function syncEndDateWithStartDate(force = false) {
           : window.walajna_language && window.walajna_language.get() === "en"
             ? "en-SA"
             : "ar-SA";
-      const amt = Math.round(perPayment);
+      const hal = halalasList[index] ?? 0;
+      const amt = hal / 100;
       const amountStr =
         amt === 0
           ? T("common.sarZero")
-          : `${amt.toLocaleString(loc)} ${T("common.sar")}`;
+          : `${amt.toLocaleString(loc, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ${T("common.sar")}`;
       return {
         number: index + 1,
         dueDate: formatLeaseDate(dueDate.toISOString()),
@@ -380,8 +454,8 @@ function syncEndDateWithStartDate(force = false) {
       ac: getServiceTypeLabel(data.acType),
     };
 
-    const schedData = reconcilePaymentScheduleData(data);
-    const schedule = buildInstallmentsSchedule(schedData);
+    const schedData = reconcilePaymentScheduleData(data, data.startDate, data.endDate);
+    const schedule = buildInstallmentsSchedule(data);
     const buildingName = resolveBuildingDisplayName(apartment) || dash;
     const apartmentNumber = apartment?.number || dash;
     const floorNumber = data.floorNumber || apartment?.floorNumber || dash;
@@ -618,6 +692,15 @@ function syncEndDateWithStartDate(force = false) {
     .sign-box { border:1px solid rgba(14, 165, 233, 0.35); border-radius:8px; padding:8px; min-height:92px; background:#fafefe; }
     .sign-title { font-size:12px; font-weight:900; color:#0369a1; margin-bottom:7px; }
     .line { margin-top:6px; border-top:1px dashed #94a3b8; padding-top:4px; color:#334155; font-size:11px; font-weight:700; }
+    /* Keep rent schedule compact so it doesn't spill one orphan row to a new PDF page. */
+    .sec--payments .sec-body { padding: 5px 7px; }
+    .sec--payments table { font-size: 10.5px; line-height: 1.25; }
+    .sec--payments th,
+    .sec--payments td { padding: 3px 4px; }
+    .sec--payments tbody tr {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
     .page-no {
       position:absolute;
       bottom:7px;
@@ -780,10 +863,10 @@ function syncEndDateWithStartDate(force = false) {
         </table>
       </div>
     </div>
-    <div class="sec">
+    <div class="sec sec--payments">
       <div class="sec-title">10) جدول سداد الدفعات / Rent Payments Schedule</div>
       <div class="sec-body">
-        <table>
+        <table class="payments-table">
           <thead>
             <tr>
               <th>${escapeHtml(T("lease.th.no"))}</th>
@@ -874,6 +957,70 @@ function syncEndDateWithStartDate(force = false) {
     `;
   }
 
+  let html2pdfLoaderPromise = null;
+  function ensureHtml2PdfLoaded() {
+    if (typeof window !== "undefined" && typeof window.html2pdf === "function") {
+      return Promise.resolve();
+    }
+    if (html2pdfLoaderPromise) return html2pdfLoaderPromise;
+    html2pdfLoaderPromise = new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
+      s.async = true;
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error("Could not load PDF generator"));
+      document.head.appendChild(s);
+    });
+    return html2pdfLoaderPromise;
+  }
+
+  async function buildLeaseContractPdfBlob(contractHtml) {
+    await ensureHtml2PdfLoaded();
+    let parsedBodyHtml = contractHtml;
+    let parsedStyles = "";
+    try {
+      const parsed = new DOMParser().parseFromString(contractHtml, "text/html");
+      parsedBodyHtml = parsed?.body?.innerHTML || contractHtml;
+      parsedStyles = Array.from(parsed.querySelectorAll("style"))
+        .map((s) => s.textContent || "")
+        .join("\n");
+    } catch {
+      /* fallback to raw html */
+    }
+    const host = document.createElement("div");
+    host.style.position = "fixed";
+    host.style.left = "0";
+    host.style.top = "0";
+    host.style.width = "210mm";
+    host.style.opacity = "0";
+    host.style.pointerEvents = "none";
+    host.style.zIndex = "-1";
+    host.style.background = "#ffffff";
+    host.innerHTML = `${parsedStyles ? `<style>${parsedStyles}</style>` : ""}${parsedBodyHtml}`;
+    document.body.appendChild(host);
+    try {
+      await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+      await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+      const worker = window.html2pdf().set({
+        margin: [0, 0, 0, 0],
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          scrollX: 0,
+          scrollY: 0,
+          backgroundColor: "#ffffff",
+          windowWidth: host.scrollWidth || 794,
+          windowHeight: host.scrollHeight || 1123,
+        },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+      });
+      return await worker.from(host).outputPdf("blob");
+    } finally {
+      host.remove();
+    }
+  }
+
   function sanitizeFileNamePart(value) {
     return String(value || "")
       .replace(/[\\/:*?"<>|]/g, "-")
@@ -881,12 +1028,13 @@ function syncEndDateWithStartDate(force = false) {
       .trim();
   }
 
-  function buildOfficialLeaseFileName(apartment, data, contractId) {
+  function buildOfficialLeaseFileName(apartment, data, contractId, ext = "pdf") {
     const building = sanitizeFileNamePart(resolveBuildingDisplayName(apartment) || "Building");
     const unit = sanitizeFileNamePart(apartment?.number || "Unit");
     const cid = sanitizeFileNamePart(contractId || "NA");
     const start = String(data?.startDate || "").slice(0, 10) || new Date().toISOString().slice(0, 10);
-    return `عقد إيجار سكني موحد - رقم ${cid} - ${building} - وحدة ${unit} - ${start}.html`;
+    const safeExt = String(ext || "pdf").replace(/[^a-z0-9]/gi, "").toLowerCase() || "pdf";
+    return `عقد إيجار سكني موحد - رقم ${cid} - ${building} - وحدة ${unit} - ${start}.${safeExt}`;
   }
 
   async function saveAutoLeaseContractDocument(apartment, data) {
@@ -901,14 +1049,78 @@ function syncEndDateWithStartDate(force = false) {
         : apartment.contract?.id != null
           ? String(apartment.contract.id)
           : null;
-    const fileName = buildOfficialLeaseFileName(apartment, data, contractKey);
+    const pdfFileName = buildOfficialLeaseFileName(apartment, data, contractKey, "pdf");
+    const htmlFileName = buildOfficialLeaseFileName(apartment, data, contractKey, "html");
     const matcher = {
       contractId: contractKey,
       docType: "auto_lease_contract",
       generatedAutomatically: true,
     };
 
-    await upsertHtmlDocumentForApartment(html, apartment.id, fileName, matcher);
+    if (
+      typeof useServerDocuments === "function" &&
+      useServerDocuments() &&
+      typeof WalajnaDocumentsApi !== "undefined" &&
+      typeof WalajnaDocumentsApi.renderContractPdfOnServer === "function"
+    ) {
+      try {
+        const existingAuto = getDocuments().filter((d) => {
+          if (String(d.apartmentId) !== String(apartment.id)) return false;
+          const isAuto =
+            d.docType === "auto_lease_contract" ||
+            (!!d.generatedAutomatically && !d.docType);
+          if (!isAuto) return false;
+          const dc = String(d.contractId || "");
+          const sameContract = dc === String(contractKey || "");
+          if (sameContract) return true;
+          // Legacy rows may not have contract_id in documents schema — still treat as replaceable.
+          return !dc;
+        });
+        for (const d of existingAuto) {
+          if (d.serverId != null && typeof WalajnaDocumentsApi.deleteOnServer === "function") {
+            try {
+              await WalajnaDocumentsApi.deleteOnServer(d.serverId);
+            } catch (e) {
+              console.warn("[link-tenant] remove old contract doc failed", e);
+            }
+          }
+        }
+        const serverApartmentIdForDocs =
+          apartment.apiId != null ? apartment.apiId : apartment.id;
+        const uploaded = await WalajnaDocumentsApi.renderContractPdfOnServer(
+          {
+            apartmentId: serverApartmentIdForDocs,
+            contractId: contractKey,
+            fileName: pdfFileName,
+            docType: matcher.docType,
+            generatedAutomatically: true,
+          },
+          html
+        );
+        uploaded.apartmentId = String(apartment.id);
+        const docs = getDocuments().slice().filter((d) => {
+          if (String(d.apartmentId) !== String(apartment.id)) return true;
+          if (String(d.contractId || "") !== String(contractKey || "")) return true;
+          if (d.docType === "auto_lease_contract") return false;
+          if (!!d.generatedAutomatically && !d.docType) return false;
+          return true;
+        });
+        docs.push(uploaded);
+        saveDocuments(docs);
+        return;
+      } catch (e) {
+        console.warn("[link-tenant] storage PDF upload failed", e);
+        throw new Error(
+          `${T("linkModal.errPdfUpload")} ${e?.message || ""}`.trim()
+        );
+      }
+    }
+
+    if (typeof useServerDocuments === "function" && useServerDocuments()) {
+      throw new Error(T("linkModal.errPdfUpload"));
+    }
+
+    await upsertHtmlDocumentForApartment(html, apartment.id, htmlFileName, matcher);
   }
 
   function parseMergedContractTerms(contract) {
@@ -926,22 +1138,30 @@ function syncEndDateWithStartDate(force = false) {
     const contract = apartment?.contract || {};
     const tenantInfo = apartment?.tenantInfo || {};
     const termsJson = parseMergedContractTerms(contract);
-    let paymentCycle =
+    let paymentCycle = normalizePaymentCycle(
       contract.paymentCycle ||
-      contract.payment_cycle ||
-      termsJson?.paymentCycle ||
-      termsJson?.payment_cycle ||
-      apartment?.paymentDefaults?.paymentCycle ||
-      "quarterly";
+        contract.payment_cycle ||
+        termsJson?.paymentCycle ||
+        termsJson?.payment_cycle ||
+        apartment?.paymentDefaults?.paymentCycle ||
+        "quarterly"
+    );
     let installmentsCount = Number(
       contract.installmentsCount ??
         contract.installments_count ??
         termsJson?.installmentsCount ??
         termsJson?.installments_count ??
         apartment?.paymentDefaults?.installmentsCount ??
-        getDefaultInstallmentsCount(paymentCycle)
+        NaN
     );
-    if (!Number.isFinite(installmentsCount) || installmentsCount < 1) {
+    const installmentsFromLease = countInstallmentsForLeaseRange(
+      contract.startDate,
+      contract.endDate,
+      paymentCycle
+    );
+    if (installmentsFromLease != null && installmentsFromLease > 0) {
+      installmentsCount = installmentsFromLease;
+    } else if (!Number.isFinite(installmentsCount) || installmentsCount < 1) {
       installmentsCount = getDefaultInstallmentsCount(paymentCycle);
     }
     if (paymentCycle === "semi_annual" && installmentsCount === 4) {
@@ -954,7 +1174,16 @@ function syncEndDateWithStartDate(force = false) {
         apartment?.rent ??
         0
     );
-    const yearlyRent = monthlyRent > 0 ? monthlyRent * 12 : 0;
+    let yearlyRent = Number(
+      contract.yearlyRent ??
+        contract.yearly_rent ??
+        termsJson?.yearlyRent ??
+        termsJson?.yearly_rent ??
+        0
+    );
+    if (!Number.isFinite(yearlyRent) || yearlyRent <= 0) {
+      yearlyRent = deriveYearlySARFromMonthlyStored(monthlyRent);
+    }
 
     return {
       fullName: tenantInfo.fullName || "",
@@ -1008,6 +1237,18 @@ function syncEndDateWithStartDate(force = false) {
     if (!currentContractId || !hasTenant) return;
 
     const contractKey = String(currentContractId);
+    const hasAutoForCurrentContract =
+      typeof getDocuments === "function" &&
+      getDocuments().some((d) => {
+        if (String(d.apartmentId) !== String(apartment.id)) return false;
+        const isAuto =
+          d.docType === "auto_lease_contract" ||
+          (!!d.generatedAutomatically && !d.docType);
+        if (!isAuto) return false;
+        const dc = String(d.contractId || "");
+        return dc === contractKey || !dc;
+      });
+    if (hasAutoForCurrentContract) return;
 
     const normalizedApartment = {
       ...apartment,
@@ -1155,8 +1396,15 @@ function resetForm() {
   setFieldValue(elements.tenantType, tenantInfo.tenantType);
   setFieldValue(elements.phoneNumber, tenantInfo.phoneNumber);
   {
-    const monthly = Number(apartmentData.rent || contract.rentAmount || 0);
-    const yearlyField = monthly > 0 ? String(monthly * 12) : "";
+    const ySaved = Number(contract.yearlyRent ?? contract.yearly_rent);
+    let yearlyField = "";
+    if (Number.isFinite(ySaved) && ySaved > 0) {
+      yearlyField = String(ySaved);
+    } else {
+      const monthly = Number(apartmentData.rent || contract.rentAmount || 0);
+      yearlyField =
+        monthly > 0 ? String(Math.round(monthly * 12 * 100) / 100) : "";
+    }
     setFieldValue(elements.rent, yearlyField);
   }
 
@@ -1166,10 +1414,18 @@ function resetForm() {
     contract.paymentCycle ||
     contract.payment_cycle ||
     "semi_annual";
+  const pcNorm = normalizePaymentCycle(preferredCycle);
+  const instFromLease = countInstallmentsForLeaseRange(
+    contract.startDate,
+    contract.endDate,
+    pcNorm
+  );
   const preferredInstallments =
-    apartmentDefaults.installmentsCount ||
-    Number(contract.installmentsCount || contract.installments_count || 0) ||
-    getDefaultInstallmentsCount(preferredCycle);
+    instFromLease != null && instFromLease > 0
+      ? instFromLease
+      : apartmentDefaults.installmentsCount ||
+        Number(contract.installmentsCount || contract.installments_count || 0) ||
+        getDefaultInstallmentsCount(pcNorm);
 
   setFieldValue(elements.paymentCycle, preferredCycle);
   setFieldValue(elements.installmentsCount, String(preferredInstallments));
@@ -1397,6 +1653,10 @@ function resetForm() {
         startDate: data.startDate,
         endDate: data.endDate,
         rentAmount: Number(data.rent),
+        yearlyRent:
+          Number.isFinite(Number(data.yearlyRent)) && Number(data.yearlyRent) > 0
+            ? Number(data.yearlyRent)
+            : null,
         paymentCycle: data.paymentCycle,
         installmentsCount: Number(data.installmentsCount),
         insurancePaid: data.insurancePaid,
@@ -1578,7 +1838,7 @@ function resetForm() {
     const apiBase =
       (typeof WalajnaAuth !== "undefined" && WalajnaAuth.API_BASE) ||
       window.API_BASE ||
-      "http://127.0.0.1:8000";
+      "http://127.0.0.1:8002";
 
     console.log("[assign-tenant] Function entered: sendTenantLinkToApi", {
       localApartmentId: savedApartment?.id,
@@ -1720,11 +1980,16 @@ function resetForm() {
       try {
         const cid = apiResponse.current_contract_id;
         const cycle = data.paymentCycle || "monthly";
+        const yearlyRentValue = Number(data?.yearlyRent);
+        const genBody = { payment_cycle: cycle };
+        if (Number.isFinite(yearlyRentValue) && yearlyRentValue > 0) {
+          genBody.yearly_rent = yearlyRentValue;
+        }
         const genRes = await WalajnaAuth.fetchWithAuth(
           `${WalajnaAuth.API_BASE}/api/contracts/${encodeURIComponent(cid)}/installments/generate?force=1`,
           {
             method: "POST",
-            body: JSON.stringify({ payment_cycle: cycle }),
+            body: JSON.stringify(genBody),
           }
         );
         if (!genRes.ok) {
@@ -1767,7 +2032,11 @@ function resetForm() {
     saveApartments(updatedApartments);
 
     if (savedApartment) {
-      await saveAutoLeaseContractDocument(savedApartment, data);
+      try {
+        await saveAutoLeaseContractDocument(savedApartment, data);
+      } catch (docErr) {
+        console.warn("[assign-tenant] auto contract document save failed; keeping tenant link", docErr);
+      }
     }
 
     if (

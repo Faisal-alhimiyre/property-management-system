@@ -77,10 +77,16 @@ if ($still.Count -gt 0) {
     exit 1
 }
 
-$python = Join-Path $BackendDir "..\.venv\Scripts\python.exe"
+$python = Join-Path $BackendDir "venv312\Scripts\python.exe"
+if (-not (Test-Path $python)) {
+    $python = Join-Path $BackendDir "..\.venv\Scripts\python.exe"
+}
 if (-not (Test-Path $python)) {
     $python = "python"
 }
 
+# --reload watches the cwd; venv312 lives under backend, so site-packages churn
+# (AV, indexer, pip) otherwise spams reloads and huge WatchFiles warnings.
+$venvDir = Join-Path $BackendDir "venv312"
 Write-Host "Starting uvicorn on http://127.0.0.1:$Port ..."
-& $python -m uvicorn main:app --host 127.0.0.1 --port $Port --reload
+& $python -m uvicorn main:app --host 127.0.0.1 --port $Port --reload --reload-exclude $venvDir

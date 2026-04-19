@@ -1,9 +1,12 @@
 import logging
+import os
 import re
+import asyncio
+from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from models import DocumentCreate, DocumentResponse
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from models import ContractPdfRenderCreate, DocumentCreate, DocumentResponse
 from config import supabase
 from routes.auth_routes import get_current_user, national_id_lookup_variants, normalize_saudi_national_id
 from user_roles import has_role
@@ -96,12 +99,78 @@ def _row_to_response(row: dict) -> DocumentResponse:
 
 
 _MISSING_COLUMN_RE = re.compile(r"Could not find the '([^']+)' column")
+_SAFE_FILE_RE = re.compile(r"[^A-Za-z0-9._-]+")
 
 
 def _missing_column_from_error(exc: Exception) -> str | None:
     msg = str(exc or "")
     m = _MISSING_COLUMN_RE.search(msg)
     return m.group(1) if m else None
+
+
+def _safe_file_name(value: str) -> str:
+    name = _SAFE_FILE_RE.sub("_", str(value or "document").strip())
+    name = name.strip("._")
+    return name or "document"
+
+
+def _insert_document_with_compat_retry(payload: dict[str, Any]) -> dict:
+    payload = {k: v for k, v in payload.items() if v is not None and v != ""}
+    ins = None
+    attempt_payload = dict(payload)
+    for _ in range(6):
+        try:
+            ins = supabase.table("documents").insert(attempt_payload).execute()
+            break
+        except Exception as exc:
+            missing_col = _missing_column_from_error(exc)
+            if missing_col and missing_col in attempt_payload:
+                logger.warning("documents insert retry without missing column: %s", missing_col)
+                attempt_payload.pop(missing_col, None)
+                continue
+            logger.exception("documents insert failed")
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+    if ins is None:
+        raise HTTPException(status_code=503, detail="documents insert failed")
+    data = getattr(ins, "data", None) or []
+    if not data:
+        raise HTTPException(status_code=500, detail="Insert returned no row")
+    return data[0]
+
+
+def _upload_bytes_to_storage(
+    *,
+    bucket: str,
+    object_path: str,
+    content: bytes,
+    mime_type: str,
+) -> str:
+    supabase.storage.from_(bucket).upload(
+        object_path,
+        content,
+        {"content-type": mime_type, "upsert": "true"},
+    )
+    return supabase.storage.from_(bucket).get_public_url(object_path)
+
+
+def _render_pdf_bytes_sync(html: str) -> bytes:
+    # Use sync Playwright in a worker thread on Windows to avoid asyncio subprocess limitations.
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1240, "height": 1754})
+            page.set_content(html, wait_until="networkidle")
+            page.emulate_media(media="print")
+            pdf_bytes = page.pdf(
+                format="A4",
+                print_background=True,
+                margin={"top": "0", "right": "0", "bottom": "0", "left": "0"},
+            )
+            return pdf_bytes or b""
+        finally:
+            browser.close()
 
 
 @router.get("/documents", response_model=list[DocumentResponse])
@@ -141,28 +210,134 @@ async def create_document(body: DocumentCreate, current_user: dict = Depends(get
         "contract_id": body.contract_id,
         "generated_automatically": bool(body.generated_automatically),
     }
-    payload = {k: v for k, v in payload.items() if v is not None and v != ""}
-    # Retry by removing unknown columns for legacy Supabase documents schemas.
-    ins = None
-    attempt_payload = dict(payload)
-    for _ in range(6):
-        try:
-            ins = supabase.table("documents").insert(attempt_payload).execute()
-            break
-        except Exception as exc:
-            missing_col = _missing_column_from_error(exc)
-            if missing_col and missing_col in attempt_payload:
-                logger.warning("documents insert retry without missing column: %s", missing_col)
-                attempt_payload.pop(missing_col, None)
-                continue
-            logger.exception("documents insert failed")
-            raise HTTPException(status_code=503, detail=str(exc)) from exc
-    if ins is None:
-        raise HTTPException(status_code=503, detail="documents insert failed")
-    data = getattr(ins, "data", None) or []
-    if not data:
-        raise HTTPException(status_code=500, detail="Insert returned no row")
-    return _row_to_response(data[0])
+    row = _insert_document_with_compat_retry(payload)
+    return _row_to_response(row)
+
+
+@router.post("/documents/upload-generated", response_model=DocumentResponse)
+async def upload_generated_document(
+    apartment_id: int = Form(...),
+    name: str = Form(...),
+    contract_id: int | None = Form(None),
+    doc_type: str | None = Form(None),
+    generated_automatically: bool = Form(False),
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user),
+):
+    _assert_apartment_access(current_user, apartment_id)
+    uid = _viewer_id(current_user)
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty")
+    if len(content) > 20 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Uploaded file is too large (>20MB)")
+
+    bucket = (os.getenv("SUPABASE_DOCS_BUCKET") or "documents").strip() or "documents"
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+    safe_name = _safe_file_name(name or file.filename or "document.pdf")
+    object_path = f"user-{uid}/apartment-{int(apartment_id)}/{stamp}_{safe_name}"
+    mime_type = (file.content_type or "application/octet-stream").strip()
+
+    try:
+        object_url = _upload_bytes_to_storage(
+            bucket=bucket,
+            object_path=object_path,
+            content=content,
+            mime_type=mime_type,
+        )
+    except Exception as exc:
+        logger.exception("documents upload-generated storage failed bucket=%s path=%s", bucket, object_path)
+        raise HTTPException(
+            status_code=503,
+            detail=f"Storage upload failed (bucket={bucket}). Ensure bucket exists/public. {str(exc)}",
+        ) from exc
+
+    payload: dict[str, Any] = {
+        "user_id": uid,
+        "apartment_id": int(apartment_id),
+        "name": name,
+        "url": object_url,
+        "type": doc_type or mime_type,
+        "mime_type": mime_type,
+        "doc_type": doc_type,
+        "contract_id": contract_id,
+        "generated_automatically": bool(generated_automatically),
+    }
+    row = _insert_document_with_compat_retry(payload)
+    return _row_to_response(row)
+
+
+@router.post("/documents/render-upload-contract-pdf", response_model=DocumentResponse)
+async def render_upload_contract_pdf(
+    body: ContractPdfRenderCreate,
+    current_user: dict = Depends(get_current_user),
+):
+    _assert_apartment_access(current_user, body.apartment_id)
+    uid = _viewer_id(current_user)
+    html = str(body.html or "").strip()
+    if not html:
+        raise HTTPException(status_code=400, detail="html is required")
+    if len(html) > 2_000_000:
+        raise HTTPException(status_code=413, detail="html payload too large")
+
+    try:
+        from playwright.sync_api import sync_playwright  # noqa: F401
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Playwright is not installed. Install dependency and browser: "
+                "`pip install playwright && playwright install chromium`."
+            ),
+        ) from exc
+
+    try:
+        pdf_bytes = await asyncio.to_thread(_render_pdf_bytes_sync, html)
+    except Exception as exc:
+        logger.exception("render-upload-contract-pdf playwright render failed apartment_id=%s", body.apartment_id)
+        exc_name = type(exc).__name__
+        exc_text = str(exc).strip() or repr(exc)
+        raise HTTPException(
+            status_code=503,
+            detail=f"Server PDF render failed ({exc_name}): {exc_text}",
+        ) from exc
+
+    if not pdf_bytes or len(pdf_bytes) < 1024:
+        raise HTTPException(status_code=503, detail="Server PDF render returned empty content")
+
+    bucket = (os.getenv("SUPABASE_DOCS_BUCKET") or "documents").strip() or "documents"
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+    safe_name = _safe_file_name(body.name or "contract.pdf")
+    object_path = f"user-{uid}/apartment-{int(body.apartment_id)}/{stamp}_{safe_name}"
+    mime_type = "application/pdf"
+
+    try:
+        object_url = _upload_bytes_to_storage(
+            bucket=bucket,
+            object_path=object_path,
+            content=pdf_bytes,
+            mime_type=mime_type,
+        )
+    except Exception as exc:
+        logger.exception("render-upload-contract-pdf storage failed bucket=%s path=%s", bucket, object_path)
+        raise HTTPException(
+            status_code=503,
+            detail=f"Storage upload failed (bucket={bucket}). Ensure bucket exists/public. {str(exc)}",
+        ) from exc
+
+    payload: dict[str, Any] = {
+        "user_id": uid,
+        "apartment_id": int(body.apartment_id),
+        "name": body.name,
+        "url": object_url,
+        "type": body.doc_type or mime_type,
+        "mime_type": mime_type,
+        "doc_type": body.doc_type or "auto_lease_contract",
+        "contract_id": body.contract_id,
+        "generated_automatically": bool(body.generated_automatically),
+    }
+    row = _insert_document_with_compat_retry(payload)
+    return _row_to_response(row)
 
 
 @router.delete("/documents/by-apartment/{apartment_id}")

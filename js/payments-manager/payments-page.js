@@ -277,11 +277,16 @@ document.addEventListener("DOMContentLoaded", async function () {
         primaryCid
       ) {
         const cycle = apartment.contract?.paymentCycle || "monthly";
+        const yearlyRent = Number(apartment.contract?.yearlyRent || 0);
+        const genBody = { payment_cycle: cycle };
+        if (Number.isFinite(yearlyRent) && yearlyRent > 0) {
+          genBody.yearly_rent = yearlyRent;
+        }
         const genRes = await WalajnaAuth.fetchWithAuth(
           `${apiBase}/api/contracts/${encodeURIComponent(primaryCid)}/installments/generate`,
           {
             method: "POST",
-            body: JSON.stringify({ payment_cycle: cycle }),
+            body: JSON.stringify(genBody),
           }
         );
         if (genRes.ok) {

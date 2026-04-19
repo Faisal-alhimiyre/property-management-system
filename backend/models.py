@@ -48,6 +48,7 @@ class InstallmentUpdate(BaseModel):
 
 class GenerateInstallmentsBody(BaseModel):
     payment_cycle: str = "monthly"
+    yearly_rent: Optional[float] = None
 
 class Message(BaseModel):
     id: Optional[int] = None
@@ -93,6 +94,19 @@ class DocumentResponse(BaseModel):
     url: str
     generated_automatically: Optional[bool] = False
     uploaded_at: Optional[datetime] = None
+
+
+class ContractPdfRenderCreate(BaseModel):
+    """POST /api/documents/render-upload-contract-pdf"""
+
+    model_config = ConfigDict(extra="ignore")
+
+    apartment_id: int
+    name: str
+    html: str
+    contract_id: Optional[int] = None
+    doc_type: Optional[str] = "auto_lease_contract"
+    generated_automatically: Optional[bool] = True
 
 class MaintenanceRequestCreate(BaseModel):
     """Body for POST /api/maintenance — tenant profile id is resolved server-side."""
