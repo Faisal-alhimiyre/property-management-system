@@ -1,6 +1,7 @@
 ﻿# Python / venv (never commit)
 .venv/
 venv/
+venv312/
 env/
 **/__pycache__/
 *.pyc
