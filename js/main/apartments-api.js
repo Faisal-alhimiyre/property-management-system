@@ -24,6 +24,34 @@
       })
         ? rawTi
         : null;
+
+    const lt = apt.lease_terms && typeof apt.lease_terms === "object" ? apt.lease_terms : null;
+    const cid = apt.current_contract_id ?? null;
+    const yrForMonthly =
+      lt?.yearlyRent != null && String(lt.yearlyRent).trim() !== ""
+        ? Number(lt.yearlyRent)
+        : NaN;
+    const rentAmountFromYearly =
+      Number.isFinite(yrForMonthly) && yrForMonthly > 0 ? yrForMonthly / 12 : undefined;
+    const contract =
+      cid || lt
+        ? {
+            id: cid,
+            startDate:
+              lt?.startDate != null ? String(lt.startDate).slice(0, 10) : undefined,
+            endDate: lt?.endDate != null ? String(lt.endDate).slice(0, 10) : undefined,
+            yearlyRent: lt?.yearlyRent,
+            rentAmount: rentAmountFromYearly ?? lt?.monthlyRent,
+            paymentCycle: lt?.paymentCycle,
+            installmentsCount: lt?.installmentsCount,
+            insurancePaid: lt?.insurancePaid,
+            meterNumber: lt?.meterNumber,
+            notes: lt?.notes,
+            brokerInfo: lt?.brokerInfo,
+            services: lt?.services,
+          }
+        : null;
+
     return {
       id: String(id),
       apiId: id,
@@ -31,14 +59,18 @@
       buildingName: apt.building_name ?? apt.buildingName ?? "",
       number: String(apt.apartment_number ?? ""),
       floorNumber: Number(apt.floor_number ?? 0),
+      bedrooms: apt.bedrooms != null ? Number(apt.bedrooms) : null,
+      bathrooms: apt.bathrooms != null ? Number(apt.bathrooms) : null,
+      livingRooms: apt.living_rooms != null ? Number(apt.living_rooms) : null,
       leaseStatus: apt.lease_status || "vacant",
       rent: apt.rent,
       tenantUserId: apt.tenant_user_id ?? null,
       tenantNationalId: apt.tenant_national_id ?? null,
       tenantInfo,
-      currentContractId: apt.current_contract_id ?? null,
-      contractId: apt.current_contract_id ?? null,
-      contract: apt.current_contract_id ? { id: apt.current_contract_id } : null,
+      currentContractId: cid,
+      contractId: cid,
+      contract,
+      leaseTerms: lt,
       maintenanceId: apt.maintenance_id ?? null,
       ownerPublicName: apt.owner_public_name ?? apt.ownerPublicName ?? null,
       owner_public_name: apt.owner_public_name ?? null,

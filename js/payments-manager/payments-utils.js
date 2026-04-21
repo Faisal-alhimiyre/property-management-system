@@ -9,7 +9,9 @@
     if (window.walajna_language && typeof window.walajna_language.localeForNumbers === "function") {
       return window.walajna_language.localeForNumbers();
     }
-    return window.walajna_language && window.walajna_language.get() === "en" ? "en-SA" : "ar-SA";
+    return window.walajna_language && window.walajna_language.get() === "en"
+      ? "en-SA-u-nu-latn"
+      : "ar-SA-u-nu-latn";
   }
 
   function generatePaymentId() {
@@ -67,8 +69,8 @@
       window.walajna_language && typeof window.walajna_language.localeForDates === "function"
         ? window.walajna_language.localeForDates()
         : window.walajna_language && window.walajna_language.get() === "en"
-          ? "en-GB"
-          : "ar-SA";
+          ? "en-GB-u-nu-latn"
+          : "ar-SA-u-nu-latn";
     return date.toLocaleDateString(loc);
   }
 
@@ -175,7 +177,9 @@
 
   function getMonthlyRentAmount(apartment) {
     const contract = apartment?.contract || {};
-    return Number(contract.rentAmount || apartment.rent || 0);
+    const yr = Number(contract.yearlyRent);
+    if (Number.isFinite(yr) && yr > 0) return yr / 12;
+    return Number(contract.rentAmount || 0);
   }
 
   function getApartmentPaymentDefaults(apartment) {

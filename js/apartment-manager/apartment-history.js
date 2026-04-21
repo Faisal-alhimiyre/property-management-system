@@ -47,8 +47,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       window.walajna_language && typeof window.walajna_language.localeForDates === "function"
         ? window.walajna_language.localeForDates()
         : window.walajna_language && window.walajna_language.get() === "en"
-          ? "en-GB"
-          : "ar-SA";
+          ? "en-GB-u-nu-latn"
+          : "ar-SA-u-nu-latn";
     return date.toLocaleDateString(loc);
   }
 

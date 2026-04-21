@@ -168,20 +168,26 @@ async def generate_contract_installments(
             detail="Contract must have start_date and end_date to generate installments",
         )
 
-    rent = apartment.get("rent")
+    # Canonical rent is yearly on the contract; monthly amounts are always yearly_rent / 12.
+    yearly_rent: Decimal | None = None
     try:
-        monthly = Decimal(str(rent if rent is not None else 0))
-    except Exception:
-        monthly = Decimal("0")
-    if monthly <= 0:
-        raise HTTPException(status_code=400, detail="Apartment rent must be greater than zero")
-
-    yearly_rent = None
-    try:
-        if body.yearly_rent is not None and float(body.yearly_rent) > 0:
-            yearly_rent = Decimal(str(body.yearly_rent))
+        yc = contract.get("yearly_rent")
+        if yc is not None and float(yc) > 0:
+            yearly_rent = Decimal(str(yc))
     except Exception:
         yearly_rent = None
+    if yearly_rent is None:
+        try:
+            if body.yearly_rent is not None and float(body.yearly_rent) > 0:
+                yearly_rent = Decimal(str(body.yearly_rent))
+        except Exception:
+            yearly_rent = None
+    if yearly_rent is None or yearly_rent <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Rent must be greater than zero (set contracts.yearly_rent on the lease).",
+        )
+    monthly = yearly_rent / Decimal("12")
 
     tid = contract.get("tenant_id")
     rows = generate_installment_rows(

@@ -26,6 +26,49 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const COSTS_KEY = "walajna_costs";
 
+  function getCostsFromStorage() {
+    return JSON.parse(localStorage.getItem(COSTS_KEY) || "[]");
+  }
+
+  function useServerCosts() {
+    return (
+      typeof WalajnaCostsApi !== "undefined" &&
+      WalajnaCostsApi.isAvailable &&
+      WalajnaCostsApi.isAvailable()
+    );
+  }
+
+  /** Merged view: API rows + legacy local `COST-*` rows for this apartment. */
+  function getCosts() {
+    if (useServerCosts()) {
+      const remote = WalajnaCostsApi.getForApartment(apartmentId);
+      const localOnly = getCostsFromStorage().filter(
+        (c) =>
+          String(c.apartmentId) === String(apartmentId) && String(c.id).startsWith("COST-")
+      );
+      return [...remote, ...localOnly];
+    }
+    return getCostsFromStorage();
+  }
+
+  function saveCosts(costs) {
+    localStorage.setItem(COSTS_KEY, JSON.stringify(costs));
+  }
+
+  async function ensureServerCosts() {
+    if (typeof WalajnaCostsApi === "undefined" || !WalajnaCostsApi.refreshForApartment) return;
+    if (typeof WalajnaAuth !== "undefined" && WalajnaAuth.getCurrentUser && !WalajnaAuth.getCurrentUser()) {
+      return;
+    }
+    const apartment = getApartment();
+    const serverAid = apartment && apartment.id != null ? apartment.id : apartmentId;
+    try {
+      await WalajnaCostsApi.refreshForApartment(apartmentId, serverAid);
+    } catch (e) {
+      console.warn("[apartment-costs] server refresh failed", e);
+    }
+  }
+
   const pageSub = document.getElementById("pageSub");
   const searchInput = document.getElementById("searchInput");
   const costsSummary = document.getElementById("costsSummary");
@@ -85,14 +128,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     );
   }
 
-  function getCosts() {
-    return JSON.parse(localStorage.getItem(COSTS_KEY) || "[]");
-  }
-
-  function saveCosts(costs) {
-    localStorage.setItem(COSTS_KEY, JSON.stringify(costs));
-  }
-
   function getApartmentCosts() {
     const apartment = getApartment();
     const currentContractId = getCurrentContractId(apartment);
@@ -101,7 +136,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       return [];
     }
 
-    return getCosts().filter((item) => item.contractId === currentContractId);
+    return getCosts().filter(
+      (item) => String(item.contractId ?? "") === String(currentContractId ?? "")
+    );
   }
 
   function formatAmount(value) {
@@ -109,8 +146,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       window.walajna_language && typeof window.walajna_language.localeForNumbers === "function"
         ? window.walajna_language.localeForNumbers()
         : window.walajna_language && window.walajna_language.get() === "en"
-          ? "en-SA"
-          : "ar-SA";
+          ? "en-SA-u-nu-latn"
+          : "ar-SA-u-nu-latn";
     return `${Number(value || 0).toLocaleString(loc)} ${T("common.sar")}`;
   }
 
@@ -241,13 +278,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     `;
 
     costsTableContainer.querySelectorAll(".delete-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", async () => {
         const id = btn.dataset.id;
         const confirmed = confirm(T("costs.confirmDelete"));
         if (!confirmed) return;
 
-        const updatedCosts = getCosts().filter((item) => item.id !== id);
-        saveCosts(updatedCosts);
+        const row = getCosts().find((item) => String(item.id) === String(id));
+        if (useServerCosts() && row && row.serverId != null && WalajnaCostsApi.deleteOnServer) {
+          try {
+            await WalajnaCostsApi.deleteOnServer(row.serverId);
+            const apt = getApartment();
+            await WalajnaCostsApi.refreshForApartment(apartmentId, apt?.id ?? apartmentId);
+          } catch (e) {
+            alert(e && e.message ? e.message : String(e));
+            return;
+          }
+        } else {
+          const updatedCosts = getCostsFromStorage().filter((item) => item.id !== id);
+          saveCosts(updatedCosts);
+        }
         renderPage();
       });
     });
@@ -304,7 +353,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   searchInput?.addEventListener("input", renderPage);
 
-  saveCostBtn?.addEventListener("click", () => {
+  saveCostBtn?.addEventListener("click", async () => {
     const apartment = getApartment();
     const currentContractId = getCurrentContractId(apartment);
 
@@ -324,8 +373,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
-    const costs = getCosts();
-
     const newCost = {
       id: `COST-${Date.now()}`,
       apartmentId,
@@ -339,13 +386,33 @@ document.addEventListener("DOMContentLoaded", async () => {
       notes
     };
 
-    costs.unshift(newCost);
-    saveCosts(costs);
+    if (useServerCosts() && WalajnaCostsApi.createOnServer) {
+      try {
+        await WalajnaCostsApi.createOnServer({
+          apartmentId: String(apartmentId),
+          contractId: currentContractId,
+          type,
+          amount,
+          status,
+          expenseDate,
+          notes
+        });
+        await WalajnaCostsApi.refreshForApartment(apartmentId, apartment?.id ?? apartmentId);
+      } catch (e) {
+        alert(e && e.message ? e.message : String(e));
+        return;
+      }
+    } else {
+      const costs = getCostsFromStorage();
+      costs.unshift(newCost);
+      saveCosts(costs);
+    }
     closeModal();
     renderPage();
   });
 
   document.addEventListener("walajna:i18n-applied", () => renderPage());
 
+  await ensureServerCosts();
   renderPage();
 });

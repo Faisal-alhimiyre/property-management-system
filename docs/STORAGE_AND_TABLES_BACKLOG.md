@@ -19,8 +19,8 @@ Numbered backlog for moving off `localStorage` and wiring every Supabase table t
 3. [x] **Documents (`documents`)**  
    Logged-in flows use **`GET/POST/DELETE /api/documents`** via `js/main/documents-api.js` (`WalajnaDocumentsApi`); apartment page refreshes per-unit list; auto-lease HTML and uploads persist to Supabase (`backend/sql/documents_table_2026.sql`). **`walajna_documents`** remains only when **not** authenticated (demo/offline). Owner-building delete calls **`DELETE /api/documents/by-apartment/{id}`** when logged in.
 
-4. [ ] **Buildings (`buildings`)**  
-   Remove API-failure fallback to `walajna_buildings` in owner-building (or show empty state + retry). Point finance-summary at `/api/buildings` (and related) instead of local arrays.
+4. [x] **Buildings (`buildings`)**  
+   Owner-building no longer falls back to `walajna_buildings` on API failure (shows empty state + retry). Finance-summary now resolves building context from `/api/buildings` path and no longer uses local buildings/apartments fallback as source.
 
 ---
 
@@ -30,7 +30,7 @@ Numbered backlog for moving off `localStorage` and wiring every Supabase table t
    Inbox UI = **`maintenance_requests` only**. Removed `/api/messages`, `inbox-messages-api.js`, and `message_routes.py`. Optional: drop unused `public.messages` in Supabase.
 
 6. [ ] **Apartment history (`apartment_history`)**  
-   Add API routes backed by `apartment_history` (or agreed schema), migrate `apartment-history.js` / history details off embedded `tenantHistory` on `walajna_apartments`.
+   **Partial:** API route exists (`GET /api/apartments/{apartment_id}/tenant-history` in `apartment_routes.py`) and history screens call it, but UI still merges/falls back to embedded `tenantHistory` from apartment cache. Keep open until local fallback is removed and API is sole source.
 
 7. [ ] **Notifications (`notifications`)**  
    Wire UI (nav badge, list, mark read) to existing `GET /api/notifications` and `PUT /api/notifications/{id}/read`; remove any duplicate “notification” state from local storage if present.
@@ -52,8 +52,8 @@ Numbered backlog for moving off `localStorage` and wiring every Supabase table t
 10. [ ] **Costs (no Supabase table yet)**  
     If costs must be shared across devices, add a `costs` (or `building_costs`) table + API, then replace `walajna_costs` in apartment-costs, owner-building, finance-summary, apartment-history.
 
-11. [ ] **Support / misc (`support.js`)**  
-    Decide: persist support threads in DB or keep explicitly client-only.
+11. [x] **Support / misc (`support.js`)**  
+    **Decided:** keep explicitly client-only for now (`walajna_support_chat` in localStorage). No Supabase table/API required in current scope.
 
 ---
 

@@ -173,7 +173,6 @@ def _build_apartment_seed_rows(building_row: dict) -> list[dict]:
                 "lease_status": "vacant",
                 "address": f"{building_name} - شقة {apartment_number}",
                 "description": f"Apartment {apartment_number} in building {building_id}",
-                "rent": 0,
             }
         )
 
@@ -215,13 +214,7 @@ async def create_building(building: dict, current_user: dict = Depends(get_curre
     logger.info("Create building incoming payload: %s", building)
     building_data = _normalize_building_payload(building or {}, int(current_user["id"]))
 
-    # Keep only fields that are truly non-db.
-    # apartment_defaults/payment_defaults are real DB columns in current schema.
-    _NON_DB_BUILDING_FIELDS = {"apartments_per_floor"}
-    building_meta = {k: building_data.pop(k) for k in list(building_data.keys()) if k in _NON_DB_BUILDING_FIELDS}
-
     logger.info("Create building payload mapped for DB: %s", building_data)
-    logger.info("Create building non-DB meta (for apartment seeding): %s", building_meta)
     result = supabase.table("buildings").insert(building_data).execute()
     logger.info("Building insert full response object: %s", result)
     logger.info("Building insert response data: %s", getattr(result, "data", None))
@@ -240,9 +233,7 @@ async def create_building(building: dict, current_user: dict = Depends(get_curre
 
     new_building = created_row_result.data[0]
 
-    # Merge the non-DB metadata back in so _build_apartment_seed_rows can use apartments_per_floor.
-    new_building_with_meta = {**new_building, **building_meta}
-    apartment_rows = _build_apartment_seed_rows(new_building_with_meta)
+    apartment_rows = _build_apartment_seed_rows(new_building)
     logger.info(
         "Generated %s apartments for building_id=%s",
         len(apartment_rows),

@@ -15,6 +15,13 @@ logger = logging.getLogger(__name__)
 def _normalize_assign_payload(payload: dict) -> dict:
     payload = payload or {}
     tenant_info = payload.get("tenant_info", payload.get("tenantInfo")) or {}
+    if isinstance(tenant_info, str):
+        try:
+            tenant_info = json.loads(tenant_info)
+        except json.JSONDecodeError:
+            tenant_info = {}
+    if not isinstance(tenant_info, dict):
+        tenant_info = {}
     tenant_national_id = (
         payload.get("tenant_national_id")
         or payload.get("tenantNationalId")
@@ -29,6 +36,27 @@ def _normalize_assign_payload(payload: dict) -> dict:
         if nn:
             tenant_national_id = nn
 
+    broker_raw = payload.get("broker")
+    if broker_raw is None:
+        broker_raw = {
+            "name": payload.get("broker_name", payload.get("brokerName")),
+            "commercialRegister": payload.get("broker_commercial_register", payload.get("brokerCommercialRegister")),
+            "phone": payload.get("broker_phone", payload.get("brokerPhone")),
+        }
+    if not isinstance(broker_raw, dict):
+        broker_raw = {}
+
+    services_raw = payload.get("services")
+    if services_raw is None:
+        services_raw = {
+            "electricityIncluded": payload.get("electricity_included", payload.get("electricityIncluded")),
+            "waterIncluded": payload.get("water_included", payload.get("waterIncluded")),
+            "gasType": payload.get("gas_type", payload.get("gasType")),
+            "acType": payload.get("ac_type", payload.get("acType")),
+        }
+    if not isinstance(services_raw, dict):
+        services_raw = {}
+
     normalized = {
         "tenant_user_id": payload.get("tenant_user_id", payload.get("tenantUserId")),
         "tenant_national_id": tenant_national_id,
@@ -41,8 +69,263 @@ def _normalize_assign_payload(payload: dict) -> dict:
         "bedrooms": payload.get("bedrooms"),
         "bathrooms": payload.get("bathrooms"),
         "living_rooms": payload.get("living_rooms", payload.get("livingRooms")),
+        "payment_cycle": payload.get("payment_cycle", payload.get("paymentCycle")),
+        "installments_count": payload.get("installments_count", payload.get("installmentsCount")),
+        "insurance_paid": payload.get("insurance_paid", payload.get("insurancePaid")),
+        "floor_number": payload.get("floor_number", payload.get("floorNumber")),
+        "yearly_rent": payload.get("yearly_rent", payload.get("yearlyRent")),
+        "broker": broker_raw,
+        "services": services_raw,
     }
     return normalized
+
+
+def _parse_terms_to_dict(existing_terms) -> dict | None:
+    if existing_terms is None:
+        return None
+    s = str(existing_terms).strip()
+    if not s:
+        return None
+    if s.startswith("{"):
+        try:
+            parsed = json.loads(s)
+            return parsed if isinstance(parsed, dict) else {"notes": str(parsed)}
+        except json.JSONDecodeError:
+            return {"notes": s}
+    return {"notes": s}
+
+
+def _iso_date_fragment(value) -> str | None:
+    if value is None:
+        return None
+    if hasattr(value, "isoformat"):
+        try:
+            return value.isoformat()[:10]
+        except Exception:
+            pass
+    s = str(value).strip()
+    return s[:10] if len(s) >= 10 else (s or None)
+
+
+def _contract_link_columns_from_normalized(n: dict) -> dict:
+    """Maps link-tenant payload to public.contracts columns.
+
+    Rent: canonical value is `yearly_rent` only. If the client sends monthly `rent` without yearly,
+    we derive yearly as rent×12 so the DB always stores annual SAR for the lease.
+    """
+    broker = n.get("broker") or {}
+    if not isinstance(broker, dict):
+        broker = {}
+    svc_in = n.get("services") or {}
+    if not isinstance(svc_in, dict):
+        svc_in = {}
+
+    ev = svc_in.get("electricityIncluded")
+    wv = svc_in.get("waterIncluded")
+    gt = svc_in.get("gasType", svc_in.get("gas_type", "none"))
+    at = svc_in.get("acType", svc_in.get("ac_type", "none"))
+
+    out: dict[str, object] = {
+        "broker_name": str(broker.get("name") or "").strip(),
+        "broker_commercial_register": str(
+            broker.get("commercialRegister") or broker.get("commercial_register") or ""
+        ).strip(),
+        "broker_phone": str(broker.get("phone") or "").strip(),
+        "electricity_included": (
+            bool(ev) if isinstance(ev, bool) else str(ev).lower() in ("true", "1", "yes")
+        )
+        if ev is not None
+        else False,
+        "water_included": (
+            bool(wv) if isinstance(wv, bool) else str(wv).lower() in ("true", "1", "yes")
+        )
+        if wv is not None
+        else False,
+        "gas_type": "central" if str(gt or "").lower() == "central" else "none",
+        "ac_type": "central" if str(at or "").lower() == "central" else "none",
+        "lease_notes": str(n.get("notes") or ""),
+    }
+
+    yr = n.get("yearly_rent")
+    yearly_f: float | None = None
+    if yr is not None and str(yr).strip() != "":
+        try:
+            yearly_f = float(yr)
+        except (TypeError, ValueError):
+            yearly_f = None
+
+    if yearly_f is None or yearly_f <= 0:
+        rent_m = n.get("rent")
+        if rent_m is not None and str(rent_m).strip() != "":
+            try:
+                m = float(rent_m)
+                if m > 0:
+                    yearly_f = m * 12.0
+            except (TypeError, ValueError):
+                pass
+
+    if yearly_f is not None and yearly_f > 0:
+        out["yearly_rent"] = yearly_f
+
+    pc = n.get("payment_cycle")
+    if pc is not None and str(pc).strip() != "":
+        out["payment_cycle"] = str(pc).strip()
+
+    ic = n.get("installments_count")
+    if ic is not None and str(ic).strip() != "":
+        try:
+            out["installments_count"] = int(float(ic))
+        except (TypeError, ValueError):
+            pass
+
+    ins = n.get("insurance_paid")
+    if ins is not None:
+        out["insurance_paid"] = str(ins).strip()
+
+    mn = n.get("meter_number")
+    if mn is not None:
+        out["meter_number"] = str(mn).strip()
+
+    return out
+
+
+def _lease_terms_view_from_contract_row(crow: dict) -> dict:
+    """API `lease_terms` shape for the frontend; prefers real columns, falls back to legacy `terms` JSON."""
+    lt: dict = {}
+    sd = crow.get("start_date")
+    ed = crow.get("end_date")
+    if sd is not None:
+        lt["startDate"] = _iso_date_fragment(sd)
+    if ed is not None:
+        lt["endDate"] = _iso_date_fragment(ed)
+
+    has_cols = any(
+        crow.get(k) is not None
+        for k in (
+            "broker_name",
+            "broker_phone",
+            "broker_commercial_register",
+            "yearly_rent",
+            "monthly_rent",
+            "payment_cycle",
+            "meter_number",
+            "lease_notes",
+        )
+    ) or crow.get("electricity_included") is not None
+
+    if has_cols or crow.get("gas_type") or crow.get("ac_type"):
+        lt["brokerInfo"] = {
+            "name": crow.get("broker_name") or "",
+            "commercialRegister": crow.get("broker_commercial_register") or "",
+            "phone": crow.get("broker_phone") or "",
+        }
+        lt["services"] = {
+            "electricityIncluded": bool(crow.get("electricity_included")),
+            "waterIncluded": bool(crow.get("water_included")),
+            "gasType": crow.get("gas_type") or "none",
+            "acType": crow.get("ac_type") or "none",
+        }
+        yr = crow.get("yearly_rent")
+        yf: float | None = None
+        if yr is not None:
+            try:
+                yf = float(yr)
+            except (TypeError, ValueError):
+                yf = None
+        if yf is not None and yf > 0:
+            lt["yearlyRent"] = yf
+            lt["monthlyRent"] = yf / 12.0
+        else:
+            mr = crow.get("monthly_rent")
+            if mr is not None:
+                try:
+                    mfv = float(mr)
+                    if mfv > 0:
+                        lt["yearlyRent"] = mfv * 12.0
+                        lt["monthlyRent"] = mfv
+                except (TypeError, ValueError):
+                    pass
+        if crow.get("payment_cycle"):
+            lt["paymentCycle"] = str(crow.get("payment_cycle"))
+        if crow.get("installments_count") is not None:
+            try:
+                lt["installmentsCount"] = int(crow.get("installments_count"))
+            except (TypeError, ValueError):
+                pass
+        if crow.get("insurance_paid"):
+            lt["insurancePaid"] = str(crow.get("insurance_paid"))
+        if crow.get("meter_number"):
+            lt["meterNumber"] = str(crow.get("meter_number"))
+        if crow.get("lease_notes"):
+            lt["notes"] = str(crow.get("lease_notes"))
+        return lt
+
+    legacy = _parse_terms_to_dict(crow.get("terms")) or {}
+    for k, v in legacy.items():
+        if k not in ("startDate", "endDate"):
+            lt[k] = v
+    try:
+        yl = lt.get("yearlyRent")
+        ml = lt.get("monthlyRent")
+        if yl is not None and float(yl) > 0:
+            yfv = float(yl)
+            lt["yearlyRent"] = yfv
+            lt["monthlyRent"] = yfv / 12.0
+        elif ml is not None and float(ml) > 0:
+            mfv = float(ml)
+            lt["yearlyRent"] = mfv * 12.0
+            lt["monthlyRent"] = mfv
+    except (TypeError, ValueError):
+        pass
+    return lt
+
+
+def _attach_lease_terms_rows(rows: list[dict]) -> None:
+    """Mutates rows in place: lease_terms from contracts when current_contract_id is set."""
+    if not rows:
+        return
+    cids: list[int] = []
+    for r in rows:
+        cid = r.get("current_contract_id")
+        if cid is None:
+            continue
+        try:
+            cids.append(int(cid))
+        except (TypeError, ValueError):
+            continue
+    unique = list(dict.fromkeys(cids))
+    if not unique:
+        return
+    try:
+        cres = (
+            supabase.table("contracts")
+            .select("*")
+            .in_("id", unique)
+            .execute()
+        )
+    except Exception:
+        logger.exception("attach_lease_terms_rows: contracts batch fetch failed")
+        return
+    by_id: dict[int, dict] = {}
+    for crow in getattr(cres, "data", None) or []:
+        cid = crow.get("id")
+        if cid is None:
+            continue
+        try:
+            icid = int(cid)
+        except (TypeError, ValueError):
+            continue
+        by_id[icid] = _lease_terms_view_from_contract_row(crow)
+    for r in rows:
+        ccid = r.get("current_contract_id")
+        if ccid is None:
+            continue
+        try:
+            ic = int(ccid)
+        except (TypeError, ValueError):
+            continue
+        if ic in by_id:
+            r["lease_terms"] = by_id[ic]
 
 
 def _resolve_tenant_user_id(assign_payload: dict) -> int | None:
@@ -400,7 +683,6 @@ def _repair_stale_apartment_tenant_columns(rows: list[dict]) -> list[dict]:
         "current_contract_id": None,
         "lease_status": "vacant",
         "maintenance_id": None,
-        "rent": 0,
     }
     try:
         for aid in fix_list:
@@ -463,7 +745,38 @@ def reconcile_apartment_maintenance_pointer(apartment_id: int) -> None:
     _reconcile_owner_apartment_maintenance_pointers(rows)
 
 
-def _get_or_create_tenant_row(tenant_user_id: int | None, apartment_id: int, start_date, end_date) -> dict:
+def _get_or_create_tenant_row(
+    tenant_user_id: int | None,
+    tenant_national_id: str | None,
+    apartment_id: int,
+    start_date,
+    end_date,
+) -> dict:
+    nid_value = normalize_saudi_national_id(tenant_national_id) if tenant_national_id else None
+    if nid_value is None and tenant_national_id:
+        tid = str(tenant_national_id).strip()
+        nid_value = tid or None
+    if nid_value is None and tenant_user_id is not None:
+        try:
+            ures = (
+                supabase.table("users")
+                .select("national_id")
+                .eq("id", int(tenant_user_id))
+                .limit(1)
+                .execute()
+            )
+            urows = getattr(ures, "data", None) or []
+            if urows:
+                raw_nid = urows[0].get("national_id")
+                nn = normalize_saudi_national_id(raw_nid) if raw_nid else None
+                if nn:
+                    nid_value = nn
+                elif raw_nid is not None:
+                    s = str(raw_nid).strip()
+                    nid_value = s or None
+        except Exception:
+            logger.exception("tenant national_id lookup by user_id failed user_id=%s", tenant_user_id)
+
     existing_tenants = (
         supabase.table("tenants")
         .select("*")
@@ -491,6 +804,10 @@ def _get_or_create_tenant_row(tenant_user_id: int | None, apartment_id: int, sta
         }
         if tenant_user_id is not None and tenant_row.get("user_id") is None:
             update_payload["user_id"] = tenant_user_id
+        row_nid = tenant_row.get("national_id")
+        row_nid_norm = normalize_saudi_national_id(row_nid) if row_nid else None
+        if nid_value and (row_nid_norm is None or row_nid_norm != nid_value):
+            update_payload["national_id"] = nid_value
         update_payload = {k: v for k, v in update_payload.items() if v is not None}
 
         if update_payload:
@@ -513,6 +830,8 @@ def _get_or_create_tenant_row(tenant_user_id: int | None, apartment_id: int, sta
     }
     if tenant_user_id is not None:
         insert_payload["user_id"] = tenant_user_id
+    if nid_value:
+        insert_payload["national_id"] = nid_value
     insert_payload = {k: v for k, v in insert_payload.items() if v is not None}
     logger.info("tenant profile insert payload: %s", insert_payload)
 
@@ -528,7 +847,9 @@ async def create_apartment(apartment: Apartment, current_user: dict = Depends(ge
     if not has_role(current_user, "owner"):
         raise HTTPException(status_code=403, detail="Only owners can create apartments")
     
-    apartment_data = apartment.dict()
+    apartment_data = apartment.model_dump(exclude_none=True)
+    # apartments.rent is deprecated; canonical rent is contracts.yearly_rent.
+    apartment_data.pop("rent", None)
     apartment_data["owner_id"] = current_user["id"]
     response = supabase.table("apartments").insert(apartment_data).execute()
     row = dict(response.data[0])
@@ -604,6 +925,7 @@ async def get_apartments(
                     rows.append(apartment)
 
     _attach_building_names(rows)
+    _attach_lease_terms_rows(rows)
     return [ApartmentResponse(**apt) for apt in rows]
 
 @router.get("/apartments/{apartment_id}", response_model=ApartmentResponse)
@@ -676,6 +998,7 @@ async def get_apartment(apartment_id: int, current_user: dict = Depends(get_curr
             )
 
     _attach_building_names([row])
+    _attach_lease_terms_rows([row])
     return ApartmentResponse(**row)
 
 
@@ -894,39 +1217,28 @@ async def assign_tenant_to_apartment(
 
         tenant_row = _get_or_create_tenant_row(
             tenant_user_id=tenant_user_id,
+            tenant_national_id=tenant_national_id,
             apartment_id=apartment_id,
             start_date=lease_start,
             end_date=lease_end,
         )
         logger.info("assign-tenant tenant row used: %s", tenant_row)
 
-        # Build contract terms (meter + notes in JSON when needed).
-        meter_number = normalized_payload.get("meter_number")
-        notes_value = normalized_payload.get("notes") or ""
-        if meter_number is not None and str(meter_number).strip() != "":
-            contract_terms = json.dumps(
-                {
-                    "notes": notes_value,
-                    "meterNumber": str(meter_number).strip(),
-                },
-                ensure_ascii=False,
-            )
-        else:
-            contract_terms = notes_value
-
-        contract_update_body = {
-            "tenant_id": tenant_row.get("id"),
-            "start_date": lease_start,
-            "end_date": lease_end,
-            "terms": contract_terms,
-        }
-        contract_update_body = {k: v for k, v in contract_update_body.items() if v is not None}
-
         existing_ccid = apartment.get("current_contract_id")
         try:
             existing_ccid_int = int(existing_ccid) if existing_ccid is not None else None
         except (TypeError, ValueError):
             existing_ccid_int = None
+
+        link_cols = _contract_link_columns_from_normalized(normalized_payload)
+
+        contract_update_body = {
+            "tenant_id": tenant_row.get("id"),
+            "start_date": lease_start,
+            "end_date": lease_end,
+            **link_cols,
+        }
+        contract_update_body = {k: v for k, v in contract_update_body.items() if v is not None}
 
         contract_id: int | None = None
 
@@ -993,7 +1305,7 @@ async def assign_tenant_to_apartment(
                 "tenant_id": tenant_row.get("id"),
                 "start_date": lease_start,
                 "end_date": lease_end,
-                "terms": contract_terms,
+                **link_cols,
             }
             contract_data = {k: v for k, v in contract_data.items() if v is not None}
             logger.info("assign-tenant contract insert payload: %s", contract_data)
@@ -1017,12 +1329,6 @@ async def assign_tenant_to_apartment(
             tenant_national_id,
         )
 
-        rent_value = normalized_payload.get("rent")
-        try:
-            rent_value = float(rent_value) if rent_value is not None else None
-        except (TypeError, ValueError):
-            rent_value = None
-
         update_payload = {
             "tenant_user_id": tenant_user_id,
             "tenant_national_id": tenant_national_id,
@@ -1035,14 +1341,19 @@ async def assign_tenant_to_apartment(
             "current_contract_id": contract_id,
             "lease_status": lease_status_value,
         }
-        if rent_value is not None:
-            update_payload["rent"] = rent_value
         for db_key in ("bedrooms", "bathrooms", "living_rooms"):
             raw = normalized_payload.get(db_key)
             if raw is None or raw == "":
                 continue
             try:
                 update_payload[db_key] = int(raw)
+            except (TypeError, ValueError):
+                pass
+
+        fn_raw = normalized_payload.get("floor_number")
+        if fn_raw is not None and str(fn_raw).strip() != "":
+            try:
+                update_payload["floor_number"] = int(float(fn_raw))
             except (TypeError, ValueError):
                 pass
 
@@ -1092,6 +1403,22 @@ async def assign_tenant_to_apartment(
         reconciled = _reconcile_owner_apartment_maintenance_pointers(reconciled)
         updated_apt = reconciled[0]
         _attach_building_names([updated_apt])
+        updated_apt = dict(updated_apt)
+        try:
+            cref = (
+                supabase.table("contracts")
+                .select("*")
+                .eq("id", int(contract_id))
+                .limit(1)
+                .execute()
+            )
+            cr = getattr(cref, "data", None) or []
+            updated_apt["lease_terms"] = _lease_terms_view_from_contract_row(cr[0]) if cr else {}
+        except Exception:
+            logger.exception("assign-tenant: refetch contract for lease_terms failed")
+            updated_apt["lease_terms"] = _lease_terms_view_from_contract_row(
+                {"start_date": lease_start, "end_date": lease_end}
+            )
         logger.info("assign-tenant final response apartment_id=%s response=%s", apartment_id, updated_apt)
         return updated_apt
     except HTTPException:
@@ -1143,7 +1470,6 @@ async def vacate_tenant(apartment_id: int, current_user: dict = Depends(get_curr
             "tenantNationalId": apartment.get("tenant_national_id"),
             "tenantUserId": apartment.get("tenant_user_id"),
             "currentContractId": apartment.get("current_contract_id"),
-            "rent": apartment.get("rent"),
         }
         bn_hist = _building_name_from_id(apartment.get("building_id"))
         if bn_hist:
@@ -1174,7 +1500,7 @@ async def vacate_tenant(apartment_id: int, current_user: dict = Depends(get_curr
         except Exception:
             logger.exception("vacate: could not mark contract terminated id=%s", ccid_end)
 
-    # Clear tenant snapshot including agreed/listed rent on the apartment row (vacant unit).
+    # Clear tenant snapshot on the apartment row (vacant unit).
     update_payload = {
         "tenant_user_id": None,
         "tenant_national_id": None,
@@ -1182,7 +1508,6 @@ async def vacate_tenant(apartment_id: int, current_user: dict = Depends(get_curr
         "current_contract_id": None,
         "lease_status": "vacant",
         "maintenance_id": None,
-        "rent": 0,
     }
 
     try:

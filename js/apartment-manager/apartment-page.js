@@ -91,6 +91,36 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function mapApiApartmentToLocal(apiApartment) {
     if (!apiApartment) return null;
+    const lt =
+      apiApartment.lease_terms && typeof apiApartment.lease_terms === "object"
+        ? apiApartment.lease_terms
+        : null;
+    const cid = apiApartment.current_contract_id ?? null;
+    let contract = null;
+    if (cid || lt) {
+      const yrForMonthly =
+        lt?.yearlyRent != null && String(lt.yearlyRent).trim() !== ""
+          ? Number(lt.yearlyRent)
+          : NaN;
+      const rentAmountFromYearly =
+        Number.isFinite(yrForMonthly) && yrForMonthly > 0 ? yrForMonthly / 12 : undefined;
+      contract = {
+        id: cid,
+        startDate:
+          lt?.startDate != null ? String(lt.startDate).slice(0, 10) : undefined,
+        endDate:
+          lt?.endDate != null ? String(lt.endDate).slice(0, 10) : undefined,
+        yearlyRent: lt?.yearlyRent,
+        rentAmount: rentAmountFromYearly ?? lt?.monthlyRent,
+        paymentCycle: lt?.paymentCycle,
+        installmentsCount: lt?.installmentsCount,
+        insurancePaid: lt?.insurancePaid,
+        meterNumber: lt?.meterNumber,
+        notes: lt?.notes,
+        brokerInfo: lt?.brokerInfo,
+        services: lt?.services,
+      };
+    }
     return {
       id: String(apiApartment.id ?? aptId),
       apiId: apiApartment.id ?? null,
@@ -137,8 +167,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       tenantNationalId: apiApartment.tenant_national_id ?? null,
       tenantInfo: apiApartment.tenant_info || null,
       currentContractId: apiApartment.current_contract_id ?? null,
+      contractId: apiApartment.current_contract_id ?? null,
       leaseStatus: apiApartment.lease_status || "vacant",
       maintenanceId: apiApartment.maintenance_id ?? null,
+      contract,
+      leaseTerms: lt,
     };
   }
 
@@ -204,22 +237,48 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
       }
       const installmentsMeta = await fetchInstallmentsMeta(contractId);
+      const termsNotes =
+        (parsedTerms && (parsedTerms.notes || parsedTerms.note)) || "";
+      const legacyTermsPlain =
+        typeof match.terms === "string" &&
+        match.terms.trim() &&
+        !match.terms.trim().startsWith("{")
+          ? match.terms
+          : "";
+      const leaseNotesCol = String(
+        match.lease_notes ?? match.leaseNotes ?? ""
+      ).trim();
+      const meterCol = match.meter_number ?? match.meterNumber;
+      const insuranceCol = match.insurance_paid ?? match.insurancePaid;
+
       return {
         id: match.id,
         startDate: match.start_date || "",
         endDate: match.end_date || "",
+        yearlyRent:
+          match.yearly_rent != null && match.yearly_rent !== ""
+            ? Number(match.yearly_rent)
+            : parsedTerms?.yearlyRent ?? parsedTerms?.yearly_rent ?? undefined,
         notes:
-          (parsedTerms && (parsedTerms.notes || parsedTerms.note)) ||
-          (typeof match.terms === "string" && !String(match.terms).trim().startsWith("{")
-            ? match.terms
-            : "") ||
+          leaseNotesCol ||
+          termsNotes ||
+          legacyTermsPlain ||
           "",
         meterNumber:
+          (meterCol != null && String(meterCol).trim() !== ""
+            ? String(meterCol).trim()
+            : "") ||
           (parsedTerms &&
             (parsedTerms.meterNumber ||
               parsedTerms.meter_number ||
               parsedTerms.meter)) ||
           "",
+        insurancePaid:
+          insuranceCol != null && String(insuranceCol).trim() !== ""
+            ? String(insuranceCol).trim()
+            : String(
+                parsedTerms?.insurancePaid ?? parsedTerms?.insurance_paid ?? ""
+              ).trim() || "",
         paymentCycle:
           match.payment_cycle ||
           parsedTerms?.paymentCycle ||
@@ -233,8 +292,12 @@ document.addEventListener("DOMContentLoaded", async () => {
           installmentsMeta?.installmentsCount ??
           undefined,
         rentAmount:
+          (match.yearly_rent != null &&
+          match.yearly_rent !== "" &&
+          Number(match.yearly_rent) > 0
+            ? Number(match.yearly_rent) / 12
+            : undefined) ??
           match.rent_amount ??
-          match.monthly_rent ??
           parsedTerms?.rentAmount ??
           parsedTerms?.rent ??
           undefined,
@@ -308,15 +371,29 @@ document.addEventListener("DOMContentLoaded", async () => {
     return Math.round(n * 100) / 100;
   }
 
+  function toEnglishDigits(value) {
+    return String(value ?? "")
+      .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)))
+      .replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)));
+  }
+
+  function forceLatinDigitsLocale(locale, fallback) {
+    const base = String(locale || fallback || "en-GB").trim();
+    return base.includes("-u-nu-") ? base : `${base}-u-nu-latn`;
+  }
+
   function formatMoney(value) {
-    const loc =
+    const locRaw =
       window.walajna_language && typeof window.walajna_language.localeForNumbers === "function"
         ? window.walajna_language.localeForNumbers()
         : window.walajna_language && window.walajna_language.get() === "en"
           ? "en-SA"
           : "ar-SA";
+    const loc = forceLatinDigitsLocale(locRaw, "en-SA");
     const rounded = roundMoneySAR(value);
-    return `${rounded.toLocaleString(loc, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ${T("common.sar")}`;
+    return toEnglishDigits(
+      `${rounded.toLocaleString(loc, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ${T("common.sar")}`
+    );
   }
 
   function normalizePaymentCycleForUi(cycle) {
@@ -342,13 +419,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!dateString) return "—";
     const date = new Date(dateString);
     if (Number.isNaN(date.getTime())) return dateString;
-    const loc =
+    const locRaw =
       window.walajna_language && typeof window.walajna_language.localeForDates === "function"
         ? window.walajna_language.localeForDates()
         : window.walajna_language && window.walajna_language.get() === "en"
           ? "en-GB"
           : "ar-SA";
-    return date.toLocaleDateString(loc);
+    const loc = forceLatinDigitsLocale(locRaw, "en-GB");
+    return toEnglishDigits(date.toLocaleDateString(loc));
   }
 
   function getPaymentCycleLabel(cycle) {
@@ -462,7 +540,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function getMonthlyRent(contractData) {
-    return Number(contractData?.rentAmount || data?.rent || 0);
+    const y = Number(contractData?.yearlyRent ?? contractData?.yearly_rent);
+    if (Number.isFinite(y) && y > 0) return y / 12;
+    return Number(contractData?.rentAmount || 0);
   }
 
   /**
@@ -717,9 +797,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       window.walajna_language && typeof window.walajna_language.localeForDates === "function"
         ? window.walajna_language.localeForDates()
         : window.walajna_language && window.walajna_language.get() === "en"
-          ? "en-GB"
-          : "ar-SA";
-    const formattedDate = dueDate.toLocaleDateString(loc);
+          ? "en-GB-u-nu-latn"
+          : "ar-SA-u-nu-latn";
+    const formattedDate = toEnglishDigits(dueDate.toLocaleDateString(loc));
 
     dateEl.textContent = "— " + formattedDate;
     amountEl.textContent = formatMoney(nextPayment.amount);
@@ -801,7 +881,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     if (insurancePaidEl) {
-      insurancePaidEl.textContent = contract.insurancePaid || "—";
+      insurancePaidEl.textContent = contract.insurancePaid
+        ? toEnglishDigits(String(contract.insurancePaid))
+        : "—";
     }
 
     if (phoneNumberEl) {
@@ -809,14 +891,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     if (identityNumberEl) {
-      identityNumberEl.textContent = data.tenantNationalId || "—";
+      identityNumberEl.textContent = data.tenantNationalId
+        ? toEnglishDigits(String(data.tenantNationalId))
+        : "—";
     }
   }
 
   function fillAdditionalInfo() {
     if (startDateEl) startDateEl.textContent = formatDate(contract.startDate);
     if (endDateEl) endDateEl.textContent = formatDate(contract.endDate);
-    if (meterNumberEl) meterNumberEl.textContent = contract.meterNumber || "—";
+    if (meterNumberEl) {
+      meterNumberEl.textContent = contract.meterNumber
+        ? toEnglishDigits(String(contract.meterNumber))
+        : "—";
+    }
     if (notesEl) notesEl.textContent = contract.notes || "—";
   }
 

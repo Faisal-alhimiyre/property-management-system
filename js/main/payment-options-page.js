@@ -16,8 +16,8 @@ document.addEventListener("DOMContentLoaded", async function () {
     window.walajna_language && typeof window.walajna_language.localeForNumbers === "function"
       ? window.walajna_language.localeForNumbers()
       : window.walajna_language && window.walajna_language.get() === "en"
-        ? "en-SA"
-        : "ar-SA";
+        ? "en-SA-u-nu-latn"
+        : "ar-SA-u-nu-latn";
 
   if (window.WalajnaAuth && typeof WalajnaAuth.hydrateSession === "function") {
     await WalajnaAuth.hydrateSession();

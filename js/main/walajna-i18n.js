@@ -2107,23 +2107,23 @@
 
   function localeForDates() {
     var l = getLang();
-    if (l === "en") return "en-GB";
-    if (l === "ur") return "ur-PK";
-    return "ar-SA";
+    if (l === "en") return "en-GB-u-nu-latn";
+    if (l === "ur") return "ur-PK-u-nu-latn";
+    return "ar-SA-u-nu-latn";
   }
 
   function localeForNumbers() {
     var l = getLang();
-    if (l === "en") return "en-SA";
-    if (l === "ur") return "ur-PK";
-    return "ar-SA";
+    if (l === "en") return "en-SA-u-nu-latn";
+    if (l === "ur") return "ur-PK-u-nu-latn";
+    return "ar-SA-u-nu-latn";
   }
 
   function formatDateTime(iso) {
     if (!iso) return t("common.dash");
     var d = new Date(iso);
     if (Number.isNaN(d.getTime())) return String(iso);
-    var loc = getLang() === "en" ? "en-US" : getLang() === "ur" ? "ur-PK" : "ar-SA";
+    var loc = getLang() === "en" ? "en-US-u-nu-latn" : getLang() === "ur" ? "ur-PK-u-nu-latn" : "ar-SA-u-nu-latn";
     return new Intl.DateTimeFormat(loc, {
       year: "numeric",
       month: "long",

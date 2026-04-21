@@ -10,12 +10,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   const normalizeId = (value) => String(value || "").trim();
   const buildingId = normalizeId(rawBuildingId);
 
-  const buildings = JSON.parse(localStorage.getItem("walajna_buildings") || "[]");
   let apartments = [];
   const costs = JSON.parse(localStorage.getItem("walajna_costs") || "[]");
   let payments = [];
 
-  let building = buildings.find((b) => normalizeId(b.id) === buildingId) || null;
+  let building = null;
   let buildingApartments = [];
 
   /** Paid installments for this building (includes vacated units; GET /api/buildings/:id/installments). */
@@ -104,10 +103,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       apartments = WalajnaApartmentsApi.getSessionList();
     } catch (e) {
       console.warn("finance-summary: apartments API failed", e);
-      apartments = JSON.parse(localStorage.getItem("walajna_apartments") || "[]");
+      apartments = [];
     }
   } else {
-    apartments = JSON.parse(localStorage.getItem("walajna_apartments") || "[]");
+    apartments = [];
   }
 
   buildingApartments = apartments.filter(
@@ -171,7 +170,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
       }
     } catch (e) {
-      console.warn("finance-summary: API load failed, using local data", e);
+      console.warn("finance-summary: API load failed (no local buildings fallback)", e);
     }
   }
 
@@ -217,8 +216,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       window.walajna_language && typeof window.walajna_language.localeForNumbers === "function"
         ? window.walajna_language.localeForNumbers()
         : window.walajna_language && window.walajna_language.get() === "en"
-          ? "en-SA"
-          : "ar-SA";
+          ? "en-SA-u-nu-latn"
+          : "ar-SA-u-nu-latn";
     if (!n) return T("common.sarZero");
     return `${n.toLocaleString(loc)} ${T("common.sar")}`;
   }
@@ -312,8 +311,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       window.walajna_language && typeof window.walajna_language.localeForDates === "function"
         ? window.walajna_language.localeForDates()
         : window.walajna_language && window.walajna_language.get() === "en"
-          ? "en-GB"
-          : "ar-SA";
+          ? "en-GB-u-nu-latn"
+          : "ar-SA-u-nu-latn";
 
     let start;
     let end;
@@ -508,7 +507,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function getApartmentContractMonthlyRent(apartment) {
-    return Number(apartment?.contract?.rentAmount || 0);
+    const c = apartment?.contract || {};
+    const yr = Number(c.yearlyRent);
+    if (Number.isFinite(yr) && yr > 0) return yr / 12;
+    return Number(c.rentAmount || 0);
   }
 
   function getApartmentContractStart(apartment) {

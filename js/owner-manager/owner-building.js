@@ -61,6 +61,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   let apartmentsFromApi = false;
 
   let payments = [];
+  let apiLoadError = null;
   const costs = JSON.parse(localStorage.getItem("walajna_costs") || "[]");
 
   function mapApiApartmentToLocal(apt) {
@@ -162,10 +163,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     }
   } catch (e) {
-    console.warn("owner-building API load failed, falling back to local storage", e);
-    const buildings = JSON.parse(localStorage.getItem("walajna_buildings") || "[]");
-    apartments = JSON.parse(localStorage.getItem("walajna_apartments") || "[]");
-    building = buildings.find((b) => String(b.id) === String(buildingId)) || null;
+    apiLoadError = e;
+    apartmentsFromApi = false;
+    building = null;
+    apartments = [];
+    maintenanceRows = [];
+    console.warn("owner-building API load failed (no local fallback)", e);
   }
 
   if (building && title) {
@@ -298,8 +301,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       window.walajna_language && typeof window.walajna_language.localeForNumbers === "function"
         ? window.walajna_language.localeForNumbers()
         : window.walajna_language && window.walajna_language.get() === "en"
-          ? "en-SA"
-          : "ar-SA";
+          ? "en-SA-u-nu-latn"
+          : "ar-SA-u-nu-latn";
     if (!n) return T("common.sarZero");
     return `${n.toLocaleString(loc)} ${T("common.sar")}`;
   }
@@ -545,7 +548,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     setFieldValue("linkNationality", tenantInfo.nationality);
     setFieldValue("linkTenantType", tenantInfo.tenantType);
     setFieldValue("linkPhoneNumber", tenantInfo.phoneNumber);
-    setFieldValue("linkRent", apartment.rent || contract.rentAmount || "");
+    const contractYearly = Number(contract.yearlyRent ?? contract.yearly_rent);
+    const fallbackMonthly = Number(contract.rentAmount || 0);
+    const rentFieldValue =
+      Number.isFinite(contractYearly) && contractYearly > 0
+        ? contractYearly
+        : fallbackMonthly > 0
+          ? fallbackMonthly * 12
+          : "";
+    setFieldValue("linkRent", rentFieldValue);
 
     setFieldValue("linkFloorNumber", apartment.floorNumber);
     setFieldValue("linkRoomsCount", apartment.roomsCount);
@@ -1168,6 +1179,22 @@ async function evictApartment(apartmentId) {
   }
 
   function renderApartmentGrid() {
+  if (!building && apiLoadError) {
+    grid.innerHTML = `
+      <div class="finance-empty">
+        ${escapeHtml(T("building.notFound"))}
+      </div>
+      <div style="margin-top:10px;">
+        <button id="ownerBuildingRetryBtn" class="btn-primary" type="button">Retry</button>
+      </div>
+    `;
+    const retryBtn = document.getElementById("ownerBuildingRetryBtn");
+    if (retryBtn) {
+      retryBtn.addEventListener("click", () => window.location.reload());
+    }
+    return;
+  }
+
   const floors = {};
 
   buildingApartments.forEach((apartment) => {

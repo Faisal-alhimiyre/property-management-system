@@ -704,7 +704,7 @@ function normalizeRole(role) {
         ? window.walajna_language.localeForDates()
         : window.walajna_language && window.walajna_language.get() === "en"
           ? "en-US"
-          : "ar-SA";
+          : "ar-SA-u-nu-latn";
     return new Intl.DateTimeFormat(loc, {
       year: "numeric",
       month: "long",
