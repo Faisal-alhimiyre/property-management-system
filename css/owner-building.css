@@ -780,6 +780,8 @@ body{
 
 .finance-link-row{
   display:flex;
+  flex-wrap:wrap;
+  gap:10px;
   justify-content:center;
   align-items:center;
   margin:6px 0 10px;
@@ -798,9 +800,21 @@ body{
   box-shadow:0 8px 18px rgba(12,24,49,0.18);
 }
 
+.finance-summary-btn--secondary{
+  background:#fff;
+  color:#0c1831;
+  border:2px solid rgba(12,24,49,0.18);
+  box-shadow:0 4px 12px rgba(12,24,49,0.08);
+}
+
 .finance-summary-btn:hover{
   background:#142445;
   transform:translateY(-1px);
+}
+
+.finance-summary-btn--secondary:hover{
+  background:#f4f7fb;
+  border-color:rgba(12,24,49,0.28);
 }
 
 @media (max-width: 760px){
@@ -994,6 +1008,17 @@ body.dark-mode .apartment-title{
 body.dark-mode .finance-summary-btn{
   background:radial-gradient(circle at top left, #22d3ee, #0369a1);
   color:#f9fafb;
+}
+
+body.dark-mode .finance-summary-btn--secondary{
+  background:#0f172a;
+  color:#e5edf7;
+  border-color:rgba(148,163,184,0.35);
+}
+
+body.dark-mode .finance-summary-btn--secondary:hover{
+  background:#111c33;
+  border-color:rgba(148,163,184,0.5);
 }
 
 body.dark-mode .apartment-edit-modal__backdrop{

@@ -1,5 +1,7 @@
-from pydantic import BaseModel, ConfigDict
-from typing import Optional, List
+import json
+
+from pydantic import BaseModel, ConfigDict, model_validator
+from typing import Optional, List, Any
 from datetime import datetime, date
 
 class User(BaseModel):
@@ -202,9 +204,9 @@ class ApartmentResponse(BaseModel):
     bedrooms: Optional[int] = None
     bathrooms: Optional[int] = None
     living_rooms: Optional[int] = None
-    address: str
+    address: str = ""
     description: Optional[str] = None
-    rent: float
+    rent: float = 0.0
     tenant_user_id: Optional[int] = None
     tenant_national_id: Optional[str] = None
     tenant_info: Optional[dict] = None
@@ -215,6 +217,26 @@ class ApartmentResponse(BaseModel):
     # Filled for tenants on GET /apartments/{id} only (linked tenant); not a DB column.
     owner_public_name: Optional[str] = None
     owner_public_national_id: Optional[str] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def coerce_supabase_apartment_row(cls, data: Any) -> Any:
+        """DB rows may omit NOT NULL legacy fields or return JSON as strings; avoid 500 on list endpoints."""
+        if not isinstance(data, dict):
+            return data
+        out = dict(data)
+        if out.get("address") is None:
+            out["address"] = ""
+        if out.get("rent") is None:
+            out["rent"] = 0.0
+        ti = out.get("tenant_info")
+        if isinstance(ti, str) and ti.strip():
+            try:
+                parsed = json.loads(ti)
+                out["tenant_info"] = parsed if isinstance(parsed, dict) else None
+            except json.JSONDecodeError:
+                out["tenant_info"] = None
+        return out
 
 class Building(BaseModel):
     id: Optional[int] = None

@@ -11,6 +11,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const title = document.getElementById("buildingTitle");
   const grid = document.getElementById("apartmentsGrid");
   const financeBtn = document.getElementById("financeSummaryBtn");
+  const portfolioFinanceBtn = document.getElementById("portfolioFinanceBtn");
 
   if (!grid) return;
 
@@ -192,8 +193,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     window.location.href = `finance_summary.html?buildingId=${encodeURIComponent(buildingId)}`;
   }
 
+  function openPortfolioFinance() {
+    if (!buildingId) return;
+    window.location.href = `portfolio_finance.html?refBuildingId=${encodeURIComponent(buildingId)}`;
+  }
+
   if (financeBtn) {
     financeBtn.addEventListener("click", openFinanceSummary);
+  }
+
+  if (portfolioFinanceBtn) {
+    portfolioFinanceBtn.addEventListener("click", openPortfolioFinance);
   }
 
   /**
