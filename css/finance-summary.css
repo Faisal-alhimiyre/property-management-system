@@ -162,6 +162,18 @@ body{
   font-weight:900;
 }
 
+.finance-table-header__aside{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+
+.finance-cost-details-btn{
+  white-space:nowrap;
+}
+
 .finance-table-meta{
   font-size:17px;
   font-weight:700;
@@ -265,6 +277,118 @@ body{
   font-size:17px;
   font-weight:700;
   border-radius:22px;
+}
+
+/* Portfolio: one row per building + expandable apartment list */
+.finance-table--portfolio tbody tr.portfolio-building-row td{
+  background:#fff;
+}
+
+.finance-table--portfolio tbody tr.portfolio-building-nest td{
+  background:#eef3f8;
+  padding:0;
+  border-bottom:1px solid #edf1f6;
+  vertical-align:top;
+}
+
+.finance-table--portfolio tbody tr.portfolio-building-nest:not(.is-open) td{
+  border-bottom:none;
+}
+
+.finance-table--portfolio tbody tr.portfolio-building-row:hover td{
+  background:#f5fbff;
+}
+
+.portfolio-building-name-cell{
+  min-width:160px;
+}
+
+.portfolio-building-toggle{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  width:100%;
+  margin:0;
+  padding:4px 0;
+  border:none;
+  background:transparent;
+  font:inherit;
+  font-weight:900;
+  color:var(--wl-text);
+  cursor:pointer;
+  text-align:right;
+}
+
+.portfolio-building-chevron{
+  display:inline-flex;
+  flex-shrink:0;
+  font-size:12px;
+  line-height:1;
+  color:#5b6a82;
+  transition:transform 0.28s ease;
+}
+
+.portfolio-building-row.is-open .portfolio-building-chevron{
+  transform:rotate(-180deg);
+}
+
+.portfolio-building-meta{
+  color:#607086;
+  font-weight:700;
+}
+
+.portfolio-building-rented{
+  font-weight:900;
+  color:var(--wl-text);
+  text-align:center;
+}
+
+.finance-table--portfolio tfoot #footerTotalUnits{
+  color:#607086;
+  font-weight:700;
+  text-align:center;
+}
+
+.finance-table--portfolio tfoot #footerTotalRented{
+  font-weight:900;
+  color:var(--wl-text);
+  text-align:center;
+}
+
+.portfolio-nest-anim{
+  max-height:0;
+  overflow:hidden;
+  transition:max-height 0.4s ease;
+}
+
+.portfolio-building-nest.is-open .portfolio-nest-anim{
+  max-height:4000px;
+}
+
+.portfolio-nest-inner{
+  padding:14px 14px 18px;
+  overflow:auto;
+}
+
+.finance-table--nested{
+  min-width:720px;
+  width:100%;
+  margin:0;
+  border-radius:16px;
+  overflow:hidden;
+  border:1px solid #d6e0ea;
+  box-shadow:0 4px 14px rgba(16,43,76,0.06);
+}
+
+.finance-table--nested thead th{
+  font-size:14px;
+  padding:12px 10px;
+}
+
+.finance-table--nested tbody td{
+  padding:12px 10px;
+  font-size:14px;
+  vertical-align:middle;
 }
 
 .finance-period-caption{
@@ -398,6 +522,17 @@ body.dark-mode .finance-table-header{
   color:#e5edf7;
 }
 
+body.dark-mode .finance-cost-details-btn{
+  background:rgba(15,23,42,0.85);
+  border:1px solid rgba(148,163,184,0.45);
+  box-shadow:0 8px 18px rgba(0,0,0,0.35);
+}
+
+body.dark-mode .finance-cost-details-btn:hover{
+  background:rgba(30,41,59,0.95);
+  border-color:rgba(34,211,238,0.45);
+}
+
 body.dark-mode .finance-table-wrap{
   border-color:rgba(148,163,184,.35);
   box-shadow:0 18px 40px rgba(15,23,42,.7);
@@ -418,6 +553,31 @@ body.dark-mode .finance-table tbody td{
   background:#101825;
   color:#e5edf7;
   border-bottom:1px solid rgba(148,163,184,.18);
+  vertical-align:middle;
+}
+
+/* Status pills in table cells: reset fill/color so badges are not washed out on pastel backgrounds. */
+body.dark-mode .finance-table tbody td .badge{
+  -webkit-text-fill-color:currentColor;
+  border:1px solid transparent;
+}
+
+body.dark-mode .finance-table tbody td .badge.approved{
+  background:rgba(21,128,61,0.58);
+  color:#ecfdf5;
+  border-color:rgba(74,222,128,0.55);
+}
+
+body.dark-mode .finance-table tbody td .badge.pending{
+  background:rgba(154,52,18,0.55);
+  color:#fffbeb;
+  border-color:rgba(251,191,36,0.45);
+}
+
+body.dark-mode .finance-table tbody td .badge.cancelled{
+  background:rgba(153,27,27,0.55);
+  color:#fef2f2;
+  border-color:rgba(252,165,165,0.45);
 }
 
 body.dark-mode .finance-table tbody tr:nth-child(even) td{
@@ -454,4 +614,45 @@ body.dark-mode .finance-empty{
   background:#101825;
   color:#9ca9bf;
   border:1px solid rgba(148,163,184,.28);
+}
+
+body.dark-mode .finance-table--portfolio tbody tr.portfolio-building-row td{
+  background:#101825;
+}
+
+body.dark-mode .finance-table--portfolio tbody tr.portfolio-building-row:hover td{
+  background:rgba(34,211,238,0.12);
+}
+
+body.dark-mode .finance-table--portfolio tbody tr.portfolio-building-nest td{
+  background:#0b111c;
+  border-bottom-color:rgba(148,163,184,.18);
+}
+
+body.dark-mode .portfolio-building-toggle{
+  color:#e5edf7;
+}
+
+body.dark-mode .portfolio-building-meta{
+  color:#9ca9bf;
+}
+
+body.dark-mode .portfolio-building-rented{
+  color:#e5edf7;
+}
+
+body.dark-mode .finance-table--portfolio tfoot #footerTotalUnits{
+  color:#9ca9bf;
+}
+
+body.dark-mode .finance-table--portfolio tfoot #footerTotalRented{
+  color:#e5edf7;
+}
+
+body.dark-mode .portfolio-building-chevron{
+  color:#94a3b8;
+}
+
+body.dark-mode .finance-table--nested{
+  border-color:rgba(148,163,184,.28);
 }

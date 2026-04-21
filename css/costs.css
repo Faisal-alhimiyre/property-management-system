@@ -121,6 +121,100 @@ body{
   flex-wrap:wrap;
 }
 
+.costs-topbar--portfolio{
+  justify-content:flex-end;
+}
+
+.costs-table-wrap--wide{
+  overflow-x:auto;
+}
+
+.portfolio-costs-nest-empty{
+  padding:22px 16px;
+  text-align:center;
+  font-weight:800;
+  color:var(--muted);
+  font-size:15px;
+}
+
+.costs-portfolio-table-wrap{
+  overflow-x:auto;
+}
+
+.costs-portfolio-main-table.finance-table--portfolio tfoot .finance-total-count{
+  color:#607086;
+  font-weight:700;
+  text-align:center;
+}
+
+body.dark-mode .costs-portfolio-main-table.finance-table--portfolio tfoot .finance-total-count{
+  color:#9ca9bf;
+}
+
+.costs-portfolio-nested{
+  min-width:880px;
+}
+
+/* Portfolio nested expense rows: center content vertically (override any .finance-table tbody td rules). */
+.costs-portfolio-nested.finance-table--nested tbody td,
+body.dark-mode .costs-portfolio-nested.finance-table--nested tbody td{
+  vertical-align:middle !important;
+  padding:18px 12px !important;
+  line-height:1.35;
+}
+
+.costs-portfolio-nested.finance-table--nested tbody td .badge,
+.costs-portfolio-nested.finance-table--nested tbody td .portfolio-costs-apt-link{
+  vertical-align:middle;
+}
+
+.costs-portfolio-nested.finance-table--nested tbody td .portfolio-costs-apt-link{
+  display:inline-block;
+}
+
+.costs-portfolio-nested.finance-table--nested tbody td:last-child{
+  text-align:center;
+}
+
+.costs-portfolio-nested .delete-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  vertical-align:middle;
+  margin:0;
+  white-space:nowrap;
+  min-width:7.5rem;
+  font-size:13px;
+  line-height:1.35;
+  color:var(--danger-text) !important;
+  -webkit-text-fill-color:var(--danger-text);
+}
+
+body.dark-mode .costs-portfolio-nested .delete-btn{
+  background:#dc2626 !important;
+  color:#ffffff !important;
+  -webkit-text-fill-color:#ffffff;
+  border:1px solid rgba(248,113,113,0.45);
+}
+
+body.dark-mode .costs-portfolio-nested .delete-btn:hover{
+  background:#b91c1c !important;
+  color:#ffffff !important;
+  -webkit-text-fill-color:#ffffff;
+}
+
+.portfolio-costs-apt-link{
+  font-weight:900;
+  color:var(--brand-2, #1fb8d4);
+  text-decoration:none;
+  border-bottom:1px solid rgba(31,184,212,0.35);
+}
+
+.portfolio-costs-apt-link:hover{
+  color:var(--brand-1, #36d7e8);
+  border-bottom-color:rgba(54,215,232,0.55);
+}
+
 .count-label{
   font-weight:900;
   color:#0f172a;
@@ -683,4 +777,18 @@ body.dark-mode .costs-table .delete-btn{
 
 body.dark-mode .costs-table .delete-btn:hover{
   background:#b91c1c;
+}
+
+body.dark-mode .portfolio-costs-apt-link{
+  color:#5eead4;
+  border-bottom-color:rgba(94,234,212,0.45);
+}
+
+body.dark-mode .portfolio-costs-apt-link:hover{
+  color:#99f6e4;
+  border-bottom-color:rgba(153,246,228,0.55);
+}
+
+body.dark-mode .portfolio-costs-nest-empty{
+  color:#9ca9bf;
 }
