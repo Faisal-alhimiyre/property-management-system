@@ -127,8 +127,25 @@
     return d;
   }
 
+  function normalizePaymentCycleRaw(paymentCycle) {
+    if (typeof paymentCycle === "number" && Number.isFinite(paymentCycle)) {
+      if (paymentCycle === 1) return "monthly";
+      if (paymentCycle === 4) return "quarterly";
+      if (paymentCycle === 2) return "semi_annual";
+      if (paymentCycle === 12) return "annual";
+    }
+    const c = String(paymentCycle || "monthly").toLowerCase().trim().replace(/-/g, "_");
+    if (c === "1" || c === "month") return "monthly";
+    if (c === "4" || c === "quarter" || c === "qtr") return "quarterly";
+    if (c === "2" || c === "semi") return "semi_annual";
+    if (c === "12" || c === "yearly") return "annual";
+    if (["monthly", "quarterly", "semi_annual", "annual"].includes(c)) return c;
+    return "monthly";
+  }
+
   function getCycleMonths(paymentCycle) {
-    switch (paymentCycle) {
+    const c = normalizePaymentCycleRaw(paymentCycle);
+    switch (c) {
       case "quarterly":
         return 3;
       case "semi_annual":
@@ -142,7 +159,8 @@
   }
 
   function getPaymentCycleLabel(paymentCycle) {
-    switch (paymentCycle) {
+    const c = normalizePaymentCycleRaw(paymentCycle);
+    switch (c) {
       case "quarterly":
         return wt("payments.cycle.quarterly");
       case "semi_annual":
@@ -173,7 +191,9 @@
     const defaults = getApartmentPaymentDefaults(apartment);
 
     return {
-      paymentCycle: contract.paymentCycle || defaults.paymentCycle || "monthly",
+      paymentCycle: normalizePaymentCycleRaw(
+        contract.paymentCycle || defaults.paymentCycle || "monthly"
+      ),
     };
   }
 

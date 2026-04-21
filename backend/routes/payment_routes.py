@@ -176,6 +176,13 @@ async def generate_contract_installments(
     if monthly <= 0:
         raise HTTPException(status_code=400, detail="Apartment rent must be greater than zero")
 
+    yearly_rent = None
+    try:
+        if body.yearly_rent is not None and float(body.yearly_rent) > 0:
+            yearly_rent = Decimal(str(body.yearly_rent))
+    except Exception:
+        yearly_rent = None
+
     tid = contract.get("tenant_id")
     rows = generate_installment_rows(
         contract_id=contract_id,
@@ -184,6 +191,7 @@ async def generate_contract_installments(
         start_date=sd,
         end_date=ed,
         monthly_rent=monthly,
+        yearly_rent=yearly_rent,
         payment_cycle=body.payment_cycle,
     )
     if not rows:

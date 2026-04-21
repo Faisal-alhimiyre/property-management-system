@@ -13,6 +13,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   const container = document.getElementById("buildingsContainer");
   const emptyState = document.getElementById("emptyState");
   const globalRequestsAlert = document.getElementById("globalRequestsAlert");
+  const portfolioFinanceHomeBtn = document.getElementById("portfolioFinanceHomeBtn");
+
+  if (portfolioFinanceHomeBtn) {
+    portfolioFinanceHomeBtn.addEventListener("click", () => {
+      window.location.href = "portfolio_finance.html";
+    });
+  }
 
   const PINS_KEY = "walajna_owner_building_pins";
 

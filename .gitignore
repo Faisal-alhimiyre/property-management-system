@@ -1,0 +1,14 @@
+﻿# Python / venv (never commit)
+.venv/
+venv/
+venv312/
+env/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local secrets
+.env
+.env.local
+backend/.env
