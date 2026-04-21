@@ -1,6 +1,7 @@
 
-from pydantic import BaseModel, ConfigDict
-from typing import Optional, List
+import json
+from pydantic import BaseModel, ConfigDict, model_validator
+from typing import Any, Optional, List
 from datetime import datetime, date
 
 class User(BaseModel):
