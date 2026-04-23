@@ -211,7 +211,65 @@ function setupNavbar() {
 
   setActiveLinkByPage(navType);
 
+  void updateMessagesNavDot(link3, activeRole, currentUser);
+
   document.dispatchEvent(new Event("walajna:navbar-ready"));
+}
+
+async function updateMessagesNavDot(messagesLink, activeRole, currentUser) {
+  if (!messagesLink || !WalajnaAuth?.fetchWithAuth || !WalajnaAuth?.API_BASE) return;
+  const role = String(activeRole || "").toLowerCase();
+  if (!role) return;
+
+  let unreadCount = 0;
+  try {
+    const [maintenanceRes, notificationsRes] = await Promise.all([
+      WalajnaAuth.fetchWithAuth(`${WalajnaAuth.API_BASE}/api/maintenance`, { method: "GET" }),
+      WalajnaAuth.fetchWithAuth(`${WalajnaAuth.API_BASE}/api/notifications`, { method: "GET" }),
+    ]);
+
+    if (maintenanceRes.ok) {
+      const rows = await maintenanceRes.json();
+      if (Array.isArray(rows)) {
+        if (role === "owner") {
+          unreadCount += rows.filter((r) => !r?.owner_seen).length;
+        } else {
+          unreadCount += rows.filter((r) => {
+            const hasReply = String(r?.owner_reply || "").trim().length > 0;
+            const unseen = !r?.tenant_reply_seen_at;
+            return hasReply && unseen;
+          }).length;
+        }
+      }
+    }
+
+    if (notificationsRes.ok) {
+      const rows = await notificationsRes.json();
+      if (Array.isArray(rows)) {
+        const allowedPaymentTitle =
+          role === "owner" ? "PAYMENT_OWNER_RECEIVED" : "PAYMENT_TENANT_PAID";
+        unreadCount += rows.filter((r) => {
+          if (r?.is_read) return false;
+          // Keep nav badge aligned with messages page, which currently surfaces
+          // payment notifications only from notifications table.
+          return String(r?.title || "") === allowedPaymentTitle;
+        }).length;
+      }
+    }
+  } catch {
+    return;
+  }
+
+  let dot = messagesLink.querySelector(".nav-unread-dot");
+  if (unreadCount > 0) {
+    if (!dot) {
+      dot = document.createElement("span");
+      dot.className = "nav-unread-dot";
+      messagesLink.appendChild(dot);
+    }
+  } else if (dot) {
+    dot.remove();
+  }
 }
 
 function insertRoleSwitcher({ roles, activeRole, afterElement }) {

@@ -87,6 +87,19 @@
     transform .18s ease,
     box-shadow .18s ease,
     color .18s ease;
+  position: relative;
+}
+
+.nav-unread-dot{
+  position:absolute;
+  top:6px;
+  inset-inline-end:6px;
+  width:10px;
+  height:10px;
+  border-radius:50%;
+  background:#ff3b30;
+  border:2px solid rgba(255,255,255,0.95);
+  box-shadow:0 0 10px rgba(255,59,48,0.75);
 }
 
 .walajna-topbar__nav a:hover{

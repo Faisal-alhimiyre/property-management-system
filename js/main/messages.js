@@ -63,6 +63,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   let visibleMessages = [];
   /** @type {Array<object>} Raw rows from GET /api/maintenance */
   let apiRequestRows = [];
+  /** @type {Array<object>} Raw rows from GET /api/notifications */
+  let apiNotificationRows = [];
 
   if (!loggedInUser) {
     alert(T("messages.alertNoUser"));
@@ -90,6 +92,20 @@ document.addEventListener("DOMContentLoaded", async () => {
       apiRequestRows = await WalajnaTenantRequests.list();
     } catch (e) {
       console.warn("[messages] requests fetch", e);
+    }
+  }
+  if (WalajnaAuth?.fetchWithAuth && WalajnaAuth?.API_BASE) {
+    try {
+      const res = await WalajnaAuth.fetchWithAuth(
+        `${WalajnaAuth.API_BASE}/api/notifications`,
+        { method: "GET" }
+      );
+      if (res.ok) {
+        const rows = await res.json();
+        apiNotificationRows = Array.isArray(rows) ? rows : [];
+      }
+    } catch (e) {
+      console.warn("[messages] notifications fetch", e);
     }
   }
 
@@ -141,6 +157,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       const matchesSearch =
         !searchValue ||
         String(msg.buildingName || "").toLowerCase().includes(searchValue) ||
+        String(msg.tenantNationalId || "").toLowerCase().includes(searchValue) ||
+        String(msg.ownerNationalId || "").toLowerCase().includes(searchValue) ||
+        String(msg.nationalId || "").toLowerCase().includes(searchValue) ||
         String(msg.buildingNumber || "").toLowerCase().includes(searchValue) ||
         String(msg.apartmentNumber || "").toLowerCase().includes(searchValue) ||
         String(msg.subject || "").toLowerCase().includes(searchValue) ||
@@ -188,7 +207,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     filtered.forEach(msg => {
       const card = document.createElement("article");
-      card.className = `message-card ${msg.type || ""} ${msg.sourceType === "request" ? "request-notification" : ""} ${msg.hasReplyAlert ? "has-reply-highlight" : ""}`;
+      card.className = `message-card ${msg.type || ""} ${msg.sourceType === "request" ? "request-notification" : ""} ${msg.hasReplyAlert ? "has-reply-highlight" : ""} ${msg.status === "read" ? "is-read" : ""}`;
       card.style.position = "relative";
 
       const sourceBadge = msg.sourceType === "request"
@@ -303,12 +322,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         );
         if (!item) return;
 
-        if (item.status === "unread") {
-          await markItemAsRead(item);
-        }
-
         openDetailsModal(item);
-        renderMessages();
       });
     });
 
@@ -403,7 +417,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function getMessagesForCurrentRole() {
-    return getRequestNotificationsForCurrentRole();
+    const req = getRequestNotificationsForCurrentRole();
+    const pay = getPaymentNotificationsForCurrentRole();
+    return [...req, ...pay];
   }
 
   function setupSidebarUser() {
@@ -457,6 +473,115 @@ document.addEventListener("DOMContentLoaded", async () => {
   function getRequests() {
     if (!Array.isArray(apiRequestRows)) return [];
     return apiRequestRows.map(mapApiRowToLegacyRequest);
+  }
+
+  function getPaymentNotificationsForCurrentRole() {
+    if (!Array.isArray(apiNotificationRows) || !apiNotificationRows.length) return [];
+    const roleTitle =
+      activeRole === "owner" ? "PAYMENT_OWNER_RECEIVED" : "PAYMENT_TENANT_PAID";
+    const rows = apiNotificationRows.filter(
+      (n) => String(n?.title || "").trim() === roleTitle
+    );
+    return rows.map((n) => {
+      const paymentMeta = parsePaymentNotificationRow(n);
+      return {
+        id: String(n.id),
+        sourceType: "payment",
+        type: "payment",
+        subject:
+          activeRole === "owner"
+            ? T("messages.paymentReceivedOwner")
+            : T("messages.paymentPaidTenant"),
+        body: paymentMeta.body,
+        buildingName: paymentMeta.buildingName,
+        buildingNumber: paymentMeta.buildingNumber,
+        apartmentNumber: paymentMeta.apartmentNumber,
+        apartmentId: "",
+        senderId: "system",
+        senderName:
+          activeRole === "owner" ? T("common.tenant") : T("common.landlord"),
+        senderRole:
+          activeRole === "owner" ? "tenant" : "landlord",
+        receiverId: getUserIdentifier(currentUser),
+        receiverName: getUserDisplayName(currentUser) || T("common.user"),
+        receiverRole: activeRole,
+        nationalId: String(currentUser?.nationalId || ""),
+        status: n.is_read ? "read" : "unread",
+        createdAt: n.created_at || "",
+        dateSent: n.created_at || "",
+        ownerReply: "",
+        repliedAt: "",
+        resolvedAt: "",
+        rawRequestStatus: "",
+        requestStatusLabel: "",
+        hasReplyAlert: false
+      };
+    });
+  }
+
+  function parsePaymentNotificationRow(row) {
+    const rawMessage = row?.message;
+    const fallback = {
+      body: String(rawMessage || ""),
+      buildingName: "-",
+      buildingNumber: "-",
+      apartmentNumber: "-"
+    };
+    const explicitBuildingName = String(row?.building_name || "").trim();
+    const explicitBuildingNumber = String(
+      row?.building_number || row?.building_id || ""
+    ).trim();
+    const explicitApartmentNumber = String(row?.apartment_number || "").trim();
+    const explicitAmount = row?.amount;
+    const explicitDueDate = row?.due_date;
+    if (
+      explicitBuildingName ||
+      explicitBuildingNumber ||
+      explicitApartmentNumber ||
+      explicitAmount != null
+    ) {
+      const amount = Number(explicitAmount || 0);
+      const amountText = Number.isFinite(amount)
+        ? amount.toLocaleString(
+            window.walajna_language?.localeForNumbers?.() || "ar-SA-u-nu-latn"
+          )
+        : String(explicitAmount || "0");
+      const dueDate = String(explicitDueDate || "");
+      return {
+        body:
+          String(rawMessage || "").trim() ||
+          (activeRole === "owner"
+            ? `${T("messages.paymentBodyOwner")}: ${amountText} (${T("messages.paymentDue")}: ${dueDate || "-"})`
+            : `${T("messages.paymentBodyTenant")}: ${amountText}`),
+        buildingName: explicitBuildingName || "-",
+        buildingNumber: explicitBuildingNumber || "-",
+        apartmentNumber: explicitApartmentNumber || "-"
+      };
+    }
+    if (!rawMessage || typeof rawMessage !== "string") return fallback;
+    try {
+      const parsed = JSON.parse(rawMessage);
+      if (!parsed || parsed.kind !== "payment") return fallback;
+      const amount = Number(parsed.amount || 0);
+      const amountText = Number.isFinite(amount)
+        ? amount.toLocaleString(
+            window.walajna_language?.localeForNumbers?.() || "ar-SA-u-nu-latn"
+          )
+        : String(parsed.amount || "0");
+      const dueDate = String(parsed.due_date || "");
+      const body =
+        activeRole === "owner"
+          ? `${T("messages.paymentBodyOwner")}: ${amountText} (${T("messages.paymentDue")}: ${dueDate || "-"})`
+          : `${T("messages.paymentBodyTenant")}: ${amountText}`;
+      return {
+        body,
+        buildingName: String(parsed.building_name || "-"),
+        buildingNumber: String(parsed.building_number || parsed.building_id || "-"),
+        apartmentNumber: String(parsed.apartment_number || "-")
+      };
+    } catch {
+      return fallback;
+    }
   }
 
   function getRequestNotificationsForCurrentRole() {
@@ -560,6 +685,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         buildingNumber: resolvedBuildingNumber,
         apartmentNumber: req.apartmentNumber || "-",
         apartmentId: req.apartmentId || "",
+        tenantNationalId: String(req.tenantNationalId || ""),
 
         senderId:
           activeRole === "owner"
@@ -583,6 +709,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         receiverName: landlordName,
         receiverRole: "owner",
+        ownerNationalId: String(ownerUser?.nationalId || ""),
 
         status: seen ? "read" : "unread",
         createdAt: req.createdAt,
@@ -599,6 +726,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   async function markItemAsRead(item) {
     if (!item) return;
+    if (item.sourceType === "payment") {
+      await markPaymentNotificationAsRead(item.id);
+      return;
+    }
     await markRequestNotificationAsRead(item.id);
   }
 
@@ -615,6 +746,23 @@ document.addEventListener("DOMContentLoaded", async () => {
       apiRequestRows = await WalajnaTenantRequests.list();
     } catch (e) {
       console.warn("[messages] mark request read", e);
+    }
+  }
+
+  async function markPaymentNotificationAsRead(notificationId) {
+    if (!WalajnaAuth?.fetchWithAuth || !WalajnaAuth?.API_BASE) return;
+    try {
+      await WalajnaAuth.fetchWithAuth(
+        `${WalajnaAuth.API_BASE}/api/notifications/${encodeURIComponent(notificationId)}/read`,
+        { method: "PUT" }
+      );
+      apiNotificationRows = apiNotificationRows.map((row) =>
+        String(row?.id) === String(notificationId)
+          ? { ...row, is_read: true }
+          : row
+      );
+    } catch (e) {
+      console.warn("[messages] mark payment notification read", e);
     }
   }
 
@@ -689,6 +837,7 @@ function normalizeRole(role) {
       case "maintenance": return T("messages.type.maintenance");
       case "suggestion": return T("messages.type.suggestion");
       case "request": return T("messages.type.request");
+      case "payment": return T("messages.type.payment");
       default: return T("common.na");
     }
   }

@@ -320,6 +320,79 @@ def _enrich_maintenance_rows(rows: list[dict]) -> list[dict]:
     return out
 
 
+def _lookup_building_context(building_id: int | None) -> tuple[str, str]:
+    if building_id is None:
+        return "", ""
+    try:
+        res = (
+            supabase.table("buildings")
+            .select("id,name,code")
+            .eq("id", int(building_id))
+            .limit(1)
+            .execute()
+        )
+        data = getattr(res, "data", None) or []
+        if not data:
+            return "", ""
+        row = data[0]
+        name = str(row.get("name") or "")
+        number = str(row.get("code") or row.get("id") or "")
+        return name, number
+    except Exception:
+        logger.exception("building context lookup failed building_id=%s", building_id)
+        return "", ""
+
+
+def _tenant_user_id_from_request_row(req_row: dict, apartment_row: dict) -> int | None:
+    tid = req_row.get("tenant_id")
+    if tid is not None:
+        try:
+            t_res = (
+                supabase.table("tenants")
+                .select("user_id")
+                .eq("id", int(tid))
+                .limit(1)
+                .execute()
+            )
+            if t_res.data and t_res.data[0].get("user_id") is not None:
+                return int(t_res.data[0]["user_id"])
+        except Exception:
+            logger.warning("tenant user lookup failed tenant_id=%s", tid)
+    tu = apartment_row.get("tenant_user_id")
+    if tu is not None:
+        try:
+            return int(tu)
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
+def _insert_notifications_rows(rows: list[dict], source_id: int | None = None) -> None:
+    if not rows:
+        return
+    try:
+        supabase.table("notifications").insert(rows).execute()
+        return
+    except Exception:
+        logger.warning(
+            "extended notifications insert failed source_id=%s; retrying basic payload",
+            source_id,
+        )
+    basic_rows = [
+        {
+            "user_id": row.get("user_id"),
+            "title": row.get("title"),
+            "message": row.get("message"),
+            "is_read": bool(row.get("is_read", False)),
+        }
+        for row in rows
+    ]
+    try:
+        supabase.table("notifications").insert(basic_rows).execute()
+    except Exception:
+        logger.exception("notifications insert failed source_id=%s", source_id)
+
+
 @router.post("/maintenance")
 async def create_maintenance_request(
     body: MaintenanceRequestCreate,
@@ -454,6 +527,39 @@ async def create_maintenance_request(
             reconcile_apartment_maintenance_pointer(int(row["apartment_id"]))
         except (TypeError, ValueError):
             pass
+    if row:
+        owner_user_id = apt_row.get("owner_id")
+        try:
+            owner_user_id = int(owner_user_id) if owner_user_id is not None else None
+        except (TypeError, ValueError):
+            owner_user_id = None
+        if owner_user_id is not None:
+            building_name, building_number = _lookup_building_context(apt_row.get("building_id"))
+            apartment_number = (
+                apt_row.get("apartment_number")
+                if apt_row.get("apartment_number") not in (None, "")
+                else None
+            )
+            notif_rows = [
+                {
+                    "user_id": owner_user_id,
+                    "title": "MAINTENANCE_REQUEST_CREATED",
+                    "message": f"طلب جديد: {title_clean}",
+                    "is_read": False,
+                    "kind": "maintenance",
+                    "event_type": "maintenance_request_created",
+                    "source_table": "maintenance_requests",
+                    "source_id": row.get("id"),
+                    "maintenance_request_id": row.get("id"),
+                    "contract_id": row.get("contract_id"),
+                    "apartment_id": row.get("apartment_id"),
+                    "apartment_number": apartment_number,
+                    "building_id": row.get("building_id"),
+                    "building_name": building_name,
+                    "building_number": building_number,
+                }
+            ]
+            _insert_notifications_rows(notif_rows, source_id=row.get("id"))
     enriched = _enrich_maintenance_rows([row] if row else [])
     return enriched[0] if enriched else row
 
@@ -567,6 +673,57 @@ async def patch_maintenance_request(
 
     rows_back = getattr(response, "data", None) or []
     out = rows_back[0] if rows_back else None
+    if out and is_owner:
+        tenant_user_id = _tenant_user_id_from_request_row(out, apt_row)
+        if tenant_user_id is not None:
+            building_name, building_number = _lookup_building_context(out.get("building_id") or apt_row.get("building_id"))
+            apartment_number = (
+                apt_row.get("apartment_number")
+                if apt_row.get("apartment_number") not in (None, "")
+                else None
+            )
+            notif_rows: list[dict] = []
+            if body.owner_reply is not None and str(body.owner_reply).strip():
+                notif_rows.append(
+                    {
+                        "user_id": tenant_user_id,
+                        "title": "MAINTENANCE_OWNER_REPLIED",
+                        "message": "تم الرد على طلب الصيانة.",
+                        "is_read": False,
+                        "kind": "maintenance",
+                        "event_type": "maintenance_owner_replied",
+                        "source_table": "maintenance_requests",
+                        "source_id": out.get("id"),
+                        "maintenance_request_id": out.get("id"),
+                        "contract_id": out.get("contract_id"),
+                        "apartment_id": out.get("apartment_id"),
+                        "apartment_number": apartment_number,
+                        "building_id": out.get("building_id") or apt_row.get("building_id"),
+                        "building_name": building_name,
+                        "building_number": building_number,
+                    }
+                )
+            if body.status is not None and str(body.status).lower() == "resolved":
+                notif_rows.append(
+                    {
+                        "user_id": tenant_user_id,
+                        "title": "MAINTENANCE_REQUEST_RESOLVED",
+                        "message": "تمت معالجة طلب الصيانة.",
+                        "is_read": False,
+                        "kind": "maintenance",
+                        "event_type": "maintenance_request_resolved",
+                        "source_table": "maintenance_requests",
+                        "source_id": out.get("id"),
+                        "maintenance_request_id": out.get("id"),
+                        "contract_id": out.get("contract_id"),
+                        "apartment_id": out.get("apartment_id"),
+                        "apartment_number": apartment_number,
+                        "building_id": out.get("building_id") or apt_row.get("building_id"),
+                        "building_name": building_name,
+                        "building_number": building_number,
+                    }
+                )
+            _insert_notifications_rows(notif_rows, source_id=out.get("id"))
     if apt_id is not None:
         try:
             reconcile_apartment_maintenance_pointer(int(apt_id))

@@ -60,6 +60,29 @@ body.dark-mode .no-building{
   color:var(--wl-text-primary);
 }
 
+body.dark-mode .tenant-alert-card{
+  background:rgba(245,158,11,0.18);
+  border-color:rgba(251,191,36,0.45);
+  color:#fde68a;
+}
+
+body.dark-mode .tenant-alert-item{
+  background:rgba(15,23,42,0.35);
+}
+
+body.dark-mode .tenant-search-box input,
+body.dark-mode .tenant-filter-box select{
+  background:rgba(16,24,37,0.9);
+  border-color:var(--wl-border-subtle);
+  color:var(--wl-text-primary);
+}
+
+body.dark-mode .tenant-stat-chip{
+  background:rgba(34,211,238,0.14);
+  border-color:rgba(34,211,238,0.36);
+  color:#e2f5ff;
+}
+
 
 /* Ø¹Ù†ÙˆØ§Ù† Ø§Ù„ØµÙØ­Ø© */
 .page-title{
@@ -84,24 +107,145 @@ body.dark-mode .no-building{
   padding:0 22px;
 }
 
+.tenant-topbar-wrap{
+  margin-top:14px;
+  margin-bottom:14px;
+}
+
+.tenant-topbar{
+  display:grid;
+  grid-template-columns:1fr 220px;
+  gap:12px;
+  margin-bottom:10px;
+}
+
+.tenant-search-box input,
+.tenant-filter-box select{
+  width:100%;
+  height:48px;
+  border-radius:14px;
+  border:1px solid rgba(26,47,74,0.15);
+  background:rgba(255,255,255,0.92);
+  color:#0b2540;
+  font-size:16px;
+  font-weight:700;
+  padding:0 14px;
+  box-shadow:0 8px 18px rgba(15,23,42,0.08);
+}
+
+.tenant-units-stats{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:10px;
+}
+
+.tenant-stat-chip{
+  border-radius:999px;
+  border:1px solid rgba(54,215,232,0.35);
+  background:rgba(54,215,232,0.13);
+  color:#0b2540;
+  font-weight:800;
+  font-size:13px;
+  padding:6px 10px;
+}
+
+.tenant-alerts-wrap{
+  width:100%;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+.tenant-alert-card{
+  width:100%;
+  background:rgba(255,214,102,0.18);
+  border:1px solid rgba(242,159,61,0.55);
+  border-radius:16px;
+  padding:14px 16px;
+  color:#3c2b00;
+  box-shadow:0 8px 20px rgba(242,159,61,0.16);
+}
+
+.tenant-alert-title{
+  margin:0 0 6px;
+  font-weight:900;
+  font-size:20px;
+}
+
+.tenant-alert-body{
+  margin:0;
+  font-weight:700;
+  font-size:16px;
+  line-height:1.6;
+}
+
+.tenant-alert-list{
+  margin-top:10px;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+.tenant-alert-item{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  background:rgba(255,255,255,0.45);
+  border-radius:10px;
+  padding:8px 10px;
+}
+
+.tenant-alert-item-main{
+  font-weight:900;
+  font-size:14px;
+}
+
+.tenant-alert-item-sub{
+  font-weight:800;
+  font-size:13px;
+  opacity:0.9;
+  white-space:nowrap;
+}
+
+.tenant-alert-more{
+  border:none;
+  background:transparent;
+  padding:0;
+  text-align:inherit;
+  cursor:pointer;
+  text-decoration:underline;
+  font-weight:800;
+  font-size:13px;
+  opacity:0.9;
+}
+
+.tenant-alert-hidden-list{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+.tenant-alert-hidden-list[hidden]{
+  display:none !important;
+}
+
 #tenantApartments{
   width:100%;
   display:grid;
-  grid-template-columns:repeat(3, minmax(260px, 320px));
-  justify-content:center;
+  grid-template-columns:repeat(auto-fill, minmax(240px, 1fr));
+  justify-content:stretch;
   gap:26px;
 }
 
 /* ÙƒØ±Øª Ø§Ù„Ø¹Ù…Ø§Ø±Ø© */
 .building-card{
   width:100%;
-  height:190px;
+  min-height:198px;
 
   position:relative;
-  display:flex;
-  align-items:flex-end;
-  justify-content:center;
-  padding-bottom:18px;
+  display:block;
 
   border-radius:28px;
   overflow:hidden;
@@ -114,6 +258,73 @@ body.dark-mode .no-building{
   -webkit-backdrop-filter:blur(8px);
 
   transition:transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+}
+
+.building-card.has-reply-alert{
+  border-color:rgba(255,59,48,0.7);
+  box-shadow:0 0 0 2px rgba(255,59,48,0.28), var(--shadow-md);
+}
+
+.building-card.is-pinned{
+  box-shadow:0 0 0 2px rgba(250,204,21,0.42), var(--shadow-md);
+}
+
+.apt-pin-btn{
+  position:absolute;
+  top:10px;
+  left:10px;
+  z-index:4;
+  width:34px;
+  height:34px;
+  border:none;
+  border-radius:10px;
+  cursor:pointer;
+  background:rgba(255,255,255,0.9);
+  color:#1a2f4a;
+  font-size:18px;
+  line-height:1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-shadow:0 6px 16px rgba(15,23,42,0.22);
+}
+
+.apt-pin-btn.is-pinned{
+  background:rgba(250,204,21,0.95);
+}
+
+.apt-reply-dot{
+  position:absolute;
+  top:10px;
+  right:10px;
+  width:14px;
+  height:14px;
+  border-radius:50%;
+  background:#ff3b30;
+  border:2px solid #ffffff;
+  box-shadow:0 0 10px rgba(255,59,48,0.75);
+  z-index:8;
+}
+
+body.dark-mode .apt-pin-btn{
+  background:rgba(15,23,42,0.86);
+  color:#f8fafc;
+}
+
+body.dark-mode .apt-pin-btn.is-pinned{
+  background:rgba(250,204,21,0.92);
+  color:#1f2937;
+}
+
+body.dark-mode .building-name-box{
+  background:rgba(2,6,23,0.75);
+  color:#e2f5ff;
+}
+
+body.dark-mode .apartment-number-box{
+  background:rgba(15,23,42,0.92);
+  border-color:var(--wl-border-subtle);
+  color:#e2f5ff;
 }
 
 .building-card:hover{
@@ -144,7 +355,7 @@ body.dark-mode .no-building{
   display:flex;
   align-items:center;
   justify-content:center;
-  background:#36d7e8;
+  background:linear-gradient(135deg,#36d7e8 0%, #1fb8d4 48%, #1a2f4a 100%);
 }
 
 .building-card__media img{
@@ -156,19 +367,70 @@ body.dark-mode .no-building{
   object-fit:contain;
 }
 
-.building-card p{
+.building-name-box{
   position:relative;
-  z-index:2;
+  z-index:4;
   margin:0;
-  padding:0 18px;
-
-  font-size:28px;
-  font-weight:900;
-  line-height:1.35;
+  padding:12px 14px;
+  margin-inline-end:28px;
+  border-radius:0 0 14px 14px;
+  width:max-content;
+  max-width:85%;
+  background:rgba(11,37,64,0.74);
   color:#ffffff;
+  font-size:24px;
+  font-weight:900;
+  line-height:1.2;
+  text-shadow:0 2px 8px rgba(0,0,0,0.25);
+}
 
+.apartment-number-box{
+  position:absolute;
+  z-index:4;
+  right:12px;
+  bottom:12px;
+  margin:0;
+  padding:10px 12px;
+  border-radius:12px;
+  background:rgba(255,255,255,0.95);
+  color:#0b2540;
+  font-size:20px;
+  font-weight:900;
+  line-height:1.2;
+  border:1px solid rgba(11,37,64,0.16);
+  box-shadow:0 8px 22px rgba(15,23,42,0.2);
   text-align:center;
-  text-shadow:0 3px 10px rgba(0,0,0,0.35);
+}
+
+.apartment-badges{
+  position:absolute;
+  bottom:12px;
+  left:12px;
+  z-index:6;
+  display:flex;
+  gap:6px;
+  flex-wrap:wrap;
+  max-width:calc(100% - 150px);
+}
+
+.apartment-badge{
+  border-radius:999px;
+  padding:4px 9px;
+  font-size:11px;
+  font-weight:900;
+  color:#0b2540;
+  background:rgba(255,255,255,0.92);
+  border:1px solid rgba(11,37,64,0.12);
+}
+
+.apartment-badge.reply{
+  background:rgba(255,59,48,0.92);
+  color:#fff;
+}
+
+.apartment-badge.overdue{
+  background:rgba(245,158,11,0.93);
+  color:#1f2937;
 }
 
 /* Ù„Ø§ ØªÙˆØ¬Ø¯ Ø¹Ù…Ø§Ø¦Ø± */
@@ -189,23 +451,31 @@ body.dark-mode .no-building{
 
 /* Responsive */
 @media (max-width: 900px){
+  .tenant-topbar{
+    grid-template-columns:1fr;
+  }
+
   .page-title h2{
     font-size:34px;
   }
 
   #tenantApartments{
-    grid-template-columns:repeat(2, minmax(240px, 300px));
+    grid-template-columns:repeat(2, minmax(220px, 1fr));
     gap:18px;
     margin:26px auto 40px;
   }
 
   .building-card{
-    height:175px;
+    min-height:175px;
     border-radius:24px;
   }
 
-  .building-card p{
-    font-size:24px;
+  .building-name-box{
+    font-size:20px;
+  }
+
+  .apartment-number-box{
+    font-size:18px;
   }
 }
 
@@ -229,13 +499,21 @@ body.dark-mode .no-building{
   }
 
   .building-card{
-    height:165px;
+    min-height:165px;
     border-radius:22px;
   }
 
-  .building-card p{
-    font-size:22px;
-    padding:0 14px;
+  .building-name-box{
+    font-size:18px;
+    max-width:90%;
+  }
+
+  .apartment-number-box{
+    font-size:17px;
+  }
+
+  .apartment-badges{
+    max-width:48%;
   }
 
   .no-building{

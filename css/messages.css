@@ -342,13 +342,14 @@ font-weight:900;
 .type-badge.maintenance{background:rgba(242,159,61,0.25);}
 .type-badge.suggestion{background:rgba(74,144,226,0.25);}
 .type-badge.request{background:rgba(58,191,122,0.25);}
+.type-badge.payment{background:rgba(132,110,255,0.26);}
 
 .status-badge.unread{background:rgba(54,215,232,0.35);color:var(--ink);}
 .status-badge.read{background:rgba(58,191,122,0.25);}
 
 .message-meta{
 display:grid;
-grid-template-columns:repeat(4,1fr);
+grid-template-columns:repeat(3,minmax(180px,1fr));
 gap:10px;
 margin-bottom:14px;
 }
@@ -371,6 +372,9 @@ color:rgba(26,47,74,0.55);
 font-size:14px;
 font-weight:900;
 color:var(--ink);
+white-space:normal;
+overflow-wrap:anywhere;
+word-break:break-word;
 }
 
 .message-preview{
@@ -378,6 +382,11 @@ margin-bottom:14px;
 font-size:14px;
 line-height:1.8;
 color:var(--soft);
+}
+
+.message-card.is-read .message-content > *:not(.message-actions){
+opacity:.68;
+filter:saturate(.6);
 }
 
 .message-actions{
@@ -490,6 +499,10 @@ padding:20px;
 display:grid;
 grid-template-columns:repeat(2,1fr);
 gap:12px;
+}
+
+.legend-dot.payment{
+  background:linear-gradient(135deg,#7f6dff,#42d7e8);
 }
 
 .details-body-box{
