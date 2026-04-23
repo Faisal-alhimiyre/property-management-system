@@ -72,6 +72,18 @@ body.dark-mode .portfolio-home-btn:hover {
   border-color: rgba(148, 163, 184, 0.5);
 }
 
+body.dark-mode .portfolio-home-btn--deleted {
+  background: #dc2626;
+  color: #fff;
+  border-color: rgba(248, 113, 113, 0.55);
+  box-shadow: 0 4px 18px rgba(220, 38, 38, 0.28);
+}
+
+body.dark-mode .portfolio-home-btn--deleted:hover {
+  background: #ef4444;
+  border-color: rgba(252, 165, 165, 0.65);
+}
+
 body.dark-mode .global-requests-alert {
   background: rgba(127, 29, 29, 0.16);
   color: #fecaca;
@@ -214,6 +226,19 @@ html[dir="ltr"] .page-head-actions {
   transform: translateY(-2px);
   border-color: rgba(12, 24, 49, 0.35);
   box-shadow: 0 8px 20px rgba(12, 24, 49, 0.12);
+}
+
+.portfolio-home-btn--deleted {
+  background: #dc2626;
+  color: #fff;
+  border-color: rgba(185, 28, 28, 0.85);
+  box-shadow: 0 4px 16px rgba(220, 38, 38, 0.35);
+}
+
+.portfolio-home-btn--deleted:hover {
+  background: #b91c1c;
+  border-color: rgba(153, 27, 27, 0.95);
+  box-shadow: 0 8px 22px rgba(220, 38, 38, 0.45);
 }
 
 /* global alert */

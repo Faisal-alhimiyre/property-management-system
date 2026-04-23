@@ -14,10 +14,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   const emptyState = document.getElementById("emptyState");
   const globalRequestsAlert = document.getElementById("globalRequestsAlert");
   const portfolioFinanceHomeBtn = document.getElementById("portfolioFinanceHomeBtn");
+  const buildingsArchiveBtn = document.getElementById("buildingsArchiveBtn");
 
   if (portfolioFinanceHomeBtn) {
     portfolioFinanceHomeBtn.addEventListener("click", () => {
       window.location.href = "portfolio_finance.html";
+    });
+  }
+  if (buildingsArchiveBtn) {
+    buildingsArchiveBtn.addEventListener("click", () => {
+      window.location.href = "owner_archive.html";
     });
   }
 
@@ -33,6 +39,247 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function writePins(map) {
     sessionStorage.setItem(PINS_KEY, JSON.stringify(map || {}));
+  }
+
+  const ARCHIVE_KEY = "walajna_buildings_archive";
+  const ARCHIVE_LIMIT = 100;
+
+  function readBuildingArchive() {
+    try {
+      const rows = JSON.parse(localStorage.getItem(ARCHIVE_KEY) || "[]");
+      return Array.isArray(rows) ? rows : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function writeBuildingArchive(rows) {
+    localStorage.setItem(ARCHIVE_KEY, JSON.stringify(Array.isArray(rows) ? rows : []));
+  }
+
+  function toMonthKey(rawDate) {
+    const d = new Date(rawDate);
+    if (Number.isNaN(d.getTime())) return null;
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  }
+
+  function buildIncomeHistoryFromInstallments(installments) {
+    const byMonth = new Map();
+    (installments || []).forEach((item) => {
+      if (String(item.status || "").toLowerCase() !== "paid") return;
+      const k = toMonthKey(item.paid_at || item.paidAt || item.due_date || item.dueDate);
+      if (!k) return;
+      const amount = Number(item.amount || 0);
+      if (!Number.isFinite(amount)) return;
+      byMonth.set(k, (byMonth.get(k) || 0) + amount);
+    });
+    return Array.from(byMonth.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([month, amount]) => ({ month, amount }));
+  }
+
+  function buildIncomeHistoryByApartment(installments, buildingApartments) {
+    const numberByApiId = new Map();
+    (buildingApartments || []).forEach((apt) => {
+      const aid = apt.apiId ?? apt.id;
+      if (aid == null) return;
+      numberByApiId.set(String(aid), String(apt.number ?? apt.apartment_number ?? ""));
+    });
+
+    const byApartment = new Map();
+    (installments || []).forEach((item) => {
+      if (String(item.status || "").toLowerCase() !== "paid") return;
+      const aptId = item.apartment_id != null ? String(item.apartment_id) : "";
+      if (!aptId) return;
+      const aptNum = numberByApiId.get(aptId) || aptId;
+      const month = toMonthKey(item.paid_at || item.paidAt || item.due_date || item.dueDate);
+      if (!month) return;
+      const amount = Number(item.amount || 0);
+      if (!Number.isFinite(amount)) return;
+      if (!byApartment.has(aptNum)) byApartment.set(aptNum, new Map());
+      const byMonth = byApartment.get(aptNum);
+      byMonth.set(month, (byMonth.get(month) || 0) + amount);
+    });
+
+    return Array.from(byApartment.entries()).map(([apartmentNumber, monthMap]) => ({
+      apartmentNumber,
+      rows: Array.from(monthMap.entries())
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([month, amount]) => ({ month, amount })),
+    }));
+  }
+
+  async function fetchCostsForApartments(buildingApartments) {
+    const out = [];
+    const aptIds = [
+      ...new Set(
+        (buildingApartments || [])
+          .map((a) => a.apiId ?? a.id)
+          .filter((x) => Number.isFinite(Number(x)))
+          .map((x) => Number(x))
+      ),
+    ];
+    if (
+      !aptIds.length ||
+      typeof WalajnaAuth === "undefined" ||
+      !WalajnaAuth.fetchWithAuth
+    ) {
+      return out;
+    }
+    for (const apartmentId of aptIds) {
+      try {
+        const res = await WalajnaAuth.fetchWithAuth(
+          `${WalajnaAuth.API_BASE}/api/costs?apartment_id=${encodeURIComponent(apartmentId)}`,
+          { method: "GET" }
+        );
+        if (!res.ok) continue;
+        const rows = await res.json();
+        if (Array.isArray(rows)) out.push(...rows);
+      } catch {
+        // ignore per-apartment fetch errors
+      }
+    }
+    return out;
+  }
+
+  function buildMaintenanceHistoryRows(buildingId, buildingApartments, maintenanceRows, costRows) {
+    const aptIds = new Set(
+      (buildingApartments || [])
+        .map((a) => String(a.apiId ?? a.id ?? ""))
+        .filter(Boolean)
+    );
+    const aptNumbersById = new Map(
+      (buildingApartments || [])
+        .map((a) => [String(a.apiId ?? a.id ?? ""), String(a.number ?? a.apartment_number ?? "")])
+        .filter(([id]) => id)
+    );
+
+    const maintenanceApiRows = (maintenanceRows || [])
+      .filter((item) => {
+        const aid = String(item.apartment_id ?? "");
+        const bid = String(item.building_id ?? "");
+        return (aid && aptIds.has(aid)) || (bid && String(buildingId) === bid);
+      })
+      .map((item) => ({
+        id: item.id ?? null,
+        apartmentId: item.apartment_id ?? null,
+        apartmentNumber: item.apartment_number ?? aptNumbersById.get(String(item.apartment_id ?? "")) ?? null,
+        title: item.title || "",
+        description: item.description || "",
+        requestType: item.request_type || "maintenance",
+        status: item.status || "",
+        priority: item.priority || "",
+        amount: item.amount ?? item.cost ?? null,
+        ownerReply: item.owner_reply || "",
+        createdAt: item.created_at || null,
+        resolvedAt: item.resolved_at || null,
+        source: "maintenance_api",
+      }))
+      .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+
+    const costsApiRows = (costRows || []).map((c) => ({
+      id: c.id ?? null,
+      apartmentId: c.apartment_id ?? null,
+      apartmentNumber: aptNumbersById.get(String(c.apartment_id ?? "")) ?? null,
+      title: c.cost_type || "maintenance",
+      description: c.notes || "",
+      requestType: c.cost_type || "maintenance",
+      status: c.status || "recorded",
+      priority: "",
+      amount: c.amount ?? null,
+      ownerReply: "",
+      createdAt: c.expense_date || c.created_at || null,
+      resolvedAt: null,
+      source: "costs_api",
+    }));
+
+    const localCostsRows = (() => {
+      let rows = [];
+      try {
+        const parsed = JSON.parse(localStorage.getItem("walajna_costs") || "[]");
+        rows = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        rows = [];
+      }
+      return rows
+        .filter((c) => {
+          const aid = String(c.apartmentId ?? "");
+          const bid = String(c.buildingId ?? "");
+          return (aid && aptIds.has(aid)) || (bid && String(buildingId) === bid);
+        })
+        .map((c) => ({
+          id: c.id ?? null,
+          apartmentId: c.apartmentId ?? null,
+          apartmentNumber: c.apartmentNumber ?? aptNumbersById.get(String(c.apartmentId ?? "")) ?? null,
+          title: c.title || c.category || c.type || "maintenance",
+          description: c.description || c.notes || "",
+          requestType: c.category || c.type || "maintenance",
+          status: "recorded",
+          priority: "",
+          amount: c.amount ?? null,
+          ownerReply: "",
+          createdAt: c.date || c.createdAt || null,
+          resolvedAt: null,
+          source: "costs_local",
+        }));
+    })();
+
+    return [...maintenanceApiRows, ...costsApiRows, ...localCostsRows];
+  }
+
+  async function fetchBuildingInstallments(buildingId) {
+    try {
+      const res = await WalajnaAuth.fetchWithAuth(
+        `${WalajnaAuth.API_BASE}/api/buildings/${encodeURIComponent(buildingId)}/installments`,
+        { method: "GET" }
+      );
+      if (!res.ok) return [];
+      const rows = await res.json();
+      return Array.isArray(rows) ? rows : [];
+    } catch {
+      return [];
+    }
+  }
+
+  async function archiveBuildingBeforeDelete(buildingId) {
+    const building = buildings.find((b) => String(b.id) === String(buildingId));
+    if (!building) return;
+
+    const buildingApartments = getApartmentsForBuilding(buildingId, apartments);
+    const costRows = await fetchCostsForApartments(buildingApartments);
+    const maintenanceHistory = buildMaintenanceHistoryRows(
+      buildingId,
+      buildingApartments,
+      maintenanceRows,
+      costRows
+    );
+    const installments = await fetchBuildingInstallments(buildingId);
+    const incomeHistory = buildIncomeHistoryFromInstallments(installments);
+    const incomeHistoryByApartment = buildIncomeHistoryByApartment(installments, buildingApartments);
+
+    const snapshot = {
+      archiveId: `b-${buildingId}-${Date.now()}`,
+      buildingId: String(building.id),
+      archivedAt: new Date().toISOString(),
+      building: {
+        id: building.id,
+        name: building.name,
+        city: building.city,
+        code: building.code || null,
+        apartmentCount: Number(building.apartmentCount ?? building.apartments_count ?? 0),
+        totalFloors: Number(building.totalFloors ?? building.total_floors ?? 0),
+      },
+      apartments: buildingApartments,
+      maintenanceHistory,
+      incomeHistory,
+      incomeHistoryByApartment,
+      incomeInstallments: installments,
+      totalIncome: incomeHistory.reduce((sum, row) => sum + Number(row.amount || 0), 0),
+    };
+
+    const archive = readBuildingArchive().filter((x) => String(x.buildingId) !== String(buildingId));
+    archive.unshift(snapshot);
+    writeBuildingArchive(archive.slice(0, ARCHIVE_LIMIT));
   }
 
   async function getServerBuildings() {
@@ -364,6 +611,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     const confirmed = confirm(wlT("owner.confirmDeleteBuilding"));
     if (!confirmed) return;
 
+    await archiveBuildingBeforeDelete(buildingId);
+
     try {
       const res = await WalajnaAuth.fetchWithAuth(
         `${WalajnaAuth.API_BASE}/api/buildings/${encodeURIComponent(buildingId)}`,
@@ -384,7 +633,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     delete pins[String(buildingId)];
     writePins(pins);
 
-    alert(wlT("owner.buildingDeleted"));
+    alert(wlT("owner.buildingArchived"));
     window.location.reload();
   }
 

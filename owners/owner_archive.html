@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <script>(function(){try{var l=localStorage.getItem("walajna_language")||"ar";if(l!=="en"&&l!=="ar"&&l!=="ur")l="ar";document.documentElement.setAttribute("lang",l==="en"?"en":(l==="ur"?"ur":"ar"));document.documentElement.setAttribute("dir",l==="en"?"ltr":"rtl");}catch(e){}})();</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title data-i18n="meta.ownerArchive">أرشيف العمائر - ولجنا</title>
+  <link rel="stylesheet" href="../css/theme.css">
+  <link rel="stylesheet" href="../css/navstyle.css">
+  <link rel="stylesheet" href="../css/owner.css">
+  <link rel="stylesheet" href="../css/owner-archive.css">
+  <script src="../js/main/walajna-i18n-ur.js"></script>
+  <script src="../js/main/walajna-i18n.js"></script>
+</head>
+<body data-nav="user" data-wl-bc="owner-archive">
+  <div id="navbar-container"></div>
+  <main class="owner-dashboard owner-archive-dashboard">
+    <div class="page-head">
+      <div>
+        <h2 class="page-title" data-i18n="owner.archiveTitle">أرشيف العمائر</h2>
+        <p class="archive-head-sub" data-i18n="owner.archiveSubtitle">سجل كامل للعمائر المحذوفة يشمل الصيانة والدخل للمراجعة.</p>
+      </div>
+    </div>
+
+    <section id="archiveEmpty" class="empty-state archive-empty-msg" style="display:none;" data-i18n="owner.archiveEmpty" role="status">
+      الأرشيف فارغ. لا توجد عمائر مؤرشفة للعرض.
+    </section>
+
+    <section id="archiveGrid" class="buildings-container"></section>
+  </main>
+
+  <script src="../js/main/breadcrumbs.js"></script>
+  <script src="../js/main/auth.js"></script>
+  <script src="../js/main/nav.js"></script>
+  <script src="../js/main/theme.js"></script>
+  <script src="../js/owner-manager/owner-archive.js"></script>
+</body>
+</html>

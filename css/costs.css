@@ -141,6 +141,41 @@ body{
   overflow-x:auto;
 }
 
+/* Portfolio costs (سجل المصروفات accordion): match finance-summary spacing — cards & table not flush */
+body[data-wl-bc="portfolio-costs"] .pay-wrap{
+  margin-top:28px;
+  padding:22px 20px 40px;
+}
+
+body[data-wl-bc="portfolio-costs"] .pay-header{
+  margin-bottom:4px;
+}
+
+body[data-wl-bc="portfolio-costs"] .costs-topbar--portfolio{
+  margin-top:24px;
+}
+
+body[data-wl-bc="portfolio-costs"] .pay-summary{
+  margin-top:22px;
+  margin-bottom:28px;
+  gap:18px;
+}
+
+body[data-wl-bc="portfolio-costs"] .sum-card{
+  padding:20px 22px;
+  min-height:108px;
+  border-radius:24px;
+}
+
+body[data-wl-bc="portfolio-costs"] .finance-table-section.portfolio-costs-accordion{
+  margin-top:0;
+  margin-bottom:28px;
+}
+
+body[data-wl-bc="portfolio-costs"] .portfolio-costs-accordion .finance-table-wrap{
+  margin-top:4px;
+}
+
 .costs-portfolio-main-table.finance-table--portfolio tfoot .finance-total-count{
   color:#607086;
   font-weight:700;
