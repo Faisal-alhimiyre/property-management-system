@@ -4,7 +4,7 @@
   <script>(function(){try{var l=localStorage.getItem('walajna_language')||'ar';if(l!=='en'&&l!=='ar'&&l!=='ur')l='ar';document.documentElement.setAttribute('lang',l==='en'?'en':(l==='ur'?'ur':'ar'));document.documentElement.setAttribute('dir',l==='en'?'ltr':'rtl');}catch(e){}})();</script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title data-i18n="meta.portfolioFinance">ملخص المحفظة المالية</title>
+  <title data-i18n="meta.archiveIncomeHistory">سجل الدخل — أرشيف - ولجنا</title>
 
   <link rel="stylesheet" href="../css/theme.css" />
   <link rel="stylesheet" href="../css/navstyle.css" />
@@ -12,16 +12,16 @@
   <script src="../js/main/walajna-i18n-ur.js"></script>
   <script src="../js/main/walajna-i18n.js"></script>
 </head>
-<body data-nav="user" data-wl-bc="portfolio-finance">
+<body data-nav="user" data-wl-bc="archive-income-history">
   <div id="navbar-container"></div>
 
-  <main class="finance-page">
+  <main class="finance-page finance-page--archive-income">
 
     <section class="finance-hero">
       <div class="finance-hero__header">
         <div class="finance-hero__content">
-          <h1 id="pageTitle" class="finance-title" data-i18n="finance.summaryAllBuildings">الملخص المالي - جميع العمائر</h1>
-          <p class="finance-subtitle" data-i18n="finance.portfolioSubtitle">إجمالي الدخل والتكاليف لجميع عمائرك في الفترة المختارة</p>
+          <h1 id="buildingName" class="finance-title" data-i18n="finance.archiveIncomeHeading">سجل الدخل — عمارة مؤرشفة</h1>
+          <p class="finance-subtitle" data-i18n="finance.archiveIncomeSubtitle">عرض الدخل والتكاليف المحفوظة عند أرشفة العمارة</p>
         </div>
 
         <div class="finance-filters">
@@ -57,11 +57,6 @@
       </article>
 
       <article class="finance-card">
-        <span class="finance-card__label" data-i18n="finance.cardLate">المتأخرات</span>
-        <strong id="lateValue" class="finance-card__value">0</strong>
-      </article>
-
-      <article class="finance-card">
         <span class="finance-card__label" data-i18n="finance.cardProfit">الربح</span>
         <strong id="profitValue" class="finance-card__value">0</strong>
       </article>
@@ -70,22 +65,16 @@
     <section class="finance-table-section">
       <div class="finance-table-header">
         <h2 data-i18n="finance.aptDetails">تفاصيل الشقق</h2>
-        <div class="finance-table-header__aside">
-          <span id="tableMeta" class="finance-table-meta">0</span>
-          <button type="button" id="portfolioCostDetailsBtn" class="finance-summary-btn finance-cost-details-btn" data-i18n="finance.costDetailsBtn">تفاصيل التكاليف</button>
-        </div>
+        <span id="tableMeta" class="finance-table-meta">0</span>
       </div>
 
       <div class="finance-table-wrap">
-        <table class="finance-table finance-table--portfolio">
+        <table class="finance-table">
           <thead>
             <tr>
-              <th data-i18n="finance.th.building">العمارة</th>
-              <th data-i18n="finance.th.apartmentCount">عدد الشقق</th>
-              <th data-i18n="finance.th.rentedApartments">الشقق المؤجرة</th>
+              <th data-i18n="finance.th.apt">الشقة</th>
               <th data-i18n="finance.th.income">الدخل</th>
               <th data-i18n="finance.th.costs">التكاليف</th>
-              <th data-i18n="finance.th.late">المتأخرات</th>
               <th data-i18n="finance.th.notes">ملاحظات</th>
               <th data-i18n="finance.th.profit">الربح</th>
             </tr>
@@ -93,12 +82,9 @@
           <tbody id="tableBody"></tbody>
           <tfoot>
             <tr>
-              <td class="finance-total-label" data-i18n="finance.totalRow">الإجمالي</td>
-              <td id="footerTotalUnits" class="finance-total-count">0</td>
-              <td id="footerTotalRented" class="finance-total-count">0</td>
+              <td data-i18n="finance.totalRow">الإجمالي</td>
               <td id="totalIncome">0</td>
               <td id="totalCosts">0</td>
-              <td id="totalLate">0</td>
               <td data-i18n="common.dash">—</td>
               <td id="totalProfit">0</td>
             </tr>
@@ -113,8 +99,6 @@
   <script src="../js/main/theme.js"></script>
   <script src="../js/main/breadcrumbs.js"></script>
   <script src="../js/main/nav.js"></script>
-  <script src="../js/main/payments-api.js"></script>
-  <script src="../js/main/apartments-api.js"></script>
-  <script src="../js/owner-manager/portfolio-finance.js"></script>
+  <script src="../js/owner-manager/archive-income-history.js"></script>
 </body>
 </html>

@@ -212,6 +212,31 @@
 
     if (bc === "owner-buildings") {
       segments = [{ labelKey: "owner.pageTitle", current: true }];
+    } else if (bc === "owner-archive") {
+      segments = [
+        { href: resolveHref("owner_home"), labelKey: "owner.pageTitle" },
+        { labelKey: "owner.archiveTitle", current: true },
+      ];
+    } else if (bc === "owner-archive-building") {
+      segments = [
+        { href: resolveHref("owner_home"), labelKey: "owner.pageTitle" },
+        { href: hrefOwnersPage("owner_archive.html"), labelKey: "owner.archiveTitle" },
+        { labelKey: "owner.archiveBuildingTitle", current: true },
+      ];
+    } else if (bc === "archive-income-history") {
+      const archiveId = params.get("archiveId");
+      segments = [
+        { href: resolveHref("owner_home"), labelKey: homeBreadcrumbLabelKey() },
+        { href: hrefOwnersPage("owner_archive.html"), labelKey: "owner.archiveTitle" },
+        {
+          href: hrefOwnersPage(
+            "owner_archive_building.html",
+            "?archiveId=" + encodeURIComponent(archiveId || "")
+          ),
+          labelKey: "owner.archiveBuildingTitle",
+        },
+        { labelKey: "bc.archiveIncomeHistory", current: true },
+      ];
     } else if (bc === "tenant-units") {
       segments = [{ labelKey: "tenant.unitsTitle", current: true }];
     } else if (bc === "owner-building") {

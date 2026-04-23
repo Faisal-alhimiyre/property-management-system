@@ -6,6 +6,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const params = new URLSearchParams(window.location.search);
   const rawBuildingId = params.get("buildingId") || "";
+  const archiveId = params.get("archiveId") || "";
 
   const normalizeId = (value) => String(value || "").trim();
   const buildingId = normalizeId(rawBuildingId);
@@ -16,10 +17,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   let building = null;
   let buildingApartments = [];
+  let archiveRow = null;
 
   /** Paid installments for this building (includes vacated units; GET /api/buildings/:id/installments). */
   let serverInstallmentsForBuilding = [];
   let incomeFromApi = false;
+  let incomeFromArchive = false;
 
   function mapApiApartmentToFinance(api) {
     if (!api) return null;
@@ -113,6 +116,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     (a) => normalizeId(a.buildingId) === buildingId
   );
 
+  function readArchiveRows() {
+    try {
+      const rows = JSON.parse(localStorage.getItem("walajna_buildings_archive") || "[]");
+      return Array.isArray(rows) ? rows : [];
+    } catch {
+      return [];
+    }
+  }
+
   if (
     typeof WalajnaPaymentsApi !== "undefined" &&
     WalajnaPaymentsApi.listMapped &&
@@ -171,6 +183,45 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     } catch (e) {
       console.warn("finance-summary: API load failed (no local buildings fallback)", e);
+    }
+  }
+
+  // Archive fallback: finance summary for deleted buildings.
+  if (!building || !buildingApartments.length) {
+    const archiveRows = readArchiveRows();
+    if (archiveId) {
+      archiveRow = archiveRows.find((row) => String(row.archiveId) === String(archiveId)) || null;
+    } else {
+      // fallback by buildingId when archiveId is missing
+      archiveRow =
+        archiveRows.find((row) => String(row.buildingId) === String(buildingId)) || null;
+    }
+    if (archiveRow) {
+      const b = archiveRow.building || {};
+      building = {
+        id: String(b.id ?? archiveRow.buildingId ?? buildingId),
+        name: b.name || T("building.notFound"),
+        code: b.code != null ? String(b.code) : null,
+      };
+      const archivedApts = Array.isArray(archiveRow.apartments) ? archiveRow.apartments : [];
+      buildingApartments = archivedApts.map((apt) => ({
+        id: String(apt.id ?? apt.apiId ?? ""),
+        apiId: apt.apiId ?? apt.id ?? null,
+        buildingId: String(apt.buildingId ?? apt.building_id ?? buildingId),
+        number: String(apt.number ?? apt.apartment_number ?? ""),
+        floorNumber: Number(apt.floorNumber ?? apt.floor_number ?? 0),
+        leaseStatus: apt.leaseStatus || apt.lease_status || "vacant",
+        tenantUserId: apt.tenantUserId ?? null,
+        tenantNationalId: apt.tenantNationalId ?? null,
+        tenantInfo: apt.tenantInfo || null,
+        currentContractId: apt.currentContractId ?? apt.current_contract_id ?? null,
+        contractId: apt.contractId ?? apt.currentContractId ?? null,
+        contract: apt.contract || null,
+      }));
+      serverInstallmentsForBuilding = Array.isArray(archiveRow.incomeInstallments)
+        ? archiveRow.incomeInstallments
+        : [];
+      incomeFromArchive = serverInstallmentsForBuilding.length > 0;
     }
   }
 
@@ -442,7 +493,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       return 0;
     }
 
-    if (incomeFromApi) {
+    if (incomeFromApi || incomeFromArchive) {
       const rows = serverInstallmentsForBuilding || [];
       let apiIncome = 0;
       rows.forEach((row) => {

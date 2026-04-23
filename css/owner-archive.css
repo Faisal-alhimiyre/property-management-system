@@ -1,0 +1,129 @@
+.owner-archive-dashboard .empty-state.archive-empty-msg {
+  color: #475569;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 16px;
+  padding: 28px 22px;
+  max-width: 520px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.5;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+}
+
+body.dark-mode .owner-archive-dashboard .empty-state.archive-empty-msg {
+  color: #cbd5e1;
+  background: rgba(15, 23, 42, 0.65);
+  border-color: rgba(148, 163, 184, 0.25);
+}
+
+.owner-archive-dashboard .buildings-container .building-card {
+  cursor: pointer;
+}
+
+.archive-head-sub {
+  margin: 8px 0 0;
+  color: #5b7089;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.owner-archive-dashboard .buildings-container .building-card .building-menu-wrap {
+  position: absolute;
+  top: 10px !important;
+  right: 10px !important;
+  bottom: auto !important;
+  left: auto !important;
+  z-index: 40;
+}
+
+.archive-more-btn {
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: #ffffff;
+  color: #0f172a;
+  border-radius: 10px;
+  width: 30px;
+  height: 30px;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.18s ease;
+}
+
+.archive-more-btn:hover {
+  background: #f8fafc;
+  transform: translateY(-1px);
+}
+
+.archive-card-menu {
+  position: absolute;
+  top: 36px;
+  right: 0;
+  left: auto;
+  min-width: 150px;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 12px;
+  box-shadow: 0 12px 22px rgba(15, 23, 42, 0.14);
+  padding: 6px;
+  display: none;
+}
+
+.archive-card-menu.is-open {
+  display: block;
+}
+
+.archive-menu-action {
+  width: 100%;
+  border: none;
+  background: transparent;
+  border-radius: 9px;
+  padding: 8px 10px;
+  text-align: right;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.archive-menu-action:hover {
+  background: #f1f5f9;
+}
+
+.archive-menu-action.restore {
+  color: #166534;
+}
+
+.archive-menu-action.delete {
+  color: #b42318;
+}
+
+body.dark-mode .archive-more-btn {
+  background: rgba(15, 23, 42, 0.75);
+  color: #e2e8f0;
+  border-color: rgba(148, 163, 184, 0.45);
+}
+
+body.dark-mode .archive-card-menu {
+  background: #0f172a;
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+body.dark-mode .archive-menu-action {
+  color: #e2e8f0;
+}
+
+body.dark-mode .archive-menu-action:hover {
+  background: rgba(148, 163, 184, 0.15);
+}
+
+body.dark-mode .archive-menu-action.restore {
+  color: #86efac;
+}
+
+body.dark-mode .archive-menu-action.delete {
+  color: #fda4af;
+}

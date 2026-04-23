@@ -115,6 +115,10 @@ body{
   margin-bottom:22px;
 }
 
+.finance-page--archive-income .finance-cards{
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+}
+
 .finance-card{
   background:var(--wl-surface);
   border-radius:24px;

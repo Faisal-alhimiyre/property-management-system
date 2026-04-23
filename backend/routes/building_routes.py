@@ -321,8 +321,97 @@ async def delete_building(building_id: int, current_user: dict = Depends(get_cur
     if int(existing.data[0]["owner_id"]) != int(current_user["id"]):
         raise HTTPException(status_code=403, detail="Not authorized")
 
-    supabase.table("apartments").delete().eq("building_id", building_id).execute()
-    supabase.table("buildings").delete().eq("id", building_id).execute()
+    try:
+        apt_res = (
+            supabase.table("apartments")
+            .select("id,current_contract_id")
+            .eq("building_id", building_id)
+            .execute()
+        )
+        apt_rows = apt_res.data or []
+        apt_ids = []
+        contract_ids = []
+        for row in apt_rows:
+            aid = row.get("id")
+            if aid is not None:
+                try:
+                    apt_ids.append(int(aid))
+                except (TypeError, ValueError):
+                    pass
+            ccid = row.get("current_contract_id")
+            if ccid is not None:
+                try:
+                    contract_ids.append(int(ccid))
+                except (TypeError, ValueError):
+                    pass
+
+        if apt_ids:
+            # Include ended leases that are not current_contract_id on apartment rows.
+            c_res = (
+                supabase.table("contracts")
+                .select("id")
+                .in_("apartment_id", apt_ids)
+                .execute()
+            )
+            for c in c_res.data or []:
+                cid = c.get("id")
+                if cid is None:
+                    continue
+                try:
+                    contract_ids.append(int(cid))
+                except (TypeError, ValueError):
+                    pass
+
+        contract_ids = list(dict.fromkeys(contract_ids))
+
+        # Keep historical maintenance/costs rows for archive/history pages.
+        # Remove relational blockers only, then contracts/apartments/building.
+        if apt_ids:
+            try:
+                supabase.table("documents").delete().in_("apartment_id", apt_ids).execute()
+            except Exception:
+                logger.exception("delete_building: documents cleanup failed building_id=%s", building_id)
+            try:
+                supabase.table("apartment_history").delete().in_("apartment_id", apt_ids).execute()
+            except Exception:
+                logger.exception("delete_building: apartment_history cleanup failed building_id=%s", building_id)
+            try:
+                supabase.table("tenants").update({"apartment_id": None}).in_("apartment_id", apt_ids).execute()
+            except Exception:
+                logger.exception("delete_building: tenants detachment failed building_id=%s", building_id)
+
+        if contract_ids:
+            # Best-effort cleanup only. Some DBs may still have legacy contract triggers
+            # referencing removed apartments columns (e.g. `rent`), which can break hard delete.
+            # We do not block building deletion on these non-critical history rows.
+            try:
+                supabase.table("payment_installments").delete().in_("contract_id", contract_ids).execute()
+            except Exception:
+                logger.exception("delete_building: installments cleanup failed building_id=%s", building_id)
+            try:
+                # Skip contract deletion failures so active delete can proceed.
+                supabase.table("contracts").delete().in_("id", contract_ids).execute()
+            except Exception:
+                logger.exception("delete_building: contracts cleanup failed building_id=%s", building_id)
+
+        if apt_ids:
+            # Break lease link first to avoid contract FK restrictions while deleting apartments.
+            try:
+                supabase.table("apartments").update({"current_contract_id": None}).in_("id", apt_ids).execute()
+            except Exception:
+                logger.exception("delete_building: clearing apartment current_contract_id failed building_id=%s", building_id)
+            try:
+                supabase.table("apartments").delete().in_("id", apt_ids).execute()
+            except Exception:
+                logger.exception("delete_building: apartments hard-delete failed, trying detach fallback building_id=%s", building_id)
+                # Fallback for legacy DB triggers: detach apartments from this building
+                # so building row can still be deleted from owner list.
+                supabase.table("apartments").update({"building_id": None}).in_("id", apt_ids).execute()
+        supabase.table("buildings").delete().eq("id", building_id).execute()
+    except Exception as exc:
+        logger.exception("delete_building failed building_id=%s", building_id)
+        raise HTTPException(status_code=500, detail=f"Failed to delete building: {str(exc)}")
+
     return {"ok": True}
 
 
