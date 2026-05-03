@@ -71,6 +71,9 @@ function initRequestsSystem(aptId, activeRole, currentUser, leaseStatus, pageApa
   let selectedOwnerRequestId = null;
   /** @type {Array<object>} UI-shaped rows from WalajnaTenantRequests.mapRowToUi */
   let cachedRequests = [];
+  let tenantSubmitInFlight = false;
+  let ownerReplyInFlight = false;
+  let ownerResolveInFlight = false;
 
   function getLocalArray(key) {
     try {
@@ -222,6 +225,26 @@ function initRequestsSystem(aptId, activeRole, currentUser, leaseStatus, pageApa
     `
       )
       .join("");
+  }
+
+  function setButtonBusy(button, busy, busyLabelKey) {
+    if (!button) return;
+    if (busy) {
+      if (!button.dataset.originalText) {
+        button.dataset.originalText = button.textContent || "";
+      }
+      button.disabled = true;
+      button.setAttribute("aria-busy", "true");
+      if (busyLabelKey) {
+        button.textContent = T(busyLabelKey);
+      }
+      return;
+    }
+    button.disabled = false;
+    button.removeAttribute("aria-busy");
+    if (button.dataset.originalText) {
+      button.textContent = button.dataset.originalText;
+    }
   }
 
   function resetMessageUI() {
@@ -427,6 +450,7 @@ function initRequestsSystem(aptId, activeRole, currentUser, leaseStatus, pageApa
 
     if (submitBtn) {
       submitBtn.addEventListener("click", async () => {
+        if (tenantSubmitInFlight) return;
         if (!selectedRequestType) {
           alert(T("aptReq.alert.pickType"));
           return;
@@ -452,6 +476,8 @@ function initRequestsSystem(aptId, activeRole, currentUser, leaseStatus, pageApa
           alert(T("aptReq.alert.noRequestApi"));
           return;
         }
+        tenantSubmitInFlight = true;
+        setButtonBusy(submitBtn, true);
         try {
           await api.create({
             apartment_id: apartmentIdNum,
@@ -463,10 +489,14 @@ function initRequestsSystem(aptId, activeRole, currentUser, leaseStatus, pageApa
           });
         } catch (e) {
           alert(String(e?.message || e));
+          tenantSubmitInFlight = false;
+          setButtonBusy(submitBtn, false);
           return;
         }
 
         await refreshRequests();
+        tenantSubmitInFlight = false;
+        setButtonBusy(submitBtn, false);
         closeModal();
         alert(T("aptReq.alert.sentSuccess"));
       });
@@ -489,17 +519,24 @@ function initRequestsSystem(aptId, activeRole, currentUser, leaseStatus, pageApa
       const resolveBtn = e.target.closest(".resolve-request-btn");
 
       if (resolveBtn) {
+        if (ownerResolveInFlight) return;
         const requestId = resolveBtn.dataset.resolveId;
         const target = cachedRequests.find((r) => String(r.id) === String(requestId));
         const sid = target?.serverId;
         const api = W();
         if (sid != null && api) {
+          ownerResolveInFlight = true;
+          setButtonBusy(resolveBtn, true);
           try {
             await api.putStatus(sid, "resolved");
           } catch (err) {
             alert(String(err?.message || err));
+            ownerResolveInFlight = false;
+            setButtonBusy(resolveBtn, false);
             return;
           }
+          ownerResolveInFlight = false;
+          setButtonBusy(resolveBtn, false);
         }
         await refreshRequests();
         renderViewRequests();
@@ -524,6 +561,7 @@ function initRequestsSystem(aptId, activeRole, currentUser, leaseStatus, pageApa
 
   if (submitOwnerReplyBtn) {
     submitOwnerReplyBtn.addEventListener("click", async () => {
+      if (ownerReplyInFlight) return;
       if (!selectedOwnerRequestId) {
         alert(T("aptReq.alert.pickRequestFirst"));
         return;
@@ -543,12 +581,18 @@ function initRequestsSystem(aptId, activeRole, currentUser, leaseStatus, pageApa
         alert(T("aptReq.alert.pickRequestFirst"));
         return;
       }
+      ownerReplyInFlight = true;
+      setButtonBusy(submitOwnerReplyBtn, true);
       try {
         await api.patch(target.serverId, { owner_reply: reply });
       } catch (e) {
         alert(String(e?.message || e));
+        ownerReplyInFlight = false;
+        setButtonBusy(submitOwnerReplyBtn, false);
         return;
       }
+      ownerReplyInFlight = false;
+      setButtonBusy(submitOwnerReplyBtn, false);
       await refreshRequests();
       renderViewRequests();
       resetOwnerReplyUI();

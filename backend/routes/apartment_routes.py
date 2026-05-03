@@ -726,7 +726,7 @@ def _active_contract_rows_for_apartment(apartment_id: int) -> list[dict]:
     try:
         res = (
             supabase.table("contracts")
-            .select("id, status, apartment_id")
+            .select("id, apartment_id, start_date, end_date")
             .eq("apartment_id", apartment_id)
             .execute()
         )

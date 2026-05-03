@@ -19,8 +19,7 @@ BEGIN
     tenant_info = NULL,
     current_contract_id = NULL,
     lease_status = 'vacant',
-    maintenance_id = NULL,
-    rent = 0
+    maintenance_id = NULL
   WHERE id = OLD.apartment_id
     AND current_contract_id IS NOT DISTINCT FROM OLD.id;
   RETURN OLD;

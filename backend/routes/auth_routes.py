@@ -1,6 +1,12 @@
 try:
     import json
+    import hashlib
+    import os
+    import secrets
+    import smtplib
     from typing import Optional
+    from email.message import EmailMessage
+    import httpx
 
     from fastapi import APIRouter, HTTPException, Depends, Request
     from fastapi.responses import JSONResponse
@@ -20,6 +26,7 @@ security = HTTPBearer(auto_error=False)
 
 COOKIE_NAME = "walajna_session"
 ACCESS_MAX_AGE_SECONDS = 30 * 60
+RESET_CODE_TTL_MINUTES = 10
 
 print("Auth router created successfully")
 print("User model imported:", User)
@@ -158,6 +165,124 @@ def _link_tenant_profile_rows_by_national_id(user_id: int, national_id: str | No
             if cur in (None, "", 0, "0"):
                 supabase.table("apartments").update({"tenant_user_id": user_id}).eq("id", aid).execute()
 
+
+def _utc_now() -> datetime:
+    return datetime.utcnow()
+
+
+def _parse_iso_dt(value) -> datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    txt = str(value).strip()
+    if not txt:
+        return None
+    if txt.endswith("Z"):
+        txt = txt[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(txt)
+        if parsed.tzinfo is not None:
+            return parsed.astimezone().replace(tzinfo=None)
+        return parsed
+    except ValueError:
+        return None
+
+
+def _sha256_hex(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _lookup_user_for_reset(method: str, identifier: str) -> dict | None:
+    value = str(identifier or "").strip()
+    if not value:
+        return None
+    if method == "phone":
+        res = supabase.table("users").select("id,email,phone,name").eq("phone", value).limit(1).execute()
+    else:
+        res = supabase.table("users").select("id,email,phone,name").eq("email", value.lower()).limit(1).execute()
+    return res.data[0] if res.data else None
+
+
+def _send_email_smtp(to_email: str, subject: str, body: str) -> bool:
+    host = (os.getenv("SMTP_HOST") or "").strip()
+    port_raw = (os.getenv("SMTP_PORT") or "587").strip()
+    user = (os.getenv("SMTP_USER") or "").strip()
+    password = (os.getenv("SMTP_PASS") or "").strip()
+    sender = (os.getenv("SMTP_FROM_EMAIL") or user).strip()
+    use_tls = (os.getenv("SMTP_USE_TLS") or "true").strip().lower() != "false"
+    if not host or not sender:
+        return False
+    try:
+        port = int(port_raw)
+    except (TypeError, ValueError):
+        port = 587
+
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = sender
+    msg["To"] = to_email
+    msg.set_content(body)
+
+    with smtplib.SMTP(host, port, timeout=20) as server:
+        if use_tls:
+            server.starttls()
+        if user and password:
+            server.login(user, password)
+        server.send_message(msg)
+    return True
+
+
+def _send_email_resend(to_email: str, subject: str, body: str) -> bool:
+    api_key = (os.getenv("RESEND_API_KEY") or "").strip()
+    from_email = (
+        os.getenv("RESEND_FROM_EMAIL")
+        or os.getenv("SMTP_FROM_EMAIL")
+        or os.getenv("SMTP_USER")
+        or ""
+    ).strip()
+    if not api_key or not from_email:
+        return False
+
+    payload = {
+        "from": from_email,
+        "to": [to_email],
+        "subject": subject,
+        "text": body,
+    }
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    with httpx.Client(timeout=20.0) as client:
+        resp = client.post("https://api.resend.com/emails", json=payload, headers=headers)
+    if resp.status_code >= 300:
+        raise RuntimeError(f"Resend send failed: {resp.status_code} {resp.text}")
+    return True
+
+
+def _deliver_reset_code_email(to_email: str, code: str) -> bool:
+    subject = "Walajna password reset code"
+    body = (
+        "Your Walajna password reset code is:\n\n"
+        f"{code}\n\n"
+        f"This code expires in {RESET_CODE_TTL_MINUTES} minutes.\n"
+        "If you did not request this, ignore this email."
+    )
+    provider = (os.getenv("RESET_EMAIL_PROVIDER") or "auto").strip().lower()
+    try:
+        if provider == "resend":
+            return _send_email_resend(to_email, subject, body)
+        if provider == "smtp":
+            return _send_email_smtp(to_email, subject, body)
+        # auto: prefer Resend, then SMTP
+        if _send_email_resend(to_email, subject, body):
+            return True
+        return _send_email_smtp(to_email, subject, body)
+    except Exception as exc:
+        print("reset email send failed:", exc)
+        return False
+
 @router.post("/test")
 async def test_endpoint():
     print("Test endpoint called")
@@ -166,7 +291,10 @@ async def test_endpoint():
 @router.post("/register")
 async def register(user: User):
     print("=== REGISTER ENDPOINT CALLED ===")
-    print("Register endpoint called with user:", user.dict())
+    try:
+        print("Register endpoint called with user:", json.dumps(user.model_dump(), ensure_ascii=True))
+    except Exception:
+        print("Register endpoint called (payload logging skipped)")
     
     try:
         # Check if user already exists
@@ -205,7 +333,13 @@ async def register(user: User):
         result = supabase.table("users").insert(user_data).execute()
         
         if result.data:
-            print("User registered successfully:", result.data[0])
+            try:
+                print(
+                    "User registered successfully:",
+                    json.dumps(result.data[0], ensure_ascii=True),
+                )
+            except Exception:
+                print("User registered successfully (payload logging skipped)")
             created_user = result.data[0]
             # Owners often register first then pick "tenant" in the UI; claim by national id regardless of role.
             _claim_pending_tenant_assignments(
@@ -225,44 +359,67 @@ async def register(user: User):
 @router.post("/api/reset-password")
 @router.post("/reset-password")
 async def reset_password(body: dict):
-    """
-    Demo reset endpoint for current frontend flow.
-    Accepts any of: user_id, national_id, email, phone + new_password.
-    """
     new_password = str(body.get("new_password", "")).strip()
     if len(new_password) < 6:
         raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
 
+    reset_token = str(body.get("reset_token", "")).strip()
     user_row = None
-    user_id = body.get("user_id")
-    national_id = str(body.get("national_id", "")).strip()
-    email = str(body.get("email", "")).strip()
-    phone = str(body.get("phone", "")).strip()
+    token_row = None
+    if reset_token:
+        reset_token_hash = _sha256_hex(reset_token)
+        token_res = (
+            supabase.table("password_reset_tokens")
+            .select("*")
+            .eq("reset_token_hash", reset_token_hash)
+            .is_("used_at", None)
+            .order("id", desc=True)
+            .limit(1)
+            .execute()
+        )
+        if token_res.data:
+            token_row = token_res.data[0]
+            expires_at = _parse_iso_dt(token_row.get("expires_at"))
+            verified_at = _parse_iso_dt(token_row.get("verified_at"))
+            if not verified_at or (expires_at and expires_at < _utc_now()):
+                raise HTTPException(status_code=400, detail="Reset token expired or invalid")
+            uid = token_row.get("user_id")
+            if uid is not None:
+                user_res = supabase.table("users").select("*").eq("id", uid).limit(1).execute()
+                if user_res.data:
+                    user_row = user_res.data[0]
 
-    if user_id not in (None, ""):
-        try:
-            uid = int(user_id)
-        except (TypeError, ValueError):
-            uid = None
-        if uid is not None:
-            res = supabase.table("users").select("*").eq("id", uid).limit(1).execute()
+    # Backward compatibility with previous local/demo flow.
+    if user_row is None:
+        user_id = body.get("user_id")
+        national_id = str(body.get("national_id", "")).strip()
+        email = str(body.get("email", "")).strip()
+        phone = str(body.get("phone", "")).strip()
+
+        if user_id not in (None, ""):
+            try:
+                uid = int(user_id)
+            except (TypeError, ValueError):
+                uid = None
+            if uid is not None:
+                res = supabase.table("users").select("*").eq("id", uid).limit(1).execute()
+                if res.data:
+                    user_row = res.data[0]
+
+        if user_row is None and national_id:
+            res = supabase.table("users").select("*").eq("national_id", national_id).limit(1).execute()
             if res.data:
                 user_row = res.data[0]
 
-    if user_row is None and national_id:
-        res = supabase.table("users").select("*").eq("national_id", national_id).limit(1).execute()
-        if res.data:
-            user_row = res.data[0]
+        if user_row is None and email:
+            res = supabase.table("users").select("*").eq("email", email).limit(1).execute()
+            if res.data:
+                user_row = res.data[0]
 
-    if user_row is None and email:
-        res = supabase.table("users").select("*").eq("email", email).limit(1).execute()
-        if res.data:
-            user_row = res.data[0]
-
-    if user_row is None and phone:
-        res = supabase.table("users").select("*").eq("phone", phone).limit(1).execute()
-        if res.data:
-            user_row = res.data[0]
+        if user_row is None and phone:
+            res = supabase.table("users").select("*").eq("phone", phone).limit(1).execute()
+            if res.data:
+                user_row = res.data[0]
 
     if user_row is None:
         raise HTTPException(status_code=404, detail="User not found")
@@ -277,7 +434,118 @@ async def reset_password(body: dict):
     if not upd.data:
         raise HTTPException(status_code=500, detail="Failed to update password")
 
+    if token_row and token_row.get("id") is not None:
+        supabase.table("password_reset_tokens").update(
+            {"used_at": _utc_now().isoformat()}
+        ).eq("id", token_row["id"]).execute()
+
     return {"ok": True, "user_id": user_row["id"]}
+
+
+@router.post("/api/forgot-password")
+@router.post("/forgot-password")
+async def forgot_password(body: dict):
+    method = str(body.get("method", "email")).strip().lower()
+    if method not in ("email", "phone"):
+        method = "email"
+    identifier = str(body.get("identifier", "")).strip()
+    if not identifier:
+        raise HTTPException(status_code=400, detail="Identifier is required")
+
+    user_row = _lookup_user_for_reset(method, identifier)
+    # Privacy-safe response for unknown identifiers.
+    if user_row is None:
+        return {"ok": True, "sent": True}
+
+    email = str(user_row.get("email") or "").strip().lower()
+    if not email:
+        # Keep generic response to avoid account probing.
+        return {"ok": True, "sent": True}
+
+    code = f"{secrets.randbelow(900000) + 100000:06d}"
+    expires_at = (_utc_now() + timedelta(minutes=RESET_CODE_TTL_MINUTES)).isoformat()
+    code_hash = _sha256_hex(code)
+
+    try:
+        supabase.table("password_reset_tokens").insert(
+            {
+                "user_id": user_row.get("id"),
+                "code_hash": code_hash,
+                "channel": "email",
+                "destination": email,
+                "expires_at": expires_at,
+                "used_at": None,
+                "verified_at": None,
+                "attempts": 0,
+                "created_at": _utc_now().isoformat(),
+            }
+        ).execute()
+    except Exception as exc:
+        print("password_reset_tokens insert failed:", exc)
+        raise HTTPException(status_code=500, detail="Failed to create reset code")
+
+    sent = _deliver_reset_code_email(email, code)
+    if not sent:
+        print(f"[password-reset][fallback] code for user_id={user_row.get('id')} email={email}: {code}")
+    return {"ok": True, "sent": True}
+
+
+@router.post("/api/verify-reset-code")
+@router.post("/verify-reset-code")
+async def verify_reset_code(body: dict):
+    method = str(body.get("method", "email")).strip().lower()
+    if method not in ("email", "phone"):
+        method = "email"
+    identifier = str(body.get("identifier", "")).strip()
+    code = str(body.get("code", "")).strip()
+    if not identifier or not code:
+        raise HTTPException(status_code=400, detail="Identifier and code are required")
+
+    user_row = _lookup_user_for_reset(method, identifier)
+    if user_row is None:
+        raise HTTPException(status_code=400, detail="Invalid code")
+
+    uid = user_row.get("id")
+    token_rows = (
+        supabase.table("password_reset_tokens")
+        .select("*")
+        .eq("user_id", uid)
+        .eq("channel", "email")
+        .is_("used_at", None)
+        .order("id", desc=True)
+        .limit(10)
+        .execute()
+    )
+    rows = token_rows.data or []
+    if not rows:
+        raise HTTPException(status_code=400, detail="Invalid code")
+
+    now = _utc_now()
+    code_hash = _sha256_hex(code)
+    matched = None
+    for row in rows:
+        expires_at = _parse_iso_dt(row.get("expires_at"))
+        if expires_at and expires_at < now:
+            continue
+        if str(row.get("code_hash") or "") == code_hash:
+            matched = row
+            break
+    if matched is None:
+        latest = rows[0]
+        tries = int(latest.get("attempts") or 0) + 1
+        supabase.table("password_reset_tokens").update({"attempts": tries}).eq("id", latest.get("id")).execute()
+        raise HTTPException(status_code=400, detail="Invalid code")
+
+    reset_token = secrets.token_urlsafe(32)
+    reset_token_hash = _sha256_hex(reset_token)
+    supabase.table("password_reset_tokens").update(
+        {
+            "verified_at": now.isoformat(),
+            "reset_token_hash": reset_token_hash,
+        }
+    ).eq("id", matched.get("id")).execute()
+
+    return {"ok": True, "reset_token": reset_token}
 
 
 def _login_from_json_dict(body: dict) -> dict:

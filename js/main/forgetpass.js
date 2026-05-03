@@ -24,8 +24,8 @@ function normalizePhone(phone) {
   return (phone || "").replace(/\s+/g, "").trim();
 }
 
-function generateOtpCode() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+function apiBase() {
+  return (typeof WalajnaAuth !== "undefined" && WalajnaAuth.API_BASE) || "http://127.0.0.1:8002";
 }
 
 function updateRecoverMethod(method) {
@@ -61,11 +61,11 @@ document.addEventListener("walajna:i18n-applied", () => {
   updateRecoverMethod(activeMethod);
 });
 
-forgotForm.addEventListener("submit", function (e) {
+forgotForm.addEventListener("submit", async function (e) {
   e.preventDefault();
 
   const rawValue = identifierInput.value;
-  const users = JSON.parse(localStorage.getItem("walajna_users")) || [];
+  const submitBtn = forgotForm.querySelector('button[type="submit"]');
 
   showForgotMessage("");
 
@@ -76,47 +76,44 @@ forgotForm.addEventListener("submit", function (e) {
     return;
   }
 
-  let user = null;
+  const normalizedIdentifier =
+    activeMethod === "email" ? normalizeValue(rawValue) : normalizePhone(rawValue);
 
-  if (activeMethod === "email") {
-    const email = normalizeValue(rawValue);
-
-    user = users.find((u) => normalizeValue(u.email) === email);
-
-    if (!user) {
-      showForgotMessage(T("forget.emailNotFound"));
-      return;
+  try {
+    if (submitBtn) submitBtn.disabled = true;
+    const res = await fetch(`${apiBase()}/api/forgot-password`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        method: activeMethod,
+        identifier: normalizedIdentifier,
+      }),
+    });
+    if (!res.ok) {
+      let detail = `HTTP ${res.status}`;
+      try {
+        const err = await res.json();
+        detail = String(err?.detail || detail);
+      } catch {
+        /* ignore */
+      }
+      throw new Error(detail);
     }
-
-    localStorage.setItem("walajna_reset_email", user.email || "");
-    localStorage.removeItem("walajna_reset_phone");
-  } else {
-    const phone = normalizePhone(rawValue);
-
-    user = users.find((u) => normalizePhone(u.phoneNumber) === phone);
-
-    if (!user) {
-      showForgotMessage(T("forget.phoneNotFound"));
-      return;
-    }
-
-    localStorage.setItem("walajna_reset_phone", user.phoneNumber || "");
-    localStorage.removeItem("walajna_reset_email");
+  } catch (err) {
+    showForgotMessage(String(err?.message || err || T("common.tryAgain")));
+    if (submitBtn) submitBtn.disabled = false;
+    return;
   }
 
-  const otpCode = generateOtpCode();
-
-  localStorage.setItem("walajna_reset_user", user.id);
-  localStorage.setItem("walajna_reset_code", otpCode);
+  localStorage.setItem("walajna_reset_identifier", normalizedIdentifier);
   localStorage.setItem("walajna_reset_method", activeMethod);
-
-  console.log("Walajna OTP Code:", otpCode);
+  localStorage.removeItem("walajna_reset_token");
 
   showForgotMessage(T("forget.codeSent"), true);
-
   setTimeout(() => {
     window.location.href = "../auth/verify-code.html";
-  }, 1000);
+  }, 900);
 });
 
 updateRecoverMethod("email");
