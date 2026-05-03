@@ -206,6 +206,59 @@ def _filter_new_apartment_rows(building_id: int, rows: list[dict]) -> list[dict]
 
     return filtered
 
+
+def _expected_apartment_number_set(building_row: dict) -> set[str]:
+    apartments_count = _to_int(
+        building_row.get("apartments_count", building_row.get("apartment_count")),
+        0,
+    )
+    if apartments_count < 1:
+        return set()
+    return {str(i) for i in range(1, apartments_count + 1)}
+
+
+def _fetch_existing_apartment_number_set(building_id: int) -> set[str]:
+    existing_result = (
+        supabase.table("apartments")
+        .select("apartment_number")
+        .eq("building_id", building_id)
+        .execute()
+    )
+    return {
+        str(item.get("apartment_number"))
+        for item in (getattr(existing_result, "data", None) or [])
+        if item.get("apartment_number") is not None
+    }
+
+
+def _heal_missing_apartments(building_row: dict) -> dict:
+    building_id = _to_int(building_row.get("id"), 0)
+    if building_id < 1:
+        return {"expected": 0, "before": 0, "after": 0, "healed": 0}
+
+    expected_numbers = _expected_apartment_number_set(building_row)
+    before_numbers = _fetch_existing_apartment_number_set(building_id)
+
+    missing_numbers = expected_numbers - before_numbers
+    if missing_numbers:
+        all_rows = _build_apartment_seed_rows(building_row)
+        missing_rows = [r for r in all_rows if str(r.get("apartment_number")) in missing_numbers]
+        if missing_rows:
+            supabase.table("apartments").insert(missing_rows).execute()
+            logger.warning(
+                "Apartment seed mismatch detected for building_id=%s, auto-healed missing=%s",
+                building_id,
+                sorted(missing_numbers, key=lambda x: int(x) if str(x).isdigit() else str(x)),
+            )
+
+    after_numbers = _fetch_existing_apartment_number_set(building_id)
+    return {
+        "expected": len(expected_numbers),
+        "before": len(before_numbers),
+        "after": len(after_numbers),
+        "healed": max(0, len(after_numbers) - len(before_numbers)),
+    }
+
 @router.post("/buildings", response_model=BuildingResponse)
 async def create_building(building: dict, current_user: dict = Depends(get_current_user)):
     if not has_role(current_user, "owner"):
@@ -282,6 +335,16 @@ async def create_building(building: dict, current_user: dict = Depends(get_curre
                 "rollback_error": rollback_error,
             },
         )
+
+    heal_result = _heal_missing_apartments(new_building)
+    logger.info(
+        "Post-create apartment verification for building_id=%s -> expected=%s before=%s after=%s healed=%s",
+        new_building.get("id"),
+        heal_result["expected"],
+        heal_result["before"],
+        heal_result["after"],
+        heal_result["healed"],
+    )
 
     return BuildingResponse(**new_building)
 
@@ -447,7 +510,16 @@ async def seed_building_apartments(building_id: int, current_user: dict = Depend
             )
         else:
             logger.info("Seed endpoint skipped insert because no new apartment numbers were found")
-        return {"created": len(filtered_apartment_rows), "generated": len(apartment_rows), "ok": True}
+        heal_result = _heal_missing_apartments(building_row)
+        return {
+            "created": len(filtered_apartment_rows),
+            "generated": len(apartment_rows),
+            "verified_expected": heal_result["expected"],
+            "verified_before": heal_result["before"],
+            "verified_after": heal_result["after"],
+            "auto_healed": heal_result["healed"],
+            "ok": True,
+        }
     except Exception as seed_error:
         logger.exception("Seed endpoint failed for building_id=%s", building_id)
         raise HTTPException(status_code=500, detail=str(seed_error))

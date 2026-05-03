@@ -63,7 +63,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   let payments = [];
   let apiLoadError = null;
-  const costs = JSON.parse(localStorage.getItem("walajna_costs") || "[]");
+  let costs = JSON.parse(localStorage.getItem("walajna_costs") || "[]");
 
   function mapApiApartmentToLocal(apt) {
     const id = apt.id;
@@ -1152,6 +1152,51 @@ async function evictApartment(apartmentId) {
     }
   }
 
+  async function loadCostsForBuildingSummary() {
+    if (
+      !apartmentsFromApi ||
+      typeof WalajnaAuth === "undefined" ||
+      !WalajnaAuth.fetchWithAuth ||
+      !WalajnaAuth.getCurrentUser ||
+      !WalajnaAuth.getCurrentUser()
+    ) {
+      return;
+    }
+    const aggregated = [];
+    for (const apartment of buildingApartments) {
+      const aid =
+        apartment.apiId != null && String(apartment.apiId) !== ""
+          ? apartment.apiId
+          : apartment.id;
+      if (aid == null || String(aid).trim() === "") continue;
+      try {
+        const res = await WalajnaAuth.fetchWithAuth(
+          `${WalajnaAuth.API_BASE}/api/costs?apartment_id=${encodeURIComponent(String(aid))}`,
+          { method: "GET" }
+        );
+        if (!res.ok) continue;
+        const rows = await res.json();
+        for (const row of Array.isArray(rows) ? rows : []) {
+          aggregated.push({
+            id: String(row.id ?? ""),
+            apartmentId: String(apartment.id),
+            contractId:
+              row.contract_id != null && String(row.contract_id) !== ""
+                ? String(row.contract_id)
+                : null,
+            amount: Number(row.amount || 0),
+            status: String(row.status || "pending"),
+            date: String(row.expense_date || "").slice(0, 10),
+            createdAt: String(row.created_at || "").slice(0, 10),
+          });
+        }
+      } catch (e) {
+        console.warn("owner-building: costs fetch failed apartment_id=", aid, e);
+      }
+    }
+    costs = aggregated;
+  }
+
   async function deleteApartment(apartmentId) {
     const confirmed = confirm(T("building.confirmDeleteApt"));
     if (!confirmed) return;
@@ -1395,7 +1440,10 @@ async function evictApartment(apartmentId) {
 
   populateLinkTenantTypeSelect();
   refreshAll();
-  void loadInstallmentsForBuildingSummary().then(() => {
+  void Promise.all([
+    loadInstallmentsForBuildingSummary(),
+    loadCostsForBuildingSummary(),
+  ]).then(() => {
     renderBuildingFinancialSummary();
   });
   document.addEventListener("walajna:i18n-applied", () => {

@@ -26,6 +26,7 @@ document.addEventListener("DOMContentLoaded", async function () {
   /** Unified shape: { id, amount, dueDate } */
   let payment = null;
   let payViaApi = false;
+  let payInFlight = false;
 
   function escapeHtml(s) {
     return String(s || "").replace(/[&<>"']/g, (c) =>
@@ -118,6 +119,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 
   document.querySelectorAll(".payment-method-card").forEach((card) => {
     card.addEventListener("click", async function () {
+      if (payInFlight) return;
       const method = this.dataset.method;
 
       if (!payment) {
@@ -126,6 +128,12 @@ document.addEventListener("DOMContentLoaded", async function () {
       }
 
       if (payViaApi && contractId && window.WalajnaAuth?.fetchWithAuth) {
+        payInFlight = true;
+        document.querySelectorAll(".payment-method-card").forEach((node) => {
+          node.style.pointerEvents = "none";
+          node.style.opacity = "0.65";
+          node.setAttribute("aria-disabled", "true");
+        });
         try {
           const patchRes = await WalajnaAuth.fetchWithAuth(
             `${WalajnaAuth.API_BASE}/api/payment-installments/${encodeURIComponent(paymentId)}`,
@@ -142,16 +150,29 @@ document.addEventListener("DOMContentLoaded", async function () {
             if (typeof WalajnaAuth.handleUnauthorized === "function") {
               WalajnaAuth.handleUnauthorized();
             }
+            payInFlight = false;
             return;
           }
           if (!patchRes.ok) {
             const t = await patchRes.text();
             alert(T("paymentOpt.patchFailPrefix") + (t || patchRes.status));
+            payInFlight = false;
+            document.querySelectorAll(".payment-method-card").forEach((node) => {
+              node.style.pointerEvents = "";
+              node.style.opacity = "";
+              node.removeAttribute("aria-disabled");
+            });
             return;
           }
         } catch (err) {
           console.warn(err);
           alert(T("paymentOpt.networkErr"));
+          payInFlight = false;
+          document.querySelectorAll(".payment-method-card").forEach((node) => {
+            node.style.pointerEvents = "";
+            node.style.opacity = "";
+            node.removeAttribute("aria-disabled");
+          });
           return;
         }
         alert(T("paymentOpt.success"));
