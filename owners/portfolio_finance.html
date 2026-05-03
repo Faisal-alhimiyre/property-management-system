@@ -72,7 +72,6 @@
         <h2 data-i18n="finance.aptDetails">تفاصيل الشقق</h2>
         <div class="finance-table-header__aside">
           <span id="tableMeta" class="finance-table-meta">0</span>
-          <button type="button" id="portfolioCostDetailsBtn" class="finance-summary-btn finance-cost-details-btn" data-i18n="finance.costDetailsBtn">تفاصيل التكاليف</button>
         </div>
       </div>
 
@@ -108,6 +107,18 @@
     </section>
 
   </main>
+
+  <div id="portfolioApartmentsModal" class="wl-modal" aria-hidden="true">
+    <div class="wl-modal__backdrop" data-portfolio-modal-close="true"></div>
+    <div class="wl-modal__dialog finance-portfolio-modal" role="dialog" aria-modal="true" aria-labelledby="portfolioApartmentsModalTitle">
+      <button type="button" class="wl-modal__close" id="closePortfolioApartmentsModal" data-i18n-aria-label="common.close" aria-label="">×</button>
+      <div class="wl-modal__header">
+        <h3 id="portfolioApartmentsModalTitle"></h3>
+        <p id="portfolioApartmentsModalSub"></p>
+      </div>
+      <div id="portfolioApartmentsModalBody" class="wl-modal__body"></div>
+    </div>
+  </div>
 
   <script src="../js/main/auth.js"></script>
   <script src="../js/main/theme.js"></script>

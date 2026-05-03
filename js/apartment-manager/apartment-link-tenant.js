@@ -366,7 +366,6 @@ function syncEndDateWithStartDate(force = false) {
       fullName:
         currentUser?.fullName ||
         currentUser?.name ||
-        currentUser?.username ||
         dash,
       nationalId:
         currentUser?.nationalId ||

@@ -943,7 +943,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       );
       if (owner) {
         name =
-          owner.fullName || owner.name || owner.username || null;
+          owner.fullName || owner.name || null;
         nid = owner.nationalId || owner.national_id || null;
       }
     }

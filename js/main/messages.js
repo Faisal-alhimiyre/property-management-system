@@ -429,7 +429,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       sidebarUserName.textContent =
         currentUser.fullName ||
         currentUser.name ||
-        currentUser.username ||
+        currentUser.email ||
         T("common.user");
     }
 
@@ -637,14 +637,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       const landlordName =
         ownerUser?.fullName ||
         ownerUser?.name ||
-        ownerUser?.username ||
         T("common.landlord");
 
       const tenantDisplayName =
         req.tenantName ||
         tenantUser?.fullName ||
         tenantUser?.name ||
-        tenantUser?.username ||
         matchedApartment?.tenantInfo?.fullName ||
         T("common.tenant");
 
@@ -786,12 +784,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function getUserIdentifier(user) {
     if (!user) return "";
-    return String(user.id || user.email || user.username || "");
+    return String(user.id || user.email || "");
   }
 
   function getUserDisplayName(user) {
     if (!user) return "";
-    return String(user.fullName || user.name || user.username || user.email || "");
+    return String(user.fullName || user.name || user.email || "");
   }
 
   function openModal(modal) {

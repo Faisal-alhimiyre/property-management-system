@@ -738,6 +738,18 @@ body{
   margin:0;
 }
 
+/* Floor is read-only from apartment; hide number steppers */
+#linkTenantModal #linkFloorNumber{
+  -moz-appearance:textfield;
+  appearance:textfield;
+}
+
+#linkTenantModal #linkFloorNumber::-webkit-outer-spin-button,
+#linkTenantModal #linkFloorNumber::-webkit-inner-spin-button{
+  -webkit-appearance:none;
+  margin:0;
+}
+
 #linkTenantModal .wl-modal__panel{
   width:min(940px, 95vw);
   max-height:90vh;

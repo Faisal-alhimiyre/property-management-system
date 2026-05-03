@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <script>(function(){try{var l=localStorage.getItem("walajna_language")||"ar";if(l!=="en"&&l!=="ar"&&l!=="ur")l="ar";document.documentElement.setAttribute("lang",l==="en"?"en":(l==="ur"?"ur":"ar"));document.documentElement.setAttribute("dir",l==="en"?"ltr":"rtl");}catch(e){}})();</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>الخدمات | Walajna</title>
+  <link rel="stylesheet" href="../css/theme.css" />
+  <link rel="stylesheet" href="../css/navstyle.css" />
+  <link rel="stylesheet" href="../css/services.css" />
+  <script src="../js/main/walajna-i18n-ur.js"></script>
+  <script src="../js/main/walajna-i18n.js"></script>
+</head>
+<body data-nav-adaptive="true" data-wl-bc="services">
+  <script>
+    (function () {
+      try {
+        var logged =
+          !!(
+            sessionStorage.getItem("walajna_current_user") ||
+            localStorage.getItem("walajna_current_user") ||
+            localStorage.getItem("access_token")
+          );
+        document.body.setAttribute("data-nav", logged ? "user" : "guest");
+      } catch (e) {
+        document.body.setAttribute("data-nav", "guest");
+      }
+    })();
+  </script>
+
+  <div id="navbar-container"></div>
+
+  <div class="page-bg">
+    <div class="glow glow-1"></div>
+    <div class="glow glow-2"></div>
+    <div class="glow glow-3"></div>
+  </div>
+
+  <div class="services-shell">
+    <main class="services-main">
+      <header class="services-hero glass-card">
+        <h1 class="services-title" data-i18n="nav.services"></h1>
+        <p class="services-subtitle">اختصر وقتك وافتح أدوات الإدارة بسرعة من مكان واحد</p>
+      </header>
+
+      <section class="services-actions-grid" aria-label="Services actions">
+        <a class="service-tile service-tile--finance" href="../owners/portfolio_finance.html">
+          <strong class="service-tile__title" data-i18n="finance.allBuildingsBtn"></strong>
+          <span class="service-tile__hint">عرض شامل للأداء المالي لكل العمائر</span>
+        </a>
+
+        <a class="service-tile service-tile--costs" href="../owners/portfolio_costs.html">
+          <strong class="service-tile__title" data-i18n="finance.costDetailsBtn">تفاصيل التكاليف</strong>
+          <span class="service-tile__hint">عرض تفصيلي للمصاريف حسب العمارة والفترة</span>
+        </a>
+
+        <a class="service-tile service-tile--archive" href="../owners/owner_archive.html">
+          <strong class="service-tile__title" data-i18n="owner.archiveBtn"></strong>
+          <span class="service-tile__hint">مراجعة وإدارة العمائر المحذوفة</span>
+        </a>
+      </section>
+
+      <section class="services-space" aria-live="polite"></section>
+    </main>
+  </div>
+
+  <script src="../js/main/theme.js"></script>
+  <script src="../js/main/breadcrumbs.js"></script>
+  <script src="../js/main/nav.js"></script>
+</body>
+</html>

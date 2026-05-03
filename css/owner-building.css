@@ -765,6 +765,18 @@ body{
   box-shadow:0 0 0 3px rgba(34,199,195,0.12);
 }
 
+/* Floor is read-only from apartment; hide number steppers */
+.apartment-edit-modal #linkFloorNumber{
+  -moz-appearance:textfield;
+  appearance:textfield;
+}
+
+.apartment-edit-modal #linkFloorNumber::-webkit-outer-spin-button,
+.apartment-edit-modal #linkFloorNumber::-webkit-inner-spin-button{
+  -webkit-appearance:none;
+  margin:0;
+}
+
 .apartment-edit-modal .error{
   margin:12px 0 0;
   color:#b42318;

@@ -234,6 +234,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   const totalProfitEl = document.getElementById("totalProfit");
   const footerTotalUnitsEl = document.getElementById("footerTotalUnits");
   const footerTotalRentedEl = document.getElementById("footerTotalRented");
+  const portfolioApartmentsModal = document.getElementById("portfolioApartmentsModal");
+  const closePortfolioApartmentsModalBtn = document.getElementById("closePortfolioApartmentsModal");
+  const portfolioApartmentsModalTitle = document.getElementById("portfolioApartmentsModalTitle");
+  const portfolioApartmentsModalSub = document.getElementById("portfolioApartmentsModalSub");
+  const portfolioApartmentsModalBody = document.getElementById("portfolioApartmentsModalBody");
+
+  let renderedGroups = [];
+  let currentRenderedRange = null;
 
   function escapeHtml(value) {
     return String(value ?? "")
@@ -656,7 +664,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     );
   }
 
-  function renderApartmentCells(apartment, income, apartmentCosts, lateAmount, profit) {
+  function renderApartmentCard(apartment, income, apartmentCosts, lateAmount, profit) {
     const num = apartment.number || apartment.apartmentNumber || T("common.dash");
     const aptLabel = T("building.aptLabel", { n: num });
     const tenant =
@@ -668,52 +676,95 @@ document.addEventListener("DOMContentLoaded", async () => {
     const costCls = apartmentCosts > 0 ? "finance-value-cost" : "";
 
     return `
-      <td>${escapeHtml(aptLabel)}</td>
-      <td>${escapeHtml(tenant)}</td>
-      <td>${getApartmentStatusHtml(apartment)}</td>
-      <td>${escapeHtml(formatMoney(income))}</td>
-      <td class="${costCls}">${escapeHtml(formatMoney(apartmentCosts))}</td>
-      <td>${escapeHtml(formatMoney(lateAmount))}</td>
-      <td class="finance-note-cell" title="${note}">${note}</td>
-      <td class="${profitCls}">${escapeHtml(formatMoney(profit))}</td>
+      <article class="portfolio-apt-card">
+        <div class="portfolio-apt-card__head">
+          <h4 class="portfolio-apt-card__title">${escapeHtml(aptLabel)}</h4>
+          ${getApartmentStatusHtml(apartment)}
+        </div>
+
+        <div class="portfolio-apt-card__meta">
+          <div class="portfolio-apt-card__item">
+            <span class="portfolio-apt-card__label">${escapeHtml(T("finance.th.tenant"))}</span>
+            <strong class="portfolio-apt-card__value">${escapeHtml(tenant)}</strong>
+          </div>
+          <div class="portfolio-apt-card__item">
+            <span class="portfolio-apt-card__label">${escapeHtml(T("finance.th.income"))}</span>
+            <strong class="portfolio-apt-card__value">${escapeHtml(formatMoney(income))}</strong>
+          </div>
+          <div class="portfolio-apt-card__item">
+            <span class="portfolio-apt-card__label">${escapeHtml(T("finance.th.costs"))}</span>
+            <strong class="portfolio-apt-card__value ${costCls}">${escapeHtml(formatMoney(apartmentCosts))}</strong>
+          </div>
+          <div class="portfolio-apt-card__item">
+            <span class="portfolio-apt-card__label">${escapeHtml(T("finance.th.late"))}</span>
+            <strong class="portfolio-apt-card__value">${escapeHtml(formatMoney(lateAmount))}</strong>
+          </div>
+          <div class="portfolio-apt-card__item">
+            <span class="portfolio-apt-card__label">${escapeHtml(T("finance.th.profit"))}</span>
+            <strong class="portfolio-apt-card__value ${profitCls}">${escapeHtml(formatMoney(profit))}</strong>
+          </div>
+        </div>
+
+        <p class="portfolio-apt-card__note" title="${note}">
+          <span>${escapeHtml(T("finance.th.notes"))}:</span>
+          ${note}
+        </p>
+      </article>
     `;
   }
 
   function renderNestedApartmentsTable(units, start, end) {
     const sorted = [...units].sort(compareUnitOrder);
-    const rows = sorted
+    const cards = sorted
       .map((apartment) => {
         const income = getApartmentRealizedIncomeForRange(apartment, start, end);
         const apartmentCosts = getApartmentCostsForRange(apartment, start, end);
         const lateAmount = getApartmentLateAmount(apartment, end);
         const profit = income - apartmentCosts;
-        return `<tr>${renderApartmentCells(apartment, income, apartmentCosts, lateAmount, profit)}</tr>`;
+        return renderApartmentCard(apartment, income, apartmentCosts, lateAmount, profit);
       })
       .join("");
 
     return `
-      <table class="finance-table finance-table--nested" role="grid">
-        <thead>
-          <tr>
-            <th>${escapeHtml(T("finance.th.apt"))}</th>
-            <th>${escapeHtml(T("finance.th.tenant"))}</th>
-            <th>${escapeHtml(T("finance.th.status"))}</th>
-            <th>${escapeHtml(T("finance.th.income"))}</th>
-            <th>${escapeHtml(T("finance.th.costs"))}</th>
-            <th>${escapeHtml(T("finance.th.late"))}</th>
-            <th>${escapeHtml(T("finance.th.notes"))}</th>
-            <th>${escapeHtml(T("finance.th.profit"))}</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
+      <div class="portfolio-apartments-list" role="list">
+        ${cards}
+      </div>
     `;
+  }
+
+  function openPortfolioApartmentsModal(group) {
+    if (!portfolioApartmentsModal || !group) return;
+    const rangeLabel = currentRenderedRange?.label || "";
+    if (portfolioApartmentsModalTitle) {
+      portfolioApartmentsModalTitle.textContent = `${T("finance.aptDetails")} - ${group.buildingName || T("common.dash")}`;
+    }
+    if (portfolioApartmentsModalSub) {
+      portfolioApartmentsModalSub.textContent = rangeLabel
+        ? T("finance.periodShown", { label: rangeLabel })
+        : "";
+    }
+    if (portfolioApartmentsModalBody) {
+      portfolioApartmentsModalBody.innerHTML = renderNestedApartmentsTable(
+        group.units || [],
+        currentRenderedRange?.start,
+        currentRenderedRange?.end
+      );
+    }
+    portfolioApartmentsModal.classList.add("is-open");
+    portfolioApartmentsModal.setAttribute("aria-hidden", "false");
+  }
+
+  function closePortfolioApartmentsModal() {
+    if (!portfolioApartmentsModal) return;
+    portfolioApartmentsModal.classList.remove("is-open");
+    portfolioApartmentsModal.setAttribute("aria-hidden", "true");
   }
 
   function render() {
     if (!tableBody) return;
 
     const { start, end, label } = getSelectedDateRange();
+    currentRenderedRange = { start, end, label };
 
     let totalIncome = 0;
     let totalCosts = 0;
@@ -726,6 +777,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     if (!allBuildingApartments.length) {
+      renderedGroups = [];
       tableBody.innerHTML = `
         <tr>
           <td colspan="8">
@@ -735,6 +787,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       `;
     } else {
       const groups = groupApartmentsByBuilding(allBuildingApartments);
+      renderedGroups = groups;
       const parts = [];
 
       groups.forEach((group, idx) => {
@@ -754,8 +807,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         totalCosts += bCosts;
         totalLate += bLate;
 
-        const nestId = `portfolio-nest-${idx}`;
-        const nestedHtml = renderNestedApartmentsTable(group.units, start, end);
         const profitCls =
           bProfit > 0 ? "finance-value-profit" : bProfit < 0 ? "finance-value-cost" : "";
         const costCls = bCosts > 0 ? "finance-value-cost" : "";
@@ -764,8 +815,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         parts.push(`
           <tr class="portfolio-building-row" data-portfolio-idx="${idx}">
             <td class="portfolio-building-name-cell">
-              <button type="button" class="portfolio-building-toggle" aria-expanded="false" aria-controls="${nestId}">
-                <span class="portfolio-building-chevron" aria-hidden="true">▾</span>
+              <button type="button" class="portfolio-building-open" data-portfolio-open="${idx}">
                 <span class="portfolio-building-name">${escapeHtml(group.buildingName)}</span>
               </button>
             </td>
@@ -778,15 +828,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             <td>${escapeHtml(formatMoney(bLate))}</td>
             <td>${escapeHtml(T("common.dash"))}</td>
             <td class="${profitCls}">${escapeHtml(formatMoney(bProfit))}</td>
-          </tr>
-          <tr class="portfolio-building-nest" id="${nestId}" aria-hidden="true">
-            <td colspan="8" class="portfolio-nest-td">
-              <div class="portfolio-nest-anim">
-                <div class="portfolio-nest-inner">
-                  ${nestedHtml}
-                </div>
-              </div>
-            </td>
           </tr>
         `);
       });
@@ -830,19 +871,29 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (tableBody) {
     tableBody.addEventListener("click", (e) => {
-      const btn = e.target.closest(".portfolio-building-toggle");
+      const btn = e.target.closest(".portfolio-building-open");
       if (!btn || !tableBody.contains(btn)) return;
-      const row = btn.closest("tr.portfolio-building-row");
-      if (!row) return;
-      const nest = row.nextElementSibling;
-      if (!nest || !nest.classList.contains("portfolio-building-nest")) return;
-      const open = !nest.classList.contains("is-open");
-      nest.classList.toggle("is-open", open);
-      row.classList.toggle("is-open", open);
-      btn.setAttribute("aria-expanded", open ? "true" : "false");
-      nest.setAttribute("aria-hidden", open ? "false" : "true");
+      const idx = Number(btn.getAttribute("data-portfolio-open"));
+      if (!Number.isFinite(idx) || idx < 0 || idx >= renderedGroups.length) return;
+      openPortfolioApartmentsModal(renderedGroups[idx]);
     });
   }
+
+  if (closePortfolioApartmentsModalBtn) {
+    closePortfolioApartmentsModalBtn.addEventListener("click", closePortfolioApartmentsModal);
+  }
+  if (portfolioApartmentsModal) {
+    portfolioApartmentsModal.addEventListener("click", (e) => {
+      if (e.target?.dataset?.portfolioModalClose === "true") {
+        closePortfolioApartmentsModal();
+      }
+    });
+  }
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && portfolioApartmentsModal?.classList.contains("is-open")) {
+      closePortfolioApartmentsModal();
+    }
+  });
 
   if (periodDateInput) {
     const today = new Date();
@@ -873,13 +924,4 @@ document.addEventListener("DOMContentLoaded", async () => {
     window.walajnaRefreshBreadcrumb();
   }
 
-  const portfolioCostDetailsBtn = document.getElementById("portfolioCostDetailsBtn");
-  if (portfolioCostDetailsBtn) {
-    portfolioCostDetailsBtn.addEventListener("click", () => {
-      const params = new URLSearchParams(window.location.search);
-      const ref = params.get("refBuildingId");
-      const q = ref ? `?refBuildingId=${encodeURIComponent(ref)}` : "";
-      window.location.href = `portfolio_costs.html${q}`;
-    });
-  }
 });

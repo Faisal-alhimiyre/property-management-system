@@ -138,13 +138,12 @@ function initRequestsSystem(aptId, activeRole, currentUser, leaseStatus, pageApa
       return (
         currentUser?.fullName ||
         currentUser?.name ||
-        currentUser?.username ||
         T("common.landlord")
       );
     }
     const users = typeof getUsers === "function" ? getUsers() : getLocalArray("walajna_users");
     const owner = users.find((u) => u.id === apartment?.ownerId);
-    return owner?.fullName || owner?.name || owner?.username || T("common.landlord");
+    return owner?.fullName || owner?.name || T("common.landlord");
   }
 
   function serverApartmentNumericId() {

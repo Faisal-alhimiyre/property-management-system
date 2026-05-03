@@ -117,12 +117,6 @@ function findWalajnaUsersRow(current) {
     if (u) return u;
   }
 
-  if (current.username) {
-    const un = String(current.username).toLowerCase();
-    const u = users.find((x) => (x.username || "").toLowerCase() === un);
-    if (u) return u;
-  }
-
   return null;
 }
 
@@ -132,11 +126,9 @@ function profileFromSession(current) {
   if (row) return row;
   if (!current) return null;
   const email = current.email || "";
-  const guessUser = email.includes("@") ? email.split("@")[0] : "";
   return {
     id: current.id,
     fullName: current.name || current.fullName || "",
-    username: current.username || guessUser || "—",
     email,
     phone: current.phone || "",
     nationalId: current.nationalId || current.national_id || "",
@@ -156,7 +148,6 @@ function loadProfile() {
 
   if (!user) {
     setText("p_fullName", "—");
-    setText("p_username", "—");
     setText("p_email", "—");
     setText("p_phone", wlT("common.notAvailable"));
     setText("p_nationalId", "—");
@@ -168,7 +159,6 @@ function loadProfile() {
   }
 
   setText("p_fullName", user.fullName);
-  setText("p_username", user.username);
   setText("p_email", user.email);
   setText("p_phone", user.phone || wlT("common.notAvailable"));
   setText("p_nationalId", user.nationalId);
@@ -320,8 +310,6 @@ if (deleteAccountBtn) {
       filteredUsers = users.filter(u => u.nationalId !== current.nationalId);
     } else if (current?.email) {
       filteredUsers = users.filter(u => (u.email || "").toLowerCase() !== current.email.toLowerCase());
-    } else if (current?.username) {
-      filteredUsers = users.filter(u => (u.username || "").toLowerCase() !== current.username.toLowerCase());
     } else {
       alert(wlT("settings.deleteAccount.noLocalRow"));
       return;
@@ -384,12 +372,6 @@ function getEditableUserIndex() {
   if (current.email) {
     const e = String(current.email).toLowerCase();
     const index = users.findIndex((u) => (u.email || "").toLowerCase() === e);
-    if (index !== -1) return index;
-  }
-
-  if (current.username) {
-    const un = String(current.username).toLowerCase();
-    const index = users.findIndex((u) => (u.username || "").toLowerCase() === un);
     if (index !== -1) return index;
   }
 

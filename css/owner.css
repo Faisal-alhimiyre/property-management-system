@@ -337,6 +337,20 @@ html[dir="ltr"] .page-head-actions {
   gap: 6px;
 }
 
+/* Keep pinned cards clearly highlighted in dark mode too */
+body.dark-mode .building-card.is-pinned {
+  border-color: #f59e0b;
+  box-shadow:
+    0 0 0 2px rgba(245, 158, 11, 0.35),
+    0 12px 30px rgba(0, 0, 0, 0.45);
+}
+
+body.dark-mode .building-card.is-pinned:hover {
+  box-shadow:
+    0 0 0 2px rgba(245, 158, 11, 0.5),
+    0 18px 38px rgba(0, 0, 0, 0.5);
+}
+
 /* dynamic apartment sizes */
 
 .building-card.size-small .apartment-square {
