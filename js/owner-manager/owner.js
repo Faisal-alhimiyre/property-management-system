@@ -265,6 +265,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         id: building.id,
         name: building.name,
         city: building.city,
+        neighborhood: building.neighborhood || null,
         code: building.code || null,
         apartmentCount: Number(building.apartmentCount ?? building.apartments_count ?? 0),
         totalFloors: Number(building.totalFloors ?? building.total_floors ?? 0),
@@ -302,6 +303,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           id: building.id,
           name: building.name,
           city: building.city,
+          neighborhood: building.neighborhood ?? "",
           code: building.code ?? null,
           isPinned: !!(pins[String(building.id)] && pins[String(building.id)].pinned),
           pinnedAt: pins[String(building.id)]?.pinnedAt ?? null,
@@ -311,6 +313,67 @@ document.addEventListener("DOMContentLoaded", async () => {
       console.warn("Could not fetch server buildings", e);
     }
     return [];
+  }
+
+  /**
+   * The home page lists GET /api/buildings only. If create failed (schema/network) the form still
+   * saves to walajna_buildings and redirects — merge those rows so the owner still sees them.
+   * ownerId must match session user (see owner-edit using WalajnaAuth.getCurrentUser).
+   */
+  function mergeLocalBuildingsForOwner(serverRows, ownerId) {
+    const ownerStr = String(ownerId ?? "");
+    if (!ownerStr) return serverRows;
+
+    let raw = [];
+    try {
+      raw = JSON.parse(localStorage.getItem("walajna_buildings") || "[]");
+    } catch {
+      raw = [];
+    }
+    if (!Array.isArray(raw) || !raw.length) return serverRows;
+
+    const pins = readPins();
+    const serverIds = new Set(serverRows.map((b) => String(b.id)));
+    const serverCodes = new Set(
+      serverRows
+        .map((b) => String((b.code ?? "") || "").trim())
+        .filter(Boolean)
+    );
+
+    const extras = [];
+    for (const b of raw) {
+      const oid = String(b.ownerId ?? b.owner_id ?? "");
+      if (oid !== ownerStr) continue;
+
+      const lid = String(b.id ?? "").trim();
+      const lcode = String(b.code ?? "").trim();
+
+      if (lid && serverIds.has(lid)) continue;
+      if (lcode && serverCodes.has(lcode)) continue;
+      if (lid && serverCodes.has(lid)) continue;
+
+      extras.push({
+        ...b,
+        id: b.id,
+        owner_id: b.ownerId ?? b.owner_id ?? ownerId,
+        ownerId: b.ownerId ?? b.owner_id ?? ownerId,
+        name: b.name,
+        city: b.city ?? "",
+        neighborhood: b.neighborhood ?? "",
+        code: b.code ?? null,
+        apartmentCount: Number(b.apartmentCount ?? b.apartments_count ?? 0),
+        apartments_count: Number(b.apartments_count ?? b.apartmentCount ?? 0),
+        totalFloors: b.totalFloors ?? b.total_floors ?? null,
+        total_floors: b.total_floors ?? b.totalFloors ?? null,
+        createdAt: b.createdAt ?? b.created_at ?? null,
+        created_at: b.created_at ?? b.createdAt ?? null,
+        isPinned: !!(pins[String(b.id)] && pins[String(b.id)].pinned),
+        pinnedAt: pins[String(b.id)]?.pinnedAt ?? null,
+      });
+    }
+
+    if (!extras.length) return serverRows;
+    return [...serverRows, ...extras];
   }
 
   async function fetchOwnerMaintenance() {
@@ -800,11 +863,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  const [allBuildings, fetchedApartments, maintenanceRows] = await Promise.all([
+  const [allBuildingsRaw, fetchedApartments, maintenanceRows] = await Promise.all([
     getServerBuildings(),
     fetchOwnerApartments(),
     fetchOwnerMaintenance(),
   ]);
+  const allBuildings = mergeLocalBuildingsForOwner(allBuildingsRaw, currentUser.id);
   let apartments = fetchedApartments;
 
   const ownerBuildingsList = allBuildings.filter(
@@ -889,56 +953,223 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  container.innerHTML = buildings
-    .map((building) => {
-      const buildingApartments = getApartmentsForBuilding(building.id, apartments);
+  const selectedBuildingIds = new Set();
+  let showOnlySelectedMode = false;
 
-      const newRequestsCount = getNewRequestsCountForBuilding(
-        building.id,
-        apartments,
-        maintenanceRows
+  function normalizeArabicSearchText(raw) {
+    return String(raw || "")
+      .replace(/[\u0640]/g, "")
+      .replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g, "")
+      .replace(/[أإآٱ]/g, "ا")
+      .replace(/ى/g, "ي")
+      .replace(/ة/g, "ه")
+      .trim()
+      .toLowerCase();
+  }
+
+  /** Unique حي names from the owner’s buildings (from map geocode), for the dropdown only. */
+  function distinctNeighborhoodLabels(buildingList) {
+    const byNorm = new Map();
+    for (const b of buildingList || []) {
+      const raw = String(b.neighborhood ?? "").trim();
+      if (!raw) continue;
+      const key = normalizeArabicSearchText(raw);
+      if (!key) continue;
+      if (!byNorm.has(key)) byNorm.set(key, raw);
+    }
+    return Array.from(byNorm.values()).sort((a, b) => a.localeCompare(b, "ar"));
+  }
+
+  function populateOwnerNeighborhoodSelect(selectEl, buildingList) {
+    if (!selectEl) return;
+    const previous = selectEl.value;
+    const labels = distinctNeighborhoodLabels(buildingList);
+    selectEl.innerHTML = "";
+    const optAll = document.createElement("option");
+    optAll.value = "";
+    optAll.textContent = "كل الأحياء";
+    selectEl.appendChild(optAll);
+    for (const label of labels) {
+      const o = document.createElement("option");
+      o.value = label;
+      o.textContent = label;
+      selectEl.appendChild(o);
+    }
+    if (previous && [...selectEl.options].some((opt) => opt.value === previous)) {
+      selectEl.value = previous;
+    } else {
+      selectEl.value = "";
+    }
+  }
+
+  function buildingMatchesNeighborhoodChoice(building, selectedLabel) {
+    const sel = String(selectedLabel || "").trim();
+    if (!sel) return true;
+    return (
+      normalizeArabicSearchText(building.neighborhood || "") ===
+      normalizeArabicSearchText(sel)
+    );
+  }
+
+  function buildingHasOpenRequestFilter(buildingId, typeFilter) {
+    if (!typeFilter || typeFilter === "all") return true;
+    const apts = getApartmentsForBuilding(buildingId, apartments);
+    const aptIds = new Set(
+      apts
+        .map((a) => String(a.apiId ?? a.id ?? ""))
+        .filter((id) => id && id !== "undefined")
+    );
+    const bidStr = String(buildingId);
+
+    const openRows = (maintenanceRows || []).filter((m) => {
+      const st = String(m.status || "").toLowerCase();
+      if (st === "resolved" || st === "closed") return false;
+      const aid = m.apartment_id != null ? String(m.apartment_id) : "";
+      const mbid = m.building_id != null ? String(m.building_id) : "";
+      if (mbid && mbid === bidStr) return true;
+      if (aid && aptIds.has(aid)) return true;
+      return false;
+    });
+
+    if (typeFilter === "any_open") return openRows.length > 0;
+
+    if (typeFilter === "maintenance") {
+      return openRows.some(
+        (m) => String(m.request_type || "maintenance").toLowerCase() === "maintenance"
       );
+    }
 
-      const sizeClass = getBuildingSizeClass(buildingApartments.length);
+    return openRows.some(
+      (m) => String(m.request_type || "").toLowerCase() === String(typeFilter).toLowerCase()
+    );
+  }
 
-      const floorsMap = new Map();
+  function getOwnerNeighborhoodAndRequestFilterValues() {
+    const neighborhoodFilterSelect = document.getElementById("ownerBuildingsNeighborhoodFilter");
+    const requestFilterSelect = document.getElementById("ownerBuildingsRequestFilter");
+    return {
+      neighborhoodChoice: neighborhoodFilterSelect?.value || "",
+      requestFilter: requestFilterSelect?.value || "all",
+    };
+  }
 
-      buildingApartments.forEach((apartment) => {
-        const floorNumber = Number(apartment.floorNumber || 0);
+  /** True when user narrowed results (حي or طلبات), so pick UI is shown. */
+  function isOwnerBuildingSearchActive() {
+    const { neighborhoodChoice, requestFilter } = getOwnerNeighborhoodAndRequestFilterValues();
+    return neighborhoodChoice.trim() !== "" || requestFilter !== "all";
+  }
 
-        if (!floorsMap.has(floorNumber)) {
-          floorsMap.set(floorNumber, []);
-        }
+  function syncOwnerPickUiVisibility() {
+    const containerEl = document.getElementById("buildingsContainer");
+    const visible = showOnlySelectedMode || isOwnerBuildingSearchActive();
+    if (containerEl) {
+      containerEl.classList.toggle("is-owner-pick-active", visible);
+    }
+  }
 
-        floorsMap.get(floorNumber).push(apartment);
-      });
+  function computeOwnerBuildingsFilterList() {
+    const { neighborhoodChoice, requestFilter } = getOwnerNeighborhoodAndRequestFilterValues();
+    return buildings.filter(
+      (b) =>
+        buildingMatchesNeighborhoodChoice(b, neighborhoodChoice) &&
+        buildingHasOpenRequestFilter(b.id, requestFilter)
+    );
+  }
 
-      const sortedFloorNumbers = [...floorsMap.keys()].sort((a, b) => b - a);
+  function computeOwnerBuildingsDisplayList() {
+    if (showOnlySelectedMode) {
+      return buildings.filter((b) => selectedBuildingIds.has(String(b.id)));
+    }
+    return computeOwnerBuildingsFilterList();
+  }
 
-      const squaresHtml = sortedFloorNumbers
-        .map((floorNumber) => {
-          const floorApartments = floorsMap.get(floorNumber) || [];
+  function updateSelectionToolbar() {
+    const showBtn = document.getElementById("ownerShowSelectedOnlyBtn");
+    const backBtn = document.getElementById("ownerBackToFilterViewBtn");
+    const actionsWrap = document.getElementById("ownerBuildingsFilterPickActions");
+    if (!showBtn || !backBtn) return;
 
-          const sortedFloorApartments = floorApartments.sort((a, b) => {
-            const aNum = Number(a.number || 0);
-            const bNum = Number(b.number || 0);
-            return aNum - bNum;
-          });
-           const isWide = sortedFloorApartments.length >= 6;
-          const floorSquares = sortedFloorApartments
-            .map((apartment) => {
-              const typeClass = getApartmentStatusClass(
-                apartment,
-                maintenanceRows,
-                payments
-              );
+    const pickVisible = showOnlySelectedMode || isOwnerBuildingSearchActive();
+    if (actionsWrap) {
+      actionsWrap.hidden = !pickVisible;
+    }
 
-              const rentedClass =
-                isApartmentRented(apartment) && typeClass === "none"
-                  ? "rented"
-                  : "";
+    if (showOnlySelectedMode) {
+      showBtn.hidden = true;
+      backBtn.hidden = false;
+    } else {
+      showBtn.hidden = false;
+      backBtn.hidden = true;
+      showBtn.disabled = selectedBuildingIds.size === 0;
+    }
+  }
 
-              return `
+  function refreshOwnerBuildingsView() {
+    syncOwnerPickUiVisibility();
+    const list = computeOwnerBuildingsDisplayList();
+    updateOwnerBuildingsCountDisplay(list.length);
+    updateSelectionToolbar();
+    renderBuildingCards(list);
+  }
+
+  function applyOwnerBuildingFilters() {
+    showOnlySelectedMode = false;
+    refreshOwnerBuildingsView();
+  }
+
+  function createBuildingCardHtml(building) {
+    const bid = String(building.id);
+    const isChecked = selectedBuildingIds.has(bid);
+    const selectAria = String(wlT("owner.buildingsSelectForListAria")).replace(/"/g, "&quot;");
+
+    const buildingApartments = getApartmentsForBuilding(building.id, apartments);
+
+    const newRequestsCount = getNewRequestsCountForBuilding(
+      building.id,
+      apartments,
+      maintenanceRows
+    );
+
+    const sizeClass = getBuildingSizeClass(buildingApartments.length);
+
+    const floorsMap = new Map();
+
+    buildingApartments.forEach((apartment) => {
+      const floorNumber = Number(apartment.floorNumber || 0);
+
+      if (!floorsMap.has(floorNumber)) {
+        floorsMap.set(floorNumber, []);
+      }
+
+      floorsMap.get(floorNumber).push(apartment);
+    });
+
+    const sortedFloorNumbers = [...floorsMap.keys()].sort((a, b) => b - a);
+
+    const squaresHtml = sortedFloorNumbers
+      .map((floorNumber) => {
+        const floorApartments = floorsMap.get(floorNumber) || [];
+
+        const sortedFloorApartments = floorApartments.sort((a, b) => {
+          const aNum = Number(a.number || 0);
+          const bNum = Number(b.number || 0);
+          return aNum - bNum;
+        });
+        const isWide = sortedFloorApartments.length >= 6;
+        const floorSquares = sortedFloorApartments
+          .map((apartment) => {
+            const typeClass = getApartmentStatusClass(
+              apartment,
+              maintenanceRows,
+              payments
+            );
+
+            const rentedClass =
+              isApartmentRented(apartment) && typeClass === "none"
+                ? "rented"
+                : "";
+
+            return `
                 <div
                   class="apartment-square ${typeClass} ${rentedClass}"
                   title="${String(wlT("owner.aptTitle", { n: apartment.number, f: floorNumber }))
@@ -946,21 +1177,30 @@ document.addEventListener("DOMContentLoaded", async () => {
                     .replace(/"/g, "&quot;")}">
                 </div>
               `;
-            })
-            .join("");
-return `
+          })
+          .join("");
+        return `
   <div class="apartment-floor ${isWide ? "wide-floor" : ""}" data-floor="${floorNumber}">
     ${floorSquares}
   </div>
 `;
-        })
-        .join("");
+      })
+      .join("");
 
-      return `
+    return `
         <article
-          class="building-card ${sizeClass} ${newRequestsCount > 0 ? "has-notifications" : ""} ${isBuildingPinned(building) ? "is-pinned" : ""}"
+          class="building-card ${sizeClass} ${newRequestsCount > 0 ? "has-notifications" : ""} ${isBuildingPinned(building) ? "is-pinned" : ""} ${isChecked ? "is-multi-selected" : ""}"
           data-building-id="${building.id}"
         >
+          <label class="building-card-select-wrap">
+            <input
+              type="checkbox"
+              class="building-card-select"
+              data-building-id="${building.id}"
+              ${isChecked ? "checked" : ""}
+              aria-label="${selectAria}"
+            />
+          </label>
           ${
             newRequestsCount > 0
               ? `<span class="building-notification-badge">${newRequestsCount}</span>`
@@ -1016,71 +1256,148 @@ return `
           </div>
         </article>
       `;
-    })
-    .join("");
+  }
 
-  document.querySelectorAll("[data-menu-btn]").forEach((btn) => {
-    btn.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
+  function bindBuildingCardEvents() {
+    document.querySelectorAll("[data-menu-btn]").forEach((btn) => {
+      btn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
 
-      const buildingId = btn.dataset.buildingId;
-      const menu = document.querySelector(`[data-menu="${buildingId}"]`);
-      const isOpen = menu?.classList.contains("is-open");
+        const buildingId = btn.dataset.buildingId;
+        const menu = document.querySelector(`[data-menu="${buildingId}"]`);
+        const isOpen = menu?.classList.contains("is-open");
 
-      closeAllBuildingMenus();
+        closeAllBuildingMenus();
 
-      if (menu && !isOpen) {
-        menu.classList.add("is-open");
-      }
+        if (menu && !isOpen) {
+          menu.classList.add("is-open");
+        }
+      });
     });
+
+    document.querySelectorAll('[data-action="toggle-pin-building"]').forEach((btn) => {
+      btn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const buildingId = btn.dataset.buildingId;
+        closeAllBuildingMenus();
+        toggleBuildingPin(buildingId);
+      });
+    });
+
+    document.querySelectorAll('[data-action="edit-building"]').forEach((btn) => {
+      btn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const buildingId = btn.dataset.buildingId;
+        closeAllBuildingMenus();
+        editBuilding(buildingId);
+      });
+    });
+
+    document.querySelectorAll('[data-action="delete-building"]').forEach((btn) => {
+      btn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const buildingId = btn.dataset.buildingId;
+        closeAllBuildingMenus();
+        deleteBuilding(buildingId);
+      });
+    });
+
+    document.querySelectorAll(".building-card-select").forEach((input) => {
+      input.addEventListener("click", (event) => {
+        event.stopPropagation();
+      });
+      input.addEventListener("change", (event) => {
+        event.stopPropagation();
+        const id = String(input.dataset.buildingId ?? "");
+        if (!id) return;
+        if (input.checked) {
+          selectedBuildingIds.add(id);
+        } else {
+          selectedBuildingIds.delete(id);
+        }
+        const card = input.closest(".building-card");
+        if (card) {
+          card.classList.toggle("is-multi-selected", input.checked);
+        }
+        updateSelectionToolbar();
+        if (showOnlySelectedMode) {
+          if (selectedBuildingIds.size === 0) {
+            showOnlySelectedMode = false;
+          }
+          refreshOwnerBuildingsView();
+        }
+      });
+    });
+
+    document.querySelectorAll(".building-card").forEach((card) => {
+      card.addEventListener("click", async (event) => {
+        if (event.target.closest(".building-menu-wrap")) return;
+        if (event.target.closest(".building-card-select-wrap")) return;
+
+        const buildingId = card.dataset.buildingId;
+
+        await markBuildingRequestsAsSeen(buildingId);
+
+        window.location.href = `owner_building.html?buildingId=${encodeURIComponent(
+          buildingId
+        )}`;
+      });
+    });
+  }
+
+  function renderBuildingCards(list) {
+    if (!list.length) {
+      container.innerHTML = "";
+      const p = document.createElement("p");
+      p.className = "buildings-filter-empty";
+      p.setAttribute("dir", "rtl");
+      p.textContent = wlT("owner.buildingsFilterEmpty");
+      container.appendChild(p);
+      return;
+    }
+    container.innerHTML = list.map(createBuildingCardHtml).join("");
+    bindBuildingCardEvents();
+  }
+
+  function updateOwnerBuildingsCountDisplay(visibleCount) {
+    const el = document.getElementById("ownerBuildingsCount");
+    if (!el) return;
+    const total = buildings.length;
+    const v = Math.max(0, Number(visibleCount) || 0);
+    const text = v === total ? String(total) : `${total}/${v}`;
+    el.textContent = text;
+  }
+
+  const neighborhoodFilterSelect = document.getElementById("ownerBuildingsNeighborhoodFilter");
+  populateOwnerNeighborhoodSelect(neighborhoodFilterSelect, buildings);
+  refreshOwnerBuildingsView();
+
+  const requestFilterSelect = document.getElementById("ownerBuildingsRequestFilter");
+  if (neighborhoodFilterSelect) {
+    neighborhoodFilterSelect.addEventListener("change", applyOwnerBuildingFilters);
+  }
+  if (requestFilterSelect) {
+    requestFilterSelect.addEventListener("change", applyOwnerBuildingFilters);
+  }
+
+  document.getElementById("ownerShowSelectedOnlyBtn")?.addEventListener("click", () => {
+    if (selectedBuildingIds.size === 0) {
+      alert(wlT("owner.buildingsPickEmptyFiltered"));
+      return;
+    }
+    showOnlySelectedMode = true;
+    refreshOwnerBuildingsView();
   });
-
-  document.querySelectorAll('[data-action="toggle-pin-building"]').forEach((btn) => {
-    btn.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-
-      const buildingId = btn.dataset.buildingId;
-      closeAllBuildingMenus();
-      toggleBuildingPin(buildingId);
-    });
-  });
-
-  document.querySelectorAll('[data-action="edit-building"]').forEach((btn) => {
-    btn.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-
-      const buildingId = btn.dataset.buildingId;
-      closeAllBuildingMenus();
-      editBuilding(buildingId);
-    });
-  });
-
-  document.querySelectorAll('[data-action="delete-building"]').forEach((btn) => {
-    btn.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-
-      const buildingId = btn.dataset.buildingId;
-      closeAllBuildingMenus();
-      deleteBuilding(buildingId);
-    });
-  });
-
-  document.querySelectorAll(".building-card").forEach((card) => {
-    card.addEventListener("click", async (event) => {
-      if (event.target.closest(".building-menu-wrap")) return;
-
-      const buildingId = card.dataset.buildingId;
-
-      await markBuildingRequestsAsSeen(buildingId);
-
-      window.location.href = `owner_building.html?buildingId=${encodeURIComponent(
-        buildingId
-      )}`;
-    });
+  document.getElementById("ownerBackToFilterViewBtn")?.addEventListener("click", () => {
+    showOnlySelectedMode = false;
+    refreshOwnerBuildingsView();
   });
 
   document.addEventListener("click", (event) => {

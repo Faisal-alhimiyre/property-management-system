@@ -39,6 +39,29 @@
         </div>
 
         <div class="form-group full">
+          <label for="buildingLocationDisplay" data-i18n="owner.label.buildingLocation">موقع العمارة على الخريطة</label>
+          <div class="map-picker-row">
+            <input
+              type="text"
+              id="buildingLocationDisplay"
+              class="map-location-display"
+              data-i18n-placeholder="owner.locationDisplayPlaceholder"
+              placeholder="لم يتم اختيار موقع بعد"
+              readonly
+            >
+            <button type="button" id="openMapPickerBtn" class="map-picker-btn" data-i18n="owner.mapOpenPicker">
+              اختيار من الخريطة
+            </button>
+          </div>
+          <p id="buildingNeighborhoodReadout" class="map-neighborhood-readout" aria-live="polite">
+            سيُحدَّد الحي تلقائياً بعد اختيار الموقع على الخريطة.
+          </p>
+          <input type="hidden" id="buildingNeighborhood" value="">
+          <input type="hidden" id="buildingLat">
+          <input type="hidden" id="buildingLng">
+        </div>
+
+        <div class="form-group full">
           <label for="apartmentCount" data-i18n="owner.label.apartmentCount">عدد الشقق</label>
           <input type="number" id="apartmentCount" min="1" data-i18n-placeholder="owner.ph.count" placeholder="مثال: 14" required>
         </div>
@@ -46,26 +69,6 @@
         <div class="form-group">
           <label for="totalFloors" data-i18n="owner.label.totalFloors">عدد الطوابق</label>
           <input type="number" id="totalFloors" min="1" data-i18n-placeholder="owner.ph.floors" placeholder="مثال: 7" />
-        </div>
-
-        <div class="form-group">
-          <label for="apartmentsPerFloor" data-i18n="owner.label.apartmentsPerFloor">عدد الشقق في كل طابق</label>
-          <input type="number" id="apartmentsPerFloor" min="1" data-i18n-placeholder="owner.ph.perFloor" placeholder="مثال: 2" />
-        </div>
-
-        <div class="form-group">
-          <label for="bedrooms" data-i18n="apt.html.label.bedrooms">عدد غرف النوم</label>
-          <input type="number" id="bedrooms" min="0" data-i18n-placeholder="owner.ph.bedrooms" placeholder="مثال: 3" required>
-        </div>
-
-        <div class="form-group">
-          <label for="bathrooms" data-i18n="apt.html.label.bathrooms">عدد دورات المياه</label>
-          <input type="number" id="bathrooms" min="0" data-i18n-placeholder="owner.ph.bathrooms" placeholder="مثال: 2" required>
-        </div>
-
-        <div class="form-group">
-          <label for="livingRooms" data-i18n="apt.html.label.livingRooms">عدد الصالات</label>
-          <input type="number" id="livingRooms" min="0" data-i18n-placeholder="owner.ph.livingRooms" placeholder="مثال: 1" required>
         </div>
 
         <div class="form-group select-group">
@@ -89,6 +92,45 @@
   <script src="../js/main/nav.js"></script>
   <script src="../js/main/apartments-api.js"></script>
   <script src="../js/apartment-manager/apartment-storage.js"></script>
+  <div id="mapModal" class="map-modal" hidden>
+    <div class="map-modal-panel">
+      <header class="map-modal-header">
+        <h3 class="map-modal-title" data-i18n="owner.mapTitle">اختيار موقع العمارة</h3>
+        <div class="map-search">
+          <input
+            type="text"
+            id="mapSearchInput"
+            class="map-search-input"
+            data-i18n-placeholder="owner.mapSearchPlaceholder"
+            placeholder="ابحث عن حي أو عنوان (مثال: جدة الحمدانية)"
+          >
+          <button type="button" id="mapSearchBtn" class="map-search-btn" data-i18n="owner.mapSearch">بحث</button>
+        </div>
+        <button type="button" id="closeMapPickerBtn" class="map-modal-close" data-i18n-aria-label="common.close" aria-label="إغلاق">✕</button>
+      </header>
+      <div class="map-modal-body">
+        <div class="map-modal-map-wrap">
+          <div id="buildingMap"></div>
+          <div class="map-modal-actions">
+            <button type="button" id="confirmMapLocationBtn" class="map-confirm-btn" disabled data-i18n="owner.mapConfirm">
+              تأكيد الموقع
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
   <script src="../js/owner-manager/owner-edit.js"></script>
   <script src="../js/main/theme.js"></script>
 </body>

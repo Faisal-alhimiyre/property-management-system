@@ -1193,3 +1193,771 @@ body.dark-mode .apartment-edit-modal .item textarea::placeholder{
 body:has(#walajna-breadcrumb) .owner-building-wrap{
   margin-top:0;
 }
+
+/* Building details+ wizard */
+.building-details-modal-panel.apartment-edit-modal__panel{
+  max-width:min(96vw, 640px);
+  box-shadow:
+    0 32px 64px rgba(15, 23, 42, 0.14),
+    0 0 0 1px rgba(15, 23, 42, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  max-height:88vh;
+  padding:0;
+}
+
+.building-details-modal-panel.apartment-edit-modal__panel::before{
+  content:"";
+  flex-shrink:0;
+  height:4px;
+  width:100%;
+  background:linear-gradient(
+    90deg,
+    var(--wl-palette-navy, #1a2f4a) 0%,
+    var(--wl-palette-navy-mid, #243854) 42%,
+    var(--wl-accent-strong, #1fb8d4) 88%,
+    var(--wl-accent, #36d7e8) 100%
+  );
+}
+
+.building-details-modal-panel .apartment-edit-modal__header{
+  flex-shrink:0;
+  margin:0;
+  padding:20px 24px 18px;
+  border-bottom:1px solid rgba(26, 47, 74, 0.07);
+  background:linear-gradient(180deg, rgba(228, 237, 247, 0.45) 0%, rgba(255, 255, 255, 0) 100%);
+}
+
+.building-details-modal-panel .apartment-edit-modal__title{
+  font-size:1.375rem;
+  font-weight:900;
+  letter-spacing:-0.02em;
+  color:var(--wl-palette-navy, #1a2f4a);
+}
+
+.building-details-modal-panel .apartment-edit-modal__subtitle{
+  margin-top:8px;
+  font-size:13px;
+  line-height:1.55;
+  color:#64748b;
+  max-width:46ch;
+}
+
+.building-details-modal-panel .apartment-edit-modal__close{
+  background:#fff;
+  border:1px solid rgba(26, 47, 74, 0.1);
+  box-shadow:0 2px 10px rgba(15, 23, 42, 0.07);
+  transition:
+    transform .12s ease,
+    box-shadow .15s ease,
+    border-color .15s ease;
+}
+
+.building-details-modal-panel .apartment-edit-modal__close:hover{
+  border-color:rgba(26, 47, 74, 0.18);
+  box-shadow:0 4px 14px rgba(15, 23, 42, 0.1);
+}
+
+.building-details-modal-panel .apartment-edit-modal__body{
+  flex:1 1 auto;
+  min-height:0;
+  overflow-y:auto;
+  overflow-x:hidden;
+  padding:20px 24px;
+  margin:0;
+}
+
+.building-details-modal-panel .apartment-edit-modal__footer{
+  flex-shrink:0;
+  margin:0;
+  padding:16px 24px 22px;
+  border-top:1px solid rgba(26, 47, 74, 0.07);
+  background:linear-gradient(0deg, rgba(248, 250, 252, 0.95) 0%, rgba(255, 255, 255, 0) 100%);
+  gap:12px;
+}
+
+.building-details-modal-panel .apartment-edit-btn.primary{
+  background:linear-gradient(180deg, #2a3f5c 0%, var(--wl-palette-navy, #1a2f4a) 55%, #15263d 100%);
+  color:#fff;
+  box-shadow:
+    0 4px 16px rgba(26, 47, 74, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  padding:11px 20px;
+  border-radius:12px;
+  font-weight:800;
+  letter-spacing:0.01em;
+  transition:
+    filter .15s ease,
+    box-shadow .15s ease,
+    transform .12s ease;
+}
+
+.building-details-modal-panel .apartment-edit-btn.primary:hover:not(:disabled){
+  filter:brightness(1.07);
+  box-shadow:
+    0 8px 24px rgba(26, 47, 74, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+.building-details-modal-panel .apartment-edit-btn.primary:active:not(:disabled){
+  transform:translateY(1px);
+}
+
+.building-details-modal-panel .apartment-edit-btn.primary:disabled{
+  opacity:0.48;
+  cursor:not-allowed;
+  box-shadow:none;
+  filter:grayscale(0.15);
+}
+
+.building-details-modal-panel .apartment-edit-btn.ghost{
+  background:#fff;
+  color:var(--wl-palette-navy, #1a2f4a);
+  border:1px solid rgba(26, 47, 74, 0.14);
+  box-shadow:0 1px 4px rgba(15, 23, 42, 0.05);
+  font-weight:700;
+}
+
+.building-details-modal-panel .apartment-edit-btn.ghost:hover{
+  background:#f8fafc;
+  border-color:rgba(26, 47, 74, 0.22);
+}
+
+.building-details-modal-body{
+  max-height:min(70vh, 560px);
+  overflow-y:auto;
+  padding-inline-end:4px;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(26, 47, 74, 0.25) transparent;
+}
+
+.building-details-modal-panel .building-details-modal-body{
+  max-height:none;
+}
+
+.building-details-modal-body::-webkit-scrollbar{
+  width:8px;
+}
+
+.building-details-modal-body::-webkit-scrollbar-thumb{
+  background:rgba(26, 47, 74, 0.22);
+  border-radius:99px;
+}
+
+.building-details-modal-body::-webkit-scrollbar-track{
+  background:transparent;
+}
+
+.building-details-per-floor{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  margin-top:12px;
+}
+
+.building-details-floor-row{
+  display:grid;
+  grid-template-columns:1fr minmax(100px, 120px);
+  gap:10px;
+  align-items:center;
+}
+
+/* Use :not([hidden]) so display:flex does not override the HTML hidden attribute */
+.building-details-step2:not([hidden]){
+  display:flex;
+  flex-direction:column;
+  gap:0;
+}
+
+.building-details-bulk-bar{
+  margin:0 0 6px;
+  padding:0;
+  display:flex;
+  flex-direction:column;
+  gap:18px;
+  background:transparent;
+  border:none;
+}
+
+.building-details-bulk-head{
+  margin:0;
+  padding:2px 4px 0;
+}
+
+.building-details-bulk-title{
+  margin:0 0 8px;
+  font-size:16px;
+  font-weight:900;
+  letter-spacing:-0.02em;
+  line-height:1.35;
+  color:var(--wl-palette-navy, #1a2f4a);
+}
+
+.building-details-bulk-hint{
+  margin:0;
+  font-size:13px;
+  line-height:1.6;
+  color:#5c6b80;
+  max-width:54ch;
+}
+
+.building-details-bulk-card{
+  background:linear-gradient(165deg, #ffffff 0%, #f8fafc 100%);
+  border:1px solid rgba(26, 47, 74, 0.09);
+  border-radius:18px;
+  padding:16px 18px 18px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 8px 32px rgba(15, 23, 42, 0.07);
+}
+
+.building-details-bulk-card-head{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px 14px;
+  margin-bottom:12px;
+}
+
+.building-details-bulk-card-kicker{
+  display:block;
+  font-size:10px;
+  font-weight:900;
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  color:#64748b;
+}
+
+.building-details-bulk-pills{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+.building-details-bulk-pill{
+  margin:0;
+  padding:8px 16px;
+  border-radius:999px;
+  border:1px solid rgba(26, 47, 74, 0.11);
+  background:linear-gradient(180deg, #fff 0%, #f1f5f9 100%);
+  font:inherit;
+  font-size:12px;
+  font-weight:800;
+  color:var(--wl-palette-navy, #1a2f4a);
+  cursor:pointer;
+  box-shadow:0 1px 3px rgba(15, 23, 42, 0.06);
+  transition:
+    background .15s ease,
+    border-color .15s ease,
+    transform .12s ease,
+    box-shadow .15s ease;
+}
+
+.building-details-bulk-pill:hover{
+  background:linear-gradient(180deg, #fff 0%, #e8eef5 100%);
+  border-color:rgba(26, 47, 74, 0.2);
+  box-shadow:0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
+.building-details-bulk-pill:active{
+  transform:scale(0.98);
+}
+
+.building-details-bulk-pill--muted{
+  background:#fff;
+  color:#64748b;
+  border-color:#e2e8f0;
+}
+
+.building-details-bulk-pill--muted:hover{
+  background:#f8fafc;
+}
+
+.building-details-bulk-checklist{
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(228px, 1fr));
+  gap:10px;
+  max-height:min(240px, 40vh);
+  overflow-y:auto;
+  overflow-x:hidden;
+  padding:6px 8px 8px 4px;
+  margin:0;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(26, 47, 74, 0.2) transparent;
+}
+
+.building-details-bulk-checklist::-webkit-scrollbar{
+  width:6px;
+}
+
+.building-details-bulk-checklist::-webkit-scrollbar-thumb{
+  background:rgba(26, 47, 74, 0.2);
+  border-radius:99px;
+}
+
+.building-details-bulk-checkitem{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  margin:0;
+  min-height:48px;
+  padding:11px 14px;
+  font-size:13px;
+  font-weight:700;
+  line-height:1.35;
+  cursor:pointer;
+  color:var(--text);
+  background:rgba(255, 255, 255, 0.75);
+  border:1px solid rgba(26, 47, 74, 0.08);
+  border-radius:14px;
+  box-shadow:0 1px 2px rgba(15, 23, 42, 0.04);
+  transition:
+    background .15s ease,
+    border-color .15s ease,
+    box-shadow .15s ease,
+    transform .12s ease;
+}
+
+.building-details-bulk-checkitem:hover{
+  background:#fff;
+  border-color:rgba(26, 47, 74, 0.14);
+  box-shadow:0 4px 14px rgba(15, 23, 42, 0.07);
+}
+
+.building-details-bulk-checkitem:has(input:checked){
+  background:linear-gradient(135deg, rgba(26, 47, 74, 0.06) 0%, rgba(31, 184, 212, 0.06) 100%);
+  border-color:rgba(26, 47, 74, 0.2);
+  box-shadow:
+    0 0 0 1px rgba(31, 184, 212, 0.15),
+    0 6px 18px rgba(26, 47, 74, 0.08);
+}
+
+.building-details-bulk-checkitem input[type="checkbox"]{
+  appearance:none;
+  -webkit-appearance:none;
+  width:1.25rem;
+  height:1.25rem;
+  margin:0;
+  flex-shrink:0;
+  border:2px solid #c5d0dc;
+  border-radius:8px;
+  background:linear-gradient(180deg, #fff 0%, #f8fafc 100%);
+  cursor:pointer;
+  transition:
+    border-color .15s ease,
+    background .15s ease,
+    box-shadow .15s ease;
+}
+
+.building-details-bulk-checkitem input[type="checkbox"]:hover{
+  border-color:#94a3b8;
+}
+
+.building-details-bulk-checkitem input[type="checkbox"]:focus-visible{
+  outline:none;
+  box-shadow:0 0 0 3px rgba(26, 47, 74, 0.12);
+}
+
+.building-details-bulk-checkitem input[type="checkbox"]:checked{
+  background:var(--wl-palette-navy, #1a2f4a) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 10'%3E%3Cpath fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' d='M1 5l3 3 7-7'/%3E%3C/svg%3E") center / 11px 9px no-repeat;
+  border-color:var(--wl-palette-navy, #1a2f4a);
+}
+
+.building-details-bulk-card--apply .building-details-bulk-card-kicker{
+  margin-bottom:12px;
+}
+
+.building-details-bulk-rooms{
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+  gap:12px 14px;
+}
+
+.building-details-bulk-field{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  min-width:0;
+}
+
+.building-details-bulk-label{
+  font-size:12px;
+  font-weight:800;
+  color:#475569;
+  line-height:1.3;
+}
+
+.building-details-bulk-input{
+  width:100%;
+  box-sizing:border-box;
+  height:46px;
+  padding:11px 14px;
+  border:1px solid #dce3eb;
+  border-radius:12px;
+  background:linear-gradient(180deg, #fff 0%, #fafbfc 100%);
+  color:#0f172a;
+  font-family:inherit;
+  font-size:15px;
+  font-weight:700;
+  outline:none;
+  transition:border-color .15s ease, box-shadow .15s ease;
+}
+
+.building-details-bulk-input:hover{
+  border-color:#cbd5e1;
+}
+
+.building-details-bulk-input:focus{
+  border-color:var(--wl-accent-strong, #1fb8d4);
+  box-shadow:0 0 0 3px rgba(31, 184, 212, 0.15);
+}
+
+.building-details-bulk-apply{
+  width:100%;
+  margin-top:16px;
+  min-height:48px;
+  font-weight:800;
+  font-size:14px;
+  border-radius:12px;
+}
+
+.building-details-per-unit-legend{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  margin:26px 0 14px;
+  padding:0 4px;
+  font-size:10px;
+  font-weight:900;
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  color:#64748b;
+  white-space:nowrap;
+}
+
+.building-details-per-unit-legend::after{
+  content:"";
+  flex:1 1 auto;
+  height:1px;
+  background:linear-gradient(90deg, rgba(26, 47, 74, 0.14), rgba(26, 47, 74, 0));
+  border-radius:1px;
+}
+
+.building-details-room-grid{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.building-details-unit-row{
+  display:grid;
+  grid-template-columns:minmax(128px, 1.25fr) repeat(3, minmax(76px, 1fr));
+  gap:12px 14px;
+  align-items:end;
+  padding:16px 18px;
+  background:linear-gradient(180deg, #ffffff 0%, #f9fafb 100%);
+  border-radius:16px;
+  border:1px solid rgba(26, 47, 74, 0.09);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.8) inset,
+    0 6px 20px rgba(15, 23, 42, 0.06);
+}
+
+.building-details-unit-row .unit-label{
+  font-weight:800;
+  font-size:13px;
+  padding-bottom:4px;
+  letter-spacing:-0.01em;
+  color:var(--text);
+}
+
+.building-details-unit-row .mini label{
+  font-size:11px;
+  display:block;
+  margin-bottom:6px;
+  font-weight:800;
+  color:#64748b;
+  text-transform:uppercase;
+  letter-spacing:0.03em;
+}
+
+.building-details-unit-row .mini input{
+  border-radius:11px;
+  font-weight:700;
+  border:1px solid #dce3eb;
+  background:linear-gradient(180deg, #fff 0%, #fafbfc 100%);
+}
+
+.building-details-modal-panel .building-details-bulk-input::-webkit-outer-spin-button,
+.building-details-modal-panel .building-details-bulk-input::-webkit-inner-spin-button,
+.building-details-modal-panel .building-details-unit-row input[type="number"]::-webkit-outer-spin-button,
+.building-details-modal-panel .building-details-unit-row input[type="number"]::-webkit-inner-spin-button{
+  -webkit-appearance:none;
+  margin:0;
+}
+
+.building-details-modal-panel .building-details-bulk-input,
+.building-details-modal-panel .building-details-unit-row input[type="number"]{
+  -moz-appearance:textfield;
+  appearance:textfield;
+}
+
+.building-details-footer{
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+@media (max-width:520px){
+  .building-details-bulk-rooms{
+    grid-template-columns:1fr;
+  }
+
+  .building-details-bulk-checklist{
+    grid-template-columns:1fr;
+  }
+
+  .building-details-modal-panel .apartment-edit-modal__header,
+  .building-details-modal-panel .apartment-edit-modal__body,
+  .building-details-modal-panel .apartment-edit-modal__footer{
+    padding-left:18px;
+    padding-right:18px;
+  }
+}
+
+/* Dark — building details wizard */
+body.dark-mode .building-details-modal-panel.apartment-edit-modal__panel{
+  box-shadow:
+    0 32px 64px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(148, 163, 184, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+body.dark-mode .building-details-modal-panel .apartment-edit-modal__header{
+  background:linear-gradient(180deg, rgba(30, 41, 59, 0.65) 0%, transparent 100%);
+  border-bottom-color:rgba(148, 163, 184, 0.16);
+}
+
+body.dark-mode .building-details-modal-panel .apartment-edit-modal__title{
+  color:#e2e8f0;
+}
+
+body.dark-mode .building-details-modal-panel .apartment-edit-modal__subtitle{
+  color:#94a3b8;
+}
+
+body.dark-mode .building-details-modal-panel .apartment-edit-modal__close{
+  background:rgba(15, 23, 42, 0.85);
+  border-color:rgba(148, 163, 184, 0.35);
+  color:#e2e8f0;
+  box-shadow:0 2px 12px rgba(0, 0, 0, 0.35);
+}
+
+body.dark-mode .building-details-modal-panel .apartment-edit-modal__footer{
+  background:linear-gradient(0deg, rgba(15, 23, 42, 0.92) 0%, transparent 100%);
+  border-top-color:rgba(148, 163, 184, 0.16);
+}
+
+body.dark-mode .building-details-modal-panel .apartment-edit-btn.primary{
+  background:linear-gradient(180deg, #355070 0%, #1a2f4a 55%, #0f1a28 100%);
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+body.dark-mode .building-details-modal-panel .apartment-edit-btn.ghost{
+  background:rgba(15, 23, 42, 0.55);
+  color:#e2e8f0;
+  border-color:rgba(148, 163, 184, 0.32);
+}
+
+body.dark-mode .building-details-modal-panel .apartment-edit-btn.ghost:hover{
+  background:rgba(30, 41, 59, 0.75);
+}
+
+body.dark-mode .building-details-bulk-title{
+  color:#e2e8f0;
+}
+
+body.dark-mode .building-details-bulk-hint{
+  color:#94a3b8;
+}
+
+body.dark-mode .building-details-per-unit-legend::after{
+  background:linear-gradient(90deg, rgba(148, 163, 184, 0.35), transparent);
+}
+
+body.dark-mode .building-details-modal-body{
+  scrollbar-color:rgba(148, 163, 184, 0.35) transparent;
+}
+
+body.dark-mode .building-details-modal-body::-webkit-scrollbar-thumb{
+  background:rgba(148, 163, 184, 0.35);
+}
+
+body.dark-mode .building-details-bulk-card{
+  background:linear-gradient(165deg, #243047 0%, #1a2332 100%);
+  border:1px solid rgba(148, 163, 184, 0.38);
+  box-shadow:
+    0 10px 32px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+body.dark-mode .building-details-bulk-card-kicker,
+body.dark-mode .building-details-per-unit-legend{
+  color:#cbd5e1;
+}
+
+body.dark-mode .building-details-bulk-pill{
+  background:linear-gradient(180deg, #2d3d52 0%, #243047 100%);
+  border:1px solid rgba(148, 163, 184, 0.4);
+  color:#f1f5f9;
+  box-shadow:0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+body.dark-mode .building-details-bulk-pill:hover{
+  background:linear-gradient(180deg, #354560 0%, #2a3a4f 100%);
+  border-color:rgba(186, 230, 253, 0.45);
+}
+
+body.dark-mode .building-details-bulk-pill--muted{
+  background:rgba(30, 41, 59, 0.5);
+  color:#cbd5e1;
+  border-color:rgba(148, 163, 184, 0.3);
+}
+
+body.dark-mode .building-details-bulk-checkitem{
+  color:#f8fafc;
+  background:#273549;
+  border:1px solid rgba(148, 163, 184, 0.4);
+  box-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+body.dark-mode .building-details-bulk-checkitem:hover{
+  background:#2f3f56;
+  border-color:rgba(186, 230, 253, 0.42);
+}
+
+body.dark-mode .building-details-bulk-checkitem:has(input:checked){
+  background:linear-gradient(135deg, rgba(54, 215, 232, 0.18) 0%, #2a3d52 55%);
+  border-color:rgba(54, 215, 232, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(54, 215, 232, 0.25),
+    0 6px 20px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+body.dark-mode .building-details-bulk-checkitem input[type="checkbox"]{
+  background:#1e293b;
+  border:2px solid rgba(203, 213, 225, 0.55);
+}
+
+body.dark-mode .building-details-bulk-checkitem input[type="checkbox"]:checked{
+  background:var(--wl-accent, #36d7e8) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 10'%3E%3Cpath fill='none' stroke='%23052626' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' d='M1 5l3 3 7-7'/%3E%3C/svg%3E") center / 11px 9px no-repeat;
+  border-color:var(--wl-accent-strong, #1fb8d4);
+}
+
+body.dark-mode .building-details-bulk-label{
+  color:#e2e8f0;
+}
+
+/* Inputs: light theme left white bg + global dark forces light text → invisible; force readable field chrome */
+body.dark-mode .building-details-modal-panel .building-details-bulk-input,
+body.dark-mode .building-details-modal-panel .building-details-unit-row input[type="number"]{
+  background-color:#1e293b !important;
+  background-image:none !important;
+  border:1px solid rgba(203, 213, 225, 0.45) !important;
+  color:#f8fafc !important;
+  -webkit-text-fill-color:#f8fafc !important;
+  caret-color:#f8fafc;
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+body.dark-mode .building-details-modal-panel .building-details-bulk-input:hover,
+body.dark-mode .building-details-modal-panel .building-details-unit-row input[type="number"]:hover{
+  border-color:rgba(226, 232, 240, 0.55) !important;
+}
+
+body.dark-mode .building-details-modal-panel .building-details-bulk-input:focus,
+body.dark-mode .building-details-modal-panel .building-details-unit-row input[type="number"]:focus{
+  border-color:var(--wl-accent, #36d7e8) !important;
+  box-shadow:
+    0 0 0 3px rgba(54, 215, 232, 0.22),
+    inset 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Step 1 — per-floor counts use same modal input base (white) in light CSS */
+body.dark-mode .building-details-modal-panel .building-details-per-floor input[type="number"]{
+  background-color:#1e293b !important;
+  background-image:none !important;
+  border:1px solid rgba(203, 213, 225, 0.45) !important;
+  color:#f8fafc !important;
+  -webkit-text-fill-color:#f8fafc !important;
+  caret-color:#f8fafc;
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+body.dark-mode .building-details-modal-panel .building-details-per-floor input[type="number"]:focus{
+  border-color:var(--wl-accent, #36d7e8) !important;
+  box-shadow:
+    0 0 0 3px rgba(54, 215, 232, 0.22),
+    inset 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+body.dark-mode .building-details-unit-row{
+  background:linear-gradient(180deg, #273549 0%, #1f2d3f 100%);
+  border:1px solid rgba(148, 163, 184, 0.38);
+  box-shadow:
+    0 6px 22px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+body.dark-mode .building-details-unit-row .unit-label{
+  color:#f8fafc;
+}
+
+body.dark-mode .building-details-unit-row .mini label{
+  color:#cbd5e1;
+}
+
+.building-details-floors-total{
+  margin-bottom:4px;
+}
+
+.building-details-capacity-hint{
+  margin:10px 0 0;
+  font-size:13px;
+  font-weight:700;
+  color:var(--muted);
+  line-height:1.5;
+}
+
+body.dark-mode .building-details-capacity-hint{
+  color:#94a3b8;
+}
+
+.building-details-floors-total input[readonly]{
+  background:rgba(241, 245, 249, 0.9);
+  color:var(--text);
+  cursor:default;
+  -moz-appearance:textfield;
+}
+
+.building-details-floors-total input[readonly]::-webkit-outer-spin-button,
+.building-details-floors-total input[readonly]::-webkit-inner-spin-button{
+  -webkit-appearance:none;
+  margin:0;
+}
+
+body.dark-mode .building-details-floors-total input[readonly]{
+  background:rgba(15, 23, 42, 0.65);
+  color:#e2e8f0;
+}

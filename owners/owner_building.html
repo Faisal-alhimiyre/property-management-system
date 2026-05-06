@@ -47,6 +47,9 @@
         <button id="portfolioFinanceBtn" class="finance-summary-btn finance-summary-btn--secondary" type="button" data-i18n="finance.allBuildingsBtn">
           الملخص المالي للعمائر
         </button>
+        <button id="buildingDetailsPlusBtn" class="finance-summary-btn finance-summary-btn--secondary" type="button" data-i18n="building.detailsPlusBtn">
+          Building details+
+        </button>
       </div>
 
       <div class="building-stats">
@@ -209,6 +212,76 @@
         <button id="cancelEditApartmentModal" class="apartment-edit-btn ghost" type="button" data-i18n="common.cancel">
           إلغاء
         </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="buildingDetailsModal" class="apartment-edit-modal" aria-hidden="true">
+    <div class="apartment-edit-modal__backdrop" data-close-building-details="true"></div>
+    <div class="apartment-edit-modal__panel building-details-modal-panel" role="dialog" aria-modal="true" aria-labelledby="buildingDetailsModalTitle">
+      <div class="apartment-edit-modal__header">
+        <div>
+          <h3 id="buildingDetailsModalTitle" class="apartment-edit-modal__title" data-i18n="building.detailsWizardTitle">تفاصيل العمارة</h3>
+          <p id="buildingDetailsModalSubtitle" class="apartment-edit-modal__subtitle" data-i18n="building.detailsWizardStep1">الخطوة 1: عدد الشقق في كل دور</p>
+        </div>
+        <button id="closeBuildingDetailsModal" class="apartment-edit-modal__close" type="button" data-i18n-aria-label="common.close">✕</button>
+      </div>
+
+      <div class="apartment-edit-modal__body building-details-modal-body">
+        <div id="buildingDetailsStep1Wrap">
+          <div class="building-details-floors-total item">
+            <label class="label" for="wizardTotalFloorsInput" data-i18n="building.totalFloorsPrompt">عدد الطوابق</label>
+            <input id="wizardTotalFloorsInput" type="number" min="1" max="200" step="1" readonly aria-readonly="true" data-i18n-title="building.totalFloorsReadonlyHint" />
+          </div>
+          <div id="buildingDetailsPerFloorFields" class="building-details-per-floor"></div>
+          <p id="buildingDetailsCapacityHint" class="building-details-capacity-hint" hidden></p>
+        </div>
+        <div id="buildingDetailsStep2Wrap" class="building-details-step2" hidden>
+          <div id="buildingDetailsBulkBar" class="building-details-bulk-bar">
+            <header class="building-details-bulk-head">
+              <h4 class="building-details-bulk-title" data-i18n="building.bulkApplyTitle">تطبيق على عدة شقق</h4>
+              <p class="building-details-bulk-hint" data-i18n="building.bulkApplyHint">حدّد الشقق ثم املأ الحقول واضغط تطبيق.</p>
+            </header>
+            <div class="building-details-bulk-card building-details-bulk-card--pick">
+              <div class="building-details-bulk-card-head">
+                <span id="wizardBulkChecklistLegend" class="building-details-bulk-card-kicker" data-i18n="building.bulkPickApts">حدد الشقق</span>
+                <div class="building-details-bulk-pills" role="group">
+                  <button type="button" id="wizardBulkSelectAllBtn" class="building-details-bulk-pill" data-i18n="building.bulkSelectAll">تحديد الكل</button>
+                  <button type="button" id="wizardBulkClearChecksBtn" class="building-details-bulk-pill building-details-bulk-pill--muted" data-i18n="building.bulkClearChecks">إلغاء التحديد</button>
+                </div>
+              </div>
+              <div id="wizardBulkChecklist" class="building-details-bulk-checklist" role="group" aria-labelledby="wizardBulkChecklistLegend"></div>
+            </div>
+            <div class="building-details-bulk-card building-details-bulk-card--apply">
+              <span class="building-details-bulk-card-kicker" data-i18n="building.bulkValuesTitle">القيم المشتركة</span>
+              <div class="building-details-bulk-rooms">
+                <div class="building-details-bulk-field">
+                  <label class="building-details-bulk-label" for="wizardBulkBedrooms" data-i18n="lease.rooms">عدد الغرف</label>
+                  <input id="wizardBulkBedrooms" class="building-details-bulk-input" type="number" min="0" step="1" value="0" />
+                </div>
+                <div class="building-details-bulk-field">
+                  <label class="building-details-bulk-label" for="wizardBulkBathrooms" data-i18n="lease.bathrooms">عدد الحمامات</label>
+                  <input id="wizardBulkBathrooms" class="building-details-bulk-input" type="number" min="0" step="1" value="0" />
+                </div>
+                <div class="building-details-bulk-field">
+                  <label class="building-details-bulk-label" for="wizardBulkLiving" data-i18n="lease.living">عدد الصالات</label>
+                  <input id="wizardBulkLiving" class="building-details-bulk-input" type="number" min="0" step="1" value="0" />
+                </div>
+              </div>
+              <button id="wizardBulkApplyBtn" class="building-details-bulk-apply apartment-edit-btn primary" type="button" data-i18n="building.bulkApplyBtn">تطبيق على المحدد</button>
+            </div>
+          </div>
+          <p id="buildingDetailsPerUnitLegend" class="building-details-per-unit-legend" data-i18n="building.bulkPerUnitSection">تفاصيل كل شقة</p>
+          <div id="buildingDetailsRoomFields" class="building-details-room-grid"></div>
+        </div>
+        <p id="buildingDetailsError" class="error" role="alert"></p>
+      </div>
+
+      <div class="apartment-edit-modal__footer building-details-footer">
+        <button id="buildingDetailsNextBtn" class="apartment-edit-btn primary" type="button" disabled data-i18n="building.nextStepRooms">التالي</button>
+        <button id="buildingDetailsBackBtn" class="apartment-edit-btn ghost" type="button" hidden data-i18n="building.backStep">رجوع</button>
+        <button id="buildingDetailsSaveBtn" class="apartment-edit-btn primary" type="button" hidden data-i18n="building.saveLayout">حفظ</button>
+        <button id="cancelBuildingDetailsModal" class="apartment-edit-btn ghost" type="button" data-i18n="common.cancel">إلغاء</button>
       </div>
     </div>
   </div>

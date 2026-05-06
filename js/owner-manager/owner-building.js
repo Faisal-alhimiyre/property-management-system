@@ -96,6 +96,33 @@ document.addEventListener("DOMContentLoaded", async () => {
     return Number(b.apartments_count ?? b.apartmentCount ?? 0);
   }
 
+  function pickBuildingRowFromApiList(rows, urlBuildingId) {
+    if (!Array.isArray(rows) || urlBuildingId == null || String(urlBuildingId).trim() === "") {
+      return null;
+    }
+    const p = String(urlBuildingId).trim();
+    return (
+      rows.find((b) => String(b.id) === p) ||
+      rows.find((b) => String(b.code ?? "").trim() === p) ||
+      null
+    );
+  }
+
+  function apartmentRowMatchesBuildingRef(a, urlParam, bld) {
+    const ab = String(a.buildingId ?? "");
+    const urlP = String(urlParam ?? "");
+    if (!bld) return ab === urlP;
+    const pk = String(bld.id ?? "");
+    const bc = bld.code != null ? String(bld.code).trim() : "";
+    return ab === urlP || ab === pk || (!!bc && ab === bc);
+  }
+
+  /** Numeric / canonical id for /api/buildings/:id/... (not the display code). */
+  function pathBuildingIdForApi(bld, urlParam) {
+    if (bld && bld.id != null && String(bld.id).trim() !== "") return bld.id;
+    return urlParam;
+  }
+
   try {
     const [bRes, aRes, mRes] = await Promise.all([
       WalajnaAuth.fetchWithAuth(`${WalajnaAuth.API_BASE}/api/buildings`, { method: "GET" }),
@@ -103,9 +130,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       WalajnaAuth.fetchWithAuth(`${WalajnaAuth.API_BASE}/api/maintenance`, { method: "GET" }),
     ]);
 
+    let serverBuildingsList = [];
+
     if (bRes.ok) {
-      const buildings = await bRes.json();
-      const raw = buildings.find((b) => String(b.id) === String(buildingId)) || null;
+      serverBuildingsList = await bRes.json();
+      const raw = pickBuildingRowFromApiList(serverBuildingsList, buildingId);
       if (raw) {
         building = {
           ...raw,
@@ -128,7 +157,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.persistSessionList) {
         WalajnaApartmentsApi.persistSessionList(mappedAll);
       }
-      apartments = mappedAll.filter((a) => String(a.buildingId) === String(buildingId));
+      apartments = mappedAll.filter((a) => apartmentRowMatchesBuildingRef(a, buildingId, building));
       apartmentsFromApi = true;
     }
 
@@ -137,9 +166,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     const expectedUnits = expectedSlotsFromBuilding(building);
+    const seedPathId = pathBuildingIdForApi(building, buildingId);
     if (apartments.length === 0 && building && expectedUnits > 0) {
       await WalajnaAuth.fetchWithAuth(
-        `${WalajnaAuth.API_BASE}/api/buildings/${encodeURIComponent(buildingId)}/seed-apartments`,
+        `${WalajnaAuth.API_BASE}/api/buildings/${encodeURIComponent(seedPathId)}/seed-apartments`,
         { method: "POST" }
       );
       const aRes2 = await WalajnaAuth.fetchWithAuth(
@@ -159,7 +189,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.persistSessionList) {
           WalajnaApartmentsApi.persistSessionList(mappedAll);
         }
-        apartments = mappedAll.filter((a) => String(a.buildingId) === String(buildingId));
+        apartments = mappedAll.filter((a) => apartmentRowMatchesBuildingRef(a, buildingId, building));
         apartmentsFromApi = true;
       }
     }
@@ -171,6 +201,54 @@ document.addEventListener("DOMContentLoaded", async () => {
     maintenanceRows = [];
     console.warn("owner-building API load failed (no local fallback)", e);
   }
+
+  if (!building && !apiLoadError) {
+    try {
+      const locals = JSON.parse(localStorage.getItem("walajna_buildings") || "[]");
+      const me =
+        typeof WalajnaAuth !== "undefined" && WalajnaAuth.getCurrentUser
+          ? WalajnaAuth.getCurrentUser()?.id
+          : null;
+      const p = String(buildingId).trim();
+      const lb = Array.isArray(locals)
+        ? locals.find(
+            (b) =>
+              String(b.ownerId ?? b.owner_id ?? "") === String(me ?? "") &&
+              (String(b.id) === p || String(b.code ?? "").trim() === p)
+          )
+        : null;
+      if (lb) {
+        building = {
+          id: lb.id,
+          name: lb.name,
+          city: lb.city ?? "",
+          code: lb.code ?? null,
+          neighborhood: lb.neighborhood ?? "",
+          apartmentCount: Number(lb.apartmentCount ?? lb.apartments_count ?? 0),
+          apartments_count: lb.apartments_count ?? lb.apartmentCount,
+          totalFloors: lb.totalFloors ?? lb.total_floors ?? null,
+          total_floors: lb.total_floors ?? lb.totalFloors,
+        };
+        if (!apartments.length) {
+          try {
+            const localApts = JSON.parse(localStorage.getItem("walajna_apartments") || "[]");
+            if (Array.isArray(localApts)) {
+              apartments = localApts.filter((a) =>
+                apartmentRowMatchesBuildingRef(a, buildingId, building)
+              );
+            }
+          } catch {
+            /* ignore */
+          }
+        }
+        apartmentsFromApi = apartmentsFromApi && apartments.length > 0;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const apiPathBuildingId = pathBuildingIdForApi(building, buildingId);
 
   if (building && title) {
     title.textContent = building.name;
@@ -193,12 +271,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function openFinanceSummary() {
     if (!buildingId) return;
-    window.location.href = `finance_summary.html?buildingId=${encodeURIComponent(buildingId)}`;
+    window.location.href = `finance_summary.html?buildingId=${encodeURIComponent(String(apiPathBuildingId))}`;
   }
 
   function openPortfolioFinance() {
     if (!buildingId) return;
-    window.location.href = `portfolio_finance.html?refBuildingId=${encodeURIComponent(buildingId)}`;
+    window.location.href = `portfolio_finance.html?refBuildingId=${encodeURIComponent(String(apiPathBuildingId))}`;
   }
 
   if (financeBtn) {
@@ -207,6 +285,448 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (portfolioFinanceBtn) {
     portfolioFinanceBtn.addEventListener("click", openPortfolioFinance);
+  }
+
+  /** Building details+ wizard: per-floor apartment counts → room mix per unit (POST /api/buildings/:id/unit-layout). */
+  const buildingDetailsModal = document.getElementById("buildingDetailsModal");
+  let wizardUnitsDraft = [];
+
+  function resetBuildingDetailsWizard() {
+    wizardUnitsDraft = [];
+    const err = document.getElementById("buildingDetailsError");
+    if (err) err.textContent = "";
+    const step1 = document.getElementById("buildingDetailsStep1Wrap");
+    const step2 = document.getElementById("buildingDetailsStep2Wrap");
+    if (step2) step2.hidden = true;
+    if (step1) step1.hidden = false;
+    const nextBtn = document.getElementById("buildingDetailsNextBtn");
+    const backBtn = document.getElementById("buildingDetailsBackBtn");
+    const saveBtn = document.getElementById("buildingDetailsSaveBtn");
+    if (nextBtn) {
+      nextBtn.hidden = false;
+      nextBtn.disabled = true;
+    }
+    if (backBtn) backBtn.hidden = true;
+    if (saveBtn) saveBtn.hidden = true;
+    const sub = document.getElementById("buildingDetailsModalSubtitle");
+    if (sub) sub.textContent = T("building.detailsWizardStep1");
+  }
+
+  function closeBuildingDetailsModal() {
+    if (!buildingDetailsModal) return;
+    buildingDetailsModal.classList.remove("is-open");
+    buildingDetailsModal.setAttribute("aria-hidden", "true");
+    resetBuildingDetailsWizard();
+  }
+
+  function resolveWizardTotalFloors() {
+    const fromBuilding = Number(building?.totalFloors ?? building?.total_floors ?? 0);
+    if (fromBuilding >= 1) return Math.min(200, fromBuilding);
+    let maxF = 0;
+    for (const a of apartments) {
+      if (!apartmentRowMatchesBuildingRef(a, buildingId, building)) continue;
+      const f = Number(a.floorNumber ?? a.floor_number ?? 0);
+      if (Number.isFinite(f) && f > maxF) maxF = f;
+    }
+    if (maxF >= 1) return Math.min(200, maxF);
+    return 1;
+  }
+
+  function getWizardFloorCount() {
+    const el = document.getElementById("wizardTotalFloorsInput");
+    const n = el ? Number(el.value) : 0;
+    return Math.min(200, Math.max(1, n || 1));
+  }
+
+  /** Registered apartment capacity from add-building / building record (0 = not set, no cap in UI). */
+  function getWizardApartmentsCapacity() {
+    const c = Number(building?.apartmentCount ?? building?.apartments_count ?? 0);
+    return Number.isFinite(c) && c >= 1 ? Math.floor(c) : 0;
+  }
+
+  function bindPerFloorInputs() {
+    const wrap = document.getElementById("buildingDetailsPerFloorFields");
+    if (!wrap) return;
+    wrap.querySelectorAll("input").forEach((inp) => {
+      inp.addEventListener("input", validateFloorCountsStep);
+    });
+  }
+
+  function renderPerFloorCountFields() {
+    const wrap = document.getElementById("buildingDetailsPerFloorFields");
+    if (!wrap) return;
+    const floors = getWizardFloorCount();
+    wrap.innerHTML = "";
+    for (let f = 1; f <= floors; f++) {
+      const row = document.createElement("div");
+      row.className = "building-details-floor-row";
+      const label = document.createElement("label");
+      label.className = "label";
+      label.htmlFor = `floorCount${f}`;
+      label.textContent = T("building.apartmentsOnFloor", { n: f });
+      const input = document.createElement("input");
+      input.type = "number";
+      input.id = `floorCount${f}`;
+      input.min = "0";
+      input.step = "1";
+      input.value = "0";
+      row.appendChild(label);
+      row.appendChild(input);
+      wrap.appendChild(row);
+    }
+    bindPerFloorInputs();
+    updateCapacityHint();
+    validateFloorCountsStep();
+  }
+
+  function updateCapacityHint() {
+    const el = document.getElementById("buildingDetailsCapacityHint");
+    if (!el) return;
+    const cap = getWizardApartmentsCapacity();
+    if (cap >= 1) {
+      el.hidden = false;
+      el.textContent = T("building.layoutCapacityHint", { max: cap });
+    } else {
+      el.hidden = true;
+      el.textContent = "";
+    }
+  }
+
+  function validateFloorCountsStep() {
+    const nextBtn = document.getElementById("buildingDetailsNextBtn");
+    const errEl = document.getElementById("buildingDetailsError");
+    if (!nextBtn) return false;
+    const floors = getWizardFloorCount();
+    let sum = 0;
+    let ok = true;
+    for (let f = 1; f <= floors; f++) {
+      const inp = document.getElementById(`floorCount${f}`);
+      if (!inp) {
+        ok = false;
+        break;
+      }
+      const v = String(inp.value ?? "").trim();
+      if (v === "" || !/^-?\d+$/.test(v)) {
+        ok = false;
+        break;
+      }
+      const n = Number(v);
+      if (n < 0 || !Number.isFinite(n)) {
+        ok = false;
+        break;
+      }
+      sum += n;
+    }
+    const cap = getWizardApartmentsCapacity();
+    let valid = false;
+    if (ok) {
+      if (cap >= 1) valid = sum === cap;
+      else valid = sum >= 1;
+    }
+
+    nextBtn.disabled = !valid;
+
+    if (errEl) {
+      if (!ok) {
+        errEl.textContent = T("building.layoutNeedCounts");
+      } else if (cap >= 1 && sum > cap) {
+        errEl.textContent = T("building.layoutExceedsCapacity", { sum, max: cap });
+      } else if (cap >= 1 && sum < cap) {
+        errEl.textContent = T("building.layoutBelowCapacity", { sum, max: cap });
+      } else if (cap < 1 && sum < 1) {
+        errEl.textContent = T("building.layoutNeedCounts");
+      } else {
+        errEl.textContent = "";
+      }
+    }
+    return valid;
+  }
+
+  function openBuildingDetailsWizard() {
+    if (apiLoadError) {
+      alert(T("building.wizardNeedsServer"));
+      return;
+    }
+    if (!building) {
+      alert(T("building.noBuildingWizard"));
+      return;
+    }
+    if (!buildingDetailsModal) return;
+    const tfInput = document.getElementById("wizardTotalFloorsInput");
+    if (tfInput) tfInput.value = String(resolveWizardTotalFloors());
+    buildingDetailsModal.classList.add("is-open");
+    buildingDetailsModal.setAttribute("aria-hidden", "false");
+    resetBuildingDetailsWizard();
+    renderPerFloorCountFields();
+  }
+
+  function buildUnitsFromFloorCounts() {
+    const floors = getWizardFloorCount();
+    const units = [];
+    let aptNum = 1;
+    for (let f = 1; f <= floors; f++) {
+      const inp = document.getElementById(`floorCount${f}`);
+      const count = inp ? Math.max(0, Number(inp.value || 0)) : 0;
+      for (let i = 0; i < count; i++) {
+        units.push({
+          floor_number: f,
+          apartment_number: String(aptNum++),
+          bedrooms: 0,
+          bathrooms: 0,
+          living_rooms: 0,
+        });
+      }
+    }
+    return units;
+  }
+
+  function wizardStep2ParseRoomInput(el) {
+    if (!el) return { ok: false, value: 0 };
+    const raw = String(el.value ?? "").trim();
+    if (raw === "" || !/^\d+$/.test(raw)) return { ok: false, value: 0 };
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0) return { ok: false, value: 0 };
+    return { ok: true, value: n };
+  }
+
+  function wizardStep2GetRoomValidation() {
+    if (!wizardUnitsDraft.length) return { ok: false, errorKey: "building.layoutRoomsIncomplete" };
+    for (let idx = 0; idx < wizardUnitsDraft.length; idx++) {
+      const b = document.getElementById(`unit-${idx}-bedrooms`);
+      const ba = document.getElementById(`unit-${idx}-bathrooms`);
+      const lv = document.getElementById(`unit-${idx}-living_rooms`);
+      const pb = wizardStep2ParseRoomInput(b);
+      const pba = wizardStep2ParseRoomInput(ba);
+      const plv = wizardStep2ParseRoomInput(lv);
+      if (!pb.ok || !pba.ok || !plv.ok) {
+        return { ok: false, errorKey: "building.layoutRoomsInvalid" };
+      }
+      if (pb.value + pba.value + plv.value < 1) {
+        return { ok: false, errorKey: "building.layoutRoomsIncomplete" };
+      }
+    }
+    return { ok: true, errorKey: null };
+  }
+
+  function syncWizardStep2SaveState() {
+    const step2 = document.getElementById("buildingDetailsStep2Wrap");
+    const saveBtn = document.getElementById("buildingDetailsSaveBtn");
+    const errEl = document.getElementById("buildingDetailsError");
+    if (!step2 || step2.hidden || !saveBtn || saveBtn.hidden) return;
+    const v = wizardStep2GetRoomValidation();
+    saveBtn.disabled = !v.ok;
+    if (errEl) errEl.textContent = v.ok ? "" : T(v.errorKey);
+  }
+
+  function showWizardStep2() {
+    if (!validateFloorCountsStep()) return;
+    const errClear = document.getElementById("buildingDetailsError");
+    if (errClear) errClear.textContent = "";
+    wizardUnitsDraft = buildUnitsFromFloorCounts();
+    const step1 = document.getElementById("buildingDetailsStep1Wrap");
+    const step2 = document.getElementById("buildingDetailsStep2Wrap");
+    const sub = document.getElementById("buildingDetailsModalSubtitle");
+    const nextBtn = document.getElementById("buildingDetailsNextBtn");
+    const backBtn = document.getElementById("buildingDetailsBackBtn");
+    const saveBtn = document.getElementById("buildingDetailsSaveBtn");
+    if (step1) step1.hidden = true;
+    if (step2) step2.hidden = false;
+    if (sub) sub.textContent = T("building.detailsWizardStep2");
+    if (nextBtn) nextBtn.hidden = true;
+    if (backBtn) backBtn.hidden = false;
+    if (saveBtn) saveBtn.hidden = false;
+
+    const roomWrap = document.getElementById("buildingDetailsRoomFields");
+    if (!roomWrap) return;
+    roomWrap.innerHTML = "";
+    wizardUnitsDraft.forEach((u, idx) => {
+      const row = document.createElement("div");
+      row.className = "building-details-unit-row";
+      const label = document.createElement("div");
+      label.className = "unit-label";
+      label.textContent = `${T("building.aptLabel", { n: u.apartment_number })} — ${T("building.floorTitle", { n: u.floor_number })}`;
+
+      function miniField(suffix, labelKey) {
+        const d = document.createElement("div");
+        d.className = "mini";
+        const l = document.createElement("label");
+        l.htmlFor = `unit-${idx}-${suffix}`;
+        l.textContent = T(labelKey);
+        const inp = document.createElement("input");
+        inp.type = "number";
+        inp.id = `unit-${idx}-${suffix}`;
+        inp.min = "0";
+        inp.step = "1";
+        inp.value = "0";
+        d.appendChild(l);
+        d.appendChild(inp);
+        return d;
+      }
+
+      row.appendChild(label);
+      row.appendChild(miniField("bedrooms", "lease.rooms"));
+      row.appendChild(miniField("bathrooms", "lease.bathrooms"));
+      row.appendChild(miniField("living_rooms", "lease.living"));
+      roomWrap.appendChild(row);
+    });
+
+    populateWizardBulkChecklist();
+    if (window.walajna_language && typeof window.walajna_language.apply === "function") {
+      const step2 = document.getElementById("buildingDetailsStep2Wrap");
+      if (step2) window.walajna_language.apply(step2);
+    }
+
+    syncWizardStep2SaveState();
+  }
+
+  function populateWizardBulkChecklist() {
+    const box = document.getElementById("wizardBulkChecklist");
+    if (!box) return;
+    box.innerHTML = "";
+    wizardUnitsDraft.forEach((u, idx) => {
+      const lab = document.createElement("label");
+      lab.className = "building-details-bulk-checkitem";
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.className = "wizard-bulk-cb";
+      cb.dataset.idx = String(idx);
+      const span = document.createElement("span");
+      span.textContent = `${T("building.aptLabel", { n: u.apartment_number })} — ${T("building.floorTitle", { n: u.floor_number })}`;
+      lab.appendChild(cb);
+      lab.appendChild(span);
+      box.appendChild(lab);
+    });
+    const br = document.getElementById("wizardBulkBedrooms");
+    const ba = document.getElementById("wizardBulkBathrooms");
+    const lv = document.getElementById("wizardBulkLiving");
+    if (br) br.value = "0";
+    if (ba) ba.value = "0";
+    if (lv) lv.value = "0";
+  }
+
+  function applyWizardBulkRoomLayout() {
+    const err = document.getElementById("buildingDetailsError");
+    const box = document.getElementById("wizardBulkChecklist");
+    const brIn = document.getElementById("wizardBulkBedrooms");
+    const baIn = document.getElementById("wizardBulkBathrooms");
+    const lvIn = document.getElementById("wizardBulkLiving");
+    if (!box || !wizardUnitsDraft.length) return;
+    const checked = box.querySelectorAll('input[type="checkbox"].wizard-bulk-cb:checked');
+    if (!checked.length) {
+      if (err) err.textContent = T("building.bulkNoneSelected");
+      return;
+    }
+    const bedrooms = Math.max(0, Number(brIn?.value ?? 0));
+    const bathrooms = Math.max(0, Number(baIn?.value ?? 0));
+    const living = Math.max(0, Number(lvIn?.value ?? 0));
+    checked.forEach((cb) => {
+      const idx = Number(cb.dataset.idx);
+      if (!Number.isFinite(idx) || idx < 0 || idx >= wizardUnitsDraft.length) return;
+      const b = document.getElementById(`unit-${idx}-bedrooms`);
+      const ba = document.getElementById(`unit-${idx}-bathrooms`);
+      const lvv = document.getElementById(`unit-${idx}-living_rooms`);
+      if (b) b.value = String(bedrooms);
+      if (ba) ba.value = String(bathrooms);
+      if (lvv) lvv.value = String(living);
+    });
+    if (err) err.textContent = "";
+    syncWizardStep2SaveState();
+  }
+
+  function wizardBackToStep1() {
+    const step1 = document.getElementById("buildingDetailsStep1Wrap");
+    const step2 = document.getElementById("buildingDetailsStep2Wrap");
+    const sub = document.getElementById("buildingDetailsModalSubtitle");
+    const nextBtn = document.getElementById("buildingDetailsNextBtn");
+    const backBtn = document.getElementById("buildingDetailsBackBtn");
+    const saveBtn = document.getElementById("buildingDetailsSaveBtn");
+    if (step1) step1.hidden = false;
+    if (step2) step2.hidden = true;
+    if (sub) sub.textContent = T("building.detailsWizardStep1");
+    if (nextBtn) nextBtn.hidden = false;
+    if (backBtn) backBtn.hidden = true;
+    if (saveBtn) saveBtn.hidden = true;
+    validateFloorCountsStep();
+  }
+
+  function collectRoomFieldsIntoDraft() {
+    wizardUnitsDraft.forEach((u, idx) => {
+      const b = document.getElementById(`unit-${idx}-bedrooms`);
+      const ba = document.getElementById(`unit-${idx}-bathrooms`);
+      const lv = document.getElementById(`unit-${idx}-living_rooms`);
+      u.bedrooms = Math.max(0, Number(b?.value ?? 0));
+      u.bathrooms = Math.max(0, Number(ba?.value ?? 0));
+      u.living_rooms = Math.max(0, Number(lv?.value ?? 0));
+    });
+  }
+
+  async function saveBuildingUnitLayout() {
+    const saveBtn = document.getElementById("buildingDetailsSaveBtn");
+    const err = document.getElementById("buildingDetailsError");
+    const v = wizardStep2GetRoomValidation();
+    if (!v.ok) {
+      if (err) err.textContent = T(v.errorKey);
+      syncWizardStep2SaveState();
+      return;
+    }
+    collectRoomFieldsIntoDraft();
+    if (saveBtn) saveBtn.disabled = true;
+    try {
+      const res = await WalajnaAuth.fetchWithAuth(
+        `${WalajnaAuth.API_BASE}/api/buildings/${encodeURIComponent(String(apiPathBuildingId))}/unit-layout`,
+        { method: "POST", body: JSON.stringify({ units: wizardUnitsDraft }) }
+      );
+      if (!res.ok) {
+        let msg = T("building.layoutError");
+        try {
+          const j = await res.json();
+          if (j?.detail) msg = typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail);
+        } catch {
+          /* ignore */
+        }
+        if (err) err.textContent = msg;
+        syncWizardStep2SaveState();
+        return;
+      }
+      alert(T("building.layoutSaved"));
+      window.location.reload();
+    } catch {
+      if (err) err.textContent = T("building.layoutError");
+      syncWizardStep2SaveState();
+    }
+  }
+
+  const buildingDetailsPlusBtn = document.getElementById("buildingDetailsPlusBtn");
+  if (buildingDetailsPlusBtn) {
+    buildingDetailsPlusBtn.addEventListener("click", openBuildingDetailsWizard);
+  }
+  document.getElementById("closeBuildingDetailsModal")?.addEventListener("click", closeBuildingDetailsModal);
+  document.getElementById("cancelBuildingDetailsModal")?.addEventListener("click", closeBuildingDetailsModal);
+  document.querySelectorAll("[data-close-building-details]").forEach((el) => {
+    el.addEventListener("click", closeBuildingDetailsModal);
+  });
+  document.getElementById("buildingDetailsNextBtn")?.addEventListener("click", showWizardStep2);
+  document.getElementById("buildingDetailsBackBtn")?.addEventListener("click", wizardBackToStep1);
+  document.getElementById("buildingDetailsSaveBtn")?.addEventListener("click", () => {
+    void saveBuildingUnitLayout();
+  });
+  document.getElementById("wizardBulkApplyBtn")?.addEventListener("click", applyWizardBulkRoomLayout);
+  document.getElementById("wizardBulkSelectAllBtn")?.addEventListener("click", () => {
+    document.querySelectorAll("#wizardBulkChecklist .wizard-bulk-cb").forEach((cb) => {
+      cb.checked = true;
+    });
+  });
+  document.getElementById("wizardBulkClearChecksBtn")?.addEventListener("click", () => {
+    document.querySelectorAll("#wizardBulkChecklist .wizard-bulk-cb").forEach((cb) => {
+      cb.checked = false;
+    });
+  });
+  if (buildingDetailsModal) {
+    buildingDetailsModal.addEventListener("input", (e) => {
+      const wrap = document.getElementById("buildingDetailsRoomFields");
+      if (!wrap || !wrap.contains(e.target)) return;
+      syncWizardStep2SaveState();
+    });
   }
 
   /**
@@ -242,19 +762,24 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function getBuildingApartments() {
-    const target = String(buildingId);
-    const code = building?.code ? String(building.code) : null;
-    const filtered = apartments.filter((a) => {
-      const apartmentBuildingId = String(a.buildingId ?? "");
-      return apartmentBuildingId === target || (code && apartmentBuildingId === code);
-    });
-    return dedupeApartmentsByUnit(filtered, target);
+    const filtered = apartments.filter((a) =>
+      apartmentRowMatchesBuildingRef(a, buildingId, building)
+    );
+    const canonical =
+      building?.id != null && String(building.id).trim() !== ""
+        ? String(building.id)
+        : String(buildingId);
+    return dedupeApartmentsByUnit(filtered, canonical);
   }
 
   function buildGeneratedApartment(apartmentNumber, floorNumber) {
+    const canonBid =
+      building?.id != null && String(building.id).trim() !== ""
+        ? String(building.id)
+        : String(buildingId);
     return {
-      id: `${buildingId}-A${apartmentNumber}`,
-      buildingId: String(buildingId),
+      id: `${canonBid}-A${apartmentNumber}`,
+      buildingId: canonBid,
       buildingName: building?.name || "",
       number: String(apartmentNumber),
       floorNumber: Number(floorNumber) || 1,
@@ -431,7 +956,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         typeof WalajnaTenantRequests !== "undefined" &&
         WalajnaTenantRequests.markOwnerSeenBuilding
       ) {
-        await WalajnaTenantRequests.markOwnerSeenBuilding(buildingId);
+        await WalajnaTenantRequests.markOwnerSeenBuilding(apiPathBuildingId);
       }
     } catch (e) {
       console.warn("[owner-building] mark owner seen", e);
@@ -1139,7 +1664,7 @@ async function evictApartment(apartmentId) {
     }
     try {
       const res = await WalajnaAuth.fetchWithAuth(
-        `${WalajnaAuth.API_BASE}/api/buildings/${encodeURIComponent(buildingId)}/installments`,
+        `${WalajnaAuth.API_BASE}/api/buildings/${encodeURIComponent(String(apiPathBuildingId))}/installments`,
         { method: "GET" }
       );
       if (!res.ok) {

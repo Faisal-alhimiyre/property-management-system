@@ -273,7 +273,10 @@ class Building(BaseModel):
     owner_id: Optional[int] = None
     name: str
     city: str
+    neighborhood: Optional[str] = None
     code: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     total_floors: Optional[int] = None
     apartments_count: Optional[int] = None
     apartments_per_floor: Optional[int] = None
@@ -284,10 +287,29 @@ class BuildingResponse(BaseModel):
     owner_id: int
     name: str
     city: str
+    neighborhood: Optional[str] = None
     code: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     total_floors: Optional[int] = None
     apartments_count: Optional[int] = None
     apartments_per_floor: Optional[int] = None
     created_at: Optional[datetime] = None
+
+
+class UnitLayoutItem(BaseModel):
+    """One physical unit when applying per-floor counts + room mix from the owner wizard."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    floor_number: int
+    apartment_number: str
+    bedrooms: int = 0
+    bathrooms: int = 0
+    living_rooms: int = 0
+
+
+class UnitLayoutBody(BaseModel):
+    units: list[UnitLayoutItem]
 
 # Add more response models as needed

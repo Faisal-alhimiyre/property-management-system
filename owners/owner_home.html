@@ -17,8 +17,21 @@
 
   <main class="owner-dashboard">
     <div class="page-head">
-      <div>
+      <div class="page-head-lead">
         <h2 class="page-title" data-i18n="owner.pageTitle"></h2>
+        <div class="owner-buildings-count-badge" aria-live="polite" aria-atomic="true">
+          <span class="owner-buildings-count-icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d="M4 10.5 12 4.5l8 6v8.5a.75.75 0 0 1-.75.75H15v-6.25a.75.75 0 0 0-.75-.75h-4.5a.75.75 0 0 0-.75.75V19.5H4.75A.75.75 0 0 1 4 18.5v-8z"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </span>
+          <span id="ownerBuildingsCount" class="owner-buildings-count-value"></span>
+        </div>
       </div>
 
       <div class="page-head-actions">
@@ -78,6 +91,55 @@
       </aside>
 
       <div class="content-main">
+        <section
+          class="buildings-filters buildings-filters--modern"
+          id="ownerBuildingsFilters"
+          dir="rtl"
+          aria-label="تصفية العمائر"
+        >
+          <div class="buildings-filters__inner">
+            <div class="buildings-filters__title-row">
+              <span class="buildings-filters__badge" aria-hidden="true"></span>
+              <span class="buildings-filters__title" data-i18n="owner.buildingsFilterBarTitle"></span>
+            </div>
+            <div class="buildings-filters__controls">
+              <div class="buildings-filter-field">
+                <label for="ownerBuildingsNeighborhoodFilter">تصفية حسب الحي</label>
+                <div class="buildings-filter-select-shell">
+                  <select id="ownerBuildingsNeighborhoodFilter" class="buildings-filter-select">
+                    <option value="">كل الأحياء</option>
+                  </select>
+                </div>
+              </div>
+              <div class="buildings-filter-field">
+                <label for="ownerBuildingsRequestFilter">طلبات الشقق</label>
+                <div class="buildings-filter-select-shell">
+                  <select id="ownerBuildingsRequestFilter" class="buildings-filter-select">
+                    <option value="all">كل العمائر</option>
+                    <option value="any_open">فيها أي طلب مفتوح</option>
+                    <option value="maintenance">صيانة</option>
+                    <option value="complaint">شكوى</option>
+                    <option value="suggestion">اقتراح</option>
+                    <option value="request">طلب</option>
+                  </select>
+                </div>
+              </div>
+              <div id="ownerBuildingsFilterPickActions" class="buildings-filter-actions" hidden>
+                <button
+                  type="button"
+                  id="ownerShowSelectedOnlyBtn"
+                  class="buildings-filter-pick-btn buildings-filter-pick-btn--primary"
+                >
+                  <span data-i18n="owner.buildingsPickSelectedOnly"></span>
+                </button>
+                <button type="button" id="ownerBackToFilterViewBtn" class="buildings-filter-pick-btn" hidden>
+                  <span data-i18n="owner.buildingsBackToFilters"></span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section id="buildingsContainer" class="buildings-container">
         </section>
 

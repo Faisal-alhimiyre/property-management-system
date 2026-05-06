@@ -4,7 +4,7 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException
 from installment_service import cycle_months
-from models import Building, BuildingResponse
+from models import Building, BuildingResponse, UnitLayoutBody
 from config import supabase
 from routes.auth_routes import get_current_user
 from user_roles import has_role
@@ -88,18 +88,40 @@ def _to_int(value, default: int = 0) -> int:
         return default
 
 
+def _to_float(value):
+    try:
+        if value is None or value == "":
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _normalize_building_payload(payload: dict, owner_id: int) -> dict:
     building_name = payload.get("name")
     building_city = payload.get("city")
+    building_lat = _to_float(payload.get("latitude"))
+    building_lng = _to_float(payload.get("longitude"))
 
     if not building_name or not building_city:
         raise HTTPException(status_code=400, detail="name and city are required")
+    if building_lat is None or building_lng is None:
+        raise HTTPException(status_code=400, detail="latitude and longitude are required")
+
+    raw_nb = payload.get("neighborhood")
+    neighborhood = None
+    if raw_nb is not None:
+        s = str(raw_nb).strip()
+        neighborhood = s if s else None
 
     normalized = {
         "owner_id": owner_id,
         "name": building_name,
         "city": building_city,
         "code": payload.get("code") or payload.get("id"),
+        # Optional geo location for map pin
+        "latitude": building_lat,
+        "longitude": building_lng,
         "total_floors": _to_int(payload.get("total_floors", payload.get("totalFloors")), 0),
         "apartments_count": _to_int(
             payload.get("apartments_count", payload.get("apartment_count", payload.get("apartmentCount"))),
@@ -109,6 +131,8 @@ def _normalize_building_payload(payload: dict, owner_id: int) -> dict:
         "apartment_defaults": payload.get("apartment_defaults", payload.get("apartmentDefaults")),
         "payment_defaults": payload.get("payment_defaults", payload.get("paymentDefaults")),
     }
+    if neighborhood:
+        normalized["neighborhood"] = neighborhood
 
     # Remove empty optional fields so we do not force nulls into strict DB columns.
     return {k: v for k, v in normalized.items() if v is not None}
@@ -368,6 +392,10 @@ async def update_building(building_id: int, building: Building, current_user: di
         raise HTTPException(status_code=403, detail="Not authorized")
 
     update_data = building.dict(exclude_unset=True)
+    effective_lat = update_data.get("latitude", existing.data[0].get("latitude"))
+    effective_lng = update_data.get("longitude", existing.data[0].get("longitude"))
+    if _to_float(effective_lat) is None or _to_float(effective_lng) is None:
+        raise HTTPException(status_code=400, detail="latitude and longitude are required")
     supabase.table("buildings").update(update_data).eq("id", building_id).execute()
     updated = supabase.table("buildings").select("*").eq("id", building_id).execute()
     return BuildingResponse(**updated.data[0])
@@ -476,6 +504,143 @@ async def delete_building(building_id: int, current_user: dict = Depends(get_cur
         raise HTTPException(status_code=500, detail=f"Failed to delete building: {str(exc)}")
 
     return {"ok": True}
+
+
+@router.post("/buildings/{building_id}/unit-layout")
+async def apply_building_unit_layout(
+    building_id: int,
+    body: UnitLayoutBody,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Upsert apartments for a building from an explicit list (floor + global apartment number + rooms).
+    Updates building apartments_count / total_floors / apartments_per_floor for seed/heal consistency.
+    """
+    if not has_role(current_user, "owner"):
+        raise HTTPException(status_code=403, detail="Only owners can update unit layout")
+
+    units_in = body.units or []
+    if not units_in:
+        raise HTTPException(status_code=400, detail="units must be a non-empty list")
+
+    existing = supabase.table("buildings").select("*").eq("id", building_id).execute()
+    if not existing.data:
+        raise HTTPException(status_code=404, detail="Building not found")
+
+    building_row = existing.data[0]
+    if int(building_row["owner_id"]) != int(current_user["id"]):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    seen_numbers: set[str] = set()
+    normalized: list[dict] = []
+    for u in units_in:
+        fn = _to_int(u.floor_number, 0)
+        an = str(u.apartment_number or "").strip()
+        if fn < 1:
+            raise HTTPException(status_code=400, detail="floor_number must be >= 1 for every unit")
+        if not an:
+            raise HTTPException(status_code=400, detail="apartment_number required for every unit")
+        if an in seen_numbers:
+            raise HTTPException(status_code=400, detail=f"duplicate apartment_number: {an}")
+        seen_numbers.add(an)
+        normalized.append(
+            {
+                "floor_number": fn,
+                "apartment_number": an,
+                "bedrooms": max(0, _to_int(u.bedrooms, 0)),
+                "bathrooms": max(0, _to_int(u.bathrooms, 0)),
+                "living_rooms": max(0, _to_int(u.living_rooms, 0)),
+            }
+        )
+
+    cap = _to_int(
+        building_row.get("apartments_count", building_row.get("apartment_count")),
+        0,
+    )
+    if cap >= 1 and len(normalized) != cap:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Layout must include exactly {cap} units (this building's apartments_count); "
+                f"received {len(normalized)}."
+            ),
+        )
+
+    building_name = building_row.get("name") or "Building"
+    owner_id = _to_int(building_row.get("owner_id"), 0)
+    if owner_id < 1:
+        raise HTTPException(status_code=500, detail="building owner_id missing")
+
+    created = 0
+    updated = 0
+    for row in normalized:
+        apt_num = row["apartment_number"]
+        sel = (
+            supabase.table("apartments")
+            .select("id")
+            .eq("building_id", building_id)
+            .eq("apartment_number", apt_num)
+            .limit(1)
+            .execute()
+        )
+        payload = {
+            "floor_number": row["floor_number"],
+            "bedrooms": row["bedrooms"],
+            "bathrooms": row["bathrooms"],
+            "living_rooms": row["living_rooms"],
+        }
+        if sel.data:
+            supabase.table("apartments").update(payload).eq("id", sel.data[0]["id"]).execute()
+            updated += 1
+        else:
+            insert_row = {
+                "owner_id": owner_id,
+                "building_id": building_id,
+                "apartment_number": apt_num,
+                "floor_number": row["floor_number"],
+                "bedrooms": row["bedrooms"],
+                "bathrooms": row["bathrooms"],
+                "living_rooms": row["living_rooms"],
+                "lease_status": "vacant",
+                "address": f"{building_name} - Apt {apt_num}",
+                "description": f"Apartment {apt_num} in building {building_id}",
+                "rent": 0,
+            }
+            supabase.table("apartments").insert(insert_row).execute()
+            created += 1
+
+    per_floor: dict[int, int] = defaultdict(int)
+    max_floor = 0
+    for row in normalized:
+        f = row["floor_number"]
+        per_floor[f] += 1
+        max_floor = max(max_floor, f)
+    apm = max(per_floor.values()) if per_floor else 0
+
+    supabase.table("buildings").update(
+        {
+            "apartments_count": len(normalized),
+            "total_floors": max_floor,
+            "apartments_per_floor": apm,
+        }
+    ).eq("id", building_id).execute()
+
+    heal = _heal_missing_apartments(
+        {
+            **building_row,
+            "apartments_count": len(normalized),
+            "total_floors": max_floor,
+            "apartments_per_floor": apm,
+        }
+    )
+
+    return {
+        "ok": True,
+        "created": created,
+        "updated": updated,
+        "total_units": len(normalized),
+        "heal": heal,
+    }
 
 
 @router.post("/buildings/{building_id}/seed-apartments")

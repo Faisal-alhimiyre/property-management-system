@@ -14,6 +14,120 @@ document.addEventListener("DOMContentLoaded", async () => {
   const defaultPaymentCycleInput = document.getElementById("defaultPaymentCycle");
   const buildingCitySelect = document.getElementById("building-city");
   const ownerFormTitle = document.getElementById("ownerFormTitle");
+  const buildingLatInput = document.getElementById("buildingLat");
+  const buildingLngInput = document.getElementById("buildingLng");
+  const buildingLocationDisplay = document.getElementById("buildingLocationDisplay");
+  const openMapPickerBtn = document.getElementById("openMapPickerBtn");
+  const mapModal = document.getElementById("mapModal");
+  const closeMapPickerBtn = document.getElementById("closeMapPickerBtn");
+  const mapSearchInput = document.getElementById("mapSearchInput");
+  const mapSearchBtn = document.getElementById("mapSearchBtn");
+  const buildingNeighborhoodInput = document.getElementById("buildingNeighborhood");
+  const buildingNeighborhoodReadout = document.getElementById("buildingNeighborhoodReadout");
+  const confirmMapLocationBtn = document.getElementById("confirmMapLocationBtn");
+  let buildingMap = null;
+  let buildingMarker = null;
+  /** Pending pin in the modal until user clicks «تأكيد الموقع». */
+  let draftMapLatLng = null;
+  let draftNeighborhoodHint = "";
+
+  function updateMapConfirmState() {
+    if (!confirmMapLocationBtn) return;
+    const ok =
+      draftMapLatLng &&
+      Number.isFinite(draftMapLatLng.lat) &&
+      Number.isFinite(draftMapLatLng.lng);
+    confirmMapLocationBtn.disabled = !ok;
+  }
+
+  function syncMarkerFromSavedForm(mapInstance) {
+    if (!mapInstance || typeof L === "undefined") return;
+    const lat = parseFloat(buildingLatInput?.value || "");
+    const lng = parseFloat(buildingLngInput?.value || "");
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      if (buildingMarker) {
+        try {
+          mapInstance.removeLayer(buildingMarker);
+        } catch {
+          /* ignore */
+        }
+        buildingMarker = null;
+      }
+      return;
+    }
+    const latlng = L.latLng(lat, lng);
+    if (buildingMarker) {
+      buildingMarker.setLatLng(latlng);
+    } else {
+      buildingMarker = L.marker(latlng).addTo(mapInstance);
+    }
+    mapInstance.setView(latlng, 15);
+  }
+
+  const NOMINATIM_HEADERS = {
+    Accept: "application/json",
+    "User-Agent": "WalajnaPropertyManagement/1.0 (local-dev; contact: app-owner)",
+  };
+
+  function pickNeighborhoodFromNominatimAddress(addr) {
+    if (!addr || typeof addr !== "object") return "";
+    const keys = [
+      "neighbourhood",
+      "suburb",
+      "quarter",
+      "city_district",
+      "district",
+      "village",
+      "hamlet",
+    ];
+    for (const k of keys) {
+      const v = addr[k];
+      if (v != null && String(v).trim()) return String(v).trim();
+    }
+    return "";
+  }
+
+  function setNeighborhoodFromMap(value, options = {}) {
+    const v = String(value || "").trim();
+    if (buildingNeighborhoodInput) buildingNeighborhoodInput.value = v;
+    if (!buildingNeighborhoodReadout) return;
+    if (options.loading) {
+      buildingNeighborhoodReadout.textContent = "جاري تحديد الحي من الخريطة…";
+      return;
+    }
+    if (v) {
+      buildingNeighborhoodReadout.textContent = `الحي (من الخريطة): ${v}`;
+    } else {
+      buildingNeighborhoodReadout.textContent =
+        "تعذر تحديد اسم الحي من الإحداثيات — جرّب تحريك الدبوس قليلاً أو البحث باسم أدق.";
+    }
+  }
+
+  async function reverseGeocodeNeighborhood(lat, lng) {
+    const url =
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${encodeURIComponent(lat)}` +
+      `&lon=${encodeURIComponent(lng)}&accept-language=ar&addressdetails=1`;
+    const res = await fetch(url, { headers: NOMINATIM_HEADERS });
+    if (!res.ok) return "";
+    const data = await res.json();
+    return pickNeighborhoodFromNominatimAddress(data.address);
+  }
+
+  async function applyMapLocation(lat, lng, neighborhoodHint) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    setBuildingLocation(lat, lng);
+    let nb = neighborhoodHint != null ? String(neighborhoodHint).trim() : "";
+    if (!nb) {
+      setNeighborhoodFromMap("", { loading: true });
+      try {
+        nb = await reverseGeocodeNeighborhood(lat, lng);
+      } catch (e) {
+        console.warn("Reverse geocode failed", e);
+        nb = "";
+      }
+    }
+    setNeighborhoodFromMap(nb);
+  }
 
   const params = new URLSearchParams(window.location.search);
   const editBuildingId = params.get("buildingId");
@@ -21,6 +135,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   const isEditMode = pageMode === "edit" && !!editBuildingId;
 
   if (!form) return;
+
+  await WalajnaAuth.hydrateSession();
 
   const CITY_KEYS = [
     "owner.city.riyadh",
@@ -128,16 +244,80 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
+  function setBuildingLocation(lat, lng) {
+    if (!buildingLatInput || !buildingLngInput || !buildingLocationDisplay) return;
+    buildingLatInput.value = String(lat);
+    buildingLngInput.value = String(lng);
+    buildingLocationDisplay.value = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  }
+
+  function ensureMap() {
+    if (!mapModal) return null;
+    if (buildingMap) return buildingMap;
+    if (typeof L === "undefined") {
+      console.warn("Leaflet not loaded; cannot open map picker");
+      return null;
+    }
+    const mapEl = document.getElementById("buildingMap");
+    if (!mapEl) return null;
+    buildingMap = L.map(mapEl).setView([24.7136, 46.6753], 11); // Default to Riyadh
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap contributors",
+    }).addTo(buildingMap);
+
+    buildingMap.on("click", (e) => {
+      const { lat, lng } = e.latlng;
+      if (buildingMarker) {
+        buildingMarker.setLatLng(e.latlng);
+      } else {
+        buildingMarker = L.marker(e.latlng).addTo(buildingMap);
+      }
+      draftMapLatLng = { lat, lng };
+      draftNeighborhoodHint = "";
+      updateMapConfirmState();
+    });
+
+    return buildingMap;
+  }
+
+  function openMapModal() {
+    if (!mapModal) return;
+    mapModal.hidden = false;
+    draftNeighborhoodHint = "";
+    const mapInstance = ensureMap();
+    if (mapInstance) {
+      setTimeout(() => {
+        mapInstance.invalidateSize();
+        syncMarkerFromSavedForm(mapInstance);
+        if (buildingMarker) {
+          const ll = buildingMarker.getLatLng();
+          draftMapLatLng = { lat: ll.lat, lng: ll.lng };
+        } else {
+          draftMapLatLng = null;
+        }
+        updateMapConfirmState();
+      }, 50);
+    }
+  }
+
+  function closeMapModal() {
+    if (!mapModal) return;
+    mapModal.hidden = true;
+    draftMapLatLng = null;
+    draftNeighborhoodHint = "";
+    if (buildingMap) {
+      syncMarkerFromSavedForm(buildingMap);
+    }
+    updateMapConfirmState();
+  }
+
   function fillFormForEdit(building) {
     if (!building) return;
 
     const buildingNameInput = document.getElementById("buildingName");
     const apartmentCountInput = document.getElementById("apartmentCount");
     const totalFloorsInput = document.getElementById("totalFloors");
-    const apartmentsPerFloorInput = document.getElementById("apartmentsPerFloor");
-    const bedroomsInput = document.getElementById("bedrooms");
-    const bathroomsInput = document.getElementById("bathrooms");
-    const livingRoomsInput = document.getElementById("livingRooms");
 
     if (apartmentCountInput) {
       apartmentCountInput.value = building.apartmentCount || "";
@@ -147,11 +327,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (totalFloorsInput) {
       totalFloorsInput.value = building.totalFloors || "";
       totalFloorsInput.disabled = true;
-    }
-
-    if (apartmentsPerFloorInput) {
-      apartmentsPerFloorInput.value = building.apartmentsPerFloor || "";
-      apartmentsPerFloorInput.disabled = true;
     }
 
     if (buildingNameInput) {
@@ -167,21 +342,34 @@ document.addEventListener("DOMContentLoaded", async () => {
       buildingCitySelect.value = building.city || "";
     }
 
+    const storedNb = String(building.neighborhood || "").trim();
+    if (buildingNeighborhoodInput) buildingNeighborhoodInput.value = storedNb;
+
+    const lat = Number(building.latitude);
+    const lng = Number(building.longitude);
+    if (buildingLatInput && buildingLngInput && buildingLocationDisplay) {
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        buildingLatInput.value = String(lat);
+        buildingLngInput.value = String(lng);
+        buildingLocationDisplay.value = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+      }
+    }
+
+    if (buildingNeighborhoodReadout) {
+      if (storedNb) {
+        buildingNeighborhoodReadout.textContent = `الحي (من الخريطة): ${storedNb}`;
+      } else if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        buildingNeighborhoodReadout.textContent =
+          "اضغط «اختيار من الخريطة» ثم انقر على الموقع لتحديث الحي من الخريطة.";
+      } else {
+        buildingNeighborhoodReadout.textContent =
+          "سيُحدَّد الحي تلقائياً بعد اختيار الموقع على الخريطة.";
+      }
+    }
+
     if (defaultPaymentCycleInput) {
       defaultPaymentCycleInput.value =
         building.paymentDefaults?.paymentCycle || "monthly";
-    }
-
-    if (bedroomsInput) {
-      bedroomsInput.value = building.apartmentDefaults?.bedrooms ?? "";
-    }
-
-    if (bathroomsInput) {
-      bathroomsInput.value = building.apartmentDefaults?.bathrooms ?? "";
-    }
-
-    if (livingRoomsInput) {
-      livingRoomsInput.value = building.apartmentDefaults?.livingRooms ?? "";
     }
 
     const submitBtn = form.querySelector('button[type="submit"]');
@@ -292,7 +480,73 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  await WalajnaAuth.hydrateSession();
+  if (openMapPickerBtn) {
+    openMapPickerBtn.addEventListener("click", openMapModal);
+  }
+  if (closeMapPickerBtn) {
+    closeMapPickerBtn.addEventListener("click", closeMapModal);
+  }
+  if (confirmMapLocationBtn) {
+    confirmMapLocationBtn.addEventListener("click", async () => {
+      if (
+        !draftMapLatLng ||
+        !Number.isFinite(draftMapLatLng.lat) ||
+        !Number.isFinite(draftMapLatLng.lng)
+      ) {
+        showError(T("owner.mapSelectFirst"));
+        return;
+      }
+      await applyMapLocation(
+        draftMapLatLng.lat,
+        draftMapLatLng.lng,
+        draftNeighborhoodHint || undefined
+      );
+      closeMapModal();
+    });
+  }
+  updateMapConfirmState();
+  if (mapSearchBtn && mapSearchInput) {
+    mapSearchBtn.addEventListener("click", async () => {
+      const query = mapSearchInput.value.trim();
+      if (!query) return;
+      const mapInstance = ensureMap();
+      if (!mapInstance) return;
+      try {
+        const url =
+          "https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&accept-language=ar&q=" +
+          encodeURIComponent(query);
+        const res = await fetch(url, { headers: NOMINATIM_HEADERS });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!Array.isArray(data) || !data.length) return;
+        const first = data[0];
+        const lat = parseFloat(first.lat);
+        const lng = parseFloat(first.lon);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+        const latlng = L.latLng(lat, lng);
+        mapInstance.setView(latlng, 15);
+        if (buildingMarker) {
+          buildingMarker.setLatLng(latlng);
+        } else {
+          buildingMarker = L.marker(latlng).addTo(mapInstance);
+        }
+        const nbHint = pickNeighborhoodFromNominatimAddress(first.address);
+        draftMapLatLng = { lat, lng };
+        draftNeighborhoodHint = nbHint || "";
+        updateMapConfirmState();
+      } catch (err) {
+        console.warn("Map search failed", err);
+      }
+    });
+
+    mapSearchInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        mapSearchBtn.click();
+      }
+    });
+  }
+
   if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.refreshForSession) {
     try {
       await WalajnaApartmentsApi.refreshForSession();
@@ -384,10 +638,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     const buildingName = document.getElementById("buildingName")?.value.trim();
     const buildingCode = document.getElementById("buildingCode")?.value.trim();
     const buildingCity = document.getElementById("building-city")?.value.trim();
-
-    const bedrooms = parseInt(document.getElementById("bedrooms")?.value, 10);
-    const bathrooms = parseInt(document.getElementById("bathrooms")?.value, 10);
-    const livingRooms = parseInt(document.getElementById("livingRooms")?.value, 10);
+    const buildingNeighborhood = document.getElementById("buildingNeighborhood")?.value.trim() || "";
+    const buildingLat = parseFloat(buildingLatInput?.value || "");
+    const buildingLng = parseFloat(buildingLngInput?.value || "");
 
     const apartmentCount = parseInt(
       document.getElementById("apartmentCount")?.value,
@@ -399,11 +652,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       10
     );
 
-    const apartmentsPerFloor = parseInt(
-      document.getElementById("apartmentsPerFloor")?.value,
-      10
-    );
-
     const defaultPaymentCycle =
       document.getElementById("defaultPaymentCycle")?.value || "monthly";
 
@@ -412,37 +660,20 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
+    if (!Number.isFinite(buildingLat) || !Number.isFinite(buildingLng)) {
+      showError(T("owner.saveNeedsMapLocation"));
+      return;
+    }
+
     if (!totalFloors || totalFloors < 1) {
       showError(T("owner.floorsInvalid"));
       return;
     }
 
-    if (!apartmentsPerFloor || apartmentsPerFloor < 1) {
-      showError(T("owner.aptPerFloorInvalid"));
-      return;
-    }
-
-    if (Number.isNaN(bedrooms) || bedrooms < 0) {
-      showError(T("owner.bedroomsInvalid"));
-      return;
-    }
-
-    if (Number.isNaN(bathrooms) || bathrooms < 0) {
-      showError(T("owner.bathroomsInvalid"));
-      return;
-    }
-
-    if (Number.isNaN(livingRooms) || livingRooms < 0) {
-      showError(T("owner.livingInvalid"));
-      return;
-    }
-
-    const expectedApartments = totalFloors * apartmentsPerFloor;
-
- if (apartmentCount > totalFloors * apartmentsPerFloor) {
-  showError(T("owner.capacityExceeded"));
-  return;
-}
+    const apartmentsPerFloor = Math.max(
+      1,
+      Math.ceil(apartmentCount / totalFloors)
+    );
 
     if (!defaultPaymentCycle) {
       showError(T("owner.pickPaymentCycle"));
@@ -473,24 +704,28 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
-    const currentUser = JSON.parse(
-      localStorage.getItem("walajna_current_user") || "null"
-    );
+    const currentUser =
+      typeof WalajnaAuth !== "undefined" && WalajnaAuth.getCurrentUser
+        ? WalajnaAuth.getCurrentUser()
+        : JSON.parse(localStorage.getItem("walajna_current_user") || "null");
 
     const paymentDefaults = {
       paymentCycle: defaultPaymentCycle,
     };
 
-    const apartmentDefaults = {
-      bedrooms,
-      bathrooms,
-      livingRooms,
-    };
+    const apartmentDefaults = isEditMode && buildingToEdit?.apartmentDefaults
+      ? {
+          bedrooms: buildingToEdit.apartmentDefaults.bedrooms ?? 0,
+          bathrooms: buildingToEdit.apartmentDefaults.bathrooms ?? 0,
+          livingRooms: buildingToEdit.apartmentDefaults.livingRooms ?? 0,
+        }
+      : { bedrooms: 0, bathrooms: 0, livingRooms: 0 };
 
     const buildingPayload = {
       id: buildingCode,
       name: buildingName,
       city: buildingCity,
+      neighborhood: buildingNeighborhood || null,
       apartmentCount,
       totalFloors,
       apartmentsPerFloor,
@@ -501,6 +736,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         ? (buildingToEdit?.createdAt || new Date().toISOString())
         : new Date().toISOString(),
     };
+
+    buildingPayload.latitude = buildingLat;
+    buildingPayload.longitude = buildingLng;
 
     let apiSucceeded = false;
     const payload = {
@@ -513,6 +751,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       apartment_defaults: apartmentDefaults,
       payment_defaults: paymentDefaults,
     };
+
+    payload.latitude = buildingLat;
+    payload.longitude = buildingLng;
+    if (buildingNeighborhood) {
+      payload.neighborhood = buildingNeighborhood;
+    }
 
     const buildingApiId = isEditMode ? (buildingToEdit?.id || editBuildingId) : null;
     const endpoint = isEditMode
@@ -556,9 +800,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         return {
           ...apartment,
           buildingName: buildingName,
-          bedrooms,
-          bathrooms,
-          livingRooms,
           paymentDefaults: {
             ...apartment.paymentDefaults,
             paymentCycle: defaultPaymentCycle,
@@ -616,6 +857,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
       if (buildingCitySelect) {
         buildingCitySelect.value = "";
+      }
+      if (buildingNeighborhoodInput) buildingNeighborhoodInput.value = "";
+      if (buildingNeighborhoodReadout) {
+        buildingNeighborhoodReadout.textContent =
+          "سيُحدَّد الحي تلقائياً بعد اختيار الموقع على الخريطة.";
       }
     }
 
