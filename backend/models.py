@@ -280,8 +280,8 @@ class Building(BaseModel):
     created_at: Optional[datetime] = None
 
 class BuildingResponse(BaseModel):
-    id: int
-    owner_id: int
+    id: int | str
+    owner_id: int | str
     name: str
     city: str
     code: Optional[str] = None

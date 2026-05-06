@@ -691,7 +691,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function getApartmentsForBuilding(buildingId, allApartments) {
     const target = String(buildingId);
-    const building = allBuildings.find((item) => String(item.id) === target);
+    const building = ownerBuildingsList.find((item) => String(item.id) === target);
     const buildingCode = building?.code ? String(building.code) : null;
 
     // Support both old local linkage (building code) and new linkage (building numeric id).

@@ -143,6 +143,27 @@
     return mapped;
   }
 
+  /**
+   * Owner: apartments in one building only (smaller payload). Merges into session so other
+   * buildings cached in walajna_apartments_session are not wiped.
+   */
+  async function listForBuilding(buildingId) {
+    if (typeof WalajnaAuth === "undefined" || !WalajnaAuth.fetchWithAuth) return [];
+    const bid = String(buildingId ?? "").trim();
+    if (!bid) return listAll();
+    const res = await WalajnaAuth.fetchWithAuth(
+      `${apiBase()}/api/apartments?building_id=${encodeURIComponent(bid)}`,
+      { method: "GET" }
+    );
+    if (!res.ok) return [];
+    const rows = await res.json();
+    const mapped = (Array.isArray(rows) ? rows : [])
+      .map(mapApiRowToClient)
+      .filter(Boolean);
+    mergeSessionApartments(mapped);
+    return mapped;
+  }
+
   async function listAsTenant() {
     if (typeof WalajnaAuth === "undefined" || !WalajnaAuth.fetchWithAuth) return [];
     const res = await WalajnaAuth.fetchWithAuth(
@@ -204,6 +225,7 @@
     mergeSessionApartments,
     removeFromSession,
     listAll,
+    listForBuilding,
     listAsTenant,
     refreshForSession,
     vacateTenant,

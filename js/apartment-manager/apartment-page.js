@@ -196,24 +196,39 @@ document.addEventListener("DOMContentLoaded", async () => {
     return "monthly";
   }
 
-  async function fetchInstallmentsMeta(contractId) {
-    if (!contractId || typeof WalajnaAuth === "undefined") return null;
-    try {
-      const res = await WalajnaAuth.fetchWithAuth(
-        `${WalajnaAuth.API_BASE}/api/contracts/${encodeURIComponent(String(contractId))}/installments`,
-        { method: "GET" }
-      );
-      if (!res.ok) return null;
-      const rows = await res.json();
-      const list = Array.isArray(rows) ? rows : [];
-      if (!list.length) return null;
-      return {
-        paymentCycle: inferPaymentCycleFromInstallments(list),
-        installmentsCount: list.length,
-      };
-    } catch {
-      return null;
+  /** One GET /installments per contract per page load (shared by lease meta + next payment). */
+  const installmentRowsPromiseByContract = new Map();
+
+  function getInstallmentRowsPromise(contractId) {
+    const key = String(contractId ?? "").trim();
+    if (!key || typeof WalajnaAuth === "undefined") return Promise.resolve([]);
+    if (installmentRowsPromiseByContract.has(key)) {
+      return installmentRowsPromiseByContract.get(key);
     }
+    const p = (async () => {
+      try {
+        const res = await WalajnaAuth.fetchWithAuth(
+          `${WalajnaAuth.API_BASE}/api/contracts/${encodeURIComponent(key)}/installments`,
+          { method: "GET" }
+        );
+        if (!res.ok) return [];
+        const rows = await res.json();
+        return Array.isArray(rows) ? rows : [];
+      } catch {
+        return [];
+      }
+    })();
+    installmentRowsPromiseByContract.set(key, p);
+    return p;
+  }
+
+  async function fetchInstallmentsMeta(contractId) {
+    const list = await getInstallmentRowsPromise(contractId);
+    if (!list.length) return null;
+    return {
+      paymentCycle: inferPaymentCycleFromInstallments(list),
+      installmentsCount: list.length,
+    };
   }
 
   async function fetchContractById(contractId) {
@@ -665,12 +680,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   async function fetchNextUnpaidInstallmentFromApi(contractId) {
     if (!contractId || typeof WalajnaAuth === "undefined") return null;
     try {
-      const res = await WalajnaAuth.fetchWithAuth(
-        `${WalajnaAuth.API_BASE}/api/contracts/${encodeURIComponent(contractId)}/installments`,
-        { method: "GET" }
-      );
-      if (!res.ok) return null;
-      const rows = await res.json();
+      const rows = await getInstallmentRowsPromise(contractId);
       if (!Array.isArray(rows) || !rows.length) return null;
       const today = new Date();
       today.setHours(0, 0, 0, 0);

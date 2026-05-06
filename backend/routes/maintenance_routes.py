@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from datetime import date, datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -16,7 +17,9 @@ class MarkOwnerSeenBody(BaseModel):
     building_id: int
 
 
-def _fetch_requests_for_user(current_user: dict, apartment_id: int | None) -> list[dict]:
+def _fetch_requests_for_user(
+    current_user: dict, apartment_id: int | None, building_id: int | None = None
+) -> list[dict]:
     uid = current_user.get("id")
     rows_by_id: dict[int, dict] = {}
 
@@ -36,7 +39,25 @@ def _fetch_requests_for_user(current_user: dict, apartment_id: int | None) -> li
             add_rows(getattr(q.execute(), "data", None))
 
     if has_role(current_user, "owner"):
-        apartments = supabase.table("apartments").select("id").eq("owner_id", uid).execute()
+        apt_q = supabase.table("apartments").select("id").eq("owner_id", uid)
+        if building_id is not None:
+            try:
+                bid = int(building_id)
+            except (TypeError, ValueError):
+                bid = None
+            if bid is not None:
+                bcheck = (
+                    supabase.table("buildings")
+                    .select("id")
+                    .eq("id", bid)
+                    .eq("owner_id", uid)
+                    .limit(1)
+                    .execute()
+                )
+                if not getattr(bcheck, "data", None):
+                    return []
+                apt_q = apt_q.eq("building_id", bid)
+        apartments = apt_q.execute()
         apt_rows = apartments.data or []
         apt_ids = [apt["id"] for apt in apt_rows]
         if apt_ids:
@@ -567,10 +588,25 @@ async def create_maintenance_request(
 @router.get("/maintenance")
 async def get_maintenance_requests(
     apartment_id: int | None = Query(None),
+    building_id: int | None = Query(
+        None, description="Owner: limit requests to apartments in this building (must belong to you)"
+    ),
     current_user: dict = Depends(get_current_user),
 ):
-    rows = _fetch_requests_for_user(current_user, apartment_id)
-    return _enrich_maintenance_rows(rows)
+    def _sync():
+        rows = _fetch_requests_for_user(current_user, apartment_id, building_id)
+        return _enrich_maintenance_rows(rows)
+
+    try:
+        return await asyncio.to_thread(_sync)
+    except Exception:
+        logger.exception(
+            "get_maintenance_requests failed user_id=%s apartment_id=%s building_id=%s",
+            current_user.get("id"),
+            apartment_id,
+            building_id,
+        )
+        return []
 
 
 def _owner_authorized_for_apartment_row(apt: dict, current_user: dict) -> bool:
@@ -595,21 +631,29 @@ async def mark_owner_seen_for_building(
     except (TypeError, ValueError):
         raise HTTPException(status_code=400, detail="Invalid building_id")
 
-    apts = (
-        supabase.table("apartments")
-        .select("id")
-        .eq("building_id", bid)
-        .eq("owner_id", current_user["id"])
-        .execute()
-    )
+    try:
+        apts = (
+            supabase.table("apartments")
+            .select("id")
+            .eq("building_id", bid)
+            .eq("owner_id", current_user["id"])
+            .execute()
+        )
+    except Exception:
+        logger.exception("mark_owner_seen apartments lookup failed building_id=%s", bid)
+        return {"updated": 0}
     apt_ids = [r["id"] for r in getattr(apts, "data", None) or []]
     if not apt_ids:
         return {"updated": 0}
 
     now = datetime.utcnow().isoformat()
-    supabase.table("maintenance_requests").update(
-        {"owner_seen": True, "owner_seen_at": now, "updated_at": now}
-    ).in_("apartment_id", apt_ids).eq("owner_seen", False).execute()
+    try:
+        supabase.table("maintenance_requests").update(
+            {"owner_seen": True, "owner_seen_at": now, "updated_at": now}
+        ).in_("apartment_id", apt_ids).eq("owner_seen", False).execute()
+    except Exception:
+        logger.exception("mark_owner_seen update failed building_id=%s", bid)
+        return {"updated": 0}
     return {"updated": len(apt_ids)}
 
 

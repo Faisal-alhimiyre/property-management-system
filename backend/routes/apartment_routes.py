@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 from collections import defaultdict
@@ -602,6 +603,100 @@ def _reconcile_owner_apartment_maintenance_pointers(apartments_data: list[dict])
     return reconciled
 
 
+def _apply_lease_status_view_only(apartments_data: list[dict]) -> None:
+    """
+    Mutate rows in place: derived lease_status for API response without per-row UPDATEs.
+    List reads stay fast; single-apartment GET still persists reconcile when needed.
+    """
+    if not apartments_data:
+        return
+    contract_ids: list[int] = []
+    for apartment in apartments_data:
+        cid = apartment.get("current_contract_id")
+        if cid is None:
+            continue
+        try:
+            contract_ids.append(int(cid))
+        except (TypeError, ValueError):
+            continue
+    unique_cids = list(dict.fromkeys(contract_ids))
+    with_inst, overdue_inst = _batch_contract_installment_lease_sets(unique_cids)
+    for i, apartment in enumerate(apartments_data):
+        expected = _derive_apartment_lease_status_for_existing_row(
+            apartment,
+            with_inst,
+            overdue_inst,
+        )
+        if apartment.get("lease_status") != expected:
+            apartments_data[i] = {**apartment, "lease_status": expected}
+
+
+def _apply_maintenance_pointer_view_only(apartments_data: list[dict]) -> None:
+    """Mutate rows in place: derived maintenance_id without per-row UPDATEs."""
+    if not apartments_data:
+        return
+    apt_ids: list[int] = []
+    for apartment in apartments_data:
+        aid = apartment.get("id")
+        if aid is None:
+            continue
+        try:
+            apt_ids.append(int(aid))
+        except (TypeError, ValueError):
+            continue
+    if not apt_ids:
+        return
+    try:
+        res = (
+            supabase.table("maintenance_requests")
+            .select("id, apartment_id, status, request_type")
+            .in_("apartment_id", apt_ids)
+            .execute()
+        )
+    except Exception:
+        logger.exception("maintenance_requests batch read failed; skipping maintenance_id view apply")
+        return
+
+    open_ids_by_apt: dict[int, list[int]] = defaultdict(list)
+    for row in getattr(res, "data", None) or []:
+        if not _maintenance_request_is_open(row.get("status")):
+            continue
+        rt = str(row.get("request_type") or "maintenance").lower()
+        if rt not in ("maintenance", "complaint", "suggestion", "request"):
+            continue
+        aid = row.get("apartment_id")
+        rid = row.get("id")
+        if aid is None or rid is None:
+            continue
+        try:
+            open_ids_by_apt[int(aid)].append(int(rid))
+        except (TypeError, ValueError):
+            continue
+
+    expected: dict[int, int | None] = {}
+    for aid in apt_ids:
+        rids = open_ids_by_apt.get(aid) or []
+        expected[aid] = min(rids) if rids else None
+
+    for i, apartment in enumerate(apartments_data):
+        aid = apartment.get("id")
+        if aid is None:
+            continue
+        try:
+            iaid = int(aid)
+        except (TypeError, ValueError):
+            continue
+        exp = expected.get(iaid)
+        cur = apartment.get("maintenance_id")
+        try:
+            cur_i = int(cur) if cur is not None else None
+        except (TypeError, ValueError):
+            cur_i = None
+        if cur_i == exp:
+            continue
+        apartments_data[i] = {**apartment, "maintenance_id": exp}
+
+
 def _denormalized_tenant_present(apt: dict) -> bool:
     if apt.get("tenant_user_id") is not None:
         return True
@@ -685,11 +780,10 @@ def _repair_stale_apartment_tenant_columns(rows: list[dict]) -> list[dict]:
         "maintenance_id": None,
     }
     try:
-        for aid in fix_list:
-            try:
-                supabase.table("tenants").update({"apartment_id": None}).eq("apartment_id", aid).execute()
-            except Exception:
-                logger.exception("repair: detach tenants for apartment_id=%s", aid)
+        try:
+            supabase.table("tenants").update({"apartment_id": None}).in_("apartment_id", fix_list).execute()
+        except Exception:
+            logger.exception("repair: batch detach tenants for apartment_ids=%s", fix_list)
         supabase.table("apartments").update(clear_payload).in_("id", fix_list).execute()
         logger.info("repair stale apartment tenant columns: apartment_ids=%s", fix_list)
     except Exception:
@@ -856,26 +950,37 @@ async def create_apartment(apartment: Apartment, current_user: dict = Depends(ge
     _attach_building_names([row])
     return ApartmentResponse(**row)
 
-@router.get("/apartments", response_model=list[ApartmentResponse])
-async def get_apartments(
-    view: str | None = Query(None),
-    current_user: dict = Depends(get_current_user),
-):
+def _get_apartments_list_rows(
+    current_user: dict,
+    as_tenant_view: bool,
+    building_id: int | None,
+) -> list[dict]:
+    """Sync Supabase work for GET /apartments (run in a thread pool so parallel requests do not queue)."""
     rows: list[dict] = []
 
-    as_tenant_view = (view or "").strip().lower() == "as_tenant"
-
     if has_role(current_user, "owner") and not as_tenant_view:
-        owner_rows_result = (
-            supabase.table("apartments")
-            .select("*")
-            .eq("owner_id", current_user["id"])
-            .execute()
-        )
+        q = supabase.table("apartments").select("*").eq("owner_id", current_user["id"])
+        if building_id is not None:
+            try:
+                bid = int(building_id)
+            except (TypeError, ValueError):
+                raise HTTPException(status_code=400, detail="Invalid building_id") from None
+            bcheck = (
+                supabase.table("buildings")
+                .select("id")
+                .eq("id", bid)
+                .eq("owner_id", current_user["id"])
+                .limit(1)
+                .execute()
+            )
+            if not getattr(bcheck, "data", None):
+                raise HTTPException(status_code=404, detail="Building not found")
+            q = q.eq("building_id", bid)
+        owner_rows_result = q.execute()
         rows = getattr(owner_rows_result, "data", None) or []
         rows = _repair_stale_apartment_tenant_columns(rows)
-        rows = _reconcile_owner_apartment_statuses(rows)
-        rows = _reconcile_owner_apartment_maintenance_pointers(rows)
+        _apply_lease_status_view_only(rows)
+        _apply_maintenance_pointer_view_only(rows)
     else:
         by_user_result = (
             supabase.table("apartments")
@@ -902,8 +1007,6 @@ async def get_apartments(
                 if not any(existing.get("id") == apartment.get("id") for existing in rows):
                     rows.append(apartment)
 
-        # Fallback by tenant profile rows (tenants.user_id -> tenants.apartment_id),
-        # so tenant UI still works if apartment tenant columns are temporarily stale.
         tenant_rows_result = (
             supabase.table("tenants")
             .select("apartment_id")
@@ -926,10 +1029,32 @@ async def get_apartments(
 
     _attach_building_names(rows)
     _attach_lease_terms_rows(rows)
-    return [ApartmentResponse(**apt) for apt in rows]
+    return rows
 
-@router.get("/apartments/{apartment_id}", response_model=ApartmentResponse)
-async def get_apartment(apartment_id: int, current_user: dict = Depends(get_current_user)):
+
+@router.get("/apartments", response_model=list[ApartmentResponse])
+async def get_apartments(
+    view: str | None = Query(None),
+    building_id: int | None = Query(
+        None, description="Owner list: return only apartments in this building (must belong to you)"
+    ),
+    current_user: dict = Depends(get_current_user),
+):
+    as_tenant_view = (view or "").strip().lower() == "as_tenant"
+    try:
+        rows = await asyncio.to_thread(_get_apartments_list_rows, current_user, as_tenant_view, building_id)
+        return [ApartmentResponse(**apt) for apt in rows]
+    except Exception:
+        logger.exception(
+            "get_apartments failed user_id=%s as_tenant=%s building_id=%s",
+            current_user.get("id"),
+            as_tenant_view,
+            building_id,
+        )
+        return []
+
+def _get_apartment_detail_row(apartment_id: int, current_user: dict) -> dict:
+    """Sync Supabase work for GET /apartments/{id} (run in thread pool). Returns row dict for ApartmentResponse."""
     apartment = supabase.table("apartments").select("*").eq("id", apartment_id).execute()
     if not apartment.data:
         raise HTTPException(status_code=404, detail="Apartment not found")
@@ -971,7 +1096,6 @@ async def get_apartment(apartment_id: int, current_user: dict = Depends(get_curr
         apt = tmp[0]
 
     row = dict(apt)
-    # Owner contact on the apartment row (same user may be owner_id and tenant_user_id in test data).
     if row.get("owner_id") is not None:
         try:
             oid = int(row["owner_id"])
@@ -999,6 +1123,12 @@ async def get_apartment(apartment_id: int, current_user: dict = Depends(get_curr
 
     _attach_building_names([row])
     _attach_lease_terms_rows([row])
+    return row
+
+
+@router.get("/apartments/{apartment_id}", response_model=ApartmentResponse)
+async def get_apartment(apartment_id: int, current_user: dict = Depends(get_current_user)):
+    row = await asyncio.to_thread(_get_apartment_detail_row, apartment_id, current_user)
     return ApartmentResponse(**row)
 
 

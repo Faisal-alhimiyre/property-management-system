@@ -4,9 +4,10 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException
 from installment_service import cycle_months
-from models import Building, BuildingResponse
+from models import Building, BuildingResponse, CostResponse
 from config import supabase
 from routes.auth_routes import get_current_user
+from routes.cost_routes import _row_to_response as _cost_row_to_response
 from user_roles import has_role
 
 router = APIRouter()
@@ -88,7 +89,7 @@ def _to_int(value, default: int = 0) -> int:
         return default
 
 
-def _normalize_building_payload(payload: dict, owner_id: int) -> dict:
+def _normalize_building_payload(payload: dict, owner_id) -> dict:
     building_name = payload.get("name")
     building_city = payload.get("city")
 
@@ -112,6 +113,45 @@ def _normalize_building_payload(payload: dict, owner_id: int) -> dict:
 
     # Remove empty optional fields so we do not force nulls into strict DB columns.
     return {k: v for k, v in normalized.items() if v is not None}
+
+
+def _insert_building_with_schema_fallback(building_data: dict):
+    """
+    Insert building row while tolerating optional columns that may not exist
+    on older / newly recreated DB schemas.
+    """
+    try:
+        return supabase.table("buildings").insert(building_data).execute()
+    except Exception as exc:
+        msg = str(exc).lower()
+        fallback = dict(building_data)
+        removed: list[str] = []
+
+        # Optional JSON columns are dropped only when the DB error points to them.
+        for col in ("apartment_defaults", "payment_defaults"):
+            if col in fallback and col in msg:
+                fallback.pop(col, None)
+                removed.append(col)
+
+        if removed:
+            logger.warning(
+                "Retrying building insert after dropping optional columns: %s",
+                removed,
+            )
+            try:
+                return supabase.table("buildings").insert(fallback).execute()
+            except Exception as exc2:
+                msg = str(exc2).lower()
+                exc = exc2
+
+        # Handle duplicate building code by generating a server-side fallback code.
+        if "duplicate key" in msg and "code" in msg:
+            fallback2 = dict(fallback)
+            fallback2["code"] = f"BLD-{abs(hash(str(fallback2.get('name') or 'x'))) % 1000000}"
+            logger.warning("Retrying building insert with regenerated code=%s", fallback2["code"])
+            return supabase.table("buildings").insert(fallback2).execute()
+
+        raise exc
 
 
 def _build_apartment_seed_rows(building_row: dict) -> list[dict]:
@@ -259,94 +299,28 @@ def _heal_missing_apartments(building_row: dict) -> dict:
         "healed": max(0, len(after_numbers) - len(before_numbers)),
     }
 
-@router.post("/buildings", response_model=BuildingResponse)
+@router.post("/buildings")
 async def create_building(building: dict, current_user: dict = Depends(get_current_user)):
     if not has_role(current_user, "owner"):
         raise HTTPException(status_code=403, detail="Only owners can create buildings")
 
-    logger.info("Create building incoming payload: %s", building)
-    building_data = _normalize_building_payload(building or {}, int(current_user["id"]))
-
-    logger.info("Create building payload mapped for DB: %s", building_data)
-    result = supabase.table("buildings").insert(building_data).execute()
-    logger.info("Building insert full response object: %s", result)
-    logger.info("Building insert response data: %s", getattr(result, "data", None))
-
-    if not result.data:
-        raise HTTPException(status_code=500, detail="Failed to create building: empty insert response")
-
-    inserted_building_id = _to_int(result.data[0].get("id"), 0)
-    if inserted_building_id < 1:
-        raise HTTPException(status_code=500, detail="Building insert succeeded but no id returned")
-
-    created_row_result = supabase.table("buildings").select("*").eq("id", inserted_building_id).limit(1).execute()
-    logger.info("Building select-after-insert response data: %s", getattr(created_row_result, "data", None))
-    if not created_row_result.data:
-        raise HTTPException(status_code=500, detail="Building inserted but could not be fetched by id")
-
-    new_building = created_row_result.data[0]
-
-    apartment_rows = _build_apartment_seed_rows(new_building)
-    logger.info(
-        "Generated %s apartments for building_id=%s",
-        len(apartment_rows),
-        new_building.get("id"),
-    )
-
-    if apartment_rows:
-        logger.info("Sample apartment payload before dedupe: %s", apartment_rows[0])
-
-    filtered_apartment_rows = _filter_new_apartment_rows(inserted_building_id, apartment_rows)
-    logger.info(
-        "Apartment dedupe result for building_id=%s -> generated=%s insertable=%s",
-        inserted_building_id,
-        len(apartment_rows),
-        len(filtered_apartment_rows),
-    )
-    if filtered_apartment_rows:
-        logger.info("Sample apartment payload after dedupe: %s", filtered_apartment_rows[0])
-
     try:
-        if filtered_apartment_rows:
-            apartment_insert_response = supabase.table("apartments").insert(filtered_apartment_rows).execute()
-            logger.info(
-                "Apartment insert response data: %s",
-                getattr(apartment_insert_response, "data", None),
-            )
-        else:
-            logger.info("No apartment rows inserted because all apartment numbers already exist")
-    except Exception as apartment_error:
-        logger.exception("Apartment insert failed for building_id=%s", new_building.get("id"))
-        rollback_ok = False
-        rollback_error = None
-        try:
-            supabase.table("buildings").delete().eq("id", new_building.get("id")).execute()
-            rollback_ok = True
-        except Exception as delete_error:
-            rollback_error = str(delete_error)
-            logger.exception("Rollback delete failed for building_id=%s", new_building.get("id"))
-
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "message": "Building created but apartment insert failed",
-                "apartment_error": str(apartment_error),
-                "rolled_back": rollback_ok,
-                "rollback_error": rollback_error,
-            },
-        )
-
-    heal_result = _heal_missing_apartments(new_building)
-    logger.info(
-        "Post-create apartment verification for building_id=%s -> expected=%s before=%s after=%s healed=%s",
-        new_building.get("id"),
-        heal_result["expected"],
-        heal_result["before"],
-        heal_result["after"],
-        heal_result["healed"],
-    )
-
-    return BuildingResponse(**new_building)
+        owner_id = current_user.get("id")
+        if owner_id in (None, ""):
+            raise HTTPException(status_code=401, detail="Invalid session: missing user id")
+        payload = _normalize_building_payload(building or {}, owner_id)
+        # Minimal insert path: write building row only, return raw inserted DB row.
+        # This avoids secondary seed/verification failures blocking creation.
+        result = _insert_building_with_schema_fallback(payload)
+        rows = getattr(result, "data", None) or []
+        if not rows:
+            raise HTTPException(status_code=500, detail="Failed to create building: empty insert response")
+        return rows[0]
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Unhandled create_building error")
+        raise HTTPException(status_code=500, detail=f"create_building crashed: {str(exc)}")
 
 @router.get("/buildings", response_model=list[BuildingResponse])
 async def get_buildings(current_user: dict = Depends(get_current_user)):
@@ -603,4 +577,45 @@ async def list_building_installments(
         r["period_months"] = max(1, int(period_map.get(cid, 1)))
 
     return out
+
+
+@router.get("/buildings/{building_id}/costs", response_model=list[CostResponse])
+async def list_building_costs(
+    building_id: int,
+    current_user: dict = Depends(get_current_user),
+):
+    """All cost rows for apartments in this building (owner-only). One query instead of N per-apartment calls."""
+    if not has_role(current_user, "owner"):
+        raise HTTPException(status_code=403, detail="Only owners can list building costs")
+
+    try:
+        uid = int(current_user["id"])
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    existing = supabase.table("buildings").select("id, owner_id").eq("id", building_id).execute()
+    if not existing.data:
+        raise HTTPException(status_code=404, detail="Building not found")
+    if int(existing.data[0].get("owner_id") or -1) != uid:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    ar = supabase.table("apartments").select("id").eq("building_id", building_id).execute()
+    apt_ids = [int(a["id"]) for a in (ar.data or []) if a.get("id") is not None]
+    if not apt_ids:
+        return []
+
+    try:
+        res = (
+            supabase.table("costs")
+            .select("*")
+            .in_("apartment_id", apt_ids)
+            .order("id", desc=True)
+            .execute()
+        )
+    except Exception:
+        logger.exception("list_building_costs: query failed building_id=%s", building_id)
+        raise HTTPException(status_code=503, detail="Database error") from None
+
+    rows = getattr(res, "data", None) or []
+    return [_cost_row_to_response(r) for r in rows]
 

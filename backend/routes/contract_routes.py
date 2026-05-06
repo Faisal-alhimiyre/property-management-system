@@ -1,3 +1,5 @@
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException
 from models import Contract
 from config import supabase
@@ -23,15 +25,9 @@ async def create_contract(contract: Contract, current_user: dict = Depends(get_c
     return response.data[0]
 
 
-@router.get("/contracts")
-async def get_contracts(current_user: dict = Depends(get_current_user)):
+def _get_contracts_merged(current_user: dict) -> list:
     """
-    Return contracts this user may see:
-    - As landlord: contracts on apartments they own (role owner).
-    - As tenant: contracts whose tenant_id matches any tenants row for this user_id.
-
-    Registration often stores role=owner while the same person is also a tenant on
-    someone else's unit — both sets must be merged or /api/contracts is empty for them.
+    Return contracts this user may see (sync; run in thread pool from async route).
     """
     uid = int(current_user["id"])
     by_id: dict[int, dict] = {}
@@ -78,3 +74,16 @@ async def get_contracts(current_user: dict = Depends(get_current_user)):
     merged = list(by_id.values())
     merged.sort(key=lambda r: int(r.get("id") or 0))
     return merged
+
+
+@router.get("/contracts")
+async def get_contracts(current_user: dict = Depends(get_current_user)):
+    """
+    Return contracts this user may see:
+    - As landlord: contracts on apartments they own (role owner).
+    - As tenant: contracts whose tenant_id matches any tenants row for this user_id.
+
+    Registration often stores role=owner while the same person is also a tenant on
+    someone else's unit — both sets must be merged or /api/contracts is empty for them.
+    """
+    return await asyncio.to_thread(_get_contracts_merged, current_user)

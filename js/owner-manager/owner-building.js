@@ -97,10 +97,36 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   try {
-    const [bRes, aRes, mRes] = await Promise.all([
+    const apartmentsFetch =
+      typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.listForBuilding
+        ? WalajnaApartmentsApi.listForBuilding(buildingId)
+        : WalajnaAuth.fetchWithAuth(
+            `${WalajnaAuth.API_BASE}/api/apartments?building_id=${encodeURIComponent(buildingId)}`,
+            { method: "GET" }
+          ).then(async (aRes) => {
+            if (!aRes.ok) return [];
+            const all = await aRes.json();
+            const rows = Array.isArray(all) ? all : [];
+            const mappedAll = rows
+              .map((row) =>
+                typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.mapApiRowToClient
+                  ? WalajnaApartmentsApi.mapApiRowToClient(row)
+                  : mapApiApartmentToLocal(row)
+              )
+              .filter(Boolean);
+            if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.mergeSessionApartments) {
+              WalajnaApartmentsApi.mergeSessionApartments(mappedAll);
+            }
+            return mappedAll;
+          });
+
+    const [bRes, mappedSlice, mRes] = await Promise.all([
       WalajnaAuth.fetchWithAuth(`${WalajnaAuth.API_BASE}/api/buildings`, { method: "GET" }),
-      WalajnaAuth.fetchWithAuth(`${WalajnaAuth.API_BASE}/api/apartments`, { method: "GET" }),
-      WalajnaAuth.fetchWithAuth(`${WalajnaAuth.API_BASE}/api/maintenance`, { method: "GET" }),
+      apartmentsFetch,
+      WalajnaAuth.fetchWithAuth(
+        `${WalajnaAuth.API_BASE}/api/maintenance?building_id=${encodeURIComponent(buildingId)}`,
+        { method: "GET" }
+      ),
     ]);
 
     if (bRes.ok) {
@@ -115,20 +141,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     }
 
-    if (aRes.ok) {
-      const all = await aRes.json();
-      const rows = Array.isArray(all) ? all : [];
-      const mappedAll = rows
-        .map((row) =>
-          typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.mapApiRowToClient
-            ? WalajnaApartmentsApi.mapApiRowToClient(row)
-            : mapApiApartmentToLocal(row)
-        )
-        .filter(Boolean);
-      if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.persistSessionList) {
-        WalajnaApartmentsApi.persistSessionList(mappedAll);
-      }
-      apartments = mappedAll.filter((a) => String(a.buildingId) === String(buildingId));
+    if (Array.isArray(mappedSlice)) {
+      apartments = mappedSlice.filter((a) => String(a.buildingId) === String(buildingId));
       apartmentsFromApi = true;
     }
 
@@ -142,26 +156,31 @@ document.addEventListener("DOMContentLoaded", async () => {
         `${WalajnaAuth.API_BASE}/api/buildings/${encodeURIComponent(buildingId)}/seed-apartments`,
         { method: "POST" }
       );
-      const aRes2 = await WalajnaAuth.fetchWithAuth(
-        `${WalajnaAuth.API_BASE}/api/apartments`,
-        { method: "GET" }
-      );
-      if (aRes2.ok) {
-        const all = await aRes2.json();
-        const rows = Array.isArray(all) ? all : [];
-        const mappedAll = rows
-          .map((row) =>
-            typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.mapApiRowToClient
-              ? WalajnaApartmentsApi.mapApiRowToClient(row)
-              : mapApiApartmentToLocal(row)
-          )
-          .filter(Boolean);
-        if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.persistSessionList) {
-          WalajnaApartmentsApi.persistSessionList(mappedAll);
+      if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.listForBuilding) {
+        const again = await WalajnaApartmentsApi.listForBuilding(buildingId);
+        apartments = again.filter((a) => String(a.buildingId) === String(buildingId));
+      } else {
+        const aRes2 = await WalajnaAuth.fetchWithAuth(
+          `${WalajnaAuth.API_BASE}/api/apartments?building_id=${encodeURIComponent(buildingId)}`,
+          { method: "GET" }
+        );
+        if (aRes2.ok) {
+          const all = await aRes2.json();
+          const rows = Array.isArray(all) ? all : [];
+          const mappedAll = rows
+            .map((row) =>
+              typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.mapApiRowToClient
+                ? WalajnaApartmentsApi.mapApiRowToClient(row)
+                : mapApiApartmentToLocal(row)
+            )
+            .filter(Boolean);
+          if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.mergeSessionApartments) {
+            WalajnaApartmentsApi.mergeSessionApartments(mappedAll);
+          }
+          apartments = mappedAll.filter((a) => String(a.buildingId) === String(buildingId));
         }
-        apartments = mappedAll.filter((a) => String(a.buildingId) === String(buildingId));
-        apartmentsFromApi = true;
       }
+      apartmentsFromApi = true;
     }
   } catch (e) {
     apiLoadError = e;
@@ -1162,39 +1181,38 @@ async function evictApartment(apartmentId) {
     ) {
       return;
     }
-    const aggregated = [];
-    for (const apartment of buildingApartments) {
-      const aid =
-        apartment.apiId != null && String(apartment.apiId) !== ""
-          ? apartment.apiId
-          : apartment.id;
-      if (aid == null || String(aid).trim() === "") continue;
-      try {
-        const res = await WalajnaAuth.fetchWithAuth(
-          `${WalajnaAuth.API_BASE}/api/costs?apartment_id=${encodeURIComponent(String(aid))}`,
-          { method: "GET" }
+    try {
+      const res = await WalajnaAuth.fetchWithAuth(
+        `${WalajnaAuth.API_BASE}/api/buildings/${encodeURIComponent(buildingId)}/costs`,
+        { method: "GET" }
+      );
+      if (!res.ok) return;
+      const rows = await res.json();
+      const aggregated = [];
+      for (const row of Array.isArray(rows) ? rows : []) {
+        const sid = row.apartment_id;
+        const apartment = buildingApartments.find(
+          (a) =>
+            String(a.apiId ?? "") === String(sid) || String(a.id) === String(sid)
         );
-        if (!res.ok) continue;
-        const rows = await res.json();
-        for (const row of Array.isArray(rows) ? rows : []) {
-          aggregated.push({
-            id: String(row.id ?? ""),
-            apartmentId: String(apartment.id),
-            contractId:
-              row.contract_id != null && String(row.contract_id) !== ""
-                ? String(row.contract_id)
-                : null,
-            amount: Number(row.amount || 0),
-            status: String(row.status || "pending"),
-            date: String(row.expense_date || "").slice(0, 10),
-            createdAt: String(row.created_at || "").slice(0, 10),
-          });
-        }
-      } catch (e) {
-        console.warn("owner-building: costs fetch failed apartment_id=", aid, e);
+        if (!apartment) continue;
+        aggregated.push({
+          id: String(row.id ?? ""),
+          apartmentId: String(apartment.id),
+          contractId:
+            row.contract_id != null && String(row.contract_id) !== ""
+              ? String(row.contract_id)
+              : null,
+          amount: Number(row.amount || 0),
+          status: String(row.status || "pending"),
+          date: String(row.expense_date || "").slice(0, 10),
+          createdAt: String(row.created_at || "").slice(0, 10),
+        });
       }
+      costs = aggregated;
+    } catch (e) {
+      console.warn("owner-building: building costs fetch failed", e);
     }
-    costs = aggregated;
   }
 
   async function deleteApartment(apartmentId) {
