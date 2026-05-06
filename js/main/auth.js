@@ -1,6 +1,22 @@
 // auth.js — httpOnly cookie session + minimal client profile in sessionStorage
 
-const API_BASE = 'http://127.0.0.1:8002';
+function resolveApiBase() {
+  const explicit = (window.__WALAJNA_API_BASE || '').trim();
+  if (explicit) return explicit.replace(/\/+$/, '');
+
+  const fromStorage = (localStorage.getItem('walajna_api_base') || '').trim();
+  if (fromStorage) return fromStorage.replace(/\/+$/, '');
+
+  const host = String(window.location.hostname || '').toLowerCase();
+  if (host === '127.0.0.1' || host === 'localhost') {
+    return 'http://127.0.0.1:8002';
+  }
+
+  // Production default: override with window.__WALAJNA_API_BASE or localStorage key walajna_api_base.
+  return 'https://your-backend.onrender.com';
+}
+
+const API_BASE = resolveApiBase();
 
 const USER_KEY = 'walajna_current_user';
 const ACTIVE_ROLE_KEY = 'activeRole';

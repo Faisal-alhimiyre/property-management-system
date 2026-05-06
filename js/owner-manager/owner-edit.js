@@ -740,7 +740,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     buildingPayload.latitude = buildingLat;
     buildingPayload.longitude = buildingLng;
 
-    let apiSucceeded = false;
     const payload = {
       name: buildingName,
       city: buildingCity,
@@ -771,7 +770,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       if (apiResponse.ok) {
         const serverRecord = await apiResponse.json();
-        apiSucceeded = true;
         if (!isEditMode) {
           buildingPayload.id = serverRecord.id;
         }
@@ -779,16 +777,28 @@ document.addEventListener("DOMContentLoaded", async () => {
           isEditMode ? T("owner.updatedBuilding") : T("owner.savedBuilding")
         );
       } else {
-        const err = await apiResponse.json().catch(() => ({}));
-        console.warn("Building API response error", err);
+        const rawBody = await apiResponse.text().catch(() => "");
+        let err = {};
+        try {
+          err = rawBody ? JSON.parse(rawBody) : {};
+        } catch {
+          err = {};
+        }
+        console.warn("Building API response error", {
+          status: apiResponse.status,
+          statusText: apiResponse.statusText,
+          err,
+          rawBody,
+        });
         showError(T("owner.serverErrorLocal"));
+        return;
       }
     } catch (ex) {
       console.warn("Buildings API error", ex);
       showError(T("owner.serverUnreachable"));
+      return;
     }
 
-    // Local fallback for now
     if (isEditMode) {
       const updatedBuildings = buildings.map((building) =>
         building.id === editBuildingId ? buildingPayload : building
@@ -812,10 +822,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         saveApartments(updatedApartments);
       } else {
         saveLocalArray("walajna_apartments", updatedApartments);
-      }
-
-      if (!apiSucceeded) {
-        showSuccess(T("owner.updatedOffline"));
       }
     } else {
       const apartmentBuildingId = buildingPayload.id;
@@ -842,10 +848,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       // Backend create-building already seeds apartments.
       // Keep local state for rendering, but do not re-insert apartments via /api/apartments.
-
-      if (!apiSucceeded) {
-        showSuccess(T("owner.savedLocalServerDown"));
-      }
 
       form.reset();
       if (buildingCodeInput) {

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from datetime import date, datetime
 from decimal import Decimal
@@ -187,22 +188,28 @@ async def list_contract_installments(
     contract_id: int,
     current_user: dict = Depends(get_current_user),
 ):
-    _authorize_contract_access(contract_id, current_user)
-    try:
-        res = (
-            supabase.table("payment_installments")
-            .select("*")
-            .eq("contract_id", contract_id)
-            .order("installment_index")
-            .execute()
-        )
-        return res.data or []
-    except Exception:
-        logger.exception(
-            "payment_installments query failed (missing table, RLS, or bad column?); contract_id=%s",
-            contract_id,
-        )
-        return []
+    cid = contract_id
+    user = current_user
+
+    def _sync():
+        _authorize_contract_access(cid, user)
+        try:
+            res = (
+                supabase.table("payment_installments")
+                .select("*")
+                .eq("contract_id", cid)
+                .order("installment_index")
+                .execute()
+            )
+            return res.data or []
+        except Exception:
+            logger.exception(
+                "payment_installments query failed (missing table, RLS, or bad column?); contract_id=%s",
+                cid,
+            )
+            return []
+
+    return await asyncio.to_thread(_sync)
 
 
 @router.post("/contracts/{contract_id}/installments/generate")
