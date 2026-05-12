@@ -548,6 +548,61 @@ document.addEventListener("DOMContentLoaded", async () => {
   const contract = data.contract || {};
   const effectiveLeaseStatus = getEffectiveLeaseStatus(data);
 
+  async function resolveOwnerBuildingUnitLayoutOk(apartmentRow, localBuildingRow) {
+    if (
+      !apartmentRow?.buildingId ||
+      typeof WalajnaAuth === "undefined" ||
+      !WalajnaAuth.fetchWithAuth ||
+      typeof WalajnaApartmentsApi === "undefined" ||
+      !WalajnaApartmentsApi.isBuildingUnitLayoutComplete ||
+      !WalajnaApartmentsApi.listForBuilding
+    ) {
+      return true;
+    }
+    try {
+      const bRes = await WalajnaAuth.fetchWithAuth(
+        `${WalajnaAuth.API_BASE}/api/buildings`,
+        { method: "GET" }
+      );
+      let bRow = localBuildingRow;
+      if (bRes.ok) {
+        const list = await bRes.json();
+        const bid = String(apartmentRow.buildingId ?? "");
+        const fromApi = (Array.isArray(list) ? list : []).find(
+          (b) => String(b.id) === bid || String(b.code ?? "").trim() === bid
+        );
+        if (fromApi) bRow = fromApi;
+      }
+      if (!bRow) return true;
+      const mappedBuilding = {
+        id: bRow.id ?? apartmentRow.buildingId,
+        apartmentCount: bRow.apartmentCount ?? bRow.apartments_count,
+        apartments_count: bRow.apartments_count ?? bRow.apartmentCount,
+      };
+      const apts = await WalajnaApartmentsApi.listForBuilding(apartmentRow.buildingId);
+      return WalajnaApartmentsApi.isBuildingUnitLayoutComplete(mappedBuilding, apts);
+    } catch (e) {
+      console.warn("[apartment-page] unit layout gate skipped", e);
+      return true;
+    }
+  }
+
+  let buildingUnitLayoutOk = true;
+  if (activeRole === "owner" && currentUser) {
+    buildingUnitLayoutOk = await resolveOwnerBuildingUnitLayoutOk(data, buildingData);
+  }
+
+  const aptLayoutGateHint = document.getElementById("aptLayoutGateHint");
+  if (aptLayoutGateHint && activeRole === "owner") {
+    if (!buildingUnitLayoutOk) {
+      aptLayoutGateHint.hidden = false;
+      aptLayoutGateHint.textContent = T("building.completeLayoutBanner");
+    } else {
+      aptLayoutGateHint.hidden = true;
+      aptLayoutGateHint.textContent = "";
+    }
+  }
+
   let remainingDays = null;
   if (contract.endDate) {
     const todayStr = new Date().toISOString().slice(0, 10);
@@ -1076,6 +1131,15 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (effectiveLeaseStatus === "vacant") {
         if (mainActionBtn) {
           mainActionBtn.textContent = T("aptPage.linkTenant");
+          if (!buildingUnitLayoutOk) {
+            mainActionBtn.disabled = true;
+            mainActionBtn.setAttribute("aria-disabled", "true");
+            mainActionBtn.title = T("building.completeLayoutAlert");
+          } else {
+            mainActionBtn.disabled = false;
+            mainActionBtn.removeAttribute("aria-disabled");
+            mainActionBtn.removeAttribute("title");
+          }
           showElement(mainActionBtn);
         }
         if (actionsSection) {
@@ -1087,6 +1151,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       if (mainActionBtn) {
         mainActionBtn.textContent = T("aptPage.editApt");
+        mainActionBtn.disabled = false;
+        mainActionBtn.removeAttribute("aria-disabled");
+        mainActionBtn.removeAttribute("title");
         showElement(mainActionBtn);
       }
 
@@ -1184,7 +1251,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   initDocumentsSystem(aptId);
   initRequestsSystem(aptId, uiRoleForWidgets, currentUser, effectiveLeaseStatus, data);
-  const linkTenantSystem = initLinkTenantSystem(aptId, currentUser);
+  const linkTenantSystem = initLinkTenantSystem(aptId, currentUser, {
+    canAssignTenant: () => buildingUnitLayoutOk,
+  });
 
   /* Renew button state may depend on payment fetch — refresh actions once */
   applyActionVisibility();
@@ -1373,6 +1442,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (roleLabel) {
       roleLabel.textContent =
         activeRole === "owner" ? T("aptPage.viewOwner") : T("aptPage.viewTenant");
+    }
+    const gateEl = document.getElementById("aptLayoutGateHint");
+    if (gateEl && activeRole === "owner") {
+      if (!buildingUnitLayoutOk) {
+        gateEl.hidden = false;
+        gateEl.textContent = T("building.completeLayoutBanner");
+      } else {
+        gateEl.hidden = true;
+        gateEl.textContent = "";
+      }
     }
     applyActionVisibility();
     ensureHistoryButton();

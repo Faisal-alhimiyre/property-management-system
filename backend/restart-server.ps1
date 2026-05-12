@@ -88,5 +88,36 @@ if (-not (Test-Path $python)) {
 # --reload watches the cwd; venv312 lives under backend, so site-packages churn
 # (AV, indexer, pip) otherwise spams reloads and huge WatchFiles warnings.
 $venvDir = Join-Path $BackendDir "venv312"
+
+# Make httpx / requests / urllib trust the certifi bundle from this venv.
+# Without this, Supabase calls fail with "CERTIFICATE_VERIFY_FAILED" on Windows.
+# UTF-8 is required because the project path may contain non-ASCII (e.g. Arabic).
+$env:PYTHONIOENCODING = "utf-8"
+$env:PYTHONUTF8       = "1"
+try {
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    $OutputEncoding           = [System.Text.Encoding]::UTF8
+} catch { }
+try {
+    # Build the path directly when the venv is present (avoids brittle subprocess
+    # decoding when the project path contains non-ASCII characters on Windows).
+    $venvCertifi = Join-Path $BackendDir "venv312\Lib\site-packages\certifi\cacert.pem"
+    if (Test-Path -LiteralPath $venvCertifi) {
+        $certifiPath = $venvCertifi
+    } else {
+        $certifiPath = (& $python -c "import certifi,sys; sys.stdout.write(certifi.where())") -join ""
+    }
+    if ($certifiPath -and (Test-Path -LiteralPath $certifiPath)) {
+        $env:SSL_CERT_FILE      = $certifiPath
+        $env:REQUESTS_CA_BUNDLE = $certifiPath
+        $env:CURL_CA_BUNDLE     = $certifiPath
+        Write-Host "Using CA bundle: $certifiPath"
+    } else {
+        Write-Host "WARNING: could not locate certifi CA bundle; Supabase TLS may fail." -ForegroundColor Yellow
+    }
+} catch {
+    Write-Host "WARNING: certifi probe failed: $($_.Exception.Message)" -ForegroundColor Yellow
+}
+
 Write-Host "Starting uvicorn on http://127.0.0.1:$Port ..."
 & $python -m uvicorn main:app --host 127.0.0.1 --port $Port --reload --reload-exclude $venvDir

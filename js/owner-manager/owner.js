@@ -389,6 +389,45 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
+  /** After unit-layout, session may hold room counts before the next list GET reflects them. */
+  function overlaySessionRoomCountsOntoOwnerApartments(rows) {
+    const list = Array.isArray(rows) ? rows : [];
+    if (
+      typeof WalajnaApartmentsApi === "undefined" ||
+      typeof WalajnaApartmentsApi.getSessionList !== "function"
+    ) {
+      return list;
+    }
+    const session = WalajnaApartmentsApi.getSessionList();
+    if (!Array.isArray(session) || !session.length) return list;
+
+    const sessionById = new Map(
+      session.filter((s) => s && s.id != null).map((s) => [String(s.id), s])
+    );
+
+    const roomSum = (o) =>
+      (Number(o?.bedrooms) || 0) +
+      (Number(o?.bathrooms) || 0) +
+      (Number(o?.livingRooms ?? o?.living_rooms) || 0);
+
+    return list.map((row) => {
+      const s = sessionById.get(String(row.id));
+      if (!s) return row;
+      if (roomSum(s) <= roomSum(row)) return row;
+      return {
+        ...row,
+        bedrooms: s.bedrooms != null ? Number(s.bedrooms) : row.bedrooms,
+        bathrooms: s.bathrooms != null ? Number(s.bathrooms) : row.bathrooms,
+        livingRooms:
+          s.livingRooms != null
+            ? Number(s.livingRooms)
+            : s.living_rooms != null
+              ? Number(s.living_rooms)
+              : row.livingRooms,
+      };
+    });
+  }
+
   async function fetchOwnerApartments() {
     try {
       const res = await WalajnaAuth.fetchWithAuth(
@@ -397,21 +436,37 @@ document.addEventListener("DOMContentLoaded", async () => {
       );
       if (!res.ok) return [];
       const rows = await res.json();
-      return rows.map(mapApiApartmentToDashboard);
+      const mapped = (Array.isArray(rows) ? rows : [])
+        .map(mapApiApartmentToDashboard)
+        .filter(Boolean);
+      return overlaySessionRoomCountsOntoOwnerApartments(mapped);
     } catch {
       return [];
     }
   }
 
   function mapApiApartmentToDashboard(apt) {
-    const id = apt.id;
+    if (!apt) return null;
+    const id = apt.id ?? apt.apiId;
+    if (id == null) return null;
+    const br = apt.bedrooms ?? apt.Bedrooms;
+    const ba = apt.bathrooms ?? apt.Bathrooms;
+    const lv = apt.living_rooms ?? apt.livingRooms;
+    const toNumOrNull = (v) => {
+      if (v == null || v === "") return null;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    };
     return {
       id: String(id),
-      apiId: id,
-      buildingId: String(apt.building_id ?? ""),
-      number: String(apt.apartment_number ?? ""),
-      floorNumber: Number(apt.floor_number ?? 0),
-      leaseStatus: apt.lease_status || "vacant",
+      apiId: apt.apiId ?? apt.id,
+      buildingId: String(apt.building_id ?? apt.buildingId ?? ""),
+      number: String(apt.apartment_number ?? apt.apartmentNumber ?? ""),
+      floorNumber: Number(apt.floor_number ?? apt.floorNumber ?? 0),
+      bedrooms: toNumOrNull(br),
+      bathrooms: toNumOrNull(ba),
+      livingRooms: toNumOrNull(lv),
+      leaseStatus: apt.lease_status || apt.leaseStatus || "vacant",
       rent: apt.rent,
       tenantUserId: apt.tenant_user_id ?? null,
       tenantNationalId: apt.tenant_national_id ?? null,
@@ -915,10 +970,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       return (b.createdAt || "").localeCompare(a.createdAt || "");
     });
 
-  apartments = await backfillMissingApartmentsFromBuildings(
-    buildings,
-    apartments,
-    currentUser.id
+  apartments = overlaySessionRoomCountsOntoOwnerApartments(
+    await backfillMissingApartmentsFromBuildings(buildings, apartments, currentUser.id)
   );
 
   if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.persistSessionList) {
@@ -1132,44 +1185,60 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const sizeClass = getBuildingSizeClass(buildingApartments.length);
 
-    const floorsMap = new Map();
+    const layoutComplete =
+      typeof WalajnaApartmentsApi !== "undefined" &&
+      WalajnaApartmentsApi.isBuildingUnitLayoutComplete
+        ? WalajnaApartmentsApi.isBuildingUnitLayoutComplete(building, buildingApartments)
+        : true;
+    const layoutBanner = !layoutComplete
+      ? `<div class="building-card__layout-banner" role="status">${String(
+          wlT("building.completeLayoutBanner")
+        )
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")}</div>`
+      : "";
 
-    buildingApartments.forEach((apartment) => {
-      const floorNumber = Number(apartment.floorNumber || 0);
+    let squaresHtml = "";
+    if (layoutComplete) {
+      const floorsMap = new Map();
 
-      if (!floorsMap.has(floorNumber)) {
-        floorsMap.set(floorNumber, []);
-      }
+      buildingApartments.forEach((apartment) => {
+        const floorNumber = Number(apartment.floorNumber || 0);
 
-      floorsMap.get(floorNumber).push(apartment);
-    });
+        if (!floorsMap.has(floorNumber)) {
+          floorsMap.set(floorNumber, []);
+        }
 
-    const sortedFloorNumbers = [...floorsMap.keys()].sort((a, b) => b - a);
+        floorsMap.get(floorNumber).push(apartment);
+      });
 
-    const squaresHtml = sortedFloorNumbers
-      .map((floorNumber) => {
-        const floorApartments = floorsMap.get(floorNumber) || [];
+      const sortedFloorNumbers = [...floorsMap.keys()].sort((a, b) => b - a);
 
-        const sortedFloorApartments = floorApartments.sort((a, b) => {
-          const aNum = Number(a.number || 0);
-          const bNum = Number(b.number || 0);
-          return aNum - bNum;
-        });
-        const isWide = sortedFloorApartments.length >= 6;
-        const floorSquares = sortedFloorApartments
-          .map((apartment) => {
-            const typeClass = getApartmentStatusClass(
-              apartment,
-              maintenanceRows,
-              payments
-            );
+      squaresHtml = sortedFloorNumbers
+        .map((floorNumber) => {
+          const floorApartments = floorsMap.get(floorNumber) || [];
 
-            const rentedClass =
-              isApartmentRented(apartment) && typeClass === "none"
-                ? "rented"
-                : "";
+          const sortedFloorApartments = floorApartments.sort((a, b) => {
+            const aNum = Number(a.number || 0);
+            const bNum = Number(b.number || 0);
+            return aNum - bNum;
+          });
+          const isWide = sortedFloorApartments.length >= 6;
+          const floorSquares = sortedFloorApartments
+            .map((apartment) => {
+              const typeClass = getApartmentStatusClass(
+                apartment,
+                maintenanceRows,
+                payments
+              );
 
-            return `
+              const rentedClass =
+                isApartmentRented(apartment) && typeClass === "none"
+                  ? "rented"
+                  : "";
+
+              return `
                 <div
                   class="apartment-square ${typeClass} ${rentedClass}"
                   title="${String(wlT("owner.aptTitle", { n: apartment.number, f: floorNumber }))
@@ -1177,15 +1246,16 @@ document.addEventListener("DOMContentLoaded", async () => {
                     .replace(/"/g, "&quot;")}">
                 </div>
               `;
-          })
-          .join("");
-        return `
+            })
+            .join("");
+          return `
   <div class="apartment-floor ${isWide ? "wide-floor" : ""}" data-floor="${floorNumber}">
     ${floorSquares}
   </div>
 `;
-      })
-      .join("");
+        })
+        .join("");
+    }
 
     return `
         <article
@@ -1250,10 +1320,13 @@ document.addEventListener("DOMContentLoaded", async () => {
             <h3 class="building-title">${building.isPinned ? "📌 " : ""}${building.name}</h3>
             <span class="building-count">${wlT("owner.aptCountLabel", { n: buildingApartments.length })}</span>
           </div>
+          ${layoutBanner}
 
-          <div class="apartments-grid">
-            ${squaresHtml}
-          </div>
+          ${
+            layoutComplete && squaresHtml
+              ? `<div class="apartments-grid">${squaresHtml}</div>`
+              : ""
+          }
         </article>
       `;
   }

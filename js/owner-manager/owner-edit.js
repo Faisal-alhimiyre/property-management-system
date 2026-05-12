@@ -774,7 +774,8 @@ document.addEventListener("DOMContentLoaded", async () => {
           buildingPayload.id = serverRecord.id;
         }
         showSuccess(
-          isEditMode ? T("owner.updatedBuilding") : T("owner.savedBuilding")
+          (isEditMode ? T("owner.updatedBuilding") : T("owner.savedBuilding")) +
+            (!isEditMode ? " " + T("owner.afterSaveCompleteLayoutHint") : "")
         );
       } else {
         const rawBody = await apiResponse.text().catch(() => "");

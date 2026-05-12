@@ -44,6 +44,50 @@ body{
   padding:0 16px;
 }
 
+/* display:flex on the base class overrides [hidden] unless we force hidden off the layout (see .building-details-step2:not([hidden]) below). */
+.building-layout-reminder{
+  margin:0 auto 14px;
+  max-width:980px;
+  padding:12px 14px;
+  border-radius:14px;
+  font-size:14px;
+  font-weight:700;
+  line-height:1.5;
+  color:#92400e;
+  background:linear-gradient(135deg,#fffbeb 0%,#fef3c7 100%);
+  border:1px solid rgba(245,158,11,0.45);
+  text-align:center;
+  box-sizing:border-box;
+}
+.building-layout-reminder:not([hidden]){
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:0.4em;
+  flex-wrap:wrap;
+}
+.building-layout-reminder[hidden]{
+  display:none !important;
+  margin:0;
+  padding:0;
+  border:none;
+  min-height:0;
+  overflow:hidden;
+}
+
+.building-layout-reminder::before{
+  content:"\26A0\FE0F";
+  flex-shrink:0;
+  font-size:1.15em;
+  line-height:1;
+}
+
+body.dark-mode .building-layout-reminder{
+  color:#fde68a;
+  background:rgba(120,53,15,0.35);
+  border-color:rgba(251,191,36,0.35);
+}
+
 /* summary */
 .building-finance-summary{
   display:grid;
@@ -230,6 +274,21 @@ body{
   flex-direction:column;
   gap:2px;
   align-items:stretch;
+}
+
+.floor-apartments--pending{
+  min-height:56px;
+  grid-template-columns:1fr;
+  justify-items:stretch;
+  align-content:center;
+  border-style:dashed;
+  border-color:rgba(148,163,184,0.5);
+  background:linear-gradient(180deg,rgba(255,255,255,0.38) 0%,rgba(241,245,249,0.3) 100%);
+}
+
+body.dark-mode .floor-apartments--pending{
+  background:linear-gradient(180deg,rgba(30,41,59,0.45) 0%,rgba(15,23,42,0.38) 100%);
+  border-color:rgba(100,116,139,0.5);
 }
 
 /* floor block */

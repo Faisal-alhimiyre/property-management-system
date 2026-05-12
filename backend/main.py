@@ -3,6 +3,17 @@ import re
 import sys
 import asyncio
 
+# Use the OS-native certificate store (Windows / macOS) for TLS verification.
+# Fixes "CERTIFICATE_VERIFY_FAILED: unable to get local issuer certificate"
+# when antivirus / corporate proxy injects a custom root CA that certifi
+# does not include. Must run BEFORE importing httpx / supabase / requests.
+try:
+    import truststore
+    truststore.inject_into_ssl()
+    print("truststore: injected OS native CA store into ssl.")
+except Exception as _truststore_exc:
+    print(f"truststore unavailable, falling back to certifi: {_truststore_exc}")
+
 # Check if the application is running
 print("Starting the application...")
 print("=== MAIN.PY LOADED ===")

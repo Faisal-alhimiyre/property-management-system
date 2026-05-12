@@ -11,7 +11,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   const title = document.getElementById("buildingTitle");
   const grid = document.getElementById("apartmentsGrid");
   const financeBtn = document.getElementById("financeSummaryBtn");
-  const portfolioFinanceBtn = document.getElementById("portfolioFinanceBtn");
 
   if (!grid) return;
 
@@ -66,13 +65,26 @@ document.addEventListener("DOMContentLoaded", async () => {
   let costs = JSON.parse(localStorage.getItem("walajna_costs") || "[]");
 
   function mapApiApartmentToLocal(apt) {
-    const id = apt.id;
+    if (!apt) return null;
+    const id = apt.id ?? apt.apiId;
+    if (id == null) return null;
+    const br = apt.bedrooms ?? apt.Bedrooms;
+    const ba = apt.bathrooms ?? apt.Bathrooms;
+    const lv = apt.living_rooms ?? apt.livingRooms;
+    const toNumOrNull = (v) => {
+      if (v == null || v === "") return null;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    };
     return {
       id: String(id),
-      apiId: id,
-      buildingId: String(apt.building_id ?? ""),
-      number: String(apt.apartment_number ?? ""),
-      floorNumber: Number(apt.floor_number ?? 0),
+      apiId: apt.apiId ?? apt.id,
+      buildingId: String(apt.building_id ?? apt.buildingId ?? ""),
+      number: String(apt.apartment_number ?? apt.apartmentNumber ?? ""),
+      floorNumber: Number(apt.floor_number ?? apt.floorNumber ?? 0),
+      bedrooms: toNumOrNull(br),
+      bathrooms: toNumOrNull(ba),
+      livingRooms: toNumOrNull(lv),
       leaseStatus: apt.lease_status || "vacant",
       rent: apt.rent,
       tenantUserId: apt.tenant_user_id ?? null,
@@ -293,17 +305,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     window.location.href = `finance_summary.html?buildingId=${encodeURIComponent(String(apiPathBuildingId))}`;
   }
 
-  function openPortfolioFinance() {
-    if (!buildingId) return;
-    window.location.href = `portfolio_finance.html?refBuildingId=${encodeURIComponent(String(apiPathBuildingId))}`;
-  }
-
   if (financeBtn) {
     financeBtn.addEventListener("click", openFinanceSummary);
-  }
-
-  if (portfolioFinanceBtn) {
-    portfolioFinanceBtn.addEventListener("click", openPortfolioFinance);
   }
 
   /** Building details+ wizard: per-floor apartment counts → room mix per unit (POST /api/buildings/:id/unit-layout). */
@@ -842,7 +845,28 @@ document.addEventListener("DOMContentLoaded", async () => {
     return current;
   }
 
-  const buildingApartments = ensureApartmentsExist();
+  ensureApartmentsExist();
+
+  function isCurrentBuildingUnitLayoutComplete() {
+    if (!building) return true;
+    if (typeof WalajnaApartmentsApi === "undefined" || !WalajnaApartmentsApi.isBuildingUnitLayoutComplete) {
+      return true;
+    }
+    return WalajnaApartmentsApi.isBuildingUnitLayoutComplete(building, getBuildingApartments());
+  }
+
+  /** Floor count for empty floor rows before the owner finishes «Building details+». */
+  function resolveSkeletonFloorCount() {
+    const fromBuilding = Number(building?.totalFloors ?? building?.total_floors ?? 0);
+    if (fromBuilding >= 1) return Math.min(200, Math.floor(fromBuilding));
+    let maxF = 0;
+    for (const a of getBuildingApartments()) {
+      const f = Number(a.floorNumber ?? a.floor_number ?? 0);
+      if (Number.isFinite(f) && f > maxF) maxF = f;
+    }
+    if (maxF >= 1) return Math.min(200, maxF);
+    return 1;
+  }
 
   /** Paid schedule rows for all contracts on this building's apartments (includes vacated units; see GET /api/buildings/:id/installments). */
   let serverInstallmentsForBuilding = [];
@@ -1085,6 +1109,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (!apartment) return;
 
+    if (!isApartmentOccupied(apartment)) {
+      if (!isCurrentBuildingUnitLayoutComplete()) {
+        alert(T("building.completeLayoutAlert"));
+        return;
+      }
+    }
+
     selectedApartmentId = apartmentId;
 
     const tenantInfo = apartment.tenantInfo || {};
@@ -1209,6 +1240,22 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (validationMessage) {
       showError(validationMessage);
       return;
+    }
+
+    const aptForSave = apartments.find((x) => String(x.id) === String(selectedApartmentId));
+    if (aptForSave && !isApartmentOccupied(aptForSave)) {
+      if (!isCurrentBuildingUnitLayoutComplete()) {
+        const hasTenantData =
+          formData.fullName ||
+          formData.nationalId ||
+          formData.nationality ||
+          formData.tenantType ||
+          formData.phone;
+        if (hasTenantData) {
+          showError(T("building.completeLayoutAlert"));
+          return;
+        }
+      }
     }
 
     const updatedApartments = apartments.map((apt) => {
@@ -1599,7 +1646,7 @@ async function evictApartment(apartmentId) {
     const currentMonthStart = startOfMonth(today);
     const currentMonthEnd = endOfMonth(today);
 
-    const monthlyIncome = buildingApartments.reduce((sum, apartment) => {
+    const monthlyIncome = getBuildingApartments().reduce((sum, apartment) => {
       return sum + getApartmentRealizedIncomeForRange(
         apartment,
         currentMonthStart,
@@ -1607,7 +1654,7 @@ async function evictApartment(apartmentId) {
       );
     }, 0);
 
-    const expenses = buildingApartments.reduce((sum, apartment) => {
+    const expenses = getBuildingApartments().reduce((sum, apartment) => {
       return sum + getApartmentExpensesForRange(
         apartment,
         currentMonthStart,
@@ -1617,11 +1664,11 @@ async function evictApartment(apartmentId) {
 
     const profit = monthlyIncome - expenses;
 
-    const occupiedUnits = buildingApartments.filter((apartment) => {
+    const occupiedUnits = getBuildingApartments().filter((apartment) => {
       return isApartmentOccupied(apartment);
     }).length;
 
-    const lateUnits = buildingApartments.filter((apartment) => {
+    const lateUnits = getBuildingApartments().filter((apartment) => {
       return isApartmentRentOverdue(apartment);
     }).length;
 
@@ -1630,7 +1677,7 @@ async function evictApartment(apartmentId) {
       expenses,
       profit,
       occupiedUnits,
-      totalUnits: buildingApartments.length,
+      totalUnits: getBuildingApartments().length,
       lateUnits,
     };
   }
@@ -1716,7 +1763,7 @@ async function evictApartment(apartmentId) {
       const aggregated = [];
       for (const row of Array.isArray(rows) ? rows : []) {
         const sid = row.apartment_id;
-        const apartment = buildingApartments.find(
+        const apartment = getBuildingApartments().find(
           (a) =>
             String(a.apiId ?? "") === String(sid) || String(a.id) === String(sid)
         );
@@ -1793,9 +1840,25 @@ async function evictApartment(apartmentId) {
     return;
   }
 
+  if (building && !isCurrentBuildingUnitLayoutComplete()) {
+    const nFloors = resolveSkeletonFloorCount();
+    const floorsOnly = Array.from({ length: nFloors }, (_, i) => i + 1)
+      .map(
+        (floorNumber) => `
+        <div class="floor-section floor-section--layout-pending">
+          <div class="floor-title">${escapeHtml(T("building.floorTitle", { n: floorNumber }))}</div>
+          <div class="floor-apartments floor-apartments--pending" aria-hidden="true"></div>
+        </div>
+      `
+      )
+      .join("");
+    grid.innerHTML = floorsOnly;
+    return;
+  }
+
   const floors = {};
 
-  buildingApartments.forEach((apartment) => {
+  getBuildingApartments().forEach((apartment) => {
     const floor = Number(apartment.floorNumber || 1);
 
     if (!floors[floor]) {
@@ -1976,9 +2039,27 @@ async function evictApartment(apartmentId) {
   });
   }
 
+  function updateBuildingLayoutReminder() {
+    const el = document.getElementById("buildingLayoutReminder");
+    if (!el) return;
+    if (!building || apiLoadError) {
+      el.hidden = true;
+      el.textContent = "";
+      return;
+    }
+    if (isCurrentBuildingUnitLayoutComplete()) {
+      el.hidden = true;
+      el.textContent = "";
+    } else {
+      el.hidden = false;
+      el.textContent = T("building.completeLayoutBanner");
+    }
+  }
+
   function refreshAll() {
     renderBuildingFinancialSummary();
     renderApartmentGrid();
+    updateBuildingLayoutReminder();
   }
 
   populateLinkTenantTypeSelect();

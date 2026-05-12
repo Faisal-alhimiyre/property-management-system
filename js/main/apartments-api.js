@@ -55,14 +55,19 @@
     return {
       id: String(id),
       apiId: id,
-      buildingId: String(apt.building_id ?? ""),
+      buildingId: String(apt.building_id ?? apt.buildingId ?? ""),
       buildingName: apt.building_name ?? apt.buildingName ?? "",
-      number: String(apt.apartment_number ?? ""),
-      floorNumber: Number(apt.floor_number ?? 0),
+      number: String(apt.apartment_number ?? apt.apartmentNumber ?? ""),
+      floorNumber: Number(apt.floor_number ?? apt.floorNumber ?? 0),
       bedrooms: apt.bedrooms != null ? Number(apt.bedrooms) : null,
       bathrooms: apt.bathrooms != null ? Number(apt.bathrooms) : null,
-      livingRooms: apt.living_rooms != null ? Number(apt.living_rooms) : null,
-      leaseStatus: apt.lease_status || "vacant",
+      livingRooms:
+        apt.living_rooms != null
+          ? Number(apt.living_rooms)
+          : apt.livingRooms != null
+            ? Number(apt.livingRooms)
+            : null,
+      leaseStatus: apt.lease_status || apt.leaseStatus || "vacant",
       rent: apt.rent,
       tenantUserId: apt.tenant_user_id ?? null,
       tenantNationalId: apt.tenant_national_id ?? null,
@@ -216,6 +221,74 @@
     return row;
   }
 
+  /** Same physical unit can appear twice (numeric id vs legacy code); keep one row per floor+number. */
+  function dedupeApartmentsByUnitKey(apartmentList, canonicalBuildingId) {
+    const canonical = canonicalBuildingId != null ? String(canonicalBuildingId) : "";
+    const byKey = new Map();
+    const score = (apt) => {
+      let s = 0;
+      const idStr = String(apt.id ?? "");
+      if (apt.apiId != null || /^\d+$/.test(idStr)) s += 5;
+      if (canonical && String(apt.buildingId ?? "") === canonical) s += 3;
+      if (apt.tenantUserId || apt.tenantNationalId) s += 2;
+      if (apt.currentContractId || apt.contract?.id) s += 1;
+      return s;
+    };
+    for (const apt of apartmentList || []) {
+      const num = String(apt.number ?? apt.apartment_number ?? "").trim();
+      const floor = String(apt.floorNumber ?? apt.floor_number ?? "").trim() || "0";
+      const key = num ? `${floor}::${num}` : `id:${String(apt.id ?? apt.apiId ?? "")}`;
+      if (!num && !apt.id && apt.apiId == null) continue;
+      const prev = byKey.get(key);
+      if (!prev || score(apt) > score(prev)) {
+        byKey.set(key, apt);
+      }
+    }
+    return Array.from(byKey.values());
+  }
+
+  function sumUnitRoomsFromClientApartment(apt) {
+    if (!apt) return 0;
+    const b = Number(apt.bedrooms ?? apt.roomsCount ?? 0);
+    const ba = Number(apt.bathrooms ?? apt.bathroomsCount ?? 0);
+    const lv = Number(apt.livingRooms ?? apt.living_rooms ?? apt.livingRoomsCount ?? 0);
+    const sb = Number.isFinite(b) ? b : 0;
+    const sba = Number.isFinite(ba) ? ba : 0;
+    const slv = Number.isFinite(lv) ? lv : 0;
+    return sb + sba + slv;
+  }
+
+  function isApartmentUnitLayoutConfigured(apt) {
+    return sumUnitRoomsFromClientApartment(apt) >= 1;
+  }
+
+  /**
+   * Building "unit layout" is complete when the number of deduped apartments matches the
+   * building's registered count and every unit has at least one room count (same rule as the
+   * building details+ wizard after save).
+   */
+  function apartmentLooksServerBacked(apt) {
+    if (!apt) return false;
+    if (apt.apiId != null) return true;
+    const idStr = String(apt.id ?? "");
+    return /^\d+$/.test(idStr);
+  }
+
+  function isBuildingUnitLayoutComplete(building, apartmentList) {
+    if (!building) return true;
+    const expected = Math.floor(Number(building.apartmentCount ?? building.apartments_count ?? 0));
+    if (expected < 1) return true;
+    const canonical =
+      building.id != null && String(building.id).trim() !== "" ? String(building.id) : "";
+    const list = Array.isArray(apartmentList) ? apartmentList : [];
+    if (list.length && list.every((a) => !apartmentLooksServerBacked(a))) {
+      return true;
+    }
+    const deduped = dedupeApartmentsByUnitKey(list, canonical);
+    if (deduped.length !== expected) return false;
+    return deduped.every(isApartmentUnitLayoutConfigured);
+  }
+
   window.WalajnaApartmentsApi = {
     SESSION_KEY,
     mapApiRowToClient,
@@ -229,5 +302,8 @@
     listAsTenant,
     refreshForSession,
     vacateTenant,
+    dedupeApartmentsByUnitKey,
+    isApartmentUnitLayoutConfigured,
+    isBuildingUnitLayoutComplete,
   };
 })();

@@ -2,11 +2,14 @@
    Apartment Link Tenant System
    ======================================== */
 
-function initLinkTenantSystem(aptId, currentUser) {
+function initLinkTenantSystem(aptId, currentUser, options) {
   const T = (k, p) =>
     window.walajna_language && window.walajna_language.t
       ? window.walajna_language.t(k, p)
       : k;
+
+  const canAssignTenant =
+    options && typeof options.canAssignTenant === "function" ? options.canAssignTenant : () => true;
 
   const elements = {
     modal: document.getElementById("linkTenantModal"),
@@ -1456,6 +1459,11 @@ function resetForm() {
   function openModal(apartmentData = null) {
     if (!elements.modal) return;
 
+    if (!apartmentData && !canAssignTenant()) {
+      alert(T("building.completeLayoutAlert"));
+      return;
+    }
+
     resetForm();
 
     if (apartmentData) {
@@ -2099,6 +2107,11 @@ function resetForm() {
 
     if (validationMessage) {
       showError(validationMessage);
+      return;
+    }
+
+    if (currentMode === "create" && !canAssignTenant()) {
+      showError(T("building.completeLayoutAlert"));
       return;
     }
 
