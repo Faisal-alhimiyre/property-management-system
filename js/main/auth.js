@@ -12,8 +12,12 @@ function resolveApiBase() {
     return 'http://127.0.0.1:8002';
   }
 
-  // Production default: override with window.__WALAJNA_API_BASE or localStorage key walajna_api_base.
-  return 'https://your-backend.onrender.com';
+  // GitHub Pages → Render API (update if your Render service URL changes).
+  if (host.endsWith('github.io')) {
+    return 'https://property-management-system-155h.onrender.com';
+  }
+
+  return 'https://property-management-system-155h.onrender.com';
 }
 
 const API_BASE = resolveApiBase();

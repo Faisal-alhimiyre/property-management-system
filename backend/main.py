@@ -45,8 +45,17 @@ _cors_raw = os.getenv(
     "http://127.0.0.1:3000,http://localhost:3000",
 )
 _cors_origins = [o.strip() for o in _cors_raw.split(",") if o.strip()]
+_cors_origin_set = {o.rstrip("/") for o in _cors_origins}
 _cors_origin_regex = r"^http://(127\.0\.0\.1|localhost)(:\d+)?$"
 _dev_origin_re = re.compile(_cors_origin_regex)
+
+
+def _origin_allowed(origin: str) -> bool:
+    if not origin:
+        return False
+    if _dev_origin_re.match(origin):
+        return True
+    return origin.rstrip("/") in _cors_origin_set
 
 # Initialize the app
 try:
@@ -205,11 +214,10 @@ print("Test GET endpoint defined")
 @app.middleware("http")
 async def localhost_cors(request: Request, call_next):
     """
-    Single CORS layer for local dev (Live Server + API on different ports).
-    Echoes the request Origin so credentialed fetch always gets a matching ACAO header.
-    """
+    CORS for local dev (localhost) and production frontends listed in CORS_ORIGINS.
+  """
     origin = (request.headers.get("origin") or "").strip()
-    allowed = bool(origin and _dev_origin_re.match(origin))
+    allowed = _origin_allowed(origin)
 
     if request.method == "OPTIONS" and allowed:
         req_headers = request.headers.get("access-control-request-headers") or "*"
