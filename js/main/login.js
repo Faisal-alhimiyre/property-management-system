@@ -95,6 +95,7 @@ document.addEventListener("DOMContentLoaded", () => {
             ...user,
             roles: user.roles || [user.role],
           },
+          access_token: data.access_token,
         });
       }
 

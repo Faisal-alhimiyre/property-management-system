@@ -636,13 +636,16 @@ async def login_handler(request: Request):
         content={
             "user": payload["user"],
             "token_type": payload["token_type"],
+            # Cross-origin frontends (e.g. GitHub Pages) cannot rely on cookies; use Bearer token.
+            "access_token": token,
         }
     )
     response.set_cookie(
         key=COOKIE_NAME,
         value=token,
         httponly=True,
-        samesite="lax",
+        secure=True,
+        samesite="none",
         max_age=ACCESS_MAX_AGE_SECONDS,
         path="/",
     )

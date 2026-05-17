@@ -23,6 +23,7 @@ function resolveApiBase() {
 const API_BASE = resolveApiBase();
 
 const USER_KEY = 'walajna_current_user';
+const TOKEN_KEY = 'walajna_access_token';
 const ACTIVE_ROLE_KEY = 'activeRole';
 
 function mapServerUser(u) {
@@ -41,7 +42,11 @@ function mapServerUser(u) {
 }
 
 function getAccessToken() {
-  return null;
+  try {
+    return sessionStorage.getItem(TOKEN_KEY) || null;
+  } catch {
+    return null;
+  }
 }
 
 function getCurrentUser() {
@@ -68,7 +73,7 @@ function getActiveRole() {
   return r || null;
 }
 
-function setSession({ user }) {
+function setSession({ user, access_token }) {
   if (!user) return;
   const normalized = mapServerUser(user) || user;
   if (!Array.isArray(normalized.roles)) {
@@ -77,11 +82,19 @@ function setSession({ user }) {
   sessionStorage.setItem(USER_KEY, JSON.stringify(normalized));
   const role = normalized.role || normalized.roles[0] || 'tenant';
   sessionStorage.setItem(ACTIVE_ROLE_KEY, role);
+  const tok =
+    (typeof access_token === 'string' && access_token.trim()) ||
+    (typeof user.access_token === 'string' && user.access_token.trim()) ||
+    '';
+  if (tok) {
+    sessionStorage.setItem(TOKEN_KEY, tok);
+  }
 }
 
 function clearSession() {
   try {
     sessionStorage.removeItem(USER_KEY);
+    sessionStorage.removeItem(TOKEN_KEY);
     sessionStorage.removeItem(ACTIVE_ROLE_KEY);
   } catch {
     /* ignore */
@@ -138,11 +151,21 @@ function isUsersMeProbeWithoutClientUser(url) {
   }
 }
 
-function getAuthHeaders(additional = {}) {
-  return {
-    'Content-Type': 'application/json',
-    ...additional,
-  };
+function getAuthHeaders(additional = {}, { json = true } = {}) {
+  const headers = { ...additional };
+  if (json) {
+    headers['Content-Type'] = 'application/json';
+  }
+  const token = getAccessToken();
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
+}
+
+function getBearerHeader() {
+  const token = getAccessToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 /**
@@ -160,7 +183,8 @@ function fetchWithAuth(url, options = {}) {
     credentials: 'include',
     ...rest,
     headers: {
-      ...(useJsonHeaders ? getAuthHeaders() : {}),
+      ...getBearerHeader(),
+      ...(useJsonHeaders ? getAuthHeaders({}, { json: true }) : {}),
       ...(optHeaders || {}),
     },
   }).then((response) => {
