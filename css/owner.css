@@ -1173,6 +1173,73 @@ body.dark-mode .building-card__layout-banner {
 @media (max-width: 768px) {
   .owner-dashboard {
     padding: 0 16px;
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Color legend: fixed dock at bottom of screen while scrolling */
+  .legend-sidebar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    order: unset;
+    padding: 0 10px max(10px, env(safe-area-inset-bottom));
+    pointer-events: none;
+  }
+
+  .legend-dock {
+    pointer-events: auto;
+    margin: 0;
+    border-radius: 16px 16px 0 0;
+    background: rgba(255, 255, 255, 0.97);
+    border: 1px solid rgba(26, 47, 74, 0.12);
+    border-bottom: none;
+    box-shadow: 0 -10px 28px rgba(15, 23, 42, 0.14);
+    overflow: hidden;
+  }
+
+  .legend-dock__summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 12px 16px;
+    font-size: 16px;
+    font-weight: 900;
+    color: #0f2740;
+    text-align: center;
+    user-select: none;
+  }
+
+  .legend-dock__summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .legend-dock__summary::after {
+    content: " ▾";
+    font-size: 14px;
+    opacity: 0.7;
+  }
+
+  .legend-dock[open] .legend-dock__summary::after {
+    content: " ▴";
+  }
+
+  .legend-card {
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    padding: 0 12px 12px;
+    max-height: min(42vh, 320px);
+    overflow-y: auto;
+  }
+
+  .legend-title {
+    display: none;
+  }
+
+  .legend-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 12px;
   }
 
   .page-head {
@@ -1221,5 +1288,57 @@ body.dark-mode .building-card__layout-banner {
 
   .legend-list {
     grid-template-columns: 1fr;
+  }
+}
+
+body.dark-mode .legend-dock {
+  background: rgba(15, 23, 42, 0.96);
+  border-color: rgba(148, 163, 184, 0.25);
+}
+
+body.dark-mode .legend-dock__summary {
+  color: #e5edf7;
+}
+
+/* Laptop/desktop: legend unchanged — sidebar sticky, no bottom dock */
+@media (min-width: 769px) {
+  .owner-dashboard {
+    padding-bottom: 0;
+  }
+
+  .legend-sidebar {
+    position: sticky;
+    top: 140px;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    padding: 0;
+    pointer-events: auto;
+  }
+
+  .legend-dock {
+    display: block;
+    margin: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  .legend-dock__summary {
+    display: none;
+  }
+
+  .legend-dock .legend-card {
+    border-radius: inherit;
+    box-shadow: inherit;
+    max-height: none;
+    overflow: visible;
+    padding: inherit;
+  }
+
+  .legend-title {
+    display: block;
   }
 }

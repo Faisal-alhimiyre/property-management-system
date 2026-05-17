@@ -15,12 +15,25 @@
   <header class="walajna-topbar">
     <div class="walajna-topbar__inner">
 
-      <nav class="walajna-topbar__nav" data-i18n-aria-label="nav.main" aria-label="">
-        <a id="nav-home" href="#" class="is-active"></a>
-        <a id="nav-link-2" href="#"></a>
-        <a id="nav-link-3" href="#"></a>
-        <a id="nav-link-4" href="#"></a>
-      </nav>
+      <button
+        type="button"
+        class="walajna-nav-toggle"
+        id="walajna-nav-toggle"
+        aria-expanded="false"
+        aria-controls="walajna-nav-panel"
+        data-i18n-aria-label="nav.openMenu"
+      >
+        <span class="walajna-nav-toggle__bars" aria-hidden="true"></span>
+      </button>
+
+      <div class="walajna-nav-panel" id="walajna-nav-panel">
+        <nav class="walajna-topbar__nav" data-i18n-aria-label="nav.main" aria-label="">
+          <a id="nav-home" href="#" class="is-active"></a>
+          <a id="nav-link-2" href="#"></a>
+          <a id="nav-link-3" href="#"></a>
+          <a id="nav-link-4" href="#"></a>
+        </nav>
+      </div>
 
       <div class="walajna-topbar__brand">
         <a id="nav-logo-link" href="#" class="brand-logo-link" data-i18n-aria-label="common.logo" aria-label="">
@@ -34,6 +47,7 @@
       </div>
 
     </div>
+    <button type="button" class="walajna-nav-backdrop" id="walajna-nav-backdrop" hidden aria-hidden="true" tabindex="-1"></button>
   </header>
   <script>
     document.addEventListener("DOMContentLoaded", function () {

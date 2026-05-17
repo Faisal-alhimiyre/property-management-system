@@ -1448,3 +1448,157 @@ body.dark-mode #linkTenantModal .wl-modal__body::-webkit-scrollbar-thumb{
   border-radius:999px;
   border:2px solid #0b111c;
 }
+
+/* ===== Phone — apartment details (≤768px); laptop unchanged at 769px+ ===== */
+@media (max-width: 768px){
+  .apartment-details-wrap{
+    margin:12px auto 28px;
+    padding:0 14px;
+    overflow-x:hidden;
+  }
+
+  .header{
+    padding:16px 18px;
+    margin-bottom:14px;
+    border-radius:22px;
+  }
+
+  #aptTitle{
+    font-size:26px;
+    line-height:1.3;
+    letter-spacing:-0.3px;
+  }
+
+  .page-role-label{
+    font-size:13px;
+    margin-top:6px;
+  }
+
+  .apt-layout-gate-hint{
+    font-size:13px;
+    padding:10px 12px;
+    margin-bottom:12px;
+  }
+
+  .details-card{
+    padding:16px 14px;
+    border-radius:22px;
+    margin-bottom:14px;
+  }
+
+  .section-title{
+    font-size:22px;
+    margin-bottom:12px;
+  }
+
+  .details-grid{
+    grid-template-columns:1fr;
+    gap:10px;
+  }
+
+  .details-grid--extra{
+    grid-template-columns:1fr !important;
+    gap:10px;
+  }
+
+  .details-grid--extra .item{
+    min-height:68px;
+    padding:10px 12px;
+  }
+
+  .details-grid--extra .value{
+    font-size:15px;
+  }
+
+  .item{
+    min-height:72px;
+    padding:12px 14px;
+    border-radius:16px;
+  }
+
+  .item:hover{
+    transform:none;
+  }
+
+  .label{
+    font-size:12px;
+    margin-bottom:6px;
+  }
+
+  .value{
+    font-size:16px;
+  }
+
+  .details-layout,
+  .details-row--cols-2{
+    gap:14px;
+  }
+
+  .actions{
+    gap:12px;
+    margin-top:16px;
+  }
+
+  .actions-row,
+  .actions-row-bottom{
+    flex-direction:column;
+    align-items:stretch;
+    gap:10px;
+  }
+
+  .action-btn{
+    width:100%;
+    max-width:100%;
+    box-sizing:border-box;
+    min-height:50px;
+    padding:12px 16px;
+    font-size:15px;
+    border-radius:16px;
+  }
+
+  .action-btn:hover{
+    transform:none;
+  }
+
+  .wl-modal__panel{
+    top:auto;
+    bottom:max(10px, env(safe-area-inset-bottom, 10px));
+    transform:translate(50%, 0);
+    width:min(100% - 16px, 620px);
+    max-height:min(92vh, 92dvh);
+    border-radius:22px;
+  }
+
+  .wl-modal__header{
+    padding:16px 16px 14px;
+  }
+
+  .wl-modal__body{
+    padding:14px 16px 16px;
+  }
+
+  .wl-modal__footer{
+    flex-direction:column-reverse;
+    align-items:stretch;
+    gap:10px;
+    padding:14px 16px max(16px, env(safe-area-inset-bottom, 16px));
+  }
+
+  .wl-modal__footer .wl-btn{
+    width:100%;
+    min-height:48px;
+    box-sizing:border-box;
+  }
+
+  #linkTenantModal .details-grid{
+    grid-template-columns:1fr;
+  }
+
+  #linkTenantModal .wl-modal__footer{
+    flex-direction:column-reverse;
+  }
+
+  #linkTenantModal .wl-modal__footer .wl-btn{
+    width:100%;
+  }
+}

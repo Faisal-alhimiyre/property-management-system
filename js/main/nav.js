@@ -213,7 +213,87 @@ function setupNavbar() {
 
   void updateMessagesNavDot(link3, activeRole, currentUser);
 
+  setupMobileNav();
+
   document.dispatchEvent(new Event("walajna:navbar-ready"));
+}
+
+const WALAJNA_MOBILE_NAV_MQ = "(max-width: 768px)";
+
+function setupMobileNav() {
+  const topbar = document.querySelector("#navbar-container .walajna-topbar");
+  const toggle = document.getElementById("walajna-nav-toggle");
+  const panel = document.getElementById("walajna-nav-panel");
+  const backdrop = document.getElementById("walajna-nav-backdrop");
+  if (!topbar || !toggle || !panel) return;
+
+  const closeMenu = () => {
+    topbar.classList.remove("is-nav-open");
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.setAttribute(
+      "aria-label",
+      wlT("nav.openMenu")
+    );
+    document.body.classList.remove("walajna-nav-open");
+    if (backdrop) {
+      backdrop.hidden = true;
+      backdrop.setAttribute("aria-hidden", "true");
+    }
+    requestAnimationFrame(() => syncWalajnaTopbarHeight());
+  };
+
+  const openMenu = () => {
+    if (!window.matchMedia(WALAJNA_MOBILE_NAV_MQ).matches) return;
+    topbar.classList.add("is-nav-open");
+    toggle.setAttribute("aria-expanded", "true");
+    toggle.setAttribute(
+      "aria-label",
+      wlT("nav.closeMenu")
+    );
+    document.body.classList.add("walajna-nav-open");
+    if (backdrop) {
+      backdrop.hidden = false;
+      backdrop.setAttribute("aria-hidden", "false");
+    }
+    requestAnimationFrame(() => syncWalajnaTopbarHeight());
+  };
+
+  if (!toggle.dataset.walajnaNavBound) {
+    toggle.dataset.walajnaNavBound = "1";
+    toggle.addEventListener("click", () => {
+      if (topbar.classList.contains("is-nav-open")) closeMenu();
+      else openMenu();
+    });
+  }
+
+  if (backdrop && !backdrop.dataset.walajnaNavBound) {
+    backdrop.dataset.walajnaNavBound = "1";
+    backdrop.addEventListener("click", closeMenu);
+  }
+
+  panel.querySelectorAll("a[href]").forEach((link) => {
+    if (link.dataset.walajnaNavCloseBound) return;
+    link.dataset.walajnaNavCloseBound = "1";
+    link.addEventListener("click", () => {
+      if (window.matchMedia(WALAJNA_MOBILE_NAV_MQ).matches) closeMenu();
+    });
+  });
+
+  if (!window.__walajnaNavEscapeBound) {
+    window.__walajnaNavEscapeBound = true;
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeMenu();
+    });
+  }
+
+  if (!window.__walajnaNavResizeBound) {
+    window.__walajnaNavResizeBound = true;
+    window.addEventListener("resize", () => {
+      if (!window.matchMedia(WALAJNA_MOBILE_NAV_MQ).matches) closeMenu();
+    });
+  }
+
+  closeMenu();
 }
 
 async function updateMessagesNavDot(messagesLink, activeRole, currentUser) {

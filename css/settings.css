@@ -759,6 +759,47 @@ body.dark-mode .switch input:checked + .slider{
   }
 }
 
+/* Phone only — laptop keeps vertical settings sidebar */
+@media (max-width: 768px){
+  .settings-wrap .sidebar{
+    position: sticky;
+    top: calc(var(--walajna-topbar-height, 64px) + 8px);
+    z-index: 25;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 8px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 10px 0 12px;
+    margin: 0 0 12px;
+    background: var(--page-bg, #f4f8fc);
+    border-bottom: 1px solid rgba(26, 47, 74, 0.08);
+    scrollbar-width: none;
+  }
+
+  .settings-wrap .sidebar::-webkit-scrollbar{
+    display: none;
+  }
+
+  .settings-wrap .side-link{
+    flex: 0 0 auto;
+    white-space: nowrap;
+    padding: 10px 14px;
+    border-radius: 999px;
+    font-size: 14px;
+    margin-bottom: 0;
+    border: 1px solid rgba(26, 47, 74, 0.12);
+    background: #fff;
+  }
+
+  .settings-wrap .side-link.active{
+    background: linear-gradient(135deg, #1a2f4a, #243f5c);
+    color: #fff;
+    border-color: transparent;
+  }
+}
+
 @media (max-width: 700px){
   .profile-card{
     flex-direction:column;
