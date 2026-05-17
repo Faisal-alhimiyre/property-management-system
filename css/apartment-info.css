@@ -45,32 +45,6 @@ body{
   padding:0 20px;
 }
 
-.apt-layout-gate-hint{
-  margin:0 0 16px;
-  padding:12px 14px;
-  border-radius:var(--radius-md);
-  font-size:14px;
-  font-weight:700;
-  line-height:1.5;
-  color:#92400e;
-  background:linear-gradient(135deg,#fffbeb 0%,#fef3c7 100%);
-  border:1px solid rgba(245,158,11,0.45);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:0.4em;
-  flex-wrap:wrap;
-  text-align:center;
-  box-sizing:border-box;
-}
-
-.apt-layout-gate-hint::before{
-  content:"\26A0\FE0F";
-  flex-shrink:0;
-  font-size:1.15em;
-  line-height:1;
-}
-
 /* Rows below the full-width title: tenant|apt, full-width معلومات إضافية, then actions (no card) */
 .details-layout{
   display:flex;
@@ -1472,12 +1446,6 @@ body.dark-mode #linkTenantModal .wl-modal__body::-webkit-scrollbar-thumb{
   .page-role-label{
     font-size:13px;
     margin-top:6px;
-  }
-
-  .apt-layout-gate-hint{
-    font-size:13px;
-    padding:10px 12px;
-    margin-bottom:12px;
   }
 
   .details-card{
