@@ -95,29 +95,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     serverInstallmentsAll = results.flatMap((chunk) => (Array.isArray(chunk) ? chunk : []));
   }
 
-  function persistBuildingsForBreadcrumb(rows) {
-    try {
-      const slim = (rows || []).map((b) => ({
-        id: String(b.id),
-        name: b.name,
-        code: b.code != null ? String(b.code) : null,
-      }));
-      localStorage.setItem("walajna_buildings", JSON.stringify(slim));
-    } catch {
-      /* ignore */
-    }
-  }
-
   if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.refreshForSession) {
     try {
       await WalajnaApartmentsApi.refreshForSession();
       apartments = WalajnaApartmentsApi.getSessionList();
     } catch (e) {
       console.warn("portfolio-finance: apartments API failed", e);
-      apartments = JSON.parse(localStorage.getItem("walajna_apartments") || "[]");
+      apartments = [];
     }
   } else {
-    apartments = JSON.parse(localStorage.getItem("walajna_apartments") || "[]");
+    apartments = [];
   }
 
   if (
@@ -152,8 +139,19 @@ document.addEventListener("DOMContentLoaded", async () => {
       let ownerBuildings = [];
       if (bRes.ok) {
         ownerBuildings = await bRes.json();
-        if (Array.isArray(ownerBuildings) && ownerBuildings.length) {
-          persistBuildingsForBreadcrumb(ownerBuildings);
+        if (
+          Array.isArray(ownerBuildings) &&
+          ownerBuildings.length &&
+          typeof WalajnaBuildingsApi !== "undefined" &&
+          WalajnaBuildingsApi.persistSessionList
+        ) {
+          WalajnaBuildingsApi.persistSessionList(
+            ownerBuildings.map((b) =>
+              typeof WalajnaBuildingsApi.mapApiRowToClient === "function"
+                ? WalajnaBuildingsApi.mapApiRowToClient(b)
+                : b
+            )
+          );
         }
       }
 
@@ -197,23 +195,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     } catch (e) {
       console.warn("portfolio-finance: API load failed, using local data", e);
     }
-  }
-
-  if (!allBuildingApartments.length) {
-    const buildings = JSON.parse(localStorage.getItem("walajna_buildings") || "[]");
-    const nameById = new Map(buildings.map((b) => [String(b.id), b.name || "—"]));
-    const merged = [];
-    for (const b of buildings) {
-      const bid = String(b.id);
-      const list = apartments
-        .filter((a) => normalizeId(a.buildingId) === bid)
-        .map((a) => ({
-          ...a,
-          buildingName: nameById.get(bid) || b.name || "—",
-        }));
-      merged.push(...dedupeFinanceApartments(list, bid));
-    }
-    allBuildingApartments = merged;
   }
 
   const periodSelect = document.getElementById("periodSelect");

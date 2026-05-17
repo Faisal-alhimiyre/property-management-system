@@ -238,52 +238,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.warn("owner-building API load failed (no local fallback)", e);
   }
 
-  if (!building && !apiLoadError) {
-    try {
-      const locals = JSON.parse(localStorage.getItem("walajna_buildings") || "[]");
-      const me =
-        typeof WalajnaAuth !== "undefined" && WalajnaAuth.getCurrentUser
-          ? WalajnaAuth.getCurrentUser()?.id
-          : null;
-      const p = String(buildingId).trim();
-      const lb = Array.isArray(locals)
-        ? locals.find(
-            (b) =>
-              String(b.ownerId ?? b.owner_id ?? "") === String(me ?? "") &&
-              (String(b.id) === p || String(b.code ?? "").trim() === p)
-          )
-        : null;
-      if (lb) {
-        building = {
-          id: lb.id,
-          name: lb.name,
-          city: lb.city ?? "",
-          code: lb.code ?? null,
-          neighborhood: lb.neighborhood ?? "",
-          apartmentCount: Number(lb.apartmentCount ?? lb.apartments_count ?? 0),
-          apartments_count: lb.apartments_count ?? lb.apartmentCount,
-          totalFloors: lb.totalFloors ?? lb.total_floors ?? null,
-          total_floors: lb.total_floors ?? lb.totalFloors,
-        };
-        if (!apartments.length) {
-          try {
-            const localApts = JSON.parse(localStorage.getItem("walajna_apartments") || "[]");
-            if (Array.isArray(localApts)) {
-              apartments = localApts.filter((a) =>
-                apartmentRowMatchesBuildingRef(a, buildingId, building)
-              );
-            }
-          } catch {
-            /* ignore */
-          }
-        }
-        apartmentsFromApi = apartmentsFromApi && apartments.length > 0;
-      }
-    } catch {
-      /* ignore */
-    }
-  }
-
   const apiPathBuildingId = pathBuildingIdForApi(building, buildingId);
 
   if (building && title) {

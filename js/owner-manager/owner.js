@@ -315,187 +315,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     return [];
   }
 
-  /** Drop browser copies of server buildings that no longer exist (after DELETE on another tab/session). */
-  function pruneStaleLocalBuildingsForOwner(serverRows, ownerId) {
-    const ownerStr = String(ownerId ?? "");
-    if (!ownerStr) return;
-
-    const serverIds = new Set(
-      (Array.isArray(serverRows) ? serverRows : []).map((b) => String(b.id))
-    );
-
-    let raw = [];
-    try {
-      raw = JSON.parse(localStorage.getItem("walajna_buildings") || "[]");
-    } catch {
-      return;
-    }
-    if (!Array.isArray(raw) || !raw.length) return;
-
-    const removedIds = new Set();
-    const kept = raw.filter((b) => {
-      const oid = String(b.ownerId ?? b.owner_id ?? "");
-      if (oid !== ownerStr) return true;
-
-      const lid = String(b.id ?? "").trim();
-      if (!lid || !/^\d+$/.test(lid)) return true;
-      if (serverIds.has(lid)) return true;
-
-      removedIds.add(lid);
-      const code = String(b.code ?? "").trim();
-      if (code) removedIds.add(code);
-      return false;
-    });
-
-    if (kept.length === raw.length) return;
-
-    localStorage.setItem("walajna_buildings", JSON.stringify(kept));
-
-    if (!removedIds.size) return;
-
-    let apts = [];
-    try {
-      apts = JSON.parse(localStorage.getItem("walajna_apartments") || "[]");
-    } catch {
-      apts = [];
-    }
-    if (!Array.isArray(apts) || !apts.length) return;
-
-    const keptApts = apts.filter((a) => {
-      const bld = String(a.buildingId ?? a.building_id ?? "").trim();
-      return !removedIds.has(bld);
-    });
-    if (keptApts.length !== apts.length) {
-      localStorage.setItem("walajna_apartments", JSON.stringify(keptApts));
-    }
-
-    if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.getSessionList) {
-      const session = WalajnaApartmentsApi.getSessionList();
-      const filtered = session.filter((a) => {
-        const bld = String(a.buildingId ?? a.building_id ?? "").trim();
-        return !removedIds.has(bld);
-      });
-      if (filtered.length !== session.length && WalajnaApartmentsApi.persistSessionList) {
-        WalajnaApartmentsApi.persistSessionList(filtered);
-      }
-    }
-  }
-
-  function removeBuildingFromLocalCache(buildingId) {
-    const idStr = String(buildingId ?? "").trim();
-    if (!idStr) return;
-
-    let buildings = [];
-    try {
-      buildings = JSON.parse(localStorage.getItem("walajna_buildings") || "[]");
-    } catch {
-      buildings = [];
-    }
-    if (Array.isArray(buildings)) {
-      const removedCodes = new Set();
-      const filtered = buildings.filter((b) => {
-        const bid = String(b.id ?? "").trim();
-        const code = String(b.code ?? "").trim();
-        if (bid === idStr || (code && code === idStr)) {
-          if (code) removedCodes.add(code);
-          return false;
-        }
-        return true;
-      });
-      localStorage.setItem("walajna_buildings", JSON.stringify(filtered));
-
-      let apts = [];
-      try {
-        apts = JSON.parse(localStorage.getItem("walajna_apartments") || "[]");
-      } catch {
-        apts = [];
-      }
-      if (Array.isArray(apts)) {
-        const idsToDrop = new Set([idStr, ...removedCodes]);
-        const filteredApts = apts.filter((a) => {
-          const bld = String(a.buildingId ?? a.building_id ?? "").trim();
-          return !idsToDrop.has(bld);
-        });
-        localStorage.setItem("walajna_apartments", JSON.stringify(filteredApts));
-
-        if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.getSessionList) {
-          const session = WalajnaApartmentsApi.getSessionList();
-          const filteredSession = session.filter((a) => {
-            const bld = String(a.buildingId ?? a.building_id ?? "").trim();
-            return !idsToDrop.has(bld);
-          });
-          if (
-            filteredSession.length !== session.length &&
-            WalajnaApartmentsApi.persistSessionList
-          ) {
-            WalajnaApartmentsApi.persistSessionList(filteredSession);
-          }
-        }
-      }
-    }
-  }
-
-  /**
-   * The home page lists GET /api/buildings only. If create failed (schema/network) the form still
-   * saves to walajna_buildings and redirects — merge those rows so the owner still sees them.
-   * ownerId must match session user (see owner-edit using WalajnaAuth.getCurrentUser).
-   */
-  function mergeLocalBuildingsForOwner(serverRows, ownerId) {
-    const ownerStr = String(ownerId ?? "");
-    if (!ownerStr) return serverRows;
-
-    let raw = [];
-    try {
-      raw = JSON.parse(localStorage.getItem("walajna_buildings") || "[]");
-    } catch {
-      raw = [];
-    }
-    if (!Array.isArray(raw) || !raw.length) return serverRows;
-
-    const pins = readPins();
-    const serverIds = new Set(serverRows.map((b) => String(b.id)));
-    const serverCodes = new Set(
-      serverRows
-        .map((b) => String((b.code ?? "") || "").trim())
-        .filter(Boolean)
-    );
-
-    const extras = [];
-    for (const b of raw) {
-      const oid = String(b.ownerId ?? b.owner_id ?? "");
-      if (oid !== ownerStr) continue;
-
-      const lid = String(b.id ?? "").trim();
-      const lcode = String(b.code ?? "").trim();
-
-      if (lid && serverIds.has(lid)) continue;
-      if (lcode && serverCodes.has(lcode)) continue;
-      if (lid && serverCodes.has(lid)) continue;
-
-      extras.push({
-        ...b,
-        id: b.id,
-        owner_id: b.ownerId ?? b.owner_id ?? ownerId,
-        ownerId: b.ownerId ?? b.owner_id ?? ownerId,
-        name: b.name,
-        city: b.city ?? "",
-        neighborhood: b.neighborhood ?? "",
-        code: b.code ?? null,
-        apartmentCount: Number(b.apartmentCount ?? b.apartments_count ?? 0),
-        apartments_count: Number(b.apartments_count ?? b.apartmentCount ?? 0),
-        totalFloors: b.totalFloors ?? b.total_floors ?? null,
-        total_floors: b.total_floors ?? b.totalFloors ?? null,
-        createdAt: b.createdAt ?? b.created_at ?? null,
-        created_at: b.created_at ?? b.createdAt ?? null,
-        isPinned: !!(pins[String(b.id)] && pins[String(b.id)].pinned),
-        pinnedAt: pins[String(b.id)]?.pinnedAt ?? null,
-      });
-    }
-
-    if (!extras.length) return serverRows;
-    return [...serverRows, ...extras];
-  }
-
   async function fetchOwnerMaintenance() {
     try {
       const res = await WalajnaAuth.fetchWithAuth(
@@ -872,7 +691,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     }
 
-    removeBuildingFromLocalCache(buildingId);
+    if (
+      typeof WalajnaBuildingsApi !== "undefined" &&
+      WalajnaBuildingsApi.removeBuildingFromSession
+    ) {
+      WalajnaBuildingsApi.removeBuildingFromSession(buildingId);
+    }
 
     const pins = readPins();
     delete pins[String(buildingId)];
@@ -1045,13 +869,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
+  if (typeof WalajnaBuildingsApi !== "undefined" && WalajnaBuildingsApi.clearLegacyMirror) {
+    WalajnaBuildingsApi.clearLegacyMirror();
+  }
+
   const [allBuildingsRaw, fetchedApartments, maintenanceRows] = await Promise.all([
     getServerBuildings(),
     fetchOwnerApartments(),
     fetchOwnerMaintenance(),
   ]);
-  pruneStaleLocalBuildingsForOwner(allBuildingsRaw, currentUser.id);
-  const allBuildings = mergeLocalBuildingsForOwner(allBuildingsRaw, currentUser.id);
+  if (typeof WalajnaBuildingsApi !== "undefined" && WalajnaBuildingsApi.persistSessionList) {
+    WalajnaBuildingsApi.persistSessionList(allBuildingsRaw);
+  }
+  const allBuildings = allBuildingsRaw;
   let apartments = fetchedApartments;
 
   const ownerBuildingsList = allBuildings.filter(

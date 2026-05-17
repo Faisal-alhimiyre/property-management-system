@@ -137,6 +137,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (!form) return;
 
   await WalajnaAuth.hydrateSession();
+  if (typeof WalajnaBuildingsApi !== "undefined" && WalajnaBuildingsApi.refreshForSession) {
+    await WalajnaBuildingsApi.refreshForSession();
+  } else if (typeof WalajnaBuildingsApi !== "undefined" && WalajnaBuildingsApi.clearLegacyMirror) {
+    WalajnaBuildingsApi.clearLegacyMirror();
+  }
 
   const CITY_KEYS = [
     "owner.city.riyadh",
@@ -183,7 +188,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function listApartmentsForEdit() {
     if (typeof getApartments === "function") return getApartments();
-    return getLocalArray("walajna_apartments");
+    return [];
   }
 
   function saveLocalArray(key, value) {
@@ -456,9 +461,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   populateCities();
 
-  const existingBuildings = getLocalArray("walajna_buildings");
+  const existingBuildings =
+    typeof WalajnaBuildingsApi !== "undefined" && WalajnaBuildingsApi.getSessionList
+      ? WalajnaBuildingsApi.getSessionList()
+      : typeof getBuildings === "function"
+        ? getBuildings()
+        : [];
   const buildingToEdit = existingBuildings.find(
-    (building) => building.id === editBuildingId
+    (building) => String(building.id) === String(editBuildingId)
   );
 
   if (isEditMode) {
@@ -680,7 +690,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
-    const buildings = getLocalArray("walajna_buildings");
+    const buildings =
+      typeof WalajnaBuildingsApi !== "undefined" && WalajnaBuildingsApi.getSessionList
+        ? WalajnaBuildingsApi.getSessionList()
+        : typeof getBuildings === "function"
+          ? getBuildings()
+          : [];
     const apartments = listApartmentsForEdit();
 
     const normalizeLower = (value) => String(value || "").trim().toLowerCase();
@@ -801,12 +816,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     if (isEditMode) {
-      const updatedBuildings = buildings.map((building) =>
-        building.id === editBuildingId ? buildingPayload : building
-      );
-
       const updatedApartments = apartments.map((apartment) => {
-        if (apartment.buildingId !== editBuildingId) return apartment;
+        if (String(apartment.buildingId) !== String(editBuildingId)) return apartment;
 
         return {
           ...apartment,
@@ -818,37 +829,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         };
       });
 
-      saveLocalArray("walajna_buildings", updatedBuildings);
       if (typeof saveApartments === "function") {
         saveApartments(updatedApartments);
-      } else {
-        saveLocalArray("walajna_apartments", updatedApartments);
       }
     } else {
-      const apartmentBuildingId = buildingPayload.id;
-
-      const newApartments = generateApartmentsForBuilding(
-        apartmentBuildingId,
-        buildingName,
-        apartmentCount,
-        totalFloors,
-        apartmentsPerFloor,
-        paymentDefaults,
-        apartmentDefaults
-      );
-
-      buildings.push(buildingPayload);
-      apartments.push(...newApartments);
-
-      saveLocalArray("walajna_buildings", buildings);
-      if (typeof saveApartments === "function") {
-        saveApartments(apartments);
-      } else {
-        saveLocalArray("walajna_apartments", apartments);
-      }
-
       // Backend create-building already seeds apartments.
-      // Keep local state for rendering, but do not re-insert apartments via /api/apartments.
 
       form.reset();
       if (buildingCodeInput) {
@@ -865,6 +850,17 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (buildingNeighborhoodReadout) {
         buildingNeighborhoodReadout.textContent =
           "سيُحدَّد الحي تلقائياً بعد اختيار الموقع على الخريطة.";
+      }
+    }
+
+    if (typeof WalajnaBuildingsApi !== "undefined" && WalajnaBuildingsApi.refreshForSession) {
+      await WalajnaBuildingsApi.refreshForSession();
+    }
+    if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.refreshForSession) {
+      try {
+        await WalajnaApartmentsApi.refreshForSession();
+      } catch {
+        /* ignore */
       }
     }
 

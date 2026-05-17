@@ -708,16 +708,143 @@ def _denormalized_tenant_present(apt: dict) -> bool:
     return False
 
 
+def _batch_existing_contract_ids(contract_ids: list[int]) -> set[int] | None:
+    if not contract_ids:
+        return set()
+    unique_cids = list(dict.fromkeys(contract_ids))
+    try:
+        cr = supabase.table("contracts").select("id").in_("id", unique_cids).execute()
+    except Exception:
+        logger.exception("repair: contract id batch lookup failed")
+        return None
+    out: set[int] = set()
+    for row in getattr(cr, "data", None) or []:
+        if row.get("id") is not None:
+            out.add(int(row["id"]))
+    return out
+
+
+def _batch_active_contract_by_apartment(apartment_ids: list[int]) -> dict[int, dict] | None:
+    if not apartment_ids:
+        return {}
+    try:
+        res = (
+            supabase.table("contracts")
+            .select("id, apartment_id, tenant_id, start_date, end_date")
+            .in_("apartment_id", apartment_ids)
+            .execute()
+        )
+    except Exception:
+        logger.exception("repair: active contracts by apartment_id failed")
+        return None
+    by_apt: dict[int, dict] = {}
+    for row in getattr(res, "data", None) or []:
+        if not _is_contract_row_active(row):
+            continue
+        try:
+            aid = int(row["apartment_id"])
+            cid = int(row["id"])
+        except (TypeError, ValueError):
+            continue
+        prev = by_apt.get(aid)
+        if prev is None or cid > int(prev["id"]):
+            by_apt[aid] = row
+    return by_apt
+
+
+def _relink_apartment_to_active_contract(apt_row: dict, contract_row: dict) -> dict | None:
+    """Restore current_contract_id (and tenants.apartment_id) when a live contract still exists."""
+    try:
+        apt_id = int(apt_row["id"])
+        contract_id = int(contract_row["id"])
+    except (TypeError, ValueError, KeyError):
+        return None
+
+    lease_status_value = _derive_lease_status(
+        contract_row.get("start_date"),
+        apt_row.get("tenant_national_id"),
+    )
+    update_payload: dict = {
+        "current_contract_id": contract_id,
+        "lease_status": lease_status_value,
+    }
+    if not _denormalized_tenant_present(apt_row):
+        update_payload["lease_status"] = "occupied"
+
+    try:
+        upd = (
+            supabase.table("apartments")
+            .update(update_payload)
+            .eq("id", apt_id)
+            .execute()
+        )
+        updated = (getattr(upd, "data", None) or [None])[0]
+    except Exception:
+        logger.exception("repair: relink apartment_id=%s contract_id=%s", apt_id, contract_id)
+        return None
+
+    tenant_profile_id = contract_row.get("tenant_id")
+    if tenant_profile_id is not None:
+        try:
+            supabase.table("tenants").update({"apartment_id": apt_id}).eq(
+                "id", int(tenant_profile_id)
+            ).execute()
+        except Exception:
+            logger.exception(
+                "repair: reattach tenants row id=%s apartment_id=%s",
+                tenant_profile_id,
+                apt_id,
+            )
+
+    logger.info(
+        "repair relinked apartment to active contract: apartment_id=%s contract_id=%s",
+        apt_id,
+        contract_id,
+    )
+    return updated if isinstance(updated, dict) else {**apt_row, **update_payload}
+
+
 def _repair_stale_apartment_tenant_columns(rows: list[dict]) -> list[dict]:
     """
-    Persist a fix when contracts were removed in SQL/Table Editor but apartments still hold tenant_*.
-    Also clears when current_contract_id points at a missing contract id.
+    Fix inconsistent apartment ↔ contract ↔ tenant links on owner reads.
+
+    - Relink when apartments.current_contract_id is missing/wrong but an active contract
+      still exists for that apartment_id (common after manual SQL edits).
+    - Clear tenant columns only when there is truly no active contract for the unit.
+    - Never clear on lookup errors (fail safe).
     """
     if not rows:
         return rows
-    to_fix: set[int] = set()
 
-    cids: list[int] = []
+    apt_ids: list[int] = []
+    cid_list: list[int] = []
+    for r in rows:
+        aid = r.get("id")
+        if aid is None:
+            continue
+        try:
+            apt_ids.append(int(aid))
+        except (TypeError, ValueError):
+            continue
+        cid = r.get("current_contract_id")
+        if cid is None:
+            continue
+        try:
+            cid_list.append(int(cid))
+        except (TypeError, ValueError):
+            continue
+
+    contracts_by_apt = _batch_active_contract_by_apartment(apt_ids)
+    if contracts_by_apt is None:
+        return rows
+
+    existing_contract_ids = _batch_existing_contract_ids(cid_list)
+    if existing_contract_ids is None:
+        return rows
+
+    to_clear: set[int] = set()
+    relinked_by_id: dict[int, dict] = {}
+
     for r in rows:
         aid = r.get("id")
         if aid is None:
@@ -726,76 +853,77 @@ def _repair_stale_apartment_tenant_columns(rows: list[dict]) -> list[dict]:
             iaid = int(aid)
         except (TypeError, ValueError):
             continue
-        cid = r.get("current_contract_id")
-        if cid is None:
-            if _denormalized_tenant_present(r):
-                to_fix.add(iaid)
-            continue
-        try:
-            icid = int(cid)
-        except (TypeError, ValueError):
-            to_fix.add(iaid)
-            continue
-        cids.append(icid)
 
-    existing_contracts: set[int] = set()
-    if cids:
-        unique_cids = list(dict.fromkeys(cids))
-        try:
-            cr = supabase.table("contracts").select("id").in_("id", unique_cids).execute()
-            for row in getattr(cr, "data", None) or []:
-                if row.get("id") is not None:
-                    existing_contracts.add(int(row["id"]))
-        except Exception:
-            logger.exception("repair: contract batch lookup failed")
+        active = contracts_by_apt.get(iaid)
+        cid_raw = r.get("current_contract_id")
 
-    for r in rows:
-        aid = r.get("id")
-        if aid is None:
+        if cid_raw is None:
+            if active:
+                rel = _relink_apartment_to_active_contract(r, active)
+                if rel:
+                    relinked_by_id[iaid] = rel
+            elif _denormalized_tenant_present(r):
+                to_clear.add(iaid)
             continue
-        try:
-            iaid = int(aid)
-        except (TypeError, ValueError):
-            continue
-        cid = r.get("current_contract_id")
-        if cid is None:
-            continue
-        try:
-            icid = int(cid)
-        except (TypeError, ValueError):
-            continue
-        if icid not in existing_contracts:
-            to_fix.add(iaid)
 
-    if not to_fix:
+        try:
+            icid = int(cid_raw)
+        except (TypeError, ValueError):
+            if active:
+                rel = _relink_apartment_to_active_contract(r, active)
+                if rel:
+                    relinked_by_id[iaid] = rel
+            elif _denormalized_tenant_present(r):
+                to_clear.add(iaid)
+            continue
+
+        if icid in existing_contract_ids:
+            continue
+
+        if active:
+            rel = _relink_apartment_to_active_contract(r, active)
+            if rel:
+                relinked_by_id[iaid] = rel
+        else:
+            to_clear.add(iaid)
+
+    if not to_clear and not relinked_by_id:
         return rows
 
-    fix_list = list(to_fix)
-    clear_payload = {
-        "tenant_user_id": None,
-        "tenant_national_id": None,
-        "tenant_info": None,
-        "current_contract_id": None,
-        "lease_status": "vacant",
-        "maintenance_id": None,
-    }
-    try:
-        try:
-            supabase.table("tenants").update({"apartment_id": None}).in_("apartment_id", fix_list).execute()
-        except Exception:
-            logger.exception("repair: batch detach tenants for apartment_ids=%s", fix_list)
-        supabase.table("apartments").update(clear_payload).in_("id", fix_list).execute()
-        logger.info("repair stale apartment tenant columns: apartment_ids=%s", fix_list)
-    except Exception:
-        logger.exception("repair: batch clear apartment tenant columns failed")
-        return rows
+    fresh_by_id: dict[int, dict] = dict(relinked_by_id)
 
-    try:
-        refreshed = supabase.table("apartments").select("*").in_("id", fix_list).execute()
-        fresh_by_id = {int(x["id"]): x for x in (getattr(refreshed, "data", None) or [])}
-    except Exception:
-        logger.exception("repair: re-fetch apartments failed")
-        fresh_by_id = {}
+    if to_clear:
+        fix_list = list(to_clear)
+        clear_payload = {
+            "tenant_user_id": None,
+            "tenant_national_id": None,
+            "tenant_info": None,
+            "current_contract_id": None,
+            "lease_status": "vacant",
+            "maintenance_id": None,
+        }
+        try:
+            try:
+                supabase.table("tenants").update({"apartment_id": None}).in_(
+                    "apartment_id", fix_list
+                ).execute()
+            except Exception:
+                logger.exception(
+                    "repair: batch detach tenants for apartment_ids=%s", fix_list
+                )
+            supabase.table("apartments").update(clear_payload).in_("id", fix_list).execute()
+            logger.info("repair cleared orphan tenant columns: apartment_ids=%s", fix_list)
+        except Exception:
+            logger.exception("repair: batch clear apartment tenant columns failed")
+            return rows
+
+        try:
+            refreshed = supabase.table("apartments").select("*").in_("id", fix_list).execute()
+            for x in getattr(refreshed, "data", None) or []:
+                if x.get("id") is not None:
+                    fresh_by_id[int(x["id"])] = x
+        except Exception:
+            logger.exception("repair: re-fetch cleared apartments failed")
 
     out: list[dict] = []
     for r in rows:

@@ -7,6 +7,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (typeof WalajnaAuth !== "undefined" && WalajnaAuth.hydrateSession) {
     await WalajnaAuth.hydrateSession();
   }
+  if (typeof WalajnaBuildingsApi !== "undefined" && WalajnaBuildingsApi.refreshForSession) {
+    try {
+      await WalajnaBuildingsApi.refreshForSession();
+    } catch (e) {
+      console.warn("[apartment-page] buildings cache refresh failed", e);
+    }
+  }
   if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.refreshForSession) {
     try {
       await WalajnaApartmentsApi.refreshForSession();
@@ -1486,7 +1493,10 @@ window.walajnaDiagnoseApartmentPage = async function walajnaDiagnoseApartmentPag
     report.localStorageApartments = { parseError: String(e) };
   }
   try {
-    report.localStorageBuildings = JSON.parse(localStorage.getItem("walajna_buildings") || "[]");
+    report.sessionBuildings =
+      typeof WalajnaBuildingsApi !== "undefined" && WalajnaBuildingsApi.getSessionList
+        ? WalajnaBuildingsApi.getSessionList()
+        : [];
   } catch (e) {
     report.localStorageBuildings = { parseError: String(e) };
   }
