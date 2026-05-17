@@ -43,7 +43,11 @@ function mapServerUser(u) {
 
 function getAccessToken() {
   try {
-    return sessionStorage.getItem(TOKEN_KEY) || null;
+    return (
+      sessionStorage.getItem(TOKEN_KEY) ||
+      localStorage.getItem(TOKEN_KEY) ||
+      null
+    );
   } catch {
     return null;
   }
@@ -88,6 +92,12 @@ function setSession({ user, access_token }) {
     '';
   if (tok) {
     sessionStorage.setItem(TOKEN_KEY, tok);
+    try {
+      localStorage.setItem(TOKEN_KEY, tok);
+    } catch {
+      /* ignore */
+    }
+    unauthorizedRedirectInFlight = false;
   }
 }
 
@@ -101,6 +111,7 @@ function clearSession() {
   }
   try {
     localStorage.removeItem('access_token');
+    localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     localStorage.removeItem(ACTIVE_ROLE_KEY);
   } catch {
@@ -121,10 +132,32 @@ async function logoutOnServer() {
 }
 
 let unauthorizedRedirectInFlight = false;
+let lastUnauthorizedAt = 0;
+
+/** Only force login when 401 means invalid/expired session — not DB blips or parallel noise. */
+async function shouldForceLogoutOn401(response) {
+  if (!getAccessToken()) return false;
+  try {
+    const data = await response.clone().json();
+    const detail = data && data.detail;
+    const msg = typeof detail === 'string' ? detail : '';
+    if (
+      msg === 'Session validation failed' ||
+      msg === 'Database temporarily unavailable. Please retry.'
+    ) {
+      return false;
+    }
+  } catch {
+    /* empty body or non-JSON */
+  }
+  return true;
+}
 
 function handleUnauthorized(message) {
-  if (unauthorizedRedirectInFlight) return;
+  const now = Date.now();
+  if (unauthorizedRedirectInFlight || now - lastUnauthorizedAt < 3000) return;
   unauthorizedRedirectInFlight = true;
+  lastUnauthorizedAt = now;
   void logoutOnServer();
   clearSession();
   const reason = message || 'انتهت الجلسة أو التوكن غير صالح. سجل الدخول مرة أخرى.';
@@ -187,10 +220,11 @@ function fetchWithAuth(url, options = {}) {
       ...(useJsonHeaders ? getAuthHeaders({}, { json: true }) : {}),
       ...(optHeaders || {}),
     },
-  }).then((response) => {
+  }).then(async (response) => {
     if (
       response.status === 401 &&
-      !isUsersMeProbeWithoutClientUser(url)
+      !isUsersMeProbeWithoutClientUser(url) &&
+      (await shouldForceLogoutOn401(response))
     ) {
       handleUnauthorized();
     }

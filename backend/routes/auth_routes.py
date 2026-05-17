@@ -25,7 +25,8 @@ router = APIRouter()
 security = HTTPBearer(auto_error=False)
 
 COOKIE_NAME = "walajna_session"
-ACCESS_MAX_AGE_SECONDS = 30 * 60
+# Default 7 days — short TTL caused frequent logouts on GitHub Pages + Render.
+ACCESS_MAX_AGE_SECONDS = int(os.getenv("ACCESS_TOKEN_MAX_AGE_SECONDS", str(7 * 24 * 3600)))
 RESET_CODE_TTL_MINUTES = 10
 
 print("Auth router created successfully")
@@ -589,7 +590,7 @@ def _login_from_json_dict(body: dict) -> dict:
 
     access_token = create_access_token(
         data={"sub": f"uid:{user_data['id']}"},
-        expires_delta=timedelta(minutes=30),
+        expires_delta=timedelta(seconds=ACCESS_MAX_AGE_SECONDS),
     )
 
     lg = str(user_data.get("role") or "").lower()
@@ -678,7 +679,11 @@ def get_current_user(
                     continue
                 break
         print(f"get_current_user lookup failed on {column}={value!r}: {last_exc}")
-        raise HTTPException(status_code=401, detail="Session validation failed")
+        # Do not return 401 on transient DB errors — the frontend treats 401 as "log out now".
+        raise HTTPException(
+            status_code=503,
+            detail="Database temporarily unavailable. Please retry.",
+        )
 
     token = None
     if credentials and credentials.credentials:
