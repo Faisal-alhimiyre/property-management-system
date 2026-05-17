@@ -10,6 +10,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   requireRole('owner');
   ensureRoleSetup();
 
+  const legendDock = document.querySelector(".legend-dock");
+  if (legendDock && window.matchMedia("(max-width: 768px)").matches) {
+    legendDock.removeAttribute("open");
+  }
+
   const container = document.getElementById("buildingsContainer");
   const emptyState = document.getElementById("emptyState");
   const globalRequestsAlert = document.getElementById("globalRequestsAlert");

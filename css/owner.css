@@ -1305,7 +1305,7 @@ body.dark-mode .legend-dock__summary {
   color: #e5edf7;
 }
 
-/* Laptop/desktop: legend unchanged — sidebar sticky, no bottom dock */
+/* Laptop/desktop: original sidebar legend — phone dock rules do not apply */
 @media (min-width: 769px) {
   .owner-dashboard {
     padding-bottom: 0;
@@ -1314,9 +1314,14 @@ body.dark-mode .legend-dock__summary {
   .legend-sidebar {
     position: sticky;
     top: 140px;
+    inset-inline-start: auto;
+    inset-inline-end: auto;
     left: auto;
     right: auto;
     bottom: auto;
+    width: auto;
+    max-width: none;
+    z-index: auto;
     padding: 0;
     pointer-events: auto;
   }
@@ -1332,18 +1337,46 @@ body.dark-mode .legend-dock__summary {
   }
 
   .legend-dock__summary {
-    display: none;
+    display: none !important;
+  }
+
+  /* <details> without [open] hides children — always show legend on laptop */
+  .legend-dock:not([open]) .legend-card,
+  .legend-dock[open] .legend-card,
+  .legend-dock .legend-card {
+    display: block !important;
   }
 
   .legend-dock .legend-card {
-    border-radius: inherit;
-    box-shadow: inherit;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    border-radius: 18px;
+    padding: 20px 18px;
+    box-shadow: var(--shadow-soft);
     max-height: none;
     overflow: visible;
-    padding: inherit;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
   }
 
   .legend-title {
-    display: block;
+    display: block !important;
+    margin: 0 0 18px;
+    font-size: 28px;
+  }
+
+  .legend-list {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .legend-item {
+    font-size: 16px;
+  }
+
+  .legend-color {
+    width: 20px;
+    height: 20px;
   }
 }

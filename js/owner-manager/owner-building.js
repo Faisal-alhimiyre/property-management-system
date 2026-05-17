@@ -14,6 +14,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (!grid) return;
 
+  const buildingLegendDock = document.querySelector(".building-legend-dock");
+  if (buildingLegendDock && window.matchMedia("(max-width: 768px)").matches) {
+    buildingLegendDock.removeAttribute("open");
+  }
+
   function escapeHtml(value) {
     return String(value ?? "")
       .replace(/&/g, "&amp;")

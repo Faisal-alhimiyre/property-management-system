@@ -1039,7 +1039,13 @@ body.dark-mode .floor-apartments--pending{
   }
 
   .building-legend-dock__summary{
-    display: none;
+    display: none !important;
+  }
+
+  .building-legend-dock:not([open]) .building-legend-card,
+  .building-legend-dock[open] .building-legend-card,
+  .building-legend-dock .building-legend-card{
+    display: flex !important;
   }
 
   .building-legend-card{
@@ -1047,10 +1053,12 @@ body.dark-mode .floor-apartments--pending{
     max-height: none;
     overflow: visible;
     margin: 0 auto 12px;
+    width: min(100%, 980px);
+    max-width: 980px;
   }
 
   .building-legend-title{
-    display: block;
+    display: block !important;
   }
 }
 
