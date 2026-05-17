@@ -195,6 +195,11 @@ if cost_router:
 async def root():
     return {"message": "Property Management API"}
 
+
+@app.get("/health")
+async def health():
+    return {"ok": True}
+
 @app.options("/")
 async def options_root():
     response = Response(content='{"message": "OPTIONS handled"}', media_type="application/json")
