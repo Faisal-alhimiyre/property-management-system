@@ -315,6 +315,126 @@ document.addEventListener("DOMContentLoaded", async () => {
     return [];
   }
 
+  /** Drop browser copies of server buildings that no longer exist (after DELETE on another tab/session). */
+  function pruneStaleLocalBuildingsForOwner(serverRows, ownerId) {
+    const ownerStr = String(ownerId ?? "");
+    if (!ownerStr) return;
+
+    const serverIds = new Set(
+      (Array.isArray(serverRows) ? serverRows : []).map((b) => String(b.id))
+    );
+
+    let raw = [];
+    try {
+      raw = JSON.parse(localStorage.getItem("walajna_buildings") || "[]");
+    } catch {
+      return;
+    }
+    if (!Array.isArray(raw) || !raw.length) return;
+
+    const removedIds = new Set();
+    const kept = raw.filter((b) => {
+      const oid = String(b.ownerId ?? b.owner_id ?? "");
+      if (oid !== ownerStr) return true;
+
+      const lid = String(b.id ?? "").trim();
+      if (!lid || !/^\d+$/.test(lid)) return true;
+      if (serverIds.has(lid)) return true;
+
+      removedIds.add(lid);
+      const code = String(b.code ?? "").trim();
+      if (code) removedIds.add(code);
+      return false;
+    });
+
+    if (kept.length === raw.length) return;
+
+    localStorage.setItem("walajna_buildings", JSON.stringify(kept));
+
+    if (!removedIds.size) return;
+
+    let apts = [];
+    try {
+      apts = JSON.parse(localStorage.getItem("walajna_apartments") || "[]");
+    } catch {
+      apts = [];
+    }
+    if (!Array.isArray(apts) || !apts.length) return;
+
+    const keptApts = apts.filter((a) => {
+      const bld = String(a.buildingId ?? a.building_id ?? "").trim();
+      return !removedIds.has(bld);
+    });
+    if (keptApts.length !== apts.length) {
+      localStorage.setItem("walajna_apartments", JSON.stringify(keptApts));
+    }
+
+    if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.getSessionList) {
+      const session = WalajnaApartmentsApi.getSessionList();
+      const filtered = session.filter((a) => {
+        const bld = String(a.buildingId ?? a.building_id ?? "").trim();
+        return !removedIds.has(bld);
+      });
+      if (filtered.length !== session.length && WalajnaApartmentsApi.persistSessionList) {
+        WalajnaApartmentsApi.persistSessionList(filtered);
+      }
+    }
+  }
+
+  function removeBuildingFromLocalCache(buildingId) {
+    const idStr = String(buildingId ?? "").trim();
+    if (!idStr) return;
+
+    let buildings = [];
+    try {
+      buildings = JSON.parse(localStorage.getItem("walajna_buildings") || "[]");
+    } catch {
+      buildings = [];
+    }
+    if (Array.isArray(buildings)) {
+      const removedCodes = new Set();
+      const filtered = buildings.filter((b) => {
+        const bid = String(b.id ?? "").trim();
+        const code = String(b.code ?? "").trim();
+        if (bid === idStr || (code && code === idStr)) {
+          if (code) removedCodes.add(code);
+          return false;
+        }
+        return true;
+      });
+      localStorage.setItem("walajna_buildings", JSON.stringify(filtered));
+
+      let apts = [];
+      try {
+        apts = JSON.parse(localStorage.getItem("walajna_apartments") || "[]");
+      } catch {
+        apts = [];
+      }
+      if (Array.isArray(apts)) {
+        const idsToDrop = new Set([idStr, ...removedCodes]);
+        const filteredApts = apts.filter((a) => {
+          const bld = String(a.buildingId ?? a.building_id ?? "").trim();
+          return !idsToDrop.has(bld);
+        });
+        localStorage.setItem("walajna_apartments", JSON.stringify(filteredApts));
+
+        if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.getSessionList) {
+          const session = WalajnaApartmentsApi.getSessionList();
+          const filteredSession = session.filter((a) => {
+            const bld = String(a.buildingId ?? a.building_id ?? "").trim();
+            return !idsToDrop.has(bld);
+          });
+          if (
+            filteredSession.length !== session.length &&
+            WalajnaApartmentsApi.persistSessionList
+          ) {
+            WalajnaApartmentsApi.persistSessionList(filteredSession);
+          }
+        }
+      }
+    }
+  }
+
   /**
    * The home page lists GET /api/buildings only. If create failed (schema/network) the form still
    * saves to walajna_buildings and redirects — merge those rows so the owner still sees them.
@@ -731,21 +851,28 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     await archiveBuildingBeforeDelete(buildingId);
 
-    try {
-      const res = await WalajnaAuth.fetchWithAuth(
-        `${WalajnaAuth.API_BASE}/api/buildings/${encodeURIComponent(buildingId)}`,
-        { method: "DELETE" }
-      );
-      if (!res.ok) {
-        const t = await res.text();
-        alert("تعذر حذف العمارة من الخادم: " + (t || res.status));
+    const idStr = String(buildingId ?? "").trim();
+    const isNumericServerId = /^\d+$/.test(idStr);
+
+    if (isNumericServerId) {
+      try {
+        const res = await WalajnaAuth.fetchWithAuth(
+          `${WalajnaAuth.API_BASE}/api/buildings/${encodeURIComponent(buildingId)}`,
+          { method: "DELETE" }
+        );
+        if (!res.ok && res.status !== 404) {
+          const t = await res.text();
+          alert("تعذر حذف العمارة من الخادم: " + (t || res.status));
+          return;
+        }
+      } catch (e) {
+        console.warn(e);
+        alert("تعذر الاتصال بالخادم لحذف العمارة.");
         return;
       }
-    } catch (e) {
-      console.warn(e);
-      alert("تعذر الاتصال بالخادم لحذف العمارة.");
-      return;
     }
+
+    removeBuildingFromLocalCache(buildingId);
 
     const pins = readPins();
     delete pins[String(buildingId)];
@@ -923,6 +1050,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     fetchOwnerApartments(),
     fetchOwnerMaintenance(),
   ]);
+  pruneStaleLocalBuildingsForOwner(allBuildingsRaw, currentUser.id);
   const allBuildings = mergeLocalBuildingsForOwner(allBuildingsRaw, currentUser.id);
   let apartments = fetchedApartments;
 

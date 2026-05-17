@@ -1152,6 +1152,50 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
+  async function resolveOwnerBuildingUnitLayoutOk(apartmentRow, localBuildingRow) {
+    if (
+      !apartmentRow?.buildingId ||
+      typeof WalajnaAuth === "undefined" ||
+      !WalajnaAuth.fetchWithAuth ||
+      typeof WalajnaApartmentsApi === "undefined" ||
+      !WalajnaApartmentsApi.isBuildingUnitLayoutComplete ||
+      !WalajnaApartmentsApi.listForBuilding
+    ) {
+      return true;
+    }
+    try {
+      const bRes = await WalajnaAuth.fetchWithAuth(
+        `${WalajnaAuth.API_BASE}/api/buildings`,
+        { method: "GET" }
+      );
+      let bRow = localBuildingRow;
+      if (bRes.ok) {
+        const list = await bRes.json();
+        const bid = String(apartmentRow.buildingId ?? "");
+        const fromApi = (Array.isArray(list) ? list : []).find(
+          (b) => String(b.id) === bid || String(b.code ?? "").trim() === bid
+        );
+        if (fromApi) bRow = fromApi;
+      }
+      if (!bRow) return true;
+      const mappedBuilding = {
+        id: bRow.id ?? apartmentRow.buildingId,
+        apartmentCount: bRow.apartmentCount ?? bRow.apartments_count,
+        apartments_count: bRow.apartments_count ?? bRow.apartmentCount,
+      };
+      const apts = await WalajnaApartmentsApi.listForBuilding(apartmentRow.buildingId);
+      return WalajnaApartmentsApi.isBuildingUnitLayoutComplete(mappedBuilding, apts);
+    } catch (e) {
+      console.warn("[apartment-page] unit layout gate skipped", e);
+      return true;
+    }
+  }
+
+  let buildingUnitLayoutOk = true;
+  if (activeRole === "owner" && currentUser) {
+    buildingUnitLayoutOk = await resolveOwnerBuildingUnitLayoutOk(data, buildingData);
+  }
+
   /* Owner/tenant bottom actions before any slow payment API — avoids ~2s flash of wrong buttons */
   applyActionVisibility();
   ensureHistoryButton();
