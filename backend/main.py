@@ -40,6 +40,7 @@ if sys.platform.startswith("win"):
 
 _cors_raw = os.getenv(
     "CORS_ORIGINS",
+    "https://faisal-alhimiyre.github.io,"
     "http://127.0.0.1:5500,http://localhost:5500,"
     "http://127.0.0.1:8002,http://localhost:8002,"
     "http://127.0.0.1:3000,http://localhost:3000",
@@ -55,7 +56,14 @@ def _origin_allowed(origin: str) -> bool:
         return False
     if _dev_origin_re.match(origin):
         return True
-    return origin.rstrip("/") in _cors_origin_set
+    normalized = origin.rstrip("/")
+    if normalized in _cors_origin_set:
+        return True
+    # GitHub Pages origin is only scheme + host (no repo path in Origin header).
+    host = normalized.split("://", 1)[-1].split("/", 1)[0].lower()
+    if host == "faisal-alhimiyre.github.io":
+        return True
+    return False
 
 # Initialize the app
 try:
