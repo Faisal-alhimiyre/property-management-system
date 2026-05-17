@@ -12,3 +12,6 @@ env/
 .env
 .env.local
 backend/.env
+
+# Supabase CLI binary (install separately; too large for GitHub)
+supabase.exe
