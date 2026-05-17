@@ -761,42 +761,52 @@ body.dark-mode .switch input:checked + .slider{
 
 /* Phone only — laptop keeps vertical settings sidebar */
 @media (max-width: 768px){
+  .settings-wrap{
+    width: min(100% - 24px, 1200px);
+    margin-top: 12px;
+    gap: 14px;
+  }
+
   .settings-wrap .sidebar{
     position: sticky;
     top: calc(var(--walajna-topbar-height, 64px) + 8px);
-    z-index: 25;
+    z-index: 30;
     display: flex;
-    flex-direction: row;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: 8px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    padding: 10px 0 12px;
-    margin: 0 0 12px;
-    background: var(--page-bg, #f4f8fc);
-    border-bottom: 1px solid rgba(26, 47, 74, 0.08);
-    scrollbar-width: none;
-  }
-
-  .settings-wrap .sidebar::-webkit-scrollbar{
-    display: none;
+    overflow: visible;
+    padding: 12px;
+    margin: 0 0 14px;
+    background: var(--bottom, #1a2f4a);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 18px;
+    box-shadow: var(--shadow, 0 14px 34px rgba(15, 23, 42, 0.1));
   }
 
   .settings-wrap .side-link{
-    flex: 0 0 auto;
-    white-space: nowrap;
-    padding: 10px 14px;
-    border-radius: 999px;
+    flex: 1 1 calc(50% - 8px);
+    min-width: 0;
+    white-space: normal;
+    text-align: center;
+    padding: 12px 10px;
+    border-radius: 12px;
     font-size: 14px;
+    line-height: 1.35;
     margin-bottom: 0;
-    border: 1px solid rgba(26, 47, 74, 0.12);
-    background: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
   }
 
+  .settings-wrap .side-link:hover,
   .settings-wrap .side-link.active{
-    background: linear-gradient(135deg, #1a2f4a, #243f5c);
-    color: #fff;
+    background: linear-gradient(135deg, #36d7e8, #1fb8d4);
+    color: #063836;
     border-color: transparent;
+  }
+
+  .settings-wrap .content{
+    min-width: 0;
   }
 }
 
@@ -810,8 +820,10 @@ body.dark-mode .switch input:checked + .slider{
     align-items:flex-start;
   }
 
-  .sidebar{
-    grid-template-columns:1fr;
+  .settings-wrap .sidebar{
+    grid-template-columns:unset;
+    display:flex;
+    flex-wrap:wrap;
   }
 
   .topbar{

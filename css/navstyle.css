@@ -101,13 +101,16 @@
 .walajna-nav-toggle__bars::before{ top: -6px; }
 .walajna-nav-toggle__bars::after{ top: 6px; }
 
+#navbar-container.is-nav-open .walajna-nav-toggle__bars,
 .walajna-topbar.is-nav-open .walajna-nav-toggle__bars{
   background: transparent;
 }
+#navbar-container.is-nav-open .walajna-nav-toggle__bars::before,
 .walajna-topbar.is-nav-open .walajna-nav-toggle__bars::before{
   top: 0;
   transform: rotate(45deg);
 }
+#navbar-container.is-nav-open .walajna-nav-toggle__bars::after,
 .walajna-topbar.is-nav-open .walajna-nav-toggle__bars::after{
   top: 0;
   transform: rotate(-45deg);
@@ -120,11 +123,18 @@
   justify-content: flex-start;
 }
 
+.walajna-topbar__brand-group{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
 .walajna-nav-backdrop{
   display: none;
   position: fixed;
   inset: 0;
-  z-index: 90;
+  z-index: 109;
   border: none;
   padding: 0;
   margin: 0;
@@ -381,59 +391,77 @@ body.dark-mode .nav-role-switcher__select option{
   background: #020617;
 }
 
-/* Phone: collapsible menu drawer */
+/* Phone: side drawer menu (panel is sibling of header — not clipped by topbar) */
 @media (max-width: 768px){
   .walajna-topbar{
     height: auto;
     min-height: 64px;
     padding: 6px 0;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
   .walajna-topbar__inner{
     padding: 0 12px;
     gap: 10px;
     flex-wrap: nowrap;
+    justify-content: space-between;
   }
 
-  .walajna-nav-toggle{
-    display: inline-flex;
-    order: 1;
+  .walajna-topbar__brand-group{
+    flex: 1;
+    min-width: 0;
+    justify-content: center;
   }
 
   .walajna-topbar__brand{
-    order: 2;
-    flex: 1;
+    flex: 0 1 auto;
     max-width: none;
     justify-content: center;
   }
 
+  .walajna-nav-toggle{
+    display: inline-flex;
+    flex-shrink: 0;
+  }
+
   .walajna-topbar__icons{
-    order: 3;
+    flex-shrink: 0;
   }
 
-  .walajna-nav-panel{
-    order: 4;
-    display: none;
-    flex: none;
-    position: fixed;
-    top: var(--walajna-topbar-height, 64px);
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 101;
-    overflow-y: auto;
-    padding: 12px 16px 24px;
-    background: var(--walajna-bar);
-    border-top: 1px solid var(--walajna-border);
-    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.35);
-  }
-
-  .walajna-topbar.is-nav-open .walajna-nav-panel{
+  #navbar-container .walajna-nav-panel{
     display: flex;
     flex-direction: column;
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    inset-inline-start: 0;
+    width: min(88vw, 300px);
+    max-width: 300px;
+    z-index: 110;
+    overflow-y: auto;
+    padding: calc(var(--walajna-topbar-height, 64px) + 16px) 16px max(24px, env(safe-area-inset-bottom, 16px));
+    background: var(--walajna-bar);
+    border-inline-end: 1px solid var(--walajna-border);
+    box-shadow: 18px 0 40px rgba(15, 23, 42, 0.35);
+    visibility: hidden;
+    pointer-events: none;
+    transform: translate3d(-100%, 0, 0);
+    transition: transform 0.28s ease, visibility 0.28s;
   }
 
-  .walajna-topbar.is-nav-open .walajna-nav-backdrop{
+  [dir="rtl"] #navbar-container .walajna-nav-panel{
+    transform: translate3d(100%, 0, 0);
+    box-shadow: -18px 0 40px rgba(15, 23, 42, 0.35);
+  }
+
+  #navbar-container.is-nav-open .walajna-nav-panel{
+    visibility: visible;
+    pointer-events: auto;
+    transform: translate3d(0, 0, 0);
+  }
+
+  #navbar-container.is-nav-open .walajna-nav-backdrop{
     display: block;
   }
 
@@ -487,10 +515,15 @@ body.dark-mode .nav-role-switcher__select option{
     gap: 22px;
   }
 
+  .walajna-topbar__brand-group{
+    flex: 0 0 auto;
+  }
+
   .walajna-nav-toggle{
     display: none !important;
   }
 
+  #navbar-container .walajna-nav-panel,
   .walajna-nav-panel{
     display: flex !important;
     position: static;
@@ -500,6 +533,12 @@ body.dark-mode .nav-role-switcher__select option{
     background: transparent;
     border: none;
     box-shadow: none;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    transform: none !important;
+    width: auto;
+    max-width: none;
+    inset: auto;
   }
 
   .walajna-topbar__nav{
