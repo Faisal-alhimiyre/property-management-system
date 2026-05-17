@@ -74,13 +74,19 @@ document.addEventListener("DOMContentLoaded", async () => {
       let ownerBuildings = [];
       if (bRes.ok) {
         ownerBuildings = await bRes.json();
-        if (Array.isArray(ownerBuildings) && ownerBuildings.length) {
-          const slim = ownerBuildings.map((b) => ({
-            id: String(b.id),
-            name: b.name,
-            code: b.code != null ? String(b.code) : null,
-          }));
-          localStorage.setItem("walajna_buildings", JSON.stringify(slim));
+        if (
+          Array.isArray(ownerBuildings) &&
+          ownerBuildings.length &&
+          typeof WalajnaBuildingsApi !== "undefined" &&
+          WalajnaBuildingsApi.persistSessionList
+        ) {
+          WalajnaBuildingsApi.persistSessionList(
+            ownerBuildings.map((b) =>
+              typeof WalajnaBuildingsApi.mapApiRowToClient === "function"
+                ? WalajnaBuildingsApi.mapApiRowToClient(b)
+                : b
+            )
+          );
         }
       }
 
@@ -121,29 +127,13 @@ document.addEventListener("DOMContentLoaded", async () => {
       await WalajnaApartmentsApi.refreshForSession();
       apartments = WalajnaApartmentsApi.getSessionList();
     } catch (e) {
-      apartments = JSON.parse(localStorage.getItem("walajna_apartments") || "[]");
+      apartments = [];
     }
   } else {
-    apartments = JSON.parse(localStorage.getItem("walajna_apartments") || "[]");
+    apartments = [];
   }
 
-  const loaded = await loadOwnerApartmentsFromApi();
-  if (!loaded || !allBuildingApartments.length) {
-    const buildings = JSON.parse(localStorage.getItem("walajna_buildings") || "[]");
-    const nameById = new Map(buildings.map((b) => [String(b.id), b.name || "—"]));
-    const merged = [];
-    for (const b of buildings) {
-      const bid = String(b.id);
-      const list = apartments
-        .filter((a) => normalizeId(a.buildingId) === bid)
-        .map((a) => ({
-          ...a,
-          buildingName: nameById.get(bid) || b.name || "—",
-        }));
-      merged.push(...dedupeFinanceApartments(list, bid));
-    }
-    allBuildingApartments = merged;
-  }
+  await loadOwnerApartmentsFromApi();
 
   const ownerApartmentIdSet = new Set(
     allBuildingApartments.map((a) => String(a.id || a.apiId || "")).filter(Boolean)

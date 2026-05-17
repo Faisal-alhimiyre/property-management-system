@@ -70,11 +70,32 @@ function saveUpdatedUser(updatedUser) {
 ========================= */
 
 function getBuildings() {
+  if (typeof WalajnaBuildingsApi !== "undefined" && WalajnaBuildingsApi.getSessionList) {
+    const session = WalajnaBuildingsApi.getSessionList();
+    if (Array.isArray(session) && session.length) return session;
+  }
+  try {
+    const raw = sessionStorage.getItem("walajna_buildings_session");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length) return parsed;
+    }
+  } catch {
+    /* ignore */
+  }
+  if (isWalajnaAuthed()) return [];
   return getArray(StorageKeys.BUILDINGS);
 }
 
 function saveBuildings(buildings) {
-  saveArray(StorageKeys.BUILDINGS, buildings);
+  const arr = Array.isArray(buildings) ? buildings : [];
+  if (typeof WalajnaBuildingsApi !== "undefined" && WalajnaBuildingsApi.persistSessionList) {
+    WalajnaBuildingsApi.persistSessionList(arr);
+    return;
+  }
+  if (!isWalajnaAuthed()) {
+    saveArray(StorageKeys.BUILDINGS, arr);
+  }
 }
 
 /* =========================
@@ -111,6 +132,7 @@ function getApartments() {
   } catch {
     /* ignore */
   }
+  if (isWalajnaAuthed()) return [];
   return getArray(StorageKeys.APARTMENTS);
 }
 

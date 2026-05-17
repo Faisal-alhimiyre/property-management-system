@@ -315,67 +315,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     return [];
   }
 
-  /**
-   * The home page lists GET /api/buildings only. If create failed (schema/network) the form still
-   * saves to walajna_buildings and redirects — merge those rows so the owner still sees them.
-   * ownerId must match session user (see owner-edit using WalajnaAuth.getCurrentUser).
-   */
-  function mergeLocalBuildingsForOwner(serverRows, ownerId) {
-    const ownerStr = String(ownerId ?? "");
-    if (!ownerStr) return serverRows;
-
-    let raw = [];
-    try {
-      raw = JSON.parse(localStorage.getItem("walajna_buildings") || "[]");
-    } catch {
-      raw = [];
-    }
-    if (!Array.isArray(raw) || !raw.length) return serverRows;
-
-    const pins = readPins();
-    const serverIds = new Set(serverRows.map((b) => String(b.id)));
-    const serverCodes = new Set(
-      serverRows
-        .map((b) => String((b.code ?? "") || "").trim())
-        .filter(Boolean)
-    );
-
-    const extras = [];
-    for (const b of raw) {
-      const oid = String(b.ownerId ?? b.owner_id ?? "");
-      if (oid !== ownerStr) continue;
-
-      const lid = String(b.id ?? "").trim();
-      const lcode = String(b.code ?? "").trim();
-
-      if (lid && serverIds.has(lid)) continue;
-      if (lcode && serverCodes.has(lcode)) continue;
-      if (lid && serverCodes.has(lid)) continue;
-
-      extras.push({
-        ...b,
-        id: b.id,
-        owner_id: b.ownerId ?? b.owner_id ?? ownerId,
-        ownerId: b.ownerId ?? b.owner_id ?? ownerId,
-        name: b.name,
-        city: b.city ?? "",
-        neighborhood: b.neighborhood ?? "",
-        code: b.code ?? null,
-        apartmentCount: Number(b.apartmentCount ?? b.apartments_count ?? 0),
-        apartments_count: Number(b.apartments_count ?? b.apartmentCount ?? 0),
-        totalFloors: b.totalFloors ?? b.total_floors ?? null,
-        total_floors: b.total_floors ?? b.totalFloors ?? null,
-        createdAt: b.createdAt ?? b.created_at ?? null,
-        created_at: b.created_at ?? b.createdAt ?? null,
-        isPinned: !!(pins[String(b.id)] && pins[String(b.id)].pinned),
-        pinnedAt: pins[String(b.id)]?.pinnedAt ?? null,
-      });
-    }
-
-    if (!extras.length) return serverRows;
-    return [...serverRows, ...extras];
-  }
-
   async function fetchOwnerMaintenance() {
     try {
       const res = await WalajnaAuth.fetchWithAuth(
@@ -731,20 +670,32 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     await archiveBuildingBeforeDelete(buildingId);
 
-    try {
-      const res = await WalajnaAuth.fetchWithAuth(
-        `${WalajnaAuth.API_BASE}/api/buildings/${encodeURIComponent(buildingId)}`,
-        { method: "DELETE" }
-      );
-      if (!res.ok) {
-        const t = await res.text();
-        alert("تعذر حذف العمارة من الخادم: " + (t || res.status));
+    const idStr = String(buildingId ?? "").trim();
+    const isNumericServerId = /^\d+$/.test(idStr);
+
+    if (isNumericServerId) {
+      try {
+        const res = await WalajnaAuth.fetchWithAuth(
+          `${WalajnaAuth.API_BASE}/api/buildings/${encodeURIComponent(buildingId)}`,
+          { method: "DELETE" }
+        );
+        if (!res.ok && res.status !== 404) {
+          const t = await res.text();
+          alert("تعذر حذف العمارة من الخادم: " + (t || res.status));
+          return;
+        }
+      } catch (e) {
+        console.warn(e);
+        alert("تعذر الاتصال بالخادم لحذف العمارة.");
         return;
       }
-    } catch (e) {
-      console.warn(e);
-      alert("تعذر الاتصال بالخادم لحذف العمارة.");
-      return;
+    }
+
+    if (
+      typeof WalajnaBuildingsApi !== "undefined" &&
+      WalajnaBuildingsApi.removeBuildingFromSession
+    ) {
+      WalajnaBuildingsApi.removeBuildingFromSession(buildingId);
     }
 
     const pins = readPins();
@@ -918,12 +869,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
+  if (typeof WalajnaBuildingsApi !== "undefined" && WalajnaBuildingsApi.clearLegacyMirror) {
+    WalajnaBuildingsApi.clearLegacyMirror();
+  }
+
   const [allBuildingsRaw, fetchedApartments, maintenanceRows] = await Promise.all([
     getServerBuildings(),
     fetchOwnerApartments(),
     fetchOwnerMaintenance(),
   ]);
-  const allBuildings = mergeLocalBuildingsForOwner(allBuildingsRaw, currentUser.id);
+  if (typeof WalajnaBuildingsApi !== "undefined" && WalajnaBuildingsApi.persistSessionList) {
+    WalajnaBuildingsApi.persistSessionList(allBuildingsRaw);
+  }
+  const allBuildings = allBuildingsRaw;
   let apartments = fetchedApartments;
 
   const ownerBuildingsList = allBuildings.filter(

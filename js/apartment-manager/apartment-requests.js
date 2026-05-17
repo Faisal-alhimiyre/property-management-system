@@ -111,8 +111,10 @@ function initRequestsSystem(aptId, activeRole, currentUser, leaseStatus, pageApa
   }
 
   function getBuildingById(buildingId) {
-    const buildings = getLocalArray("walajna_buildings");
-    return buildings.find((b) => b.id === buildingId) || null;
+    const buildings = typeof getBuildings === "function" ? getBuildings() : [];
+    return (
+      buildings.find((b) => String(b.id) === String(buildingId)) || null
+    );
   }
 
   function getCurrentContractId() {

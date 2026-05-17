@@ -63,9 +63,12 @@
         </div>
       </div>
 
-      <section class="building-legend-card">
-        <h3 class="building-legend-title" data-i18n="owner.legendTitle">معاني الألوان</h3>
-        <div class="building-legend-list">
+      <div class="building-legend-anchor">
+        <details class="building-legend-dock" open>
+          <summary class="building-legend-dock__summary" data-i18n="owner.legendTitle">معاني الألوان</summary>
+          <section class="building-legend-card">
+            <h3 class="building-legend-title" data-i18n="owner.legendTitle">معاني الألوان</h3>
+            <div class="building-legend-list">
           <div class="building-legend-item">
             <span data-i18n="owner.legend.overdue">تأخر إيجار</span>
             <span class="building-legend-color rent-overdue"></span>
@@ -86,8 +89,10 @@
             <span data-i18n="owner.legend.request">طلب</span>
             <span class="building-legend-color request"></span>
           </div>
-        </div>
-      </section>
+            </div>
+          </section>
+        </details>
+      </div>
 
       <section id="apartmentsGrid" class="apartments-grid"></section>
     </section>
@@ -287,6 +292,7 @@
 
   <script src="../js/main/breadcrumbs.js"></script>
   <script src="../js/main/auth.js"></script>
+  <script src="../js/main/buildings-api.js"></script>
   <script src="../js/main/nav.js"></script>
   <script src="../js/main/theme.js"></script>
   <script src="../js/main/tenant-requests-api.js"></script>

@@ -1065,7 +1065,7 @@ body.dark-mode .building-card__layout-banner {
   position: absolute;
   top: 10px;
   right: 10px;
-  z-index: 40;
+  z-index: 12;
 }
 
 .building-more-btn {
@@ -1149,30 +1149,64 @@ body.dark-mode .building-card__layout-banner {
   height: 16px;
 }
 
-@media (max-width: 1200px) {
-  .dashboard-content {
-    grid-template-columns: 1fr;
+/* Laptop keeps sidebar + main (260px | 1fr) until phone breakpoint below */
+
+@media (max-width: 768px) {
+  .owner-dashboard {
+    padding: 0 16px;
+    padding-bottom: max(20px, env(safe-area-inset-bottom, 0px));
   }
 
-  .legend-sidebar {
-    order: 2;
-    position: static;
+  .dashboard-content {
+    grid-template-columns: 1fr;
   }
 
   .content-main {
     order: 1;
   }
 
-  .legend-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 12px;
+  /* Color legend: compact side dock on phone only */
+  .legend-sidebar {
+    order: 2;
+    position: fixed;
+    inset-inline-start: 10px;
+    inset-inline-end: auto;
+    left: auto;
+    right: auto;
+    bottom: max(14px, env(safe-area-inset-bottom, 14px));
+    width: min(252px, 46vw);
+    max-width: 252px;
+    z-index: 55;
+    order: unset;
+    padding: 0;
+    pointer-events: none;
   }
-}
 
-@media (max-width: 768px) {
-  .owner-dashboard {
-    padding: 0 16px;
+  .legend-card {
+    pointer-events: auto;
+    border: none;
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.18);
+    border-radius: 14px;
+    padding: 12px 14px;
+    max-height: min(42vh, 320px);
+    overflow-y: auto;
+  }
+
+  .legend-title {
+    display: block;
+    font-size: 16px;
+    margin: 0 0 10px;
+  }
+
+  .legend-list {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .legend-item {
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 13px;
   }
 
   .page-head {
@@ -1217,9 +1251,5 @@ body.dark-mode .building-card__layout-banner {
   .legend-color {
     width: 16px;
     height: 16px;
-  }
-
-  .legend-list {
-    grid-template-columns: 1fr;
   }
 }

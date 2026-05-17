@@ -588,7 +588,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     const requests = getRequests();
     if (!requests.length) return [];
 
-    const buildings = getLocalArray("walajna_buildings");
+    const buildings =
+      typeof getBuildings === "function" ? getBuildings() : [];
     const users = getLocalArray(STORAGE_KEYS.USERS);
     const apartments =
       typeof getApartments === "function"
