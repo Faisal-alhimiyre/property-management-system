@@ -74,7 +74,35 @@ function syncAdaptiveNavType() {
   document.body.dataset.nav = currentUser || token ? "user" : "guest";
 }
 
-function setupNavbar() {
+function bindLogoutLink(link4) {
+  if (!link4 || link4.dataset.walajnaLogoutBound === "1") return;
+  link4.dataset.walajnaLogoutBound = "1";
+  link4.addEventListener("click", (e) => {
+    e.preventDefault();
+
+    const confirmed = window.confirm(wlT("nav.confirmLogout"));
+    if (!confirmed) return;
+
+    if (typeof WalajnaAuth !== "undefined") {
+      void WalajnaAuth.logoutOnServer();
+      WalajnaAuth.clearSession();
+    } else {
+      try {
+        sessionStorage.removeItem("activeRole");
+        sessionStorage.removeItem("walajna_current_user");
+        localStorage.removeItem("activeRole");
+        localStorage.removeItem("walajna_current_user");
+        localStorage.removeItem("access_token");
+      } catch {
+        /* ignore */
+      }
+    }
+    window.location.href = "../auth/login.html";
+  });
+}
+
+/** Update nav labels/hrefs only (safe to run on language change). */
+function updateNavbarLabels() {
   syncAdaptiveNavType();
   const navType = document.body.dataset.nav || "user";
   const activeRole =
@@ -105,7 +133,6 @@ function setupNavbar() {
   const settingsLink = document.getElementById("nav-settings");
 
   if (!homeLink || !link2 || !link3 || !link4 || !logoLink || !supportLink || !settingsLink) {
-    console.warn(wlT("nav.warnMissing"));
     return;
   }
 
@@ -162,28 +189,7 @@ function setupNavbar() {
 
   link4.textContent = wlT("nav.logout");
   link4.href = "#";
-  link4.addEventListener("click", (e) => {
-    e.preventDefault();
-
-    const confirmed = window.confirm(wlT("nav.confirmLogout"));
-    if (!confirmed) return;
-
-    if (typeof WalajnaAuth !== "undefined") {
-      void WalajnaAuth.logoutOnServer();
-      WalajnaAuth.clearSession();
-    } else {
-      try {
-        sessionStorage.removeItem("activeRole");
-        sessionStorage.removeItem("walajna_current_user");
-        localStorage.removeItem("activeRole");
-        localStorage.removeItem("walajna_current_user");
-        localStorage.removeItem("access_token");
-      } catch {
-        /* ignore */
-      }
-    }
-    window.location.href = "../auth/login.html";
-  });
+  bindLogoutLink(link4);
 
   logoLink.href = walajnaPublicHomeHref();
 
@@ -205,14 +211,28 @@ function setupNavbar() {
     insertRoleSwitcher({
       roles,
       activeRole,
-      afterElement: link4
+      afterElement: link4,
     });
   }
 
   setActiveLinkByPage(navType);
 
   void updateMessagesNavDot(link3, activeRole, currentUser);
+}
 
+function ensureNavbarLayout() {
+  layoutNavPanelForViewport();
+  layoutNavIconsForViewport();
+}
+
+function setupNavbar() {
+  updateNavbarLabels();
+  if (!document.getElementById("nav-home")) {
+    console.warn(wlT("nav.warnMissing"));
+    return;
+  }
+
+  ensureNavbarLayout();
   setupMobileNav();
 
   document.dispatchEvent(new Event("walajna:navbar-ready"));
@@ -287,6 +307,13 @@ function layoutNavPanelForViewport() {
   const brandGroup = inner.querySelector(".walajna-topbar__brand-group");
   const iconsBar = inner.querySelector(".walajna-topbar__icons");
 
+  /* Panel must live inside the fixed topbar on desktop — not as a sibling in #navbar-container. */
+  if (panel.parentElement !== inner) {
+    inner.insertBefore(panel, inner.firstChild);
+  } else {
+    inner.insertBefore(panel, inner.firstChild);
+  }
+
   const leading = inner.querySelector(".walajna-topbar__leading");
   if (leading) {
     if (iconsBar && iconsBar.parentElement === leading) {
@@ -307,12 +334,6 @@ function layoutNavPanelForViewport() {
       inner.insertBefore(brandGroup, legacyCluster);
     }
     legacyCluster.remove();
-  }
-
-  if (panel.parentElement !== inner) {
-    inner.insertBefore(panel, inner.firstChild);
-  } else {
-    inner.insertBefore(panel, inner.firstChild);
   }
 
   layoutNavIconsForViewport();
@@ -588,9 +609,18 @@ window.addEventListener("hashchange", () => {
   setActiveLinkByPage("guest");
 });
 
-document.addEventListener("walajna:i18n-applied", () => {
-  if (document.getElementById("nav-home")) {
-    setupNavbar();
+function onWalajnaI18nApplied() {
+  if (!document.getElementById("nav-home")) return;
+  updateNavbarLabels();
+  ensureNavbarLayout();
+  requestAnimationFrame(() => {
+    syncWalajnaTopbarHeight();
     requestAnimationFrame(() => syncWalajnaTopbarHeight());
-  }
-});
+  });
+}
+
+document.addEventListener("walajna:i18n-applied", onWalajnaI18nApplied);
+
+if (typeof window !== "undefined") {
+  window.walajnaUpdateNavbarLabels = updateNavbarLabels;
+}

@@ -1053,27 +1053,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     if (typeFilter === "rented") {
-      return apts.some((a) => {
-        if (!isApartmentOccupied(a)) return false;
-        return getApartmentStatusClass(a, maintenanceRows, payments) === "none";
-      });
+      return apts.some((a) => isApartmentOccupied(a));
     }
 
-    if (typeFilter === "rent-overdue") {
-      return apts.some((a) => {
-        if (!isApartmentOccupied(a)) return false;
-        return getApartmentStatusClass(a, maintenanceRows, payments) === "rent-overdue";
-      });
-    }
-
-    return apts.some(
-      (a) => getApartmentStatusClass(a, maintenanceRows, payments) === typeFilter
-    );
+    return apts.some((a) => getApartmentRequestIndicator(a) === typeFilter);
   }
 
-  const OWNER_PORTFOLIO_INDICATORS = [
-    "vacant",
-    "rented",
+  const OWNER_REQUEST_INDICATORS = [
     "rent-overdue",
     "maintenance",
     "complaint",
@@ -1081,22 +1067,22 @@ document.addEventListener("DOMContentLoaded", async () => {
     "request",
   ];
 
-  function classifyApartmentIndicator(apartment) {
-    if (!isApartmentOccupied(apartment)) {
-      return "vacant";
-    }
-
-    const status = getApartmentStatusClass(apartment, maintenanceRows, payments);
-    if (status === "none") {
-      return "rented";
-    }
-    if (status === "rent-overdue") {
+  /** Open request / overdue flags — independent of rented vs vacant counts. */
+  function getApartmentRequestIndicator(apartment) {
+    if (isApartmentRentOverdue(apartment, payments)) {
       return "rent-overdue";
     }
-    if (OWNER_PORTFOLIO_INDICATORS.includes(status)) {
-      return status;
+
+    const highestPriorityRequest = getHighestPriorityRequest(
+      apartment,
+      maintenanceRows
+    );
+    if (!highestPriorityRequest) {
+      return null;
     }
-    return "rented";
+
+    const typeId = highestPriorityRequest.typeId;
+    return OWNER_REQUEST_INDICATORS.includes(typeId) ? typeId : null;
   }
 
   function getPortfolioIndicatorCountScope() {
@@ -1110,9 +1096,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function computePortfolioIndicatorCounts(scopeBuildingIds) {
-    const counts = Object.fromEntries(
-      OWNER_PORTFOLIO_INDICATORS.map((key) => [key, 0])
-    );
+    const counts = {
+      total: 0,
+      rented: 0,
+      vacant: 0,
+      "rent-overdue": 0,
+      maintenance: 0,
+      complaint: 0,
+      suggestion: 0,
+      request: 0,
+    };
 
     const apartmentsToCount = [];
     if (scopeBuildingIds === null) {
@@ -1130,9 +1123,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     for (const apartment of apartmentsToCount) {
-      const indicator = classifyApartmentIndicator(apartment);
-      if (counts[indicator] != null) {
-        counts[indicator] += 1;
+      counts.total += 1;
+      if (isApartmentOccupied(apartment)) {
+        counts.rented += 1;
+      } else {
+        counts.vacant += 1;
+      }
+
+      const requestIndicator = getApartmentRequestIndicator(apartment);
+      if (requestIndicator && counts[requestIndicator] != null) {
+        counts[requestIndicator] += 1;
       }
     }
 
@@ -1239,6 +1239,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function createBuildingCardHtml(building) {
     const bid = String(building.id);
+    const displayName = String(building.name || "").trim();
     const isChecked = selectedBuildingIds.has(bid);
     const selectAria = String(wlT("owner.buildingsSelectForListAria")).replace(/"/g, "&quot;");
 
@@ -1344,47 +1345,46 @@ document.addEventListener("DOMContentLoaded", async () => {
               : ""
           }
 
-          <div class="building-menu-wrap">
-            <button
-              type="button"
-              class="building-more-btn"
-              data-menu-btn="true"
-              data-building-id="${building.id}"
-              aria-label="${String(wlT("owner.buildingMenu")).replace(/"/g, "&quot;")}"
-            >
-              ⋮
-            </button>
-
-            <div class="building-card-menu" data-menu="${building.id}">
-              <button
-                type="button"
-                data-action="toggle-pin-building"
-                data-building-id="${building.id}"
-              >
-                ${building.isPinned ? wlT("owner.unpin") : wlT("owner.pin")}
-              </button>
-
-              <button
-                type="button"
-                data-action="edit-building"
-                data-building-id="${building.id}"
-              >
-                ${wlT("common.edit")}
-              </button>
-
-              <button
-                type="button"
-                class="danger"
-                data-action="delete-building"
-                data-building-id="${building.id}"
-              >
-                ${wlT("common.delete")}
-              </button>
-            </div>
-          </div>
-
           <div class="building-card__head">
-            <h3 class="building-title">${building.isPinned ? "📌 " : ""}${building.name}</h3>
+            <h3 class="building-title" dir="auto" title="${String(displayName || "").replace(/"/g, "&quot;")}">${building.isPinned ? "📌 " : ""}${displayName}</h3>
+            <div class="building-menu-wrap">
+              <button
+                type="button"
+                class="building-more-btn"
+                data-menu-btn="true"
+                data-building-id="${building.id}"
+                aria-label="${String(wlT("owner.buildingMenu")).replace(/"/g, "&quot;")}"
+              >
+                ⋮
+              </button>
+
+              <div class="building-card-menu" data-menu="${building.id}">
+                <button
+                  type="button"
+                  data-action="toggle-pin-building"
+                  data-building-id="${building.id}"
+                >
+                  ${building.isPinned ? wlT("owner.unpin") : wlT("owner.pin")}
+                </button>
+
+                <button
+                  type="button"
+                  data-action="edit-building"
+                  data-building-id="${building.id}"
+                >
+                  ${wlT("common.edit")}
+                </button>
+
+                <button
+                  type="button"
+                  class="danger"
+                  data-action="delete-building"
+                  data-building-id="${building.id}"
+                >
+                  ${wlT("common.delete")}
+                </button>
+              </div>
+            </div>
             <span class="building-count">${wlT("owner.aptCountLabel", { n: buildingApartments.length })}</span>
           </div>
           ${layoutBanner}
@@ -1553,6 +1553,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   const neighborhoodFilterSelect = document.getElementById("ownerBuildingsNeighborhoodFilter");
   populateOwnerNeighborhoodSelect(neighborhoodFilterSelect, buildings);
   refreshOwnerBuildingsView();
+
+  document.addEventListener("walajna:i18n-applied", () => {
+    refreshOwnerBuildingsView();
+  });
 
   const requestFilterSelect = document.getElementById("ownerBuildingsRequestFilter");
   if (neighborhoodFilterSelect) {

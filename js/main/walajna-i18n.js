@@ -329,7 +329,13 @@
     "owner.label.apartmentCount": "عدد الشقق",
     "owner.label.totalFloors": "عدد الطوابق",
     "owner.label.apartmentsPerFloor": "عدد الشقق في كل طابق",
-    "owner.ph.buildingName": "مثال: عمارة الخالدية 1",
+    "owner.buildingNamePrefix": "عمارة",
+    "owner.buildingNameAffixPosition": "before",
+    "owner.ph.buildingName": "مثال: الخالدية",
+    "owner.hint.buildingName": "اكتب اسمًا مميزًا للعمارة فقط — كلمة «عمارة» تُضاف تلقائياً. الحي يُحدَّد من الخريطة.",
+    "owner.buildingNameCounter": "{n} / {max}",
+    "owner.buildingNameTooShort": "اسم العمارة قصير جداً (الحد الأدنى {min} أحرف)",
+    "owner.buildingNameTooLong": "اسم العمارة طويل جداً (الحد الأقصى {max} حرفاً)",
     "owner.ph.count": "مثال: 14",
     "owner.ph.floors": "مثال: 7",
     "owner.ph.perFloor": "مثال: 2",
@@ -412,6 +418,7 @@
     "owner.archiveRestoreErrorPrefix": "تعذرت الاستعادة: ",
     "owner.archiveRestoreNetworkError": "تعذر الاتصال بالخادم لإرجاع العمارة.",
     "owner.legendTitle": "معاني الألوان",
+    "owner.legend.totalApartments": "إجمالي الشقق",
     "owner.legend.vacant": "شقة فارغة",
     "owner.legend.rented": "شقة مؤجرة",
     "owner.legend.overdue": "تأخر إيجار",
@@ -1478,7 +1485,13 @@
     "owner.label.apartmentCount": "Number of apartments",
     "owner.label.totalFloors": "Number of floors",
     "owner.label.apartmentsPerFloor": "Apartments per floor",
-    "owner.ph.buildingName": "e.g. Al Khalidiyah 1",
+    "owner.buildingNamePrefix": "building",
+    "owner.buildingNameAffixPosition": "after",
+    "owner.ph.buildingName": "e.g. Al Andalus",
+    "owner.hint.buildingName": "Enter the building label only — the word “building” is added after it automatically. Neighborhood comes from the map.",
+    "owner.buildingNameCounter": "{n} / {max}",
+    "owner.buildingNameTooShort": "Building name is too short (minimum {min} characters)",
+    "owner.buildingNameTooLong": "Building name is too long (maximum {max} characters)",
     "owner.ph.count": "e.g. 14",
     "owner.ph.floors": "e.g. 7",
     "owner.ph.perFloor": "e.g. 2",
@@ -1561,6 +1574,7 @@
     "owner.archiveRestoreErrorPrefix": "Could not restore: ",
     "owner.archiveRestoreNetworkError": "Could not reach the server to restore the building.",
     "owner.legendTitle": "Color legend",
+    "owner.legend.totalApartments": "Total apartments",
     "owner.legend.vacant": "Vacant",
     "owner.legend.rented": "Rented",
     "owner.legend.overdue": "Rent overdue",
@@ -1579,7 +1593,7 @@
     "owner.buildingMenu": "Building options",
     "owner.unpin": "Unpin",
     "owner.pin": "Pin building",
-    "owner.aptCountLabel": "{n} apartments",
+    "owner.aptCountLabel": "{n} apt",
     "owner.buildingsEnterEdit": "Edit",
     "owner.buildingsCancelEdit": "Cancel editing",
     "owner.buildingsShow": "Show",
@@ -2425,9 +2439,17 @@
     } catch (e) {}
     applyDocumentLocale(c);
     applyI18n(document);
+    dispatchI18nApplied(c);
+  }
+
+  function dispatchI18nApplied(lang) {
     try {
-      global.dispatchEvent(new CustomEvent("walajna:i18n-applied", { detail: { lang: c } }));
-    } catch (e2) {}
+      if (global.document) {
+        global.document.dispatchEvent(
+          new CustomEvent("walajna:i18n-applied", { bubbles: true, detail: { lang: lang } })
+        );
+      }
+    } catch (e1) {}
   }
 
   function mergeLang(lang, obj) {
@@ -2435,9 +2457,7 @@
     if (getLang() === lang) {
       applyDocumentLocale(lang);
       applyI18n(document);
-      try {
-        global.dispatchEvent(new CustomEvent("walajna:i18n-applied", { detail: { lang: lang } }));
-      } catch (e2) {}
+      dispatchI18nApplied(lang);
     }
   }
 

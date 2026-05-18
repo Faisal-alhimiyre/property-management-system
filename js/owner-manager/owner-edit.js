@@ -1,4 +1,9 @@
 document.addEventListener("DOMContentLoaded", async () => {
+  const bn =
+    typeof WalajnaBuildingName !== "undefined" ? WalajnaBuildingName : null;
+  const BUILDING_LABEL_MIN_LEN = bn?.LABEL_MIN_LEN ?? 3;
+  const BUILDING_LABEL_MAX_LEN = bn?.LABEL_MAX_LEN ?? 30;
+
   const T = (k, p) =>
     window.walajna_language && window.walajna_language.t
       ? window.walajna_language.t(k, p)
@@ -10,6 +15,78 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const form = document.getElementById("buildingForm");
   const message = document.getElementById("formMessage");
+  const buildingNameInput = document.getElementById("buildingName");
+  const buildingNameAffixEl = document.getElementById("buildingNameAffix");
+  const buildingNameComposeEl = document.getElementById("buildingNameCompose");
+  const buildingNameCounter = document.getElementById("buildingNameCounter");
+
+  function normalizeBuildingLabel(value) {
+    return bn ? bn.normalizeLabel(value) : String(value || "").trim().replace(/\s+/g, " ");
+  }
+
+  function syncBuildingNameAffix() {
+    if (!buildingNameAffixEl || !bn) return;
+    buildingNameAffixEl.textContent = bn.getAffix();
+    if (!buildingNameComposeEl || !buildingNameInput) return;
+    const isSuffix = bn.getAffixPosition() === "suffix";
+    buildingNameComposeEl.classList.toggle("building-name-compose--suffix", isSuffix);
+    if (isSuffix) {
+      buildingNameComposeEl.appendChild(buildingNameAffixEl);
+    } else {
+      buildingNameComposeEl.insertBefore(buildingNameAffixEl, buildingNameInput);
+    }
+  }
+
+  function syncBuildingNameCounter() {
+    if (!buildingNameCounter || !buildingNameInput) return;
+    const label = normalizeBuildingLabel(buildingNameInput.value);
+    const len = label.length;
+    buildingNameCounter.textContent = T("owner.buildingNameCounter", {
+      n: len,
+      max: BUILDING_LABEL_MAX_LEN,
+    });
+    buildingNameCounter.classList.toggle("is-over-limit", len > BUILDING_LABEL_MAX_LEN);
+    buildingNameCounter.classList.toggle(
+      "is-near-limit",
+      len >= BUILDING_LABEL_MAX_LEN - 5 && len <= BUILDING_LABEL_MAX_LEN
+    );
+  }
+
+  function validateBuildingLabel(label) {
+    if (!bn) {
+      if (!label || label.length < BUILDING_LABEL_MIN_LEN) {
+        return T("owner.buildingNameTooShort", { min: BUILDING_LABEL_MIN_LEN });
+      }
+      return "";
+    }
+    const result = bn.validateLabel(label);
+    if (result.ok) return "";
+    if (result.code === "short") {
+      return T("owner.buildingNameTooShort", { min: BUILDING_LABEL_MIN_LEN });
+    }
+    if (result.code === "long") {
+      return T("owner.buildingNameTooLong", { max: BUILDING_LABEL_MAX_LEN });
+    }
+    return T("owner.buildingNameTooLong", { max: bn.FULL_MAX_LEN });
+  }
+
+  function composeBuildingName(label) {
+    return bn ? bn.compose(label) : normalizeBuildingLabel(label);
+  }
+
+  function stripBuildingNameForEdit(fullName) {
+    return bn ? bn.stripPrefix(fullName) : String(fullName || "").trim();
+  }
+
+  if (buildingNameInput) {
+    buildingNameInput.addEventListener("input", syncBuildingNameCounter);
+    syncBuildingNameAffix();
+    syncBuildingNameCounter();
+  }
+
+  document.addEventListener("walajna:i18n-applied", () => {
+    syncBuildingNameAffix();
+  });
   const buildingCodeInput = document.getElementById("buildingCode");
   const defaultPaymentCycleInput = document.getElementById("defaultPaymentCycle");
   const buildingCitySelect = document.getElementById("building-city");
@@ -335,7 +412,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     if (buildingNameInput) {
-      buildingNameInput.value = building.name || "";
+      buildingNameInput.value = stripBuildingNameForEdit(building.name || "");
+      syncBuildingNamePrefix();
+      syncBuildingNameCounter();
     }
 
     if (buildingCodeInput) {
@@ -645,7 +724,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     showError("");
 
-    const buildingName = document.getElementById("buildingName")?.value.trim();
+    const buildingLabel = normalizeBuildingLabel(
+      document.getElementById("buildingName")?.value
+    );
+    const buildingName = composeBuildingName(buildingLabel);
     const buildingCode = document.getElementById("buildingCode")?.value.trim();
     const buildingCity = document.getElementById("building-city")?.value.trim();
     const buildingNeighborhood = document.getElementById("buildingNeighborhood")?.value.trim() || "";
@@ -665,8 +747,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     const defaultPaymentCycle =
       document.getElementById("defaultPaymentCycle")?.value || "monthly";
 
-    if (!buildingName || !buildingCode || !buildingCity || !apartmentCount || apartmentCount < 1) {
+    if (!buildingLabel || !buildingCode || !buildingCity || !apartmentCount || apartmentCount < 1) {
       showError(T("owner.fillBasics"));
+      return;
+    }
+
+    const buildingNameError = validateBuildingLabel(buildingLabel);
+    if (buildingNameError) {
+      showError(buildingNameError);
+      buildingNameInput?.focus();
       return;
     }
 

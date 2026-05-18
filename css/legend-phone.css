@@ -84,6 +84,8 @@
   }
 
   .walajna-legend-phone__panel {
+    --legend-swatch-col: 16px;
+    --legend-count-col: 2.75em;
     position: absolute;
     inset-inline-start: calc(100% - 1px);
     top: 50%;
@@ -100,6 +102,34 @@
     pointer-events: auto;
   }
 
+  .walajna-legend-phone__title--occupancy {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--legend-swatch-col) var(--legend-count-col);
+    align-items: center;
+    column-gap: 8px;
+  }
+
+  .walajna-legend-phone__title--occupancy > :first-child {
+    grid-column: 1;
+  }
+
+  .walajna-legend-phone .legend-count--total {
+    grid-column: 3;
+    justify-self: start;
+    font-size: 16px;
+    min-width: var(--legend-count-col);
+  }
+
+  .legend-divider--phone {
+    margin: 10px 0;
+    border: 0;
+    border-top: 1px solid rgba(12, 24, 49, 0.14);
+  }
+
+  body.dark-mode .legend-divider--phone {
+    border-top-color: rgba(148, 163, 184, 0.28);
+  }
+
   .walajna-legend-phone__title {
     margin: 0 0 10px;
     font-size: 15px;
@@ -113,21 +143,45 @@
     gap: 6px;
   }
 
+  .walajna-legend-phone__list--occupancy {
+    padding: 6px 8px;
+    border-radius: 8px;
+    background: rgba(12, 24, 49, 0.05);
+    border: 1px solid rgba(12, 24, 49, 0.08);
+  }
+
+  body.dark-mode .walajna-legend-phone__list--occupancy {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(148, 163, 184, 0.14);
+  }
+
   .walajna-legend-phone__item {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--legend-swatch-col) var(--legend-count-col);
     align-items: center;
-    justify-content: space-between;
-    gap: 8px;
+    column-gap: 8px;
     font-size: 13px;
     font-weight: 800;
     color: var(--muted, #64748b);
   }
 
+  .walajna-legend-phone__item > :first-child {
+    grid-column: 1;
+    min-width: 0;
+  }
+
   .walajna-legend-phone__meta {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    flex-shrink: 0;
+    display: contents;
+  }
+
+  .walajna-legend-phone__meta .walajna-legend-phone__swatch {
+    grid-column: 2;
+    justify-self: center;
+  }
+
+  .walajna-legend-phone__meta .legend-count {
+    grid-column: 3;
+    justify-self: start;
   }
 
   .walajna-legend-phone .legend-count {
@@ -135,8 +189,8 @@
     font-weight: 900;
     font-variant-numeric: tabular-nums;
     color: #0f2740;
-    min-width: 1.25ch;
-    text-align: center;
+    min-width: var(--legend-count-col);
+    text-align: start;
   }
 
   body.dark-mode .walajna-legend-phone .legend-count {

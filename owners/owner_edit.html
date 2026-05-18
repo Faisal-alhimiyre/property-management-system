@@ -23,7 +23,26 @@
       <form id="buildingForm" class="building-form">
         <div class="form-group full">
           <label for="buildingName" data-i18n="owner.label.buildingName">اسم العمارة</label>
-          <input type="text" id="buildingName" data-i18n-placeholder="owner.ph.buildingName" placeholder="مثال: عمارة الخالدية 1" required>
+          <div class="building-name-compose" id="buildingNameCompose">
+            <span
+              class="building-name-compose__affix building-name-compose__prefix"
+              id="buildingNameAffix"
+              data-i18n="owner.buildingNamePrefix"
+              aria-hidden="true"
+            >عمارة</span>
+            <input
+              type="text"
+              id="buildingName"
+              class="building-name-compose__input"
+              maxlength="30"
+              autocomplete="off"
+              data-i18n-placeholder="owner.ph.buildingName"
+              placeholder="مثال: الخالدية"
+              required
+            >
+          </div>
+          <p class="form-field-hint" id="buildingNameHint" data-i18n="owner.hint.buildingName">اكتب اسمًا مميزًا للعمارة فقط — كلمة «عمارة» تُضاف تلقائياً.</p>
+          <p class="form-field-counter" id="buildingNameCounter" aria-live="polite">0 / 30</p>
         </div>
 
         <div class="form-group">
@@ -132,6 +151,7 @@
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
     crossorigin=""
   ></script>
+  <script src="../js/main/building-name.js"></script>
   <script src="../js/owner-manager/owner-edit.js"></script>
   <script src="../js/main/theme.js"></script>
 </body>

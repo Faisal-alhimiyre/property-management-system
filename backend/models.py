@@ -1,6 +1,6 @@
 
 import json
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from typing import Any, Optional, List
 from datetime import datetime, date
 
@@ -271,7 +271,12 @@ class ApartmentResponse(BaseModel):
 class Building(BaseModel):
     id: Optional[int] = None
     owner_id: Optional[int] = None
-    name: str
+    name: str = Field(min_length=3, max_length=40)
+
+    @field_validator("name")
+    @classmethod
+    def normalize_building_name(cls, value: str) -> str:
+        return " ".join(str(value or "").split())
     city: str
     neighborhood: Optional[str] = None
     code: Optional[str] = None

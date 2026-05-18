@@ -98,8 +98,28 @@ def _to_float(value):
         return None
 
 
+BUILDING_NAME_MIN_LEN = 3
+BUILDING_NAME_MAX_LEN = 40
+
+
+def _normalize_building_name(raw_name) -> str:
+    """Trim, collapse spaces, and enforce length for card-friendly labels."""
+    name = " ".join(str(raw_name or "").split())
+    if len(name) < BUILDING_NAME_MIN_LEN:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Building name must be at least {BUILDING_NAME_MIN_LEN} characters",
+        )
+    if len(name) > BUILDING_NAME_MAX_LEN:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Building name must be at most {BUILDING_NAME_MAX_LEN} characters",
+        )
+    return name
+
+
 def _normalize_building_payload(payload: dict, owner_id: int) -> dict:
-    building_name = payload.get("name")
+    building_name = _normalize_building_name(payload.get("name"))
     building_city = payload.get("city")
     building_lat = _to_float(payload.get("latitude"))
     building_lng = _to_float(payload.get("longitude"))
@@ -366,6 +386,8 @@ async def update_building(building_id: int, building: Building, current_user: di
         raise HTTPException(status_code=403, detail="Not authorized")
 
     update_data = building.dict(exclude_unset=True)
+    if "name" in update_data:
+        update_data["name"] = _normalize_building_name(update_data["name"])
     effective_lat = update_data.get("latitude", existing.data[0].get("latitude"))
     effective_lng = update_data.get("longitude", existing.data[0].get("longitude"))
     if _to_float(effective_lat) is None or _to_float(effective_lng) is None:

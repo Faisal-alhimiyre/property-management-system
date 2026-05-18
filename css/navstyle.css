@@ -534,7 +534,7 @@ body.dark-mode .nav-role-switcher__select option{
 }
 
 @media (min-width: 769px){
-  /* Laptop/desktop: nav (end) | logo centered in middle gap | icons (start) */
+  /* Laptop/desktop: nav (inline-start) | logo center | icons (inline-end) — mirrors with dir=rtl/ltr */
   .walajna-topbar{
     height: 88px;
     min-height: 88px;
@@ -556,13 +556,18 @@ body.dark-mode .nav-role-switcher__select option{
 
   .walajna-topbar__inner > .walajna-nav-panel{
     grid-column: 1;
+    grid-row: 1;
     justify-self: start;
+    align-self: center;
     min-width: 0;
+    max-width: 100%;
   }
 
   .walajna-topbar__brand-group{
     grid-column: 2;
+    grid-row: 1;
     justify-self: center;
+    align-self: center;
     width: 100%;
     max-width: 100%;
     display: flex;
@@ -576,26 +581,22 @@ body.dark-mode .nav-role-switcher__select option{
 
   .walajna-topbar__icons{
     grid-column: 3;
+    grid-row: 1;
     justify-self: end;
+    align-self: center;
     display: flex !important;
-    flex-direction: row-reverse;
+    flex-direction: row;
     align-items: center;
     gap: 8px;
     flex-shrink: 0;
   }
 
-  html[dir="ltr"] .walajna-topbar__inner > .walajna-nav-panel{
-    grid-column: 3;
-    justify-self: end;
+  [dir="rtl"] .walajna-topbar__icons{
+    flex-direction: row-reverse;
   }
 
-  html[dir="ltr"] .walajna-topbar__brand-group{
-    grid-column: 2;
-  }
-
-  html[dir="ltr"] .walajna-topbar__icons{
-    grid-column: 1;
-    justify-self: start;
+  #navbar-container > .walajna-nav-panel{
+    display: none !important;
   }
 
   .walajna-nav-toggle{
@@ -622,9 +623,14 @@ body.dark-mode .nav-role-switcher__select option{
 
   .walajna-topbar__nav{
     flex-direction: row;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     width: auto;
-    gap: 30px;
+    max-width: 100%;
+    gap: clamp(12px, 2vw, 30px);
+  }
+
+  .walajna-topbar__nav a{
+    white-space: nowrap;
   }
 
   .walajna-topbar__nav a{

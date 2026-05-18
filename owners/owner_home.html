@@ -57,16 +57,11 @@
     <div class="dashboard-content">
       <aside class="legend-sidebar">
         <section class="legend-card">
-          <h3 class="legend-title" data-i18n="owner.legendTitle"></h3>
-          <div class="legend-list">
-            <div class="legend-item">
-              <span class="legend-item__label" data-i18n="owner.legend.vacant"></span>
-              <span class="legend-item__meta">
-                <span class="legend-color none"></span>
-                <span class="legend-count" data-owner-indicator-count="vacant">0</span>
-              </span>
-            </div>
-
+          <h3 class="legend-title legend-title--occupancy">
+            <span data-i18n="owner.legend.totalApartments"></span>
+            <span class="legend-count legend-count--total" data-owner-indicator-count="total">0</span>
+          </h3>
+          <div class="legend-list legend-list--occupancy">
             <div class="legend-item">
               <span class="legend-item__label" data-i18n="owner.legend.rented"></span>
               <span class="legend-item__meta">
@@ -75,6 +70,18 @@
               </span>
             </div>
 
+            <div class="legend-item">
+              <span class="legend-item__label" data-i18n="owner.legend.vacant"></span>
+              <span class="legend-item__meta">
+                <span class="legend-color none"></span>
+                <span class="legend-count" data-owner-indicator-count="vacant">0</span>
+              </span>
+            </div>
+          </div>
+
+          <hr class="legend-divider" aria-hidden="true" />
+
+          <div class="legend-list legend-list--requests">
             <div class="legend-item">
               <span class="legend-item__label" data-i18n="owner.legend.overdue"></span>
               <span class="legend-item__meta">
@@ -174,19 +181,15 @@
     </div>
   </main>
 
-  <aside class="walajna-legend-phone" data-i18n-aria-label="owner.legendTitle">
+  <aside class="walajna-legend-phone" data-i18n-aria-label="owner.legend.totalApartments">
     <details class="walajna-legend-phone__dock">
-      <summary class="walajna-legend-phone__tab" data-i18n-aria-label="owner.legendTitle"></summary>
+      <summary class="walajna-legend-phone__tab" data-i18n-aria-label="owner.legend.totalApartments"></summary>
       <section class="walajna-legend-phone__panel">
-        <h3 class="walajna-legend-phone__title" data-i18n="owner.legendTitle"></h3>
-        <div class="walajna-legend-phone__list">
-          <div class="walajna-legend-phone__item">
-            <span data-i18n="owner.legend.vacant"></span>
-            <span class="walajna-legend-phone__meta">
-              <span class="walajna-legend-phone__swatch none"></span>
-              <span class="legend-count" data-owner-indicator-count="vacant">0</span>
-            </span>
-          </div>
+        <h3 class="walajna-legend-phone__title walajna-legend-phone__title--occupancy">
+          <span data-i18n="owner.legend.totalApartments"></span>
+          <span class="legend-count legend-count--total" data-owner-indicator-count="total">0</span>
+        </h3>
+        <div class="walajna-legend-phone__list walajna-legend-phone__list--occupancy">
           <div class="walajna-legend-phone__item">
             <span data-i18n="owner.legend.rented"></span>
             <span class="walajna-legend-phone__meta">
@@ -194,6 +197,16 @@
               <span class="legend-count" data-owner-indicator-count="rented">0</span>
             </span>
           </div>
+          <div class="walajna-legend-phone__item">
+            <span data-i18n="owner.legend.vacant"></span>
+            <span class="walajna-legend-phone__meta">
+              <span class="walajna-legend-phone__swatch none"></span>
+              <span class="legend-count" data-owner-indicator-count="vacant">0</span>
+            </span>
+          </div>
+        </div>
+        <hr class="legend-divider legend-divider--phone" aria-hidden="true" />
+        <div class="walajna-legend-phone__list walajna-legend-phone__list--requests">
           <div class="walajna-legend-phone__item">
             <span data-i18n="owner.legend.overdue"></span>
             <span class="walajna-legend-phone__meta">
@@ -240,6 +253,7 @@
   <script src="../js/main/nav.js"></script>
   <script src="../js/main/tenant-requests-api.js"></script>
   <script src="../js/main/apartments-api.js"></script>
+  <script src="../js/main/building-name.js"></script>
   <script src="../js/main/owner-building-pick.js"></script>
   <script src="../js/owner-manager/owner.js"></script>
   <script src="../js/main/theme.js"></script>

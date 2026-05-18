@@ -599,6 +599,9 @@ document.getElementById("verifyPhoneBtn")?.addEventListener("click", () => {
   sel.setAttribute("aria-label", wlT("settings.lang.title"));
   sel.addEventListener("change", () => {
     walajna_language.set(sel.value);
+    if (typeof window.walajnaUpdateNavbarLabels === "function") {
+      window.walajnaUpdateNavbarLabels();
+    }
     loadProfile();
   });
 })();
