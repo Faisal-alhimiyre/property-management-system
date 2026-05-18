@@ -29,6 +29,11 @@ body{
   padding:22px 14px 36px;
 }
 
+.finance-page--compact{
+  max-width:1100px;
+  padding:10px 12px 20px;
+}
+
 .finance-hero{
   background:rgba(255,255,255,0.88);
   border:1px solid rgba(255,255,255,0.55);
@@ -37,6 +42,12 @@ body{
   padding:24px 24px 20px;
   margin-bottom:22px;
   backdrop-filter:blur(5px);
+}
+
+.finance-page--compact .finance-hero{
+  border-radius:14px;
+  padding:12px 14px 10px;
+  margin-bottom:10px;
 }
 
 .owner-portfolio-pick-banner{
@@ -130,6 +141,12 @@ body.dark-mode .owner-portfolio-pick-banner__cancel{
   color:var(--wl-text);
 }
 
+.finance-page--compact .finance-title{
+  margin:0 0 4px;
+  font-size:20px;
+  line-height:1.25;
+}
+
 .finance-subtitle{
   margin:0;
   font-size:16px;
@@ -137,11 +154,27 @@ body.dark-mode .owner-portfolio-pick-banner__cancel{
   font-weight:700;
 }
 
+.finance-page--compact .finance-subtitle{
+  font-size:12px;
+  font-weight:600;
+}
+
 .finance-filters{
   display:grid;
   grid-template-columns:1fr 1fr;
   gap:14px;
   align-items:end;
+}
+
+.finance-page--compact .finance-hero__header{
+  grid-template-columns:1fr auto;
+  gap:10px 12px;
+  align-items:center;
+}
+
+.finance-page--compact .finance-filters{
+  gap:8px;
+  min-width:min(100%, 280px);
 }
 
 .finance-filter-group{
@@ -160,6 +193,14 @@ body.dark-mode .owner-portfolio-pick-banner__cancel{
   color:var(--wl-text);
 }
 
+.finance-page--compact .finance-filter-group{
+  gap:4px;
+}
+
+.finance-page--compact .finance-filter-label{
+  font-size:11px;
+}
+
 .finance-select,
 .finance-date-input{
   width:100%;
@@ -174,10 +215,30 @@ body.dark-mode .owner-portfolio-pick-banner__cancel{
   outline:none;
 }
 
+.finance-page--compact .finance-select,
+.finance-page--compact .finance-date-input{
+  height:36px;
+  padding:0 10px;
+  font-size:13px;
+  border-radius:10px;
+}
+
 .finance-select:focus,
 .finance-date-input:focus{
   border-color:#70cee1;
   box-shadow:0 0 0 3px rgba(112,206,225,0.18);
+}
+
+.finance-period-caption{
+  margin:0 0 10px;
+  font-size:13px;
+  font-weight:700;
+  color:var(--wl-subtle);
+}
+
+.finance-page--compact .finance-period-caption{
+  margin:0 0 8px;
+  font-size:11px;
 }
 
 .finance-cards{
@@ -185,6 +246,11 @@ body.dark-mode .owner-portfolio-pick-banner__cancel{
   grid-template-columns:repeat(4, minmax(0, 1fr));
   gap:16px;
   margin-bottom:22px;
+}
+
+.finance-page--compact .finance-cards{
+  gap:8px;
+  margin-bottom:10px;
 }
 
 .finance-page--archive-income .finance-cards{
@@ -203,12 +269,23 @@ body.dark-mode .owner-portfolio-pick-banner__cancel{
   justify-content:center;
 }
 
+.finance-page--compact .finance-card{
+  min-height:0;
+  padding:10px 12px;
+  border-radius:12px;
+}
+
 .finance-card__label{
   display:block;
   font-size:16px;
   font-weight:700;
   color:#7a8598;
   margin-bottom:10px;
+}
+
+.finance-page--compact .finance-card__label{
+  font-size:11px;
+  margin-bottom:4px;
 }
 
 .finance-card__value{
@@ -218,8 +295,17 @@ body.dark-mode .owner-portfolio-pick-banner__cancel{
   color:var(--wl-text);
 }
 
+.finance-page--compact .finance-card__value{
+  font-size:17px;
+  line-height:1.25;
+}
+
 .finance-table-section{
   margin-bottom:22px;
+}
+
+.finance-page--compact .finance-table-section{
+  margin-bottom:10px;
 }
 
 .finance-table-header{
@@ -232,10 +318,19 @@ body.dark-mode .owner-portfolio-pick-banner__cancel{
   flex-wrap:wrap;
 }
 
+.finance-page--compact .finance-table-header{
+  gap:8px;
+  margin-bottom:8px;
+}
+
 .finance-table-header h2{
   margin:0;
   font-size:28px;
   font-weight:900;
+}
+
+.finance-page--compact .finance-table-header h2{
+  font-size:17px;
 }
 
 .finance-table-header__aside{
@@ -256,11 +351,24 @@ body.dark-mode .owner-portfolio-pick-banner__cancel{
   opacity:0.95;
 }
 
+.finance-page--compact .finance-table-meta{
+  font-size:12px;
+}
+
+.finance-page--compact .finance-cost-details-btn{
+  padding:6px 12px;
+  font-size:12px;
+}
+
 .finance-table-wrap{
   overflow:auto;
   border-radius:22px;
   box-shadow:var(--wl-shadow);
   border:1px solid rgba(255,255,255,0.14);
+}
+
+.finance-page--compact .finance-table-wrap{
+  border-radius:12px;
 }
 
 .finance-table{
@@ -281,6 +389,11 @@ body.dark-mode .owner-portfolio-pick-banner__cancel{
   white-space:nowrap;
 }
 
+.finance-page--compact .finance-table thead th{
+  font-size:12px;
+  padding:8px 10px;
+}
+
 .finance-table tbody td{
   padding:18px 14px;
   border-bottom:1px solid #edf1f6;
@@ -289,6 +402,11 @@ body.dark-mode .owner-portfolio-pick-banner__cancel{
   color:var(--wl-text);
   background:#fff;
   vertical-align:middle;
+}
+
+.finance-page--compact .finance-table tbody td{
+  padding:8px 10px;
+  font-size:12px;
 }
 
 .finance-table tbody tr:nth-child(even) td{

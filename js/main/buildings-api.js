@@ -25,6 +25,10 @@
       total_floors: row.total_floors ?? row.totalFloors ?? null,
       neighborhood: row.neighborhood ?? "",
       code: row.code ?? null,
+      isPinned: !!(row.is_pinned ?? row.isPinned),
+      is_pinned: !!(row.is_pinned ?? row.isPinned),
+      pinnedAt: row.pinned_at ?? row.pinnedAt ?? null,
+      pinned_at: row.pinned_at ?? row.pinnedAt ?? null,
     };
   }
 

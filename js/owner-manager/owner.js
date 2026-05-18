@@ -34,20 +34,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  const PINS_KEY = "walajna_owner_building_pins";
-
-  function readPins() {
-    try {
-      return JSON.parse(sessionStorage.getItem(PINS_KEY) || "{}");
-    } catch {
-      return {};
-    }
-  }
-
-  function writePins(map) {
-    sessionStorage.setItem(PINS_KEY, JSON.stringify(map || {}));
-  }
-
   const ARCHIVE_KEY = "walajna_buildings_archive";
   const ARCHIVE_LIMIT = 100;
 
@@ -298,8 +284,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       );
       if (response.ok) {
         const serverBuildings = await response.json();
-        const pins = readPins();
-
         return serverBuildings.map((building) => ({
           ...building,
           ownerId: building.ownerId ?? building.owner_id ?? null,
@@ -312,8 +296,8 @@ document.addEventListener("DOMContentLoaded", async () => {
           city: building.city,
           neighborhood: building.neighborhood ?? "",
           code: building.code ?? null,
-          isPinned: !!(pins[String(building.id)] && pins[String(building.id)].pinned),
-          pinnedAt: pins[String(building.id)]?.pinnedAt ?? null,
+          isPinned: !!(building.is_pinned ?? building.isPinned),
+          pinnedAt: building.pinned_at ?? building.pinnedAt ?? null,
         }));
       }
     } catch (e) {
@@ -705,10 +689,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       WalajnaBuildingsApi.removeBuildingFromSession(buildingId);
     }
 
-    const pins = readPins();
-    delete pins[String(buildingId)];
-    writePins(pins);
-
     alert(wlT("owner.buildingArchived"));
     window.location.reload();
   }
@@ -717,17 +697,32 @@ document.addEventListener("DOMContentLoaded", async () => {
     return !!building?.isPinned;
   }
 
-  function toggleBuildingPin(buildingId) {
-    const pins = readPins();
-    const key = String(buildingId);
-    const cur = pins[key];
-    if (cur && cur.pinned) {
-      delete pins[key];
-    } else {
-      pins[key] = { pinned: true, pinnedAt: new Date().toISOString() };
+  async function toggleBuildingPin(buildingId, currentlyPinned) {
+    const nextPinned = currentlyPinned === undefined ? true : !currentlyPinned;
+    try {
+      const res = await WalajnaAuth.fetchWithAuth(
+        `${WalajnaAuth.API_BASE}/api/buildings/${encodeURIComponent(String(buildingId))}/pin`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pinned: nextPinned }),
+        }
+      );
+      if (!res.ok) {
+        let msg = wlT("owner.pinError");
+        try {
+          const j = await res.json();
+          if (j?.detail) msg = typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail);
+        } catch {
+          /* ignore */
+        }
+        alert(msg);
+        return;
+      }
+      window.location.reload();
+    } catch {
+      alert(wlT("owner.pinError"));
     }
-    writePins(pins);
-    window.location.reload();
   }
 
   function closeAllBuildingMenus() {
@@ -1363,6 +1358,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                   type="button"
                   data-action="toggle-pin-building"
                   data-building-id="${building.id}"
+                  data-is-pinned="${building.isPinned ? "1" : "0"}"
                 >
                   ${building.isPinned ? wlT("owner.unpin") : wlT("owner.pin")}
                 </button>
@@ -1422,8 +1418,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         event.stopPropagation();
 
         const buildingId = btn.dataset.buildingId;
+        const currentlyPinned = btn.dataset.isPinned === "1";
         closeAllBuildingMenus();
-        toggleBuildingPin(buildingId);
+        void toggleBuildingPin(buildingId, currentlyPinned);
       });
     });
 
@@ -1484,19 +1481,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (event.target.closest(".building-card-select-wrap")) return;
 
         const buildingId = card.dataset.buildingId;
+        if (!buildingId) return;
 
-        if (ownerBuildingsEditMode) {
-          event.preventDefault();
-          event.stopPropagation();
-          const input = card.querySelector(".building-card-select");
-          if (!input) return;
-          input.checked = !input.checked;
-          input.dispatchEvent(new Event("change", { bubbles: true }));
-          return;
-        }
-
+        /* In edit mode only the checkbox toggles selection; the card opens the building. */
         await markBuildingRequestsAsSeen(buildingId);
-
         window.location.href = `owner_building.html?buildingId=${encodeURIComponent(
           buildingId
         )}`;

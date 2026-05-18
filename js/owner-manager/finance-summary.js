@@ -12,7 +12,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const buildingId = normalizeId(rawBuildingId);
 
   let apartments = [];
-  const costs = JSON.parse(localStorage.getItem("walajna_costs") || "[]");
+  const costsLocal = JSON.parse(localStorage.getItem("walajna_costs") || "[]");
   let payments = [];
 
   let building = null;
@@ -21,8 +21,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   /** Paid installments for this building (includes vacated units; GET /api/buildings/:id/installments). */
   let serverInstallmentsForBuilding = [];
+  /** Cost rows from GET /api/buildings/:id/costs */
+  let serverCostsForBuilding = [];
   let incomeFromApi = false;
   let incomeFromArchive = false;
+  let costsFromApi = false;
 
   function mapApiApartmentToFinance(api) {
     if (!api) return null;
@@ -72,6 +75,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     return Array.from(byKey.values());
   }
 
+  function parseIsoDate(raw) {
+    if (!raw) return null;
+    const d = new Date(raw);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  function getApartmentApiId(apartment) {
+    if (apartment?.apiId != null && String(apartment.apiId).trim() !== "") {
+      return String(apartment.apiId);
+    }
+    return normalizeId(apartment?.id);
+  }
+
   async function loadInstallmentsForFinanceApartments() {
     serverInstallmentsForBuilding = [];
     if (
@@ -93,6 +109,32 @@ document.addEventListener("DOMContentLoaded", async () => {
       serverInstallmentsForBuilding = Array.isArray(data) ? data : [];
     } catch (e) {
       console.warn("finance-summary: building installments fetch failed", e);
+    }
+  }
+
+  async function loadCostsForBuilding() {
+    serverCostsForBuilding = [];
+    costsFromApi = false;
+    if (
+      typeof WalajnaAuth === "undefined" ||
+      !WalajnaAuth.fetchWithAuth ||
+      !buildingId
+    ) {
+      return;
+    }
+    try {
+      const res = await WalajnaAuth.fetchWithAuth(
+        `${WalajnaAuth.API_BASE}/api/buildings/${encodeURIComponent(buildingId)}/costs`,
+        { method: "GET" }
+      );
+      if (!res.ok) {
+        return;
+      }
+      const data = await res.json();
+      serverCostsForBuilding = Array.isArray(data) ? data : [];
+      costsFromApi = true;
+    } catch (e) {
+      console.warn("finance-summary: building costs fetch failed", e);
     }
   }
 
@@ -178,8 +220,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (mapped.length) {
           buildingApartments = dedupeFinanceApartments(mapped, buildingId);
           incomeFromApi = true;
-          await loadInstallmentsForFinanceApartments();
         }
+      }
+      if (buildingId && incomeFromApi) {
+        await Promise.all([
+          loadInstallmentsForFinanceApartments(),
+          loadCostsForBuilding(),
+        ]);
       }
     } catch (e) {
       console.warn("finance-summary: API load failed (no local buildings fallback)", e);
@@ -409,11 +456,25 @@ document.addEventListener("DOMContentLoaded", async () => {
   function getApartmentCostsForRange(apartment, start, end) {
     if (!apartment) return 0;
 
+    const apiAptId = getApartmentApiId(apartment);
+
+    if (costsFromApi) {
+      return serverCostsForBuilding
+        .filter((row) => String(row.apartment_id ?? "") === apiAptId)
+        .filter((row) => {
+          const costDate = parseIsoDate(row.expense_date || row.created_at);
+          if (!costDate) return false;
+          return costDate >= start && costDate <= end;
+        })
+        .reduce((sum, row) => sum + Number(row.amount || 0), 0);
+    }
+
     const currentContractId = getApartmentCurrentContractId(apartment);
 
-    return costs
+    return costsLocal
       .filter((cost) => {
-        if (normalizeId(cost.apartmentId) !== normalizeId(apartment.id)) {
+        const costApt = normalizeId(cost.apartmentId);
+        if (costApt !== normalizeId(apartment.id) && costApt !== apiAptId) {
           return false;
         }
 
@@ -423,11 +484,8 @@ document.addEventListener("DOMContentLoaded", async () => {
           }
         }
 
-        const rawDate = cost.date || cost.createdAt;
-        if (!rawDate) return false;
-
-        const costDate = new Date(rawDate);
-        if (Number.isNaN(costDate.getTime())) return false;
+        const costDate = parseIsoDate(cost.date || cost.createdAt);
+        if (!costDate) return false;
 
         return costDate >= start && costDate <= end;
       })
@@ -618,9 +676,33 @@ document.addEventListener("DOMContentLoaded", async () => {
     return getApartmentRealizedIncomeForRange(apartment, earliest, endDate);
   }
 
-  function getApartmentLateAmount(apartment, rangeEnd) {
+  function getApartmentOverdueThrough(apartment, rangeEnd) {
     if (!apartment || !isApartmentOccupied(apartment)) {
       return 0;
+    }
+
+    if (incomeFromApi || incomeFromArchive) {
+      const apiAptId = getApartmentApiId(apartment);
+      const periodEnd =
+        rangeEnd instanceof Date ? new Date(rangeEnd.getTime()) : parseIsoDate(rangeEnd) || new Date();
+      const now = new Date();
+      now.setHours(23, 59, 59, 999);
+      const asOf = periodEnd.getTime() < now.getTime() ? periodEnd : now;
+      let sum = 0;
+      (serverInstallmentsForBuilding || []).forEach((row) => {
+        const rowApt = row.apartment_id != null ? String(row.apartment_id) : "";
+        if (rowApt !== apiAptId) return;
+        const status = String(row.status || "").toLowerCase();
+        if (status === "paid" || status === "cancelled") return;
+        const due = parseIsoDate(row.due_date || row.dueDate);
+        if (!due) return;
+        due.setHours(0, 0, 0, 0);
+        const cutoff = new Date(asOf);
+        cutoff.setHours(0, 0, 0, 0);
+        if (due.getTime() > cutoff.getTime()) return;
+        sum += Number(row.amount || 0);
+      });
+      return sum;
     }
 
     const currentContractId = getApartmentCurrentContractId(apartment);
@@ -708,7 +790,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       sortedUnits.forEach((apartment) => {
         const income = getApartmentRealizedIncomeForRange(apartment, start, end);
         const apartmentCosts = getApartmentCostsForRange(apartment, start, end);
-        const lateAmount = getApartmentLateAmount(apartment, end);
+        const lateAmount = getApartmentOverdueThrough(apartment, end);
         const profit = income - apartmentCosts;
 
         totalIncome += income;

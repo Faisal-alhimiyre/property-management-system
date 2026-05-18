@@ -726,18 +726,6 @@ body{
   box-shadow:0 0 0 4px rgba(24,199,195,0.14);
 }
 
-/* Annual rent only: hide steppers; user types the amount */
-#linkTenantModal #linkRent{
-  -moz-appearance:textfield;
-  appearance:textfield;
-}
-
-#linkTenantModal #linkRent::-webkit-outer-spin-button,
-#linkTenantModal #linkRent::-webkit-inner-spin-button{
-  -webkit-appearance:none;
-  margin:0;
-}
-
 /* Floor is read-only from apartment; hide number steppers */
 #linkTenantModal #linkFloorNumber{
   -moz-appearance:textfield;

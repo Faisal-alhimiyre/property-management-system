@@ -65,7 +65,19 @@
   </div>
 
   <script src="../js/main/theme.js"></script>
+  <script src="../js/main/auth.js"></script>
   <script src="../js/main/breadcrumbs.js"></script>
   <script src="../js/main/nav.js"></script>
+  <script>
+    document.addEventListener("walajna:navbar-ready", function () {
+      var role =
+        typeof WalajnaAuth !== "undefined" && WalajnaAuth.getActiveRole
+          ? WalajnaAuth.getActiveRole()
+          : sessionStorage.getItem("activeRole");
+      if (role === "tenant") {
+        window.location.replace("../tenants/tenant_home.html");
+      }
+    });
+  </script>
 </body>
 </html>

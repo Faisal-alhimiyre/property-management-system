@@ -1,10 +1,10 @@
 import logging
 from collections import defaultdict
-from datetime import date
+from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from installment_service import cycle_months
-from models import Building, BuildingResponse, CostResponse, UnitLayoutBody
+from models import Building, BuildingPinUpdate, BuildingResponse, CostResponse, UnitLayoutBody
 from config import supabase
 from routes.auth_routes import get_current_user
 from routes.cost_routes import _row_to_response as _cost_row_to_response
@@ -100,6 +100,22 @@ def _to_float(value):
 
 BUILDING_NAME_MIN_LEN = 3
 BUILDING_NAME_MAX_LEN = 40
+
+
+def _row_to_building_response(row: dict) -> BuildingResponse:
+    data = dict(row or {})
+    data.setdefault("is_pinned", False)
+    return BuildingResponse(**data)
+
+
+def _get_owned_building_row(building_id: int, owner_id) -> dict:
+    result = supabase.table("buildings").select("*").eq("id", building_id).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Building not found")
+    row = result.data[0]
+    if int(row.get("owner_id")) != int(owner_id):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    return row
 
 
 def _normalize_building_name(raw_name) -> str:
@@ -371,8 +387,36 @@ async def get_buildings(current_user: dict = Depends(get_current_user)):
     if not has_role(current_user, "owner"):
         raise HTTPException(status_code=403, detail="Only owners can list buildings")
 
-    result = supabase.table("buildings").select("*").eq("owner_id", current_user["id"]).execute()
-    return [BuildingResponse(**b) for b in (result.data or [])]
+    result = (
+        supabase.table("buildings")
+        .select("*")
+        .eq("owner_id", current_user["id"])
+        .order("is_pinned", desc=True)
+        .order("pinned_at", desc=True)
+        .execute()
+    )
+    return [_row_to_building_response(b) for b in (result.data or [])]
+
+
+@router.patch("/buildings/{building_id}/pin", response_model=BuildingResponse)
+async def set_building_pin(
+    building_id: int,
+    body: BuildingPinUpdate,
+    current_user: dict = Depends(get_current_user),
+):
+    if not has_role(current_user, "owner"):
+        raise HTTPException(status_code=403, detail="Only owners can pin buildings")
+
+    _get_owned_building_row(building_id, current_user["id"])
+
+    update_data = {
+        "is_pinned": bool(body.pinned),
+        "pinned_at": datetime.now(timezone.utc).isoformat() if body.pinned else None,
+    }
+    supabase.table("buildings").update(update_data).eq("id", building_id).execute()
+    updated = supabase.table("buildings").select("*").eq("id", building_id).execute()
+    return _row_to_building_response(updated.data[0])
+
 
 @router.patch("/buildings/{building_id}", response_model=BuildingResponse)
 async def update_building(building_id: int, building: Building, current_user: dict = Depends(get_current_user)):
@@ -394,7 +438,7 @@ async def update_building(building_id: int, building: Building, current_user: di
         raise HTTPException(status_code=400, detail="latitude and longitude are required")
     supabase.table("buildings").update(update_data).eq("id", building_id).execute()
     updated = supabase.table("buildings").select("*").eq("id", building_id).execute()
-    return BuildingResponse(**updated.data[0])
+    return _row_to_building_response(updated.data[0])
 
 
 @router.delete("/buildings/{building_id}")

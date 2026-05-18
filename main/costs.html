@@ -70,7 +70,7 @@
 
           <div class="payments-field">
             <label for="costAmountInput" data-i18n="costs.th.amount"></label>
-            <input id="costAmountInput" type="number" min="0" step="0.01" />
+            <input id="costAmountInput" type="number" min="0" step="100" data-wl-numeric="money-100" />
           </div>
 
           <div class="payments-field">
@@ -102,6 +102,7 @@
   </div>
 
   <script src="../js/main/theme.js"></script>
+  <script src="../js/main/walajna-numeric-input.js"></script>
   <script src="../js/main/breadcrumbs.js"></script>
   <script src="../js/main/auth.js"></script>
   <script src="../js/main/nav.js"></script>

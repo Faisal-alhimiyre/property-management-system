@@ -836,7 +836,10 @@
       });
     }
 
-    if (amountInput) amountInput.value = payment.amount || "";
+    if (amountInput) {
+      const amt = Math.round(Number(payment.amount || 0));
+      amountInput.value = amt > 0 ? String(amt) : "";
+    }
     if (paidAtInput) paidAtInput.value = utils.getTodayDateString();
     if (methodInput) methodInput.value = "";
     if (notesInput) notesInput.value = "";

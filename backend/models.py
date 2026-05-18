@@ -287,6 +287,10 @@ class Building(BaseModel):
     apartments_per_floor: Optional[int] = None
     created_at: Optional[datetime] = None
 
+class BuildingPinUpdate(BaseModel):
+    pinned: bool
+
+
 class BuildingResponse(BaseModel):
     id: int | str
     owner_id: int | str
@@ -299,6 +303,8 @@ class BuildingResponse(BaseModel):
     total_floors: Optional[int] = None
     apartments_count: Optional[int] = None
     apartments_per_floor: Optional[int] = None
+    is_pinned: bool = False
+    pinned_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
 
 

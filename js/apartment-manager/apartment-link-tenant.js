@@ -8,6 +8,10 @@ function initLinkTenantSystem(aptId, currentUser, options) {
       ? window.walajna_language.t(k, p)
       : k;
 
+  if (typeof WalajnaNumericInput !== "undefined" && WalajnaNumericInput.initLinkTenantForm) {
+    WalajnaNumericInput.initLinkTenantForm(document);
+  }
+
   const canAssignTenant =
     options && typeof options.canAssignTenant === "function" ? options.canAssignTenant : () => true;
 

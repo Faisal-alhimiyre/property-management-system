@@ -142,6 +142,9 @@ function updateNavbarLabels() {
     homeLink.textContent = wlT("nav.home");
     homeLink.href = "../main/homepage.html";
 
+    link2.hidden = false;
+    link2.style.display = "";
+    link2.removeAttribute("aria-hidden");
     link2.textContent = wlT("nav.howItWorks");
     link2.href = walajnaHowItWorksHref();
 
@@ -181,8 +184,18 @@ function updateNavbarLabels() {
   homeLink.textContent = wlT(homeLabelKey);
   homeLink.href = homeHref;
 
-  link2.textContent = wlT("nav.services");
-  link2.href = "../main/services.html";
+  const isTenant = activeRole === "tenant";
+  if (isTenant) {
+    link2.hidden = true;
+    link2.style.display = "none";
+    link2.setAttribute("aria-hidden", "true");
+  } else {
+    link2.hidden = false;
+    link2.style.display = "";
+    link2.removeAttribute("aria-hidden");
+    link2.textContent = wlT("nav.services");
+    link2.href = "../main/services.html";
+  }
 
   link3.textContent = wlT("nav.messages");
   link3.href = "../main/messages.html";
@@ -554,7 +567,7 @@ function setActiveLinkByPage(navType) {
 
   if (currentPath.includes("owner_home") || currentPath.includes("tenant_home")) {
     homeLink.classList.add("is-active");
-  } else if (currentPath.includes("services")) {
+  } else if (currentPath.includes("services") && !link2.hidden) {
     link2.classList.add("is-active");
   } else if (currentPath.includes("messages")) {
     link3.classList.add("is-active");
