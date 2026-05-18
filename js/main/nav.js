@@ -19,6 +19,13 @@ function walajnaHowItWorksHref() {
   return walajnaPublicHomeHref() + "#how";
 }
 
+/** Guest nav "About us" → in-page section on homepage (`#about`). */
+function walajnaAboutHref() {
+  const p = String(window.location.pathname || "").replace(/\\/g, "/");
+  if (/\/homepage\.html$/i.test(p)) return "#about";
+  return walajnaPublicHomeHref() + "#about";
+}
+
 let walajnaTopbarResizeObserver = null;
 
 /** Keeps sticky bars (e.g. #walajna-breadcrumb) flush under the real measured topbar height (e.g. wrapped nav on small screens). */
@@ -149,7 +156,7 @@ function updateNavbarLabels() {
     link2.href = walajnaHowItWorksHref();
 
     link3.textContent = wlT("nav.about");
-    link3.href = "../main/about.html";
+    link3.href = walajnaAboutHref();
 
     link4.textContent = wlT("nav.login");
     link4.href = "../auth/login.html";
@@ -552,8 +559,11 @@ function setActiveLinkByPage(navType) {
 
   if (navType === "guest") {
     if (currentPath.includes("homepage") || currentPath.includes("index")) {
-      if (String(window.location.hash || "").toLowerCase() === "#how") {
+      const hash = String(window.location.hash || "").toLowerCase();
+      if (hash === "#how") {
         link2.classList.add("is-active");
+      } else if (hash === "#about") {
+        link3.classList.add("is-active");
       } else {
         homeLink.classList.add("is-active");
       }

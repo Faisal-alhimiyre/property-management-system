@@ -34,7 +34,7 @@
     const rentAmountFromYearly =
       Number.isFinite(yrForMonthly) && yrForMonthly > 0 ? yrForMonthly / 12 : undefined;
     const contract =
-      cid || lt
+      cid && lt
         ? {
             id: cid,
             startDate:
@@ -50,7 +50,9 @@
             brokerInfo: lt?.brokerInfo,
             services: lt?.services,
           }
-        : null;
+        : cid
+          ? { id: cid }
+          : null;
 
     return {
       id: String(id),
@@ -217,7 +219,21 @@
       throw new Error(typeof msg === "string" ? msg : JSON.stringify(msg));
     }
     const row = await res.json();
-    mergeIntoSession(mapApiRowToClient(row));
+    const mapped = mapApiRowToClient(row);
+    mergeIntoSession(mapped);
+    if (
+      typeof WalajnaCostsApi !== "undefined" &&
+      WalajnaCostsApi.refreshForApartment
+    ) {
+      try {
+        await WalajnaCostsApi.refreshForApartment(
+          String(mapped.id),
+          mapped.apiId ?? mapped.id
+        );
+      } catch (e) {
+        console.warn("[apartments-api] costs refresh after vacate failed", e);
+      }
+    }
     return row;
   }
 

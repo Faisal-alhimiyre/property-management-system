@@ -546,21 +546,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function isApartmentOccupied(apartment) {
+    if (!apartment) return false;
+    const ti = apartment.tenantInfo;
     return !!(
-      apartment?.tenantUserId ||
-      apartment?.tenantNationalId ||
-      apartment?.tenantInfo?.fullName ||
-      apartment?.tenantInfo?.phoneNumber ||
-      apartment?.tenantInfo?.nationality ||
-      apartment?.tenantInfo?.tenantType ||
-      apartment?.currentContractId ||
-      apartment?.contractId ||
-      apartment?.contract?.id ||
-      apartment?.contract?.startDate ||
-      apartment?.contract?.endDate ||
-      apartment?.contract?.rentAmount ||
-      apartment?.contract?.paymentCycle ||
-      apartment?.contract?.meterNumber
+      apartment.tenantUserId ||
+      apartment.tenantNationalId ||
+      String(ti?.fullName || ti?.full_name || "").trim() ||
+      String(ti?.phoneNumber || ti?.phone_number || "").trim()
     );
   }
 

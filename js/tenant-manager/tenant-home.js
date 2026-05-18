@@ -98,15 +98,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  const pinnedStorageKey = `walajna_tenant_pinned_apartment_ids_${String(currentUser.id || "anon")}`;
-  let pinnedApartmentIds = (() => {
-    try {
-      const raw = JSON.parse(localStorage.getItem(pinnedStorageKey) || "[]");
-      return new Set(Array.isArray(raw) ? raw.map((x) => String(x)) : []);
-    } catch {
-      return new Set();
-    }
-  })();
   const overdueApartmentIds = new Set();
 
   function toStr(value) {
@@ -390,7 +381,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (filterValue === "all") return true;
     if (filterValue === "replied") return hasUnreadOwnerReply(apartment);
     if (filterValue === "overdue") return isApartmentOverdue(apartment);
-    if (filterValue === "pinned") return pinnedApartmentIds.has(apartmentStableId(apartment));
     return true;
   }
 
@@ -399,23 +389,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  function persistPinnedApartments() {
-    localStorage.setItem(
-      pinnedStorageKey,
-      JSON.stringify(Array.from(pinnedApartmentIds))
-    );
-  }
-
   function renderStats() {
     if (!statsContainer) return;
     const total = myApartments.length;
     const replied = myApartments.filter(hasUnreadOwnerReply).length;
-    const pinned = myApartments.filter((apt) => pinnedApartmentIds.has(apartmentStableId(apt))).length;
     const overdue = myApartments.filter(isApartmentOverdue).length;
     statsContainer.innerHTML = `
       <span class="tenant-stat-chip">${wlT("tenant.home.statTotal", { n: String(total) })}</span>
       <span class="tenant-stat-chip">${wlT("tenant.home.statReplied", { n: String(replied) })}</span>
-      <span class="tenant-stat-chip">${wlT("tenant.home.statPinned", { n: String(pinned) })}</span>
       <span class="tenant-stat-chip">${wlT("tenant.home.statOverdue", { n: String(overdue) })}</span>
     `;
   }
@@ -425,10 +406,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       const aReply = hasUnreadOwnerReply(a) ? 1 : 0;
       const bReply = hasUnreadOwnerReply(b) ? 1 : 0;
       if (aReply !== bReply) return bReply - aReply;
-
-      const aPinned = pinnedApartmentIds.has(apartmentStableId(a)) ? 1 : 0;
-      const bPinned = pinnedApartmentIds.has(apartmentStableId(b)) ? 1 : 0;
-      if (aPinned !== bPinned) return bPinned - aPinned;
 
       const aOverdue = isApartmentOverdue(a) ? 1 : 0;
       const bOverdue = isApartmentOverdue(b) ? 1 : 0;
@@ -462,17 +439,14 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
     sortedApartments.forEach((apt) => {
-      const aptId = apartmentStableId(apt);
       const hasReplyAlert = hasUnreadOwnerReply(apt);
-      const isPinned = pinnedApartmentIds.has(aptId);
       const hasOverdue = isApartmentOverdue(apt);
       const card = document.createElement("div");
-      card.className = `building-card clickable-card ${hasReplyAlert ? "has-reply-alert" : ""} ${isPinned ? "is-pinned" : ""}`;
+      card.className = `building-card clickable-card ${hasReplyAlert ? "has-reply-alert" : ""}`;
       card.dataset.target = "../main/apartment_info.html";
       card.dataset.id = apt.id;
 
       card.innerHTML = `
-        <button type="button" class="apt-pin-btn ${isPinned ? "is-pinned" : ""}" title="${isPinned ? wlT("tenant.home.unpinApartment") : wlT("tenant.home.pinApartment")}" aria-label="${isPinned ? wlT("tenant.home.unpinApartment") : wlT("tenant.home.pinApartment")}">📌</button>
         ${hasReplyAlert ? `<span class="apt-reply-dot" title="${wlT("messages.newReplyTitle")}"></span>` : ""}
         <div class="building-card__media" aria-hidden="true">
           <img src="../pics/tenant-house-icon.png" alt="">
@@ -484,18 +458,6 @@ document.addEventListener("DOMContentLoaded", async () => {
           ${hasOverdue ? `<span class="apartment-badge overdue">${wlT("tenant.home.badgeOverdue")}</span>` : ""}
         </div>
       `;
-
-      const pinBtn = card.querySelector(".apt-pin-btn");
-      if (pinBtn) {
-        pinBtn.addEventListener("click", (event) => {
-          event.stopPropagation();
-          if (isPinned) pinnedApartmentIds.delete(aptId);
-          else pinnedApartmentIds.add(aptId);
-          persistPinnedApartments();
-          renderStats();
-          renderApartmentCards();
-        });
-      }
 
       card.addEventListener("click", () => {
         window.location.href = `../main/apartment_info.html?id=${encodeURIComponent(apt.id)}`;

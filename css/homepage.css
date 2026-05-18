@@ -593,8 +593,81 @@ body{
   padding-top: clamp(48px, 7vw, 72px);
 }
 
+#about,
+#features,
+#how{
+  scroll-margin-top: calc(var(--walajna-topbar-height, 88px) + 16px);
+}
+
+.section--about{
+  padding-top: clamp(48px, 7vw, 72px);
+  background: linear-gradient(180deg, #ffffff 0%, #f0f9ff 48%, #ecfeff 100%);
+}
+
 .section--how{
   background: linear-gradient(180deg, #f1f5f9 0%, #ffffff 55%);
+}
+
+.about-panel{
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.about-lead{
+  margin: 0 auto 2rem;
+  max-width: 52rem;
+  text-align: center;
+  font-size: clamp(1rem, 0.5vw + 0.95rem, 1.12rem);
+  line-height: 1.95;
+  font-weight: 700;
+  color: rgba(26, 47, 74, 0.82);
+}
+
+.about-grid{
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(14px, 2vw, 20px);
+}
+
+.about-card{
+  padding: 1.45rem 1.35rem 1.5rem;
+  border-radius: 22px;
+  border: 2px solid rgba(26, 47, 74, 0.08);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 14px 36px rgba(26, 47, 74, 0.07);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.about-card:hover{
+  transform: translateY(-4px);
+  box-shadow: 0 20px 44px rgba(26, 47, 74, 0.11);
+}
+
+.about-card__title{
+  margin: 0 0 0.65rem;
+  font-size: 1.08rem;
+  font-weight: 900;
+  color: var(--hp-navy);
+  letter-spacing: -0.02em;
+}
+
+.about-card__title::before{
+  content: "";
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-inline-end: 8px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--hp-logo), var(--hp-logo-deep));
+  vertical-align: middle;
+}
+
+.about-card__text{
+  margin: 0;
+  font-size: 0.93rem;
+  line-height: 1.85;
+  font-weight: 600;
+  color: rgba(26, 47, 74, 0.72);
 }
 
 .section__head{
@@ -966,12 +1039,34 @@ body.dark-mode .section{
   color: #e5edf7;
 }
 
+body.dark-mode .section--about{
+  background: linear-gradient(180deg, #020617 0%, #0f172a 50%, #020617 100%);
+}
+
 body.dark-mode .section--how{
   background: linear-gradient(180deg, #0f172a 0%, #020617 55%);
 }
 
 body.dark-mode .section__title{
   color: #f8fafc;
+}
+
+body.dark-mode .about-lead{
+  color: #cbd5e1;
+}
+
+body.dark-mode .about-card{
+  background: rgba(15, 23, 42, 0.88);
+  border-color: rgba(148, 163, 184, 0.2);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.35);
+}
+
+body.dark-mode .about-card__title{
+  color: #f8fafc;
+}
+
+body.dark-mode .about-card__text{
+  color: #94a3b8;
 }
 
 body.dark-mode .feature-card:nth-child(1),
@@ -1026,7 +1121,8 @@ body.dark-mode .to-top{
     margin-inline: auto;
   }
 
-  .feature-grid{
+  .feature-grid,
+  .about-grid{
     grid-template-columns: 1fr;
   }
 

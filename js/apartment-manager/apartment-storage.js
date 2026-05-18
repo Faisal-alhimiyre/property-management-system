@@ -206,7 +206,7 @@ function apartmentHasContractData(apartment) {
 }
 
 function isApartmentOccupied(apartment) {
-  return apartmentHasTenantData(apartment) || apartmentHasContractData(apartment);
+  return apartmentHasTenantData(apartment);
 }
 
 /* =========================

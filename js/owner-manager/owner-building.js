@@ -1038,19 +1038,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function isApartmentOccupied(apartment) {
+    if (!apartment) return false;
+    const ti = apartment.tenantInfo;
     return !!(
-      apartment?.tenantUserId ||
-      apartment?.tenantNationalId ||
-      apartment?.tenantInfo?.fullName ||
-      apartment?.tenantInfo?.phoneNumber ||
-      apartment?.tenantInfo?.nationality ||
-      apartment?.tenantInfo?.tenantType ||
-      apartment?.contract?.id ||
-      apartment?.contract?.startDate ||
-      apartment?.contract?.endDate ||
-      apartment?.contract?.rentAmount ||
-      apartment?.contract?.paymentCycle ||
-      apartment?.contract?.meterNumber
+      apartment.tenantUserId ||
+      apartment.tenantNationalId ||
+      String(ti?.fullName || ti?.full_name || "").trim() ||
+      String(ti?.phoneNumber || ti?.phone_number || "").trim()
     );
   }
 
@@ -1359,7 +1353,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     return "";
   }
 
-  function saveApartmentEdit() {
+  async function saveApartmentEdit() {
     if (!selectedApartmentId) return;
 
     const formData = readEditFormData();
@@ -1373,16 +1367,47 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     const aptForSave = apartments.find((x) => String(x.id) === String(selectedApartmentId));
+    const formHasTenant =
+      formData.fullName ||
+      formData.nationalId ||
+      formData.nationality ||
+      formData.tenantType ||
+      formData.phone;
+
     if (aptForSave && !isApartmentOccupied(aptForSave)) {
       if (!isCurrentBuildingUnitLayoutComplete()) {
-        const hasTenantData =
-          formData.fullName ||
-          formData.nationalId ||
-          formData.nationality ||
-          formData.tenantType ||
-          formData.phone;
-        if (hasTenantData) {
+        if (formHasTenant) {
           showError(T("building.completeLayoutAlert"));
+          return;
+        }
+      }
+    }
+
+    const clearingTenant =
+      aptForSave &&
+      isApartmentOccupied(aptForSave) &&
+      !formHasTenant;
+
+    const authed =
+      typeof WalajnaAuth !== "undefined" && WalajnaAuth.getCurrentUser?.();
+    if (
+      clearingTenant &&
+      authed &&
+      typeof WalajnaApartmentsApi !== "undefined" &&
+      WalajnaApartmentsApi.vacateTenant
+    ) {
+      const apiId =
+        aptForSave.apiId != null
+          ? Number(aptForSave.apiId)
+          : Number(aptForSave.id);
+      if (Number.isFinite(apiId)) {
+        try {
+          await WalajnaApartmentsApi.vacateTenant(apiId);
+          closeEditModal();
+          window.location.reload();
+          return;
+        } catch (e) {
+          alert(e?.message || String(e));
           return;
         }
       }
@@ -1392,14 +1417,27 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (String(apt.id) !== String(selectedApartmentId)) return apt;
 
       const oldContract = apt.contract || {};
-      const oldTenantInfo = apt.tenantInfo || {};
 
-      const hasTenantData =
-        formData.fullName ||
-        formData.nationalId ||
-        formData.nationality ||
-        formData.tenantType ||
-        formData.phone;
+      if (!formHasTenant) {
+        return {
+          ...apt,
+          rent: formData.rent ? Number(formData.rent) : "",
+          floorNumber: formData.floorNumber ? Number(formData.floorNumber) : null,
+          roomsCount: formData.roomsCount ? Number(formData.roomsCount) : null,
+          bathroomsCount: formData.bathroomsCount ? Number(formData.bathroomsCount) : null,
+          livingRoomsCount: formData.livingRoomsCount
+            ? Number(formData.livingRoomsCount)
+            : null,
+          tenantUserId: null,
+          tenantNationalId: null,
+          tenantInfo: {},
+          currentContractId: null,
+          contractId: null,
+          contract: {},
+          leaseStatus: "vacant",
+          status: TAr("finance.vacant"),
+        };
+      }
 
       return {
         ...apt,
@@ -1411,22 +1449,25 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         tenantNationalId: formData.nationalId || null,
 
-        tenantInfo: hasTenantData
-          ? {
-              fullName: formData.fullName || "",
-              phoneNumber: formData.phone || "",
-              nationality: formData.nationality || "",
-              tenantType: formData.tenantType || "",
-            }
-          : oldTenantInfo,
+        tenantInfo: {
+          fullName: formData.fullName || "",
+          phoneNumber: formData.phone || "",
+          nationality: formData.nationality || "",
+          tenantType: formData.tenantType || "",
+        },
 
         contract: {
           ...oldContract,
           startDate: formData.startDate || "",
           endDate: formData.endDate || "",
-          rentAmount: formData.rent ? Number(formData.rent) : Number(oldContract.rentAmount || 0),
-          paymentCycle: formData.paymentCycle || apt.paymentDefaults?.paymentCycle || "monthly",
-          installmentsCount: formData.installmentsCount ? Number(formData.installmentsCount) : Number(oldContract.installmentsCount || 0),
+          rentAmount: formData.rent
+            ? Number(formData.rent)
+            : Number(oldContract.rentAmount || 0),
+          paymentCycle:
+            formData.paymentCycle || apt.paymentDefaults?.paymentCycle || "monthly",
+          installmentsCount: formData.installmentsCount
+            ? Number(formData.installmentsCount)
+            : Number(oldContract.installmentsCount || 0),
           insurancePaid: formData.insurancePaid || "",
           meterNumber: formData.meterNumber || "",
           notes: formData.notes || "",

@@ -504,7 +504,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function isApartmentOccupied(apartmentData) {
-    return hasTenantData(apartmentData) || hasContractData(apartmentData);
+    return hasTenantData(apartmentData);
   }
 
   function getEffectiveLeaseStatus(apartmentData) {

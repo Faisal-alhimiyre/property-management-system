@@ -262,13 +262,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function isApartmentOccupied(apartment) {
+    if (!apartment) return false;
+    const ti = apartment.tenantInfo;
     return !!(
-      apartment?.leaseStatus !== "vacant" ||
-      apartment?.tenantUserId ||
-      apartment?.tenantNationalId ||
-      apartment?.tenantInfo?.fullName ||
-      apartment?.currentContractId ||
-      apartment?.contract?.id
+      apartment.tenantUserId ||
+      apartment.tenantNationalId ||
+      String(ti?.fullName || ti?.full_name || "").trim()
     );
   }
 

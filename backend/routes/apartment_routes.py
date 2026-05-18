@@ -878,6 +878,8 @@ def _repair_stale_apartment_tenant_columns(rows: list[dict]) -> list[dict]:
             continue
 
         if icid in existing_contract_ids:
+            if not _denormalized_tenant_present(r):
+                to_clear.add(iaid)
             continue
 
         if active:
@@ -1258,6 +1260,82 @@ def _get_apartment_detail_row(apartment_id: int, current_user: dict) -> dict:
 async def get_apartment(apartment_id: int, current_user: dict = Depends(get_current_user)):
     row = await asyncio.to_thread(_get_apartment_detail_row, apartment_id, current_user)
     return ApartmentResponse(**row)
+
+
+def _cost_rows_to_history_snapshot(rows: list[dict]) -> list[dict]:
+    """JSON-safe cost rows stored on apartment_history.old_data.costs when a tenancy ends."""
+    out: list[dict] = []
+    for row in rows or []:
+        ed = row.get("expense_date")
+        expense_date = str(ed)[:10] if ed is not None else None
+        created = row.get("created_at")
+        created_at = str(created) if created is not None else None
+        out.append(
+            {
+                "id": row.get("id"),
+                "contractId": row.get("contract_id"),
+                "costType": row.get("cost_type"),
+                "amount": float(row.get("amount") or 0),
+                "status": row.get("status"),
+                "expenseDate": expense_date,
+                "notes": row.get("notes"),
+                "createdAt": created_at,
+            }
+        )
+    return out
+
+
+def _archive_and_delete_costs_for_contract(
+    apartment_id: int, contract_id: int | None
+) -> list[dict]:
+    """
+    Remove active cost rows tied to an ended contract; return snapshot for apartment_history.
+  """
+    if contract_id is None:
+        return []
+    try:
+        cid = int(contract_id)
+    except (TypeError, ValueError):
+        return []
+    try:
+        cres = (
+            supabase.table("costs")
+            .select("*")
+            .eq("apartment_id", int(apartment_id))
+            .eq("contract_id", cid)
+            .execute()
+        )
+    except Exception:
+        logger.exception(
+            "vacate: costs fetch failed apartment_id=%s contract_id=%s",
+            apartment_id,
+            cid,
+        )
+        return []
+    rows = getattr(cres, "data", None) or []
+    if not rows:
+        return []
+    snapshot = _cost_rows_to_history_snapshot(rows)
+    ids: list[int] = []
+    for row in rows:
+        rid = row.get("id")
+        if rid is None:
+            continue
+        try:
+            ids.append(int(rid))
+        except (TypeError, ValueError):
+            continue
+    if ids:
+        try:
+            supabase.table("costs").delete().in_("id", ids).execute()
+        except Exception:
+            logger.exception(
+                "vacate: costs delete failed apartment_id=%s contract_id=%s ids=%s",
+                apartment_id,
+                cid,
+                ids,
+            )
+    return snapshot
 
 
 def _contract_snapshot_for_history(contract_id) -> dict | None:
@@ -1714,6 +1792,9 @@ async def vacate_tenant(apartment_id: int, current_user: dict = Depends(get_curr
     except (TypeError, ValueError):
         raise HTTPException(status_code=403, detail="Not authorized: apartment belongs to a different owner")
 
+    ccid_end = apartment.get("current_contract_id")
+    cost_snapshot = _archive_and_delete_costs_for_contract(apt_id_int, ccid_end)
+
     tenant_info_pre = apartment.get("tenant_info") or {}
     had_tenancy = bool(
         apartment.get("tenant_user_id")
@@ -1721,6 +1802,7 @@ async def vacate_tenant(apartment_id: int, current_user: dict = Depends(get_curr
         or tenant_info_pre.get("fullName")
         or tenant_info_pre.get("full_name")
         or apartment.get("current_contract_id")
+        or cost_snapshot
     )
     if had_tenancy:
         old_data_hist: dict = {
@@ -1738,6 +1820,8 @@ async def vacate_tenant(apartment_id: int, current_user: dict = Depends(get_curr
         csnap = _contract_snapshot_for_history(apartment.get("current_contract_id"))
         if csnap:
             old_data_hist["contract"] = csnap
+        if cost_snapshot:
+            old_data_hist["costs"] = cost_snapshot
         try:
             supabase.table("apartment_history").insert(
                 {
@@ -1751,7 +1835,6 @@ async def vacate_tenant(apartment_id: int, current_user: dict = Depends(get_curr
         except Exception:
             logger.exception("apartment_history insert failed on vacate apartment_id=%s", apt_id_int)
 
-    ccid_end = apartment.get("current_contract_id")
     if ccid_end is not None:
         try:
             supabase.table("contracts").update({"status": "terminated"}).eq("id", int(ccid_end)).execute()

@@ -74,11 +74,17 @@ async def list_costs(
     contract_id: int | None = Query(None, description="Optional filter by contract"),
     current_user: dict = Depends(get_current_user),
 ):
-    _assert_owner_apartment_for_costs(current_user, apartment_id)
+    apt = _assert_owner_apartment_for_costs(current_user, apartment_id)
     try:
         q = supabase.table("costs").select("*").eq("apartment_id", apartment_id)
         if contract_id is not None:
             q = q.eq("contract_id", contract_id)
+        else:
+            # Active costs table: only the current tenancy's contract (vacated costs live in apartment_history).
+            ccid = apt.get("current_contract_id")
+            if ccid is None:
+                return []
+            q = q.eq("contract_id", int(ccid))
         res = q.order("id", desc=True).execute()
     except Exception as exc:
         logger.exception("costs list failed apartment_id=%s", apartment_id)

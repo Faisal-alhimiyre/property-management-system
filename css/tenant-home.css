@@ -265,34 +265,6 @@ body.dark-mode .tenant-stat-chip{
   box-shadow:0 0 0 2px rgba(255,59,48,0.28), var(--shadow-md);
 }
 
-.building-card.is-pinned{
-  box-shadow:0 0 0 2px rgba(250,204,21,0.42), var(--shadow-md);
-}
-
-.apt-pin-btn{
-  position:absolute;
-  top:10px;
-  left:10px;
-  z-index:4;
-  width:34px;
-  height:34px;
-  border:none;
-  border-radius:10px;
-  cursor:pointer;
-  background:rgba(255,255,255,0.9);
-  color:#1a2f4a;
-  font-size:18px;
-  line-height:1;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  box-shadow:0 6px 16px rgba(15,23,42,0.22);
-}
-
-.apt-pin-btn.is-pinned{
-  background:rgba(250,204,21,0.95);
-}
-
 .apt-reply-dot{
   position:absolute;
   top:10px;
@@ -304,16 +276,6 @@ body.dark-mode .tenant-stat-chip{
   border:2px solid #ffffff;
   box-shadow:0 0 10px rgba(255,59,48,0.75);
   z-index:8;
-}
-
-body.dark-mode .apt-pin-btn{
-  background:rgba(15,23,42,0.86);
-  color:#f8fafc;
-}
-
-body.dark-mode .apt-pin-btn.is-pinned{
-  background:rgba(250,204,21,0.92);
-  color:#1f2937;
 }
 
 body.dark-mode .building-name-box{
