@@ -28,7 +28,18 @@
     <section class="payment-methods-grid">
       <div class="payment-method-card tamara" data-method="tamara">
         <div class="payment-method-head">
-          <img src="../images/tamara.png" alt="Tamara" class="payment-method-logo" />
+          <span class="payment-method-icon" aria-hidden="true">
+            <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="tamaraBg" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#C084FC"/>
+                  <stop offset="1" stop-color="#7C3AED"/>
+                </linearGradient>
+              </defs>
+              <rect width="48" height="48" rx="12" fill="url(#tamaraBg)"/>
+              <text x="24" y="30" text-anchor="middle" fill="#fff" font-family="Segoe UI, Tahoma, sans-serif" font-size="11" font-weight="700">tamara</text>
+            </svg>
+          </span>
           <h3>Tamara</h3>
         </div>
         <p data-i18n="paymentOpt.tamaraDesc"></p>
@@ -36,7 +47,12 @@
 
       <div class="payment-method-card tabby" data-method="tabby">
         <div class="payment-method-head">
-          <img src="../images/tabby.png" alt="Tabby" class="payment-method-logo" />
+          <span class="payment-method-icon" aria-hidden="true">
+            <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+              <rect width="48" height="48" rx="12" fill="#21D789"/>
+              <text x="24" y="30" text-anchor="middle" fill="#0F172A" font-family="Segoe UI, Tahoma, sans-serif" font-size="13" font-weight="800">tabby</text>
+            </svg>
+          </span>
           <h3>Tabby</h3>
         </div>
         <p data-i18n="paymentOpt.tabbyDesc"></p>
@@ -44,7 +60,13 @@
 
       <div class="payment-method-card apple-pay" data-method="apple_pay">
         <div class="payment-method-head">
-          <img src="../images/apple-pay.png" alt="Apple Pay" class="payment-method-logo" />
+          <img
+            src="../images/payment/apple-pay.png"
+            alt="Apple Pay"
+            class="payment-method-icon payment-method-icon--apple-pay"
+            width="48"
+            height="48"
+          />
           <h3>Apple Pay</h3>
         </div>
         <p data-i18n="paymentOpt.appleDesc"></p>
@@ -52,7 +74,15 @@
 
       <div class="payment-method-card bank-card" data-method="card">
         <div class="payment-method-head">
-          <img src="../images/mastercard.png" alt="MasterCard" class="payment-method-logo" />
+          <span class="payment-method-icon" aria-hidden="true">
+            <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+              <rect width="48" height="48" rx="12" fill="#FFF7ED"/>
+              <rect x="7" y="13" width="34" height="22" rx="5" fill="#FFEDD5" stroke="#EA580C" stroke-width="2"/>
+              <rect x="11" y="17" width="12" height="9" rx="2" fill="#FB923C"/>
+              <rect x="11" y="29" width="14" height="2" rx="1" fill="#C2410C"/>
+              <rect x="28" y="29" width="9" height="2" rx="1" fill="#F97316"/>
+            </svg>
+          </span>
           <h3 data-i18n="paymentOpt.cardTitle"></h3>
         </div>
         <p data-i18n="paymentOpt.cardDesc"></p>
