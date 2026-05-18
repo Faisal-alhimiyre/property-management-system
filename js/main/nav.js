@@ -220,6 +220,38 @@ function setupNavbar() {
 
 const WALAJNA_MOBILE_NAV_MQ = "(max-width: 768px)";
 
+/** Phone: move support/settings into drawer (same icon buttons). Laptop: keep them in the bar. */
+function layoutNavIconsForViewport() {
+  const iconsBar = document.querySelector("#navbar-container .walajna-topbar__icons");
+  const panel = document.getElementById("walajna-nav-panel");
+  const supportLink = document.getElementById("nav-support");
+  const settingsLink = document.getElementById("nav-settings");
+  if (!iconsBar || !panel || !supportLink || !settingsLink) return;
+
+  const mobile = window.matchMedia(WALAJNA_MOBILE_NAV_MQ).matches;
+  let extras = panel.querySelector(".walajna-nav-drawer-extras");
+
+  if (mobile) {
+    if (!extras) {
+      extras = document.createElement("div");
+      extras.className = "walajna-nav-drawer-extras";
+      panel.appendChild(extras);
+    }
+    if (supportLink.parentElement !== extras) extras.appendChild(supportLink);
+    if (settingsLink.parentElement !== extras) extras.appendChild(settingsLink);
+    supportLink.setAttribute("aria-label", wlT("nav.support"));
+    settingsLink.setAttribute("aria-label", wlT("nav.settings"));
+    iconsBar.hidden = true;
+    iconsBar.setAttribute("aria-hidden", "true");
+    return;
+  }
+
+  if (supportLink.parentElement !== iconsBar) iconsBar.appendChild(supportLink);
+  if (settingsLink.parentElement !== iconsBar) iconsBar.appendChild(settingsLink);
+  iconsBar.hidden = false;
+  iconsBar.removeAttribute("aria-hidden");
+}
+
 /** Panel lives outside the header on phone (side drawer); inside the bar on laptop. */
 function layoutNavPanelForViewport() {
   const navRoot = document.getElementById("navbar-container");
@@ -230,14 +262,60 @@ function layoutNavPanelForViewport() {
 
   const mobile = window.matchMedia(WALAJNA_MOBILE_NAV_MQ).matches;
   if (mobile) {
+    const leadingMobile = inner.querySelector(".walajna-topbar__leading");
+    if (leadingMobile) {
+      const brand = leadingMobile.querySelector(".walajna-topbar__brand-group");
+      const icons = leadingMobile.querySelector(".walajna-topbar__icons");
+      if (brand) inner.insertBefore(brand, leadingMobile);
+      if (icons) inner.insertBefore(icons, leadingMobile);
+      leadingMobile.remove();
+    }
+    const legacyCluster = inner.querySelector(".walajna-topbar__cluster");
+    if (legacyCluster) {
+      const brand = legacyCluster.querySelector(".walajna-topbar__brand-group");
+      const icons = legacyCluster.querySelector(".walajna-topbar__icons");
+      if (brand) inner.insertBefore(brand, legacyCluster);
+      if (icons) inner.insertBefore(icons, legacyCluster);
+      legacyCluster.remove();
+    }
     if (panel.parentElement !== navRoot) {
       navRoot.insertBefore(panel, backdrop || null);
     }
+    layoutNavIconsForViewport();
     return;
   }
+  const brandGroup = inner.querySelector(".walajna-topbar__brand-group");
+  const iconsBar = inner.querySelector(".walajna-topbar__icons");
+
+  const leading = inner.querySelector(".walajna-topbar__leading");
+  if (leading) {
+    if (iconsBar && iconsBar.parentElement === leading) {
+      inner.insertBefore(iconsBar, leading);
+    }
+    if (brandGroup && brandGroup.parentElement === leading) {
+      inner.insertBefore(brandGroup, leading);
+    }
+    leading.remove();
+  }
+
+  const legacyCluster = inner.querySelector(".walajna-topbar__cluster");
+  if (legacyCluster) {
+    if (iconsBar && iconsBar.parentElement === legacyCluster) {
+      inner.insertBefore(iconsBar, legacyCluster);
+    }
+    if (brandGroup && brandGroup.parentElement === legacyCluster) {
+      inner.insertBefore(brandGroup, legacyCluster);
+    }
+    legacyCluster.remove();
+  }
+
   if (panel.parentElement !== inner) {
     inner.insertBefore(panel, inner.firstChild);
+  } else {
+    inner.insertBefore(panel, inner.firstChild);
   }
+
+  layoutNavIconsForViewport();
 }
 
 function setupMobileNav() {

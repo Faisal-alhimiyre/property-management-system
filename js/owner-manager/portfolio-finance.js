@@ -24,6 +24,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   let incomeFromApi = false;
 
   let allBuildingApartments = [];
+  let allBuildingApartmentsFull = [];
+  let ownerBuildingsCatalog = [];
 
   function mapApiApartmentToFinance(api) {
     if (!api) return null;
@@ -186,10 +188,24 @@ document.addEventListener("DOMContentLoaded", async () => {
           merged.push(...dedupeFinanceApartments(mapped, bid));
         }
 
+        ownerBuildingsCatalog = (ownerBuildings || []).map((b) => ({
+          id: String(b.id),
+          name: b.name || "—",
+        }));
+
         if (merged.length) {
-          allBuildingApartments = merged;
+          allBuildingApartmentsFull = merged;
           incomeFromApi = true;
-          await loadInstallmentsForBuildings([...buildingIdSet]);
+          const installmentBuildingIds =
+            typeof WalajnaOwnerBuildingPick !== "undefined" &&
+            WalajnaOwnerBuildingPick.hasFilter()
+              ? [...WalajnaOwnerBuildingPick.getSelectedIds()]
+              : [...buildingIdSet];
+          await loadInstallmentsForBuildings(installmentBuildingIds);
+          allBuildingApartments =
+            typeof WalajnaOwnerBuildingPick !== "undefined"
+              ? WalajnaOwnerBuildingPick.filterApartments(allBuildingApartmentsFull)
+              : allBuildingApartmentsFull;
         }
       }
     } catch (e) {
@@ -892,7 +908,35 @@ document.addEventListener("DOMContentLoaded", async () => {
     periodDateInput.addEventListener("change", render);
   }
 
-  render();
+  async function refreshPortfolioPickUi() {
+    if (!allBuildingApartmentsFull.length) return;
+    if (typeof WalajnaOwnerBuildingPick === "undefined") return;
+
+    allBuildingApartments = WalajnaOwnerBuildingPick.filterApartments(
+      allBuildingApartmentsFull
+    );
+
+    if (WalajnaOwnerBuildingPick.hasFilter()) {
+      await loadInstallmentsForBuildings([
+        ...WalajnaOwnerBuildingPick.getSelectedIds(),
+      ]);
+    } else if (ownerBuildingsCatalog.length) {
+      await loadInstallmentsForBuildings(
+        ownerBuildingsCatalog.map((b) => b.id)
+      );
+    }
+
+    const anchor = document.querySelector(".finance-cards");
+    WalajnaOwnerBuildingPick.mountFilterBanner({
+      anchor,
+      buildings: ownerBuildingsCatalog,
+      onChange: () => {
+        refreshPortfolioPickUi().then(render);
+      },
+    });
+  }
+
+  refreshPortfolioPickUi().then(render);
 
   document.addEventListener("walajna:i18n-applied", () => {
     render();

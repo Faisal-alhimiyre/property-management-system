@@ -14,9 +14,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (!grid) return;
 
-  const buildingLegendDock = document.querySelector(".building-legend-dock");
-  if (buildingLegendDock && window.matchMedia("(max-width: 768px)").matches) {
-    buildingLegendDock.removeAttribute("open");
+  const phoneLegendDock = document.querySelector(
+    ".walajna-legend-phone .walajna-legend-phone__dock"
+  );
+  if (phoneLegendDock && window.matchMedia("(max-width: 768px)").matches) {
+    phoneLegendDock.removeAttribute("open");
   }
 
   function escapeHtml(value) {

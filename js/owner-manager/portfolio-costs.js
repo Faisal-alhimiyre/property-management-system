@@ -20,6 +20,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   let apartments = [];
   let allBuildingApartments = [];
+  let allBuildingApartmentsFull = [];
+  let ownerBuildingsCatalog = [];
 
   function mapApiApartmentToRow(api) {
     if (!api) return null;
@@ -114,7 +116,15 @@ document.addEventListener("DOMContentLoaded", async () => {
           }));
         merged.push(...dedupeFinanceApartments(mapped, bid));
       }
-      allBuildingApartments = merged;
+      ownerBuildingsCatalog = (ownerBuildings || []).map((b) => ({
+        id: String(b.id),
+        name: b.name || "—",
+      }));
+      allBuildingApartmentsFull = merged;
+      allBuildingApartments =
+        typeof WalajnaOwnerBuildingPick !== "undefined"
+          ? WalajnaOwnerBuildingPick.filterApartments(merged)
+          : merged;
       return true;
     } catch (e) {
       console.warn("portfolio-costs: API load failed", e);
@@ -135,20 +145,50 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   await loadOwnerApartmentsFromApi();
 
-  const ownerApartmentIdSet = new Set(
-    allBuildingApartments.map((a) => String(a.id || a.apiId || "")).filter(Boolean)
-  );
-  const ownerContractIdSet = new Set();
-  for (const apt of allBuildingApartments) {
-    const c =
-      apt.currentContractId ||
-      apt.contractId ||
-      apt.contract?.id ||
-      (apt.contract && apt.contract.id);
-    if (c) ownerContractIdSet.add(String(c));
+  if (
+    typeof WalajnaCostsApi !== "undefined" &&
+    WalajnaCostsApi.isAvailable &&
+    WalajnaCostsApi.isAvailable() &&
+    allBuildingApartmentsFull.length
+  ) {
+    const refreshJobs = allBuildingApartmentsFull.map((apt) => {
+      const uiId = String(apt.id || apt.apiId || "");
+      const serverId = apt.apiId != null ? apt.apiId : apt.id;
+      if (!uiId) return Promise.resolve();
+      return WalajnaCostsApi.refreshForApartment(uiId, serverId).catch(() => {});
+    });
+    await Promise.all(refreshJobs);
   }
 
+  let ownerApartmentIdSet = new Set();
+  let ownerContractIdSet = new Set();
+
+  function rebuildOwnerScopeSets() {
+    ownerApartmentIdSet = new Set(
+      allBuildingApartments.map((a) => String(a.id || a.apiId || "")).filter(Boolean)
+    );
+    ownerContractIdSet = new Set();
+    for (const apt of allBuildingApartments) {
+      const c =
+        apt.currentContractId ||
+        apt.contractId ||
+        apt.contract?.id ||
+        (apt.contract && apt.contract.id);
+      if (c) ownerContractIdSet.add(String(c));
+    }
+  }
+
+  rebuildOwnerScopeSets();
+
   function getCosts() {
+    if (
+      typeof WalajnaCostsApi !== "undefined" &&
+      WalajnaCostsApi.isAvailable &&
+      WalajnaCostsApi.isAvailable() &&
+      typeof WalajnaCostsApi.getAllFlat === "function"
+    ) {
+      return WalajnaCostsApi.getAllFlat();
+    }
     return JSON.parse(localStorage.getItem(COSTS_KEY) || "[]");
   }
 
@@ -156,16 +196,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     localStorage.setItem(COSTS_KEY, JSON.stringify(costs));
   }
 
-  function costBelongsToOwner(cost) {
-    const aid = String(cost.apartmentId || "");
-    if (aid && ownerApartmentIdSet.has(aid)) return true;
-    const cid = String(cost.contractId || "");
-    if (cid && ownerContractIdSet.has(cid)) return true;
-    return false;
-  }
-
   function findApartmentForCost(cost) {
-    let apt = allBuildingApartments.find((a) => String(a.id) === String(cost.apartmentId));
+    const costAptId = String(cost.apartmentId || "");
+    let apt = allBuildingApartments.find(
+      (a) =>
+        String(a.id) === costAptId ||
+        String(a.apiId ?? "") === costAptId
+    );
     if (!apt && cost.contractId) {
       apt = allBuildingApartments.find(
         (a) =>
@@ -174,6 +211,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       );
     }
     return apt || null;
+  }
+
+  function costBelongsToOwner(cost) {
+    return !!findApartmentForCost(cost);
   }
 
   function enrichCost(cost) {
@@ -190,7 +231,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function getPortfolioCosts() {
-    return getCosts().filter(costBelongsToOwner).map(enrichCost);
+    return getCosts()
+      .filter(costBelongsToOwner)
+      .map(enrichCost)
+      .filter((c) => c._aptId && c._buildingId && c._buildingId !== "__orphan__");
   }
 
   function groupApartmentsByBuilding(apartmentsList) {
@@ -528,9 +572,30 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
+  function refreshPortfolioPickUi() {
+    if (!allBuildingApartmentsFull.length) return;
+    if (typeof WalajnaOwnerBuildingPick === "undefined") return;
+
+    allBuildingApartments = WalajnaOwnerBuildingPick.filterApartments(
+      allBuildingApartmentsFull
+    );
+    rebuildOwnerScopeSets();
+
+    const anchor = document.getElementById("costsSummary");
+    WalajnaOwnerBuildingPick.mountFilterBanner({
+      anchor,
+      buildings: ownerBuildingsCatalog,
+      onChange: () => {
+        refreshPortfolioPickUi();
+        renderPage();
+      },
+    });
+  }
+
   searchInput?.addEventListener("input", renderPage);
   document.addEventListener("walajna:i18n-applied", () => renderPage());
 
+  refreshPortfolioPickUi();
   renderPage();
 
   if (typeof window.walajnaRefreshBreadcrumb === "function") {

@@ -10,6 +10,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   requireRole('owner');
   ensureRoleSetup();
 
+  const phoneLegendDock = document.querySelector(
+    ".walajna-legend-phone .walajna-legend-phone__dock"
+  );
+  if (phoneLegendDock && window.matchMedia("(max-width: 768px)").matches) {
+    phoneLegendDock.removeAttribute("open");
+  }
+
   const container = document.getElementById("buildingsContainer");
   const emptyState = document.getElementById("emptyState");
   const globalRequestsAlert = document.getElementById("globalRequestsAlert");
@@ -964,8 +971,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  const selectedBuildingIds = new Set();
+  const pickStore =
+    typeof WalajnaOwnerBuildingPick !== "undefined"
+      ? WalajnaOwnerBuildingPick.loadState()
+      : { editActive: false, buildingIds: new Set() };
+  const selectedBuildingIds = new Set(pickStore.buildingIds);
   let showOnlySelectedMode = false;
+  let ownerBuildingsEditMode = !!pickStore.editActive;
+
+  function persistOwnerBuildingPick() {
+    if (typeof WalajnaOwnerBuildingPick === "undefined") return;
+    WalajnaOwnerBuildingPick.save(ownerBuildingsEditMode, selectedBuildingIds);
+  }
+
+  const ownerDashboardEl = document.querySelector(".owner-dashboard");
+  const ownerBuildingsEditBtn = document.getElementById("ownerBuildingsEditBtn");
 
   function normalizeArabicSearchText(raw) {
     return String(raw || "")
@@ -1022,37 +1042,110 @@ document.addEventListener("DOMContentLoaded", async () => {
     );
   }
 
-  function buildingHasOpenRequestFilter(buildingId, typeFilter) {
+  /** Match buildings that have at least one unit in the given color-legend state. */
+  function buildingMatchesLegendIndicatorFilter(buildingId, typeFilter) {
     if (!typeFilter || typeFilter === "all") return true;
     const apts = getApartmentsForBuilding(buildingId, apartments);
-    const aptIds = new Set(
-      apts
-        .map((a) => String(a.apiId ?? a.id ?? ""))
-        .filter((id) => id && id !== "undefined")
-    );
-    const bidStr = String(buildingId);
+    if (!apts.length) return false;
 
-    const openRows = (maintenanceRows || []).filter((m) => {
-      const st = String(m.status || "").toLowerCase();
-      if (st === "resolved" || st === "closed") return false;
-      const aid = m.apartment_id != null ? String(m.apartment_id) : "";
-      const mbid = m.building_id != null ? String(m.building_id) : "";
-      if (mbid && mbid === bidStr) return true;
-      if (aid && aptIds.has(aid)) return true;
-      return false;
-    });
-
-    if (typeFilter === "any_open") return openRows.length > 0;
-
-    if (typeFilter === "maintenance") {
-      return openRows.some(
-        (m) => String(m.request_type || "maintenance").toLowerCase() === "maintenance"
-      );
+    if (typeFilter === "vacant") {
+      return apts.some((a) => !isApartmentOccupied(a));
     }
 
-    return openRows.some(
-      (m) => String(m.request_type || "").toLowerCase() === String(typeFilter).toLowerCase()
+    if (typeFilter === "rented") {
+      return apts.some((a) => {
+        if (!isApartmentOccupied(a)) return false;
+        return getApartmentStatusClass(a, maintenanceRows, payments) === "none";
+      });
+    }
+
+    if (typeFilter === "rent-overdue") {
+      return apts.some((a) => {
+        if (!isApartmentOccupied(a)) return false;
+        return getApartmentStatusClass(a, maintenanceRows, payments) === "rent-overdue";
+      });
+    }
+
+    return apts.some(
+      (a) => getApartmentStatusClass(a, maintenanceRows, payments) === typeFilter
     );
+  }
+
+  const OWNER_PORTFOLIO_INDICATORS = [
+    "vacant",
+    "rented",
+    "rent-overdue",
+    "maintenance",
+    "complaint",
+    "suggestion",
+    "request",
+  ];
+
+  function classifyApartmentIndicator(apartment) {
+    if (!isApartmentOccupied(apartment)) {
+      return "vacant";
+    }
+
+    const status = getApartmentStatusClass(apartment, maintenanceRows, payments);
+    if (status === "none") {
+      return "rented";
+    }
+    if (status === "rent-overdue") {
+      return "rent-overdue";
+    }
+    if (OWNER_PORTFOLIO_INDICATORS.includes(status)) {
+      return status;
+    }
+    return "rented";
+  }
+
+  function getPortfolioIndicatorCountScope() {
+    if (!ownerBuildingsEditMode) {
+      return null;
+    }
+    if (selectedBuildingIds.size === 0) {
+      return new Set();
+    }
+    return selectedBuildingIds;
+  }
+
+  function computePortfolioIndicatorCounts(scopeBuildingIds) {
+    const counts = Object.fromEntries(
+      OWNER_PORTFOLIO_INDICATORS.map((key) => [key, 0])
+    );
+
+    const apartmentsToCount = [];
+    if (scopeBuildingIds === null) {
+      for (const building of buildings) {
+        apartmentsToCount.push(
+          ...getApartmentsForBuilding(building.id, apartments)
+        );
+      }
+    } else {
+      for (const buildingId of scopeBuildingIds) {
+        apartmentsToCount.push(
+          ...getApartmentsForBuilding(buildingId, apartments)
+        );
+      }
+    }
+
+    for (const apartment of apartmentsToCount) {
+      const indicator = classifyApartmentIndicator(apartment);
+      if (counts[indicator] != null) {
+        counts[indicator] += 1;
+      }
+    }
+
+    return counts;
+  }
+
+  function updatePortfolioIndicatorCounts() {
+    const counts = computePortfolioIndicatorCounts(getPortfolioIndicatorCountScope());
+    document.querySelectorAll("[data-owner-indicator-count]").forEach((el) => {
+      const key = el.getAttribute("data-owner-indicator-count");
+      if (!key || counts[key] == null) return;
+      el.textContent = String(counts[key]);
+    });
   }
 
   function getOwnerNeighborhoodAndRequestFilterValues() {
@@ -1064,17 +1157,22 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
   }
 
-  /** True when user narrowed results (حي or طلبات), so pick UI is shown. */
-  function isOwnerBuildingSearchActive() {
-    const { neighborhoodChoice, requestFilter } = getOwnerNeighborhoodAndRequestFilterValues();
-    return neighborhoodChoice.trim() !== "" || requestFilter !== "all";
+  function syncOwnerEditModeUi() {
+    if (ownerDashboardEl) {
+      ownerDashboardEl.classList.toggle("is-owner-edit-mode", ownerBuildingsEditMode);
+    }
+    if (ownerBuildingsEditBtn) {
+      ownerBuildingsEditBtn.setAttribute("aria-pressed", ownerBuildingsEditMode ? "true" : "false");
+      ownerBuildingsEditBtn.textContent = ownerBuildingsEditMode
+        ? wlT("owner.buildingsCancelEdit")
+        : wlT("owner.buildingsEnterEdit");
+    }
   }
 
   function syncOwnerPickUiVisibility() {
     const containerEl = document.getElementById("buildingsContainer");
-    const visible = showOnlySelectedMode || isOwnerBuildingSearchActive();
     if (containerEl) {
-      containerEl.classList.toggle("is-owner-pick-active", visible);
+      containerEl.classList.toggle("is-owner-pick-active", ownerBuildingsEditMode);
     }
   }
 
@@ -1083,7 +1181,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     return buildings.filter(
       (b) =>
         buildingMatchesNeighborhoodChoice(b, neighborhoodChoice) &&
-        buildingHasOpenRequestFilter(b.id, requestFilter)
+        buildingMatchesLegendIndicatorFilter(b.id, requestFilter)
     );
   }
 
@@ -1096,29 +1194,40 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function updateSelectionToolbar() {
     const showBtn = document.getElementById("ownerShowSelectedOnlyBtn");
-    const backBtn = document.getElementById("ownerBackToFilterViewBtn");
     const actionsWrap = document.getElementById("ownerBuildingsFilterPickActions");
-    if (!showBtn || !backBtn) return;
+    if (!showBtn) return;
 
-    const pickVisible = showOnlySelectedMode || isOwnerBuildingSearchActive();
     if (actionsWrap) {
-      actionsWrap.hidden = !pickVisible;
+      actionsWrap.hidden = !ownerBuildingsEditMode;
     }
 
     if (showOnlySelectedMode) {
       showBtn.hidden = true;
-      backBtn.hidden = false;
     } else {
       showBtn.hidden = false;
-      backBtn.hidden = true;
       showBtn.disabled = selectedBuildingIds.size === 0;
     }
   }
 
+  function resetOwnerBuildingsFiltersToDefault() {
+    showOnlySelectedMode = false;
+    selectedBuildingIds.clear();
+    persistOwnerBuildingPick();
+    const neighborhoodFilterSelect = document.getElementById(
+      "ownerBuildingsNeighborhoodFilter"
+    );
+    const requestFilterSelect = document.getElementById("ownerBuildingsRequestFilter");
+    if (neighborhoodFilterSelect) neighborhoodFilterSelect.value = "";
+    if (requestFilterSelect) requestFilterSelect.value = "all";
+    refreshOwnerBuildingsView();
+  }
+
   function refreshOwnerBuildingsView() {
+    syncOwnerEditModeUi();
     syncOwnerPickUiVisibility();
     const list = computeOwnerBuildingsDisplayList();
     updateOwnerBuildingsCountDisplay(list.length);
+    updatePortfolioIndicatorCounts();
     updateSelectionToolbar();
     renderBuildingCards(list);
   }
@@ -1358,6 +1467,8 @@ document.addEventListener("DOMContentLoaded", async () => {
           card.classList.toggle("is-multi-selected", input.checked);
         }
         updateSelectionToolbar();
+        persistOwnerBuildingPick();
+        updatePortfolioIndicatorCounts();
         if (showOnlySelectedMode) {
           if (selectedBuildingIds.size === 0) {
             showOnlySelectedMode = false;
@@ -1374,6 +1485,16 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         const buildingId = card.dataset.buildingId;
 
+        if (ownerBuildingsEditMode) {
+          event.preventDefault();
+          event.stopPropagation();
+          const input = card.querySelector(".building-card-select");
+          if (!input) return;
+          input.checked = !input.checked;
+          input.dispatchEvent(new Event("change", { bubbles: true }));
+          return;
+        }
+
         await markBuildingRequestsAsSeen(buildingId);
 
         window.location.href = `owner_building.html?buildingId=${encodeURIComponent(
@@ -1381,6 +1502,29 @@ document.addEventListener("DOMContentLoaded", async () => {
         )}`;
       });
     });
+  }
+
+  function exitOwnerBuildingsEditMode() {
+    ownerBuildingsEditMode = false;
+    showOnlySelectedMode = false;
+    selectedBuildingIds.clear();
+    if (typeof WalajnaOwnerBuildingPick !== "undefined") {
+      WalajnaOwnerBuildingPick.clear();
+    }
+    const neighborhoodFilterSelect = document.getElementById(
+      "ownerBuildingsNeighborhoodFilter"
+    );
+    const requestFilterSelect = document.getElementById("ownerBuildingsRequestFilter");
+    if (neighborhoodFilterSelect) neighborhoodFilterSelect.value = "";
+    if (requestFilterSelect) requestFilterSelect.value = "all";
+    refreshOwnerBuildingsView();
+  }
+
+  function enterOwnerBuildingsEditMode() {
+    ownerBuildingsEditMode = true;
+    showOnlySelectedMode = false;
+    persistOwnerBuildingPick();
+    refreshOwnerBuildingsView();
   }
 
   function renderBuildingCards(list) {
@@ -1426,9 +1570,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     showOnlySelectedMode = true;
     refreshOwnerBuildingsView();
   });
-  document.getElementById("ownerBackToFilterViewBtn")?.addEventListener("click", () => {
-    showOnlySelectedMode = false;
-    refreshOwnerBuildingsView();
+  document.getElementById("ownerResetFiltersBtn")?.addEventListener("click", () => {
+    resetOwnerBuildingsFiltersToDefault();
+  });
+
+  ownerBuildingsEditBtn?.addEventListener("click", () => {
+    if (ownerBuildingsEditMode) {
+      exitOwnerBuildingsEditMode();
+    } else {
+      enterOwnerBuildingsEditMode();
+    }
   });
 
   document.addEventListener("click", (event) => {

@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="../css/theme.css">
   <link rel="stylesheet" href="../css/navstyle.css">
   <link rel="stylesheet" href="../css/owner-building.css">
+  <link rel="stylesheet" href="../css/legend-phone.css">
   <script src="../js/main/walajna-i18n-ur.js"></script>
   <script src="../js/main/walajna-i18n.js"></script>
 </head>
@@ -63,12 +64,9 @@
         </div>
       </div>
 
-      <div class="building-legend-anchor">
-        <details class="building-legend-dock" open>
-          <summary class="building-legend-dock__summary" data-i18n="owner.legendTitle">معاني الألوان</summary>
-          <section class="building-legend-card">
-            <h3 class="building-legend-title" data-i18n="owner.legendTitle">معاني الألوان</h3>
-            <div class="building-legend-list">
+      <section class="building-legend-card building-legend-desktop">
+        <h3 class="building-legend-title" data-i18n="owner.legendTitle">معاني الألوان</h3>
+        <div class="building-legend-list">
           <div class="building-legend-item">
             <span data-i18n="owner.legend.overdue">تأخر إيجار</span>
             <span class="building-legend-color rent-overdue"></span>
@@ -89,15 +87,44 @@
             <span data-i18n="owner.legend.request">طلب</span>
             <span class="building-legend-color request"></span>
           </div>
-            </div>
-          </section>
-        </details>
-      </div>
+        </div>
+      </section>
 
       <section id="apartmentsGrid" class="apartments-grid"></section>
     </section>
 
   </main>
+
+  <aside class="walajna-legend-phone" data-i18n-aria-label="owner.legendTitle">
+    <details class="walajna-legend-phone__dock">
+      <summary class="walajna-legend-phone__tab" data-i18n-aria-label="owner.legendTitle"></summary>
+      <section class="walajna-legend-phone__panel">
+        <h3 class="walajna-legend-phone__title" data-i18n="owner.legendTitle"></h3>
+        <div class="walajna-legend-phone__list">
+          <div class="walajna-legend-phone__item">
+            <span data-i18n="owner.legend.overdue"></span>
+            <span class="walajna-legend-phone__swatch rent-overdue"></span>
+          </div>
+          <div class="walajna-legend-phone__item">
+            <span data-i18n="owner.legend.maintenance"></span>
+            <span class="walajna-legend-phone__swatch maintenance"></span>
+          </div>
+          <div class="walajna-legend-phone__item">
+            <span data-i18n="owner.legend.complaint"></span>
+            <span class="walajna-legend-phone__swatch complaint"></span>
+          </div>
+          <div class="walajna-legend-phone__item">
+            <span data-i18n="owner.legend.suggestion"></span>
+            <span class="walajna-legend-phone__swatch suggestion"></span>
+          </div>
+          <div class="walajna-legend-phone__item">
+            <span data-i18n="owner.legend.request"></span>
+            <span class="walajna-legend-phone__swatch request"></span>
+          </div>
+        </div>
+      </section>
+    </details>
+  </aside>
 
   <div id="editApartmentModal" class="apartment-edit-modal" aria-hidden="true">
     <div class="apartment-edit-modal__backdrop" data-close-edit-modal="true"></div>

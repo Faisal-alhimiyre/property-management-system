@@ -146,9 +146,14 @@
     );
   }
 
+  function getAllFlat() {
+    return flatList.slice();
+  }
+
   window.WalajnaCostsApi = {
     refreshForApartment,
     getForApartment,
+    getAllFlat,
     createOnServer,
     deleteOnServer,
     isAvailable,
