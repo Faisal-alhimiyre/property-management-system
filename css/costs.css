@@ -142,29 +142,118 @@ body{
 }
 
 /* Portfolio costs (سجل المصروفات accordion): match finance-summary spacing — cards & table not flush */
-body[data-wl-bc="portfolio-costs"] .pay-wrap{
-  margin-top:28px;
-  padding:22px 20px 40px;
+body[data-wl-bc="portfolio-costs"] .pay-wrap--portfolio{
+  max-width:1120px;
+  margin-top:12px;
+  padding:10px 12px 24px;
 }
 
-body[data-wl-bc="portfolio-costs"] .pay-header{
-  margin-bottom:4px;
+body[data-wl-bc="portfolio-costs"] .pay-header--portfolio{
+  margin-bottom:8px;
+  padding:12px 14px;
+  border-radius:16px;
+  background:linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(240,248,255,0.92) 100%);
+  border:1px solid rgba(54,215,232,0.22);
+  align-items:center;
+}
+
+body[data-wl-bc="portfolio-costs"] .pay-header--portfolio h2{
+  font-size:19px;
+  margin:0;
+  letter-spacing:0;
+}
+
+body[data-wl-bc="portfolio-costs"] .pay-header--portfolio p{
+  margin:2px 0 0;
+  font-size:12px;
+  font-weight:600;
+  line-height:1.45;
+}
+
+body[data-wl-bc="portfolio-costs"] .pay-header--portfolio .pay-search input{
+  height:36px;
+  padding:0 12px;
+  font-size:13px;
+  border-radius:10px;
+  width:min(260px, 100%);
 }
 
 body[data-wl-bc="portfolio-costs"] .costs-topbar--portfolio{
-  margin-top:24px;
+  margin-top:8px;
+  margin-bottom:4px;
 }
 
-body[data-wl-bc="portfolio-costs"] .pay-summary{
-  margin-top:22px;
-  margin-bottom:28px;
-  gap:18px;
+body[data-wl-bc="portfolio-costs"] .pay-summary.finance-kpi-strip{
+  margin-top:8px;
+  margin-bottom:10px;
+  gap:8px;
 }
 
-body[data-wl-bc="portfolio-costs"] .sum-card{
-  padding:20px 22px;
-  min-height:108px;
-  border-radius:24px;
+body[data-wl-bc="portfolio-costs"] .finance-kpi.sum-card,
+body[data-wl-bc="portfolio-costs"] .sum-card.finance-kpi{
+  min-height:0;
+  padding:10px 12px 10px 14px;
+  border-radius:12px;
+  border-inline-start-width:4px;
+}
+
+body[data-wl-bc="portfolio-costs"] .finance-kpi--costs{ border-inline-start-color:#d0342c; }
+body[data-wl-bc="portfolio-costs"] .finance-kpi--income{ border-inline-start-color:#0f8a4b; }
+body[data-wl-bc="portfolio-costs"] .finance-kpi--late{ border-inline-start-color:#d97706; }
+body[data-wl-bc="portfolio-costs"] .finance-kpi--profit{ border-inline-start-color:#2563eb; }
+
+body[data-wl-bc="portfolio-costs"] .sum-card .sum-label{
+  font-size:10px;
+  margin-bottom:2px;
+  text-transform:uppercase;
+  letter-spacing:0.02em;
+}
+
+body[data-wl-bc="portfolio-costs"] .sum-card .sum-value{
+  font-size:16px;
+  line-height:1.2;
+}
+
+body[data-wl-bc="portfolio-costs"] .owner-portfolio-pick-banner{
+  margin-bottom:8px;
+  padding:8px 10px;
+}
+
+body[data-wl-bc="portfolio-costs"] .finance-table-section.portfolio-costs-accordion{
+  margin-bottom:16px;
+}
+
+body[data-wl-bc="portfolio-costs"] .costs-portfolio-main-table thead th,
+body[data-wl-bc="portfolio-costs"] .costs-portfolio-main-table tbody td,
+body[data-wl-bc="portfolio-costs"] .costs-portfolio-main-table tfoot td{
+  font-size:12px;
+  padding:8px 10px;
+}
+
+body[data-wl-bc="portfolio-costs"] .portfolio-building-toggle{
+  font-size:12px;
+  padding:4px 0;
+}
+
+body.dark-mode[data-wl-bc="portfolio-costs"] .pay-header--portfolio{
+  background:linear-gradient(135deg, rgba(15,23,42,0.92) 0%, rgba(22,36,58,0.88) 100%);
+  border-color:rgba(54,215,232,0.28);
+}
+
+body.dark-mode[data-wl-bc="portfolio-costs"] .sum-card.finance-kpi{
+  background:rgba(15,23,42,0.75);
+  border-color:rgba(148,163,184,0.2);
+}
+
+@media (max-width: 900px){
+  body[data-wl-bc="portfolio-costs"] .pay-header--portfolio{
+    flex-direction:column;
+    align-items:stretch;
+  }
+
+  body[data-wl-bc="portfolio-costs"] .pay-summary.finance-kpi-strip{
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+  }
 }
 
 body[data-wl-bc="portfolio-costs"] .finance-table-section.portfolio-costs-accordion{
@@ -291,16 +380,6 @@ body.dark-mode .costs-portfolio-nested .delete-btn:hover{
   border-radius:22px;
   padding:18px;
   box-shadow:var(--shadow-md);
-}
-
-.sum-card::before{
-  content:"";
-  position:absolute;
-  top:0;
-  right:0;
-  left:0;
-  height:4px;
-  background:#36d7e8;
 }
 
 .sum-label{
@@ -826,4 +905,105 @@ body.dark-mode .portfolio-costs-apt-link:hover{
 
 body.dark-mode .portfolio-costs-nest-empty{
   color:#9ca9bf;
+}
+
+/* ===== Compact costs page (apartment) ===== */
+body[data-wl-bc="costs"] .pay-wrap--compact{
+  max-width:1040px;
+  margin:10px auto 28px;
+  padding:0 12px;
+}
+
+body[data-wl-bc="costs"] .pay-wrap--compact .pay-header{
+  padding:12px 14px;
+  gap:12px;
+  border-radius:14px;
+  box-shadow:0 6px 18px rgba(16,43,76,0.06);
+}
+
+body[data-wl-bc="costs"] .pay-wrap--compact .pay-header h2{
+  font-size:1.25rem;
+  letter-spacing:-0.02em;
+  line-height:1.25;
+}
+
+body[data-wl-bc="costs"] .pay-wrap--compact .pay-header p{
+  margin:4px 0 0;
+  font-size:0.78rem;
+  font-weight:700;
+  line-height:1.45;
+}
+
+body[data-wl-bc="costs"] .pay-wrap--compact .pay-search input{
+  padding:8px 12px;
+  font-size:13px;
+  border-radius:10px;
+  width:min(280px, 100%);
+}
+
+body[data-wl-bc="costs"] .pay-wrap--compact .costs-topbar{
+  margin-top:10px;
+  gap:10px;
+}
+
+body[data-wl-bc="costs"] .pay-wrap--compact .count-label{
+  font-size:13px;
+}
+
+body[data-wl-bc="costs"] .pay-wrap--compact .record-btn{
+  padding:9px 16px;
+  font-size:13px;
+  border-radius:10px;
+}
+
+body[data-wl-bc="costs"] .pay-wrap--compact .pay-summary{
+  margin-top:10px;
+  gap:8px;
+}
+
+body[data-wl-bc="costs"] .pay-wrap--compact .sum-card{
+  padding:10px 12px;
+  border-radius:12px;
+  min-height:0;
+}
+
+body[data-wl-bc="costs"] .pay-wrap--compact .sum-label{
+  font-size:11px;
+  margin-bottom:4px;
+}
+
+body[data-wl-bc="costs"] .pay-wrap--compact .sum-value{
+  font-size:1rem;
+}
+
+body[data-wl-bc="costs"] .pay-wrap--compact .costs-table-wrap{
+  margin-top:12px;
+  border-radius:14px;
+}
+
+body[data-wl-bc="costs"] .pay-wrap--compact .costs-table th,
+body[data-wl-bc="costs"] .pay-wrap--compact .costs-table td{
+  padding:10px 12px;
+  font-size:13px;
+}
+
+body[data-wl-bc="costs"] .pay-wrap--compact .costs-table th{
+  font-size:12px;
+}
+
+body.dark-mode[data-wl-bc="costs"] .pay-wrap--compact .pay-header,
+body.dark-mode[data-wl-bc="costs"] .pay-wrap--compact .sum-card,
+body.dark-mode[data-wl-bc="costs"] .pay-wrap--compact .costs-table-wrap{
+  box-shadow:none;
+}
+
+@media (max-width:820px){
+  body[data-wl-bc="costs"] .pay-wrap--compact .pay-header{
+    flex-direction:column;
+    align-items:stretch;
+  }
+
+  body[data-wl-bc="costs"] .pay-wrap--compact .pay-search input{
+    width:100%;
+  }
 }

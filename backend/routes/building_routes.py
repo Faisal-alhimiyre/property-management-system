@@ -2,7 +2,7 @@ import logging
 from collections import defaultdict
 from datetime import date, datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from installment_service import cycle_months
 from models import Building, BuildingPinUpdate, BuildingResponse, CostResponse, UnitLayoutBody
 from config import supabase
@@ -730,6 +730,171 @@ async def seed_building_apartments(building_id: int, current_user: dict = Depend
         raise HTTPException(status_code=500, detail=str(seed_error))
 
 
+def _resolve_owner_building_ids(uid: int, building_ids_param: str | None) -> list[int]:
+    br = supabase.table("buildings").select("id").eq("owner_id", uid).execute()
+    all_ids = [int(b["id"]) for b in (br.data or []) if b.get("id") is not None]
+    if not building_ids_param or not str(building_ids_param).strip():
+        return all_ids
+    allowed = set(all_ids)
+    out: list[int] = []
+    for part in str(building_ids_param).split(","):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            bid = int(part)
+        except (TypeError, ValueError):
+            continue
+        if bid in allowed:
+            out.append(bid)
+    return out
+
+
+def _fetch_installments_for_buildings(building_ids: list[int]) -> list[dict]:
+    """Batch-load installments for many buildings (few DB round-trips)."""
+    if not building_ids:
+        return []
+
+    ar = (
+        supabase.table("apartments")
+        .select("id, building_id")
+        .in_("building_id", building_ids)
+        .execute()
+    )
+    apt_rows = ar.data or []
+    apt_ids = [int(a["id"]) for a in apt_rows if a.get("id") is not None]
+    apt_to_building: dict[int, int] = {}
+    for a in apt_rows:
+        try:
+            aid = int(a["id"])
+            bid = int(a["building_id"])
+            apt_to_building[aid] = bid
+        except (TypeError, ValueError):
+            continue
+    if not apt_ids:
+        return []
+
+    cr = supabase.table("contracts").select("*").in_("apartment_id", apt_ids).execute()
+    contract_rows = cr.data or []
+    cids = [int(c["id"]) for c in contract_rows if c.get("id") is not None]
+    cid_to_apt: dict[int, int] = {}
+    for c in contract_rows:
+        try:
+            cid_to_apt[int(c["id"])] = int(c["apartment_id"])
+        except (TypeError, ValueError):
+            continue
+    if not cids:
+        return []
+
+    try:
+        res = (
+            supabase.table("payment_installments")
+            .select("*")
+            .in_("contract_id", cids)
+            .execute()
+        )
+    except Exception:
+        logger.exception("_fetch_installments_for_buildings failed building_ids=%s", building_ids)
+        return []
+
+    out: list[dict] = []
+    for row in res.data or []:
+        r = dict(row)
+        apt_id = None
+        if r.get("apartment_id") is not None:
+            try:
+                apt_id = int(r["apartment_id"])
+            except (TypeError, ValueError):
+                apt_id = None
+        if apt_id is None and r.get("contract_id") is not None:
+            try:
+                apt_id = cid_to_apt.get(int(r["contract_id"]))
+            except (TypeError, ValueError):
+                apt_id = None
+        if apt_id is not None:
+            r["apartment_id"] = apt_id
+            if apt_id in apt_to_building:
+                r["building_id"] = apt_to_building[apt_id]
+        out.append(r)
+
+    period_map = _contract_id_to_period_months(contract_rows, out)
+    for r in out:
+        try:
+            cid = int(r.get("contract_id"))
+        except (TypeError, ValueError):
+            r["period_months"] = 1
+            continue
+        r["period_months"] = max(1, int(period_map.get(cid, 1)))
+
+    return out
+
+
+def _fetch_costs_for_buildings(building_ids: list[int]) -> list[dict]:
+    if not building_ids:
+        return []
+    ar = supabase.table("apartments").select("id").in_("building_id", building_ids).execute()
+    apt_ids = [int(a["id"]) for a in (ar.data or []) if a.get("id") is not None]
+    if not apt_ids:
+        return []
+    try:
+        res = (
+            supabase.table("costs")
+            .select("*")
+            .in_("apartment_id", apt_ids)
+            .order("id", desc=True)
+            .execute()
+        )
+    except Exception:
+        logger.exception("_fetch_costs_for_buildings failed building_ids=%s", building_ids)
+        return []
+    return getattr(res, "data", None) or []
+
+
+@router.get("/owner/installments")
+async def list_owner_installments(
+    building_ids: str | None = Query(
+        None,
+        description="Optional comma-separated building ids (must belong to the owner).",
+    ),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    All payment_installments for the owner's portfolio in one request (avoids N calls per building).
+    """
+    if not has_role(current_user, "owner"):
+        raise HTTPException(status_code=403, detail="Only owners can list owner installments")
+
+    try:
+        uid = int(current_user["id"])
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    bids = _resolve_owner_building_ids(uid, building_ids)
+    return _fetch_installments_for_buildings(bids)
+
+
+@router.get("/owner/costs", response_model=list[CostResponse])
+async def list_owner_costs(
+    building_ids: str | None = Query(
+        None,
+        description="Optional comma-separated building ids (must belong to the owner).",
+    ),
+    current_user: dict = Depends(get_current_user),
+):
+    """All cost rows for the owner's buildings in one request."""
+    if not has_role(current_user, "owner"):
+        raise HTTPException(status_code=403, detail="Only owners can list owner costs")
+
+    try:
+        uid = int(current_user["id"])
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    bids = _resolve_owner_building_ids(uid, building_ids)
+    rows = _fetch_costs_for_buildings(bids)
+    return [_cost_row_to_response(r) for r in rows]
+
+
 @router.get("/buildings/{building_id}/installments")
 async def list_building_installments(
     building_id: int,
@@ -754,60 +919,7 @@ async def list_building_installments(
     if int(existing.data[0].get("owner_id") or -1) != uid:
         raise HTTPException(status_code=403, detail="Not authorized")
 
-    ar = supabase.table("apartments").select("id").eq("building_id", building_id).execute()
-    apt_ids = [int(a["id"]) for a in (ar.data or []) if a.get("id") is not None]
-    if not apt_ids:
-        return []
-
-    cr = (
-        supabase.table("contracts")
-        .select("*")
-        .in_("apartment_id", apt_ids)
-        .execute()
-    )
-    contract_rows = cr.data or []
-    cids = [int(c["id"]) for c in contract_rows if c.get("id") is not None]
-    cid_to_apt = {
-        int(c["id"]): int(c["apartment_id"])
-        for c in contract_rows
-        if c.get("id") is not None and c.get("apartment_id") is not None
-    }
-    if not cids:
-        return []
-
-    try:
-        res = (
-            supabase.table("payment_installments")
-            .select("*")
-            .in_("contract_id", cids)
-            .execute()
-        )
-    except Exception:
-        logger.exception("list_building_installments: payment_installments query failed building_id=%s", building_id)
-        return []
-
-    out: list[dict] = []
-    for row in res.data or []:
-        r = dict(row)
-        if r.get("apartment_id") is None and r.get("contract_id") is not None:
-            try:
-                cid = int(r["contract_id"])
-                if cid in cid_to_apt:
-                    r["apartment_id"] = cid_to_apt[cid]
-            except (TypeError, ValueError):
-                pass
-        out.append(r)
-
-    period_map = _contract_id_to_period_months(contract_rows, out)
-    for r in out:
-        try:
-            cid = int(r.get("contract_id"))
-        except (TypeError, ValueError):
-            r["period_months"] = 1
-            continue
-        r["period_months"] = max(1, int(period_map.get(cid, 1)))
-
-    return out
+    return _fetch_installments_for_buildings([building_id])
 
 
 @router.get("/buildings/{building_id}/costs", response_model=list[CostResponse])

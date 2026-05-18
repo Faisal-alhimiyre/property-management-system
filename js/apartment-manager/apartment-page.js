@@ -7,18 +7,26 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (typeof WalajnaAuth !== "undefined" && WalajnaAuth.hydrateSession) {
     await WalajnaAuth.hydrateSession();
   }
-  if (typeof WalajnaBuildingsApi !== "undefined" && WalajnaBuildingsApi.refreshForSession) {
-    try {
-      await WalajnaBuildingsApi.refreshForSession();
-    } catch (e) {
-      console.warn("[apartment-page] buildings cache refresh failed", e);
+  const paramsEarly = new URLSearchParams(window.location.search);
+  const aptIdEarly = paramsEarly.get("id");
+  const currentUserEarly =
+    typeof getCurrentUser === "function" ? getCurrentUser() : null;
+  const skipSessionBulkLoad = Boolean(aptIdEarly && currentUserEarly);
+
+  if (!skipSessionBulkLoad) {
+    if (typeof WalajnaBuildingsApi !== "undefined" && WalajnaBuildingsApi.refreshForSession) {
+      try {
+        await WalajnaBuildingsApi.refreshForSession();
+      } catch (e) {
+        console.warn("[apartment-page] buildings cache refresh failed", e);
+      }
     }
-  }
-  if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.refreshForSession) {
-    try {
-      await WalajnaApartmentsApi.refreshForSession();
-    } catch (e) {
-      console.warn("[apartment-page] apartments cache refresh failed", e);
+    if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.refreshForSession) {
+      try {
+        await WalajnaApartmentsApi.refreshForSession();
+      } catch (e) {
+        console.warn("[apartment-page] apartments cache refresh failed", e);
+      }
     }
   }
   if (typeof ensureRoleSetup === "function") {
@@ -238,18 +246,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
   }
 
+  function contractNeedsApiEnrichment(contractData) {
+    if (!contractData) return true;
+    const hasDates = contractData.startDate && contractData.endDate;
+    const yr = Number(contractData.yearlyRent ?? contractData.yearly_rent);
+    const hasRent =
+      (Number.isFinite(yr) && yr > 0) || Number(contractData.rentAmount || 0) > 0;
+    return !hasDates || !hasRent;
+  }
+
   async function fetchContractById(contractId) {
     if (!contractId || typeof WalajnaAuth === "undefined") return null;
     try {
       const res = await WalajnaAuth.fetchWithAuth(
-        `${WalajnaAuth.API_BASE}/api/contracts`,
+        `${WalajnaAuth.API_BASE}/api/contracts/${encodeURIComponent(String(contractId))}`,
         { method: "GET" }
       );
       if (!res.ok) return null;
-      const rows = await res.json();
-      if (!Array.isArray(rows)) return null;
-      const match = rows.find((c) => String(c.id) === String(contractId));
-      if (!match) return null;
+      const match = await res.json();
+      if (!match || typeof match !== "object") return null;
       let parsedTerms = null;
       if (typeof match.terms === "string" && match.terms.trim().startsWith("{")) {
         try {
@@ -258,7 +273,16 @@ document.addEventListener("DOMContentLoaded", async () => {
           parsedTerms = null;
         }
       }
-      const installmentsMeta = await fetchInstallmentsMeta(contractId);
+      const needsInstallmentMeta =
+        !match.payment_cycle &&
+        !parsedTerms?.paymentCycle &&
+        !parsedTerms?.payment_cycle &&
+        match.installments_count == null &&
+        parsedTerms?.installmentsCount == null &&
+        parsedTerms?.installments_count == null;
+      const installmentsMeta = needsInstallmentMeta
+        ? await fetchInstallmentsMeta(contractId)
+        : null;
       const termsNotes =
         (parsedTerms && (parsedTerms.notes || parsedTerms.note)) || "";
       const legacyTermsPlain =
@@ -351,7 +375,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (shouldRefreshFromApi) {
     const freshApartment = await fetchFreshApartmentById(aptId);
     if (freshApartment) {
-      if (freshApartment.currentContractId) {
+      if (
+        freshApartment.currentContractId &&
+        contractNeedsApiEnrichment(freshApartment.contract)
+      ) {
         const freshContract = await fetchContractById(freshApartment.currentContractId);
         if (freshContract) {
           freshApartment.contract = {
@@ -1162,8 +1189,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   async function resolveOwnerBuildingUnitLayoutOk(apartmentRow, localBuildingRow) {
     if (
       !apartmentRow?.buildingId ||
-      typeof WalajnaAuth === "undefined" ||
-      !WalajnaAuth.fetchWithAuth ||
       typeof WalajnaApartmentsApi === "undefined" ||
       !WalajnaApartmentsApi.isBuildingUnitLayoutComplete ||
       !WalajnaApartmentsApi.listForBuilding
@@ -1171,18 +1196,34 @@ document.addEventListener("DOMContentLoaded", async () => {
       return true;
     }
     try {
-      const bRes = await WalajnaAuth.fetchWithAuth(
-        `${WalajnaAuth.API_BASE}/api/buildings`,
-        { method: "GET" }
-      );
+      const bid = String(apartmentRow.buildingId ?? "");
       let bRow = localBuildingRow;
-      if (bRes.ok) {
-        const list = await bRes.json();
-        const bid = String(apartmentRow.buildingId ?? "");
-        const fromApi = (Array.isArray(list) ? list : []).find(
+      if (
+        (!bRow || (bRow.apartmentCount == null && bRow.apartments_count == null)) &&
+        typeof WalajnaBuildingsApi !== "undefined" &&
+        WalajnaBuildingsApi.getSessionList
+      ) {
+        const fromSession = WalajnaBuildingsApi.getSessionList().find(
           (b) => String(b.id) === bid || String(b.code ?? "").trim() === bid
         );
-        if (fromApi) bRow = fromApi;
+        if (fromSession) bRow = fromSession;
+      }
+      if (
+        (!bRow || (bRow.apartmentCount == null && bRow.apartments_count == null)) &&
+        typeof WalajnaAuth !== "undefined" &&
+        WalajnaAuth.fetchWithAuth
+      ) {
+        const bRes = await WalajnaAuth.fetchWithAuth(
+          `${WalajnaAuth.API_BASE}/api/buildings`,
+          { method: "GET" }
+        );
+        if (bRes.ok) {
+          const list = await bRes.json();
+          const fromApi = (Array.isArray(list) ? list : []).find(
+            (b) => String(b.id) === bid || String(b.code ?? "").trim() === bid
+          );
+          if (fromApi) bRow = fromApi;
+        }
       }
       if (!bRow) return true;
       const mappedBuilding = {
@@ -1200,7 +1241,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   let buildingUnitLayoutOk = true;
   if (activeRole === "owner" && currentUser) {
-    buildingUnitLayoutOk = await resolveOwnerBuildingUnitLayoutOk(data, buildingData);
+    void resolveOwnerBuildingUnitLayoutOk(data, buildingData).then((ok) => {
+      buildingUnitLayoutOk = ok;
+      applyActionVisibility();
+    });
   }
 
   /* Owner/tenant bottom actions before any slow payment API — avoids ~2s flash of wrong buttons */

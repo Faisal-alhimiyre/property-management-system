@@ -109,16 +109,6 @@ body{
   min-height:74px;
 }
 
-.sum-card::before{
-  content:"";
-  position:absolute;
-  top:0;
-  right:0;
-  left:0;
-  height:3px;
-  background:#36d7e8;
-}
-
 .sum-label{
   color:var(--muted);
   font-weight:800;
@@ -866,4 +856,160 @@ body.dark-mode #recordPaymentModal .wl-btn--ghost:hover{
   color:#f8fafc !important;
   -webkit-text-fill-color:#f8fafc !important;
   border-color:rgba(186,198,216,0.55) !important;
+}
+
+/* ===== Compact payments page ===== */
+body[data-wl-bc="payments"] .pay-wrap--compact{
+  max-width:1040px;
+  margin:10px auto 28px;
+  padding:0 12px;
+}
+
+body[data-wl-bc="payments"] .pay-wrap--compact #paymentsReminder{
+  margin-bottom:10px;
+}
+
+body[data-wl-bc="payments"] .pay-wrap--compact .payments-alert{
+  margin-bottom:10px !important;
+  padding:10px 12px !important;
+  border-radius:12px !important;
+  font-size:13px !important;
+}
+
+body[data-wl-bc="payments"] .pay-wrap--compact .payments-dash{
+  margin-bottom:14px !important;
+  border-radius:14px !important;
+  box-shadow:0 6px 18px rgba(15,23,42,0.06) !important;
+}
+
+body[data-wl-bc="payments"] .pay-wrap--compact .payments-dash__titlebar{
+  padding:12px 14px 10px !important;
+  gap:12px !important;
+}
+
+body[data-wl-bc="payments"] .pay-wrap--compact .payments-dash__page-title{
+  font-size:1.25rem !important;
+}
+
+body[data-wl-bc="payments"] .pay-wrap--compact .payments-dash__page-sub{
+  margin:4px 0 0 !important;
+  font-size:0.78rem !important;
+}
+
+body[data-wl-bc="payments"] .pay-wrap--compact .payments-dash__search{
+  padding:8px 12px !important;
+  font-size:13px !important;
+  border-radius:10px !important;
+  width:min(168px, 100%) !important;
+}
+
+body[data-wl-bc="payments"] .pay-wrap--compact .payments-dash__filters{
+  gap:8px !important;
+}
+
+body[data-wl-bc="payments"] .pay-wrap--compact .payments-dash__header{
+  padding:12px 14px !important;
+  gap:12px !important;
+}
+
+body[data-wl-bc="payments"] .pay-wrap--compact .payments-dash__tenant-name{
+  margin-top:4px !important;
+  font-size:1.1rem !important;
+}
+
+body[data-wl-bc="payments"] .pay-wrap--compact .payments-dash__chips{
+  gap:8px !important;
+  margin-top:8px !important;
+}
+
+body[data-wl-bc="payments"] .pay-wrap--compact .payments-dash__chip{
+  padding:6px 12px !important;
+  font-size:12px !important;
+}
+
+body[data-wl-bc="payments"] .pay-wrap--compact .payments-dash__count{
+  padding:8px 12px !important;
+  font-size:12px !important;
+  border-radius:10px !important;
+}
+
+body[data-wl-bc="payments"] .pay-wrap--compact .payments-dash__grid{
+  gap:8px !important;
+  padding:12px 14px 14px !important;
+}
+
+body[data-wl-bc="payments"] .pay-wrap--compact .payments-dash__stat{
+  min-height:0 !important;
+  padding:10px 12px !important;
+  border-radius:12px !important;
+}
+
+body[data-wl-bc="payments"] .pay-wrap--compact .payments-dash__stat .label{
+  font-size:11px !important;
+  margin-bottom:4px !important;
+}
+
+body[data-wl-bc="payments"] .pay-wrap--compact .payments-dash__stat .value{
+  font-size:1rem !important;
+}
+
+body[data-wl-bc="payments"] .pay-wrap--compact .payments-dash__stat .sub{
+  margin-top:4px !important;
+  font-size:11px !important;
+}
+
+body[data-wl-bc="payments"] .pay-wrap--compact .payments-table-wrap{
+  border-radius:14px !important;
+}
+
+body[data-wl-bc="payments"] .pay-wrap--compact .payments-table th,
+body[data-wl-bc="payments"] .pay-wrap--compact .payments-table td{
+  padding:10px 12px !important;
+  font-size:13px !important;
+}
+
+body[data-wl-bc="payments"] .pay-wrap--compact .payments-empty{
+  padding:16px 12px !important;
+  border-radius:12px !important;
+  font-size:13px !important;
+}
+
+body[data-wl-bc="payments"] .pay-wrap--compact .payments-action-btn{
+  padding:7px 11px !important;
+  font-size:12px !important;
+  border-radius:9px !important;
+}
+
+body[data-wl-bc="payments"] .pay-wrap--compact .sum-card{
+  padding:10px 12px !important;
+  min-height:0 !important;
+  border-radius:12px !important;
+}
+
+body[data-wl-bc="payments"] .pay-wrap--compact .sum-label{
+  font-size:11px !important;
+  margin-bottom:4px !important;
+}
+
+body[data-wl-bc="payments"] .pay-wrap--compact .sum-value{
+  font-size:1rem !important;
+}
+
+body.dark-mode[data-wl-bc="payments"] .pay-wrap--compact .payments-dash,
+body.dark-mode[data-wl-bc="payments"] .pay-wrap--compact .payments-dash__stat,
+body.dark-mode[data-wl-bc="payments"] .pay-wrap--compact .payments-table-wrap,
+body.dark-mode[data-wl-bc="payments"] .pay-wrap--compact .payments-empty{
+  box-shadow:none !important;
+}
+
+@media (max-width:720px){
+  body[data-wl-bc="payments"] .pay-wrap--compact .payments-dash__grid{
+    grid-template-columns:repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width:520px){
+  body[data-wl-bc="payments"] .pay-wrap--compact .payments-dash__grid{
+    grid-template-columns:1fr !important;
+  }
 }

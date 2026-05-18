@@ -1139,3 +1139,197 @@ body.dark-mode .wl-modal__header p{
     grid-template-columns:1fr;
   }
 }
+
+/* —— Portfolio finance: compact owner dashboard layout —— */
+.finance-page--portfolio{
+  max-width:1120px;
+}
+
+.finance-hero--portfolio{
+  background:linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(240,248,255,0.92) 100%);
+  border:1px solid rgba(54,215,232,0.22);
+  border-radius:16px;
+  padding:12px 14px;
+  margin-bottom:8px;
+}
+
+.finance-page--portfolio .finance-hero__header{
+  grid-template-columns:1fr auto;
+  gap:12px 16px;
+  align-items:center;
+}
+
+.finance-page--portfolio .finance-title{
+  font-size:19px;
+  margin:0 0 2px;
+}
+
+.finance-page--portfolio .finance-subtitle{
+  font-size:12px;
+  font-weight:600;
+  margin:0;
+}
+
+.finance-page--portfolio .finance-period-caption{
+  margin:0 0 8px;
+  font-size:11px;
+  padding:6px 10px;
+  border-radius:8px;
+  background:rgba(12,24,49,0.35);
+  display:inline-block;
+}
+
+.finance-kpi-strip{
+  display:grid;
+  grid-template-columns:repeat(4, minmax(0, 1fr));
+  gap:8px;
+  margin-bottom:10px;
+}
+
+.finance-kpi{
+  min-height:0;
+  padding:10px 12px 10px 14px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,0.5);
+  border-inline-start-width:4px;
+  box-shadow:0 4px 14px rgba(16,43,76,0.06);
+}
+
+.finance-kpi--income{ border-inline-start-color:#0f8a4b; }
+.finance-kpi--costs{ border-inline-start-color:#d0342c; }
+.finance-kpi--late{ border-inline-start-color:#d97706; }
+.finance-kpi--profit{ border-inline-start-color:#2563eb; }
+
+.finance-kpi .finance-card__label{
+  font-size:10px;
+  margin-bottom:2px;
+  text-transform:uppercase;
+  letter-spacing:0.02em;
+}
+
+.finance-kpi .finance-card__value{
+  font-size:16px;
+  line-height:1.2;
+}
+
+.finance-table-section--portfolio{
+  margin-bottom:16px;
+}
+
+.finance-table-section--portfolio .finance-table-header{
+  margin-bottom:6px;
+}
+
+.finance-table-section--portfolio .finance-table-header h2{
+  font-size:16px;
+}
+
+.finance-table-section--portfolio .finance-table-meta{
+  font-size:11px;
+  padding:4px 10px;
+  border-radius:999px;
+  background:rgba(255,255,255,0.12);
+}
+
+.finance-page--portfolio .finance-table-wrap{
+  border-radius:14px;
+}
+
+.finance-page--portfolio .finance-table--portfolio thead th{
+  font-size:12px;
+  padding:8px 10px;
+}
+
+.finance-page--portfolio .finance-table--portfolio tbody td,
+.finance-page--portfolio .finance-table--portfolio tfoot td{
+  font-size:12px;
+  padding:8px 10px;
+}
+
+.finance-page--portfolio .portfolio-building-open{
+  padding:4px 8px;
+  font-size:12px;
+}
+
+.finance-page--portfolio .owner-portfolio-pick-banner{
+  margin-bottom:8px;
+  padding:8px 10px;
+}
+
+.finance-page--portfolio .owner-portfolio-pick-banner__inner{
+  gap:8px;
+}
+
+.finance-page--portfolio .owner-portfolio-pick-banner__title{
+  font-size:12px;
+}
+
+.finance-page--portfolio .owner-portfolio-pick-banner__meta{
+  font-size:11px;
+}
+
+.finance-portfolio-modal .wl-modal__dialog{
+  max-width:min(920px, 96vw);
+}
+
+.finance-page--portfolio .portfolio-apartments-list{
+  grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));
+  gap:8px;
+}
+
+.finance-page--portfolio .portfolio-apt-card{
+  padding:8px 10px;
+  border-radius:10px;
+}
+
+.finance-page--portfolio .portfolio-apt-card__head{
+  margin-bottom:6px;
+}
+
+.finance-page--portfolio .portfolio-apt-card__title{
+  font-size:12px;
+}
+
+.finance-page--portfolio .portfolio-apt-card__meta{
+  gap:6px;
+}
+
+.finance-page--portfolio .portfolio-apt-card__item{
+  padding:6px 8px;
+  border-radius:8px;
+}
+
+.finance-page--portfolio .portfolio-apt-card__label{
+  font-size:10px;
+  margin-bottom:2px;
+}
+
+.finance-page--portfolio .portfolio-apt-card__value{
+  font-size:11px;
+}
+
+.finance-page--portfolio .portfolio-apt-card__note{
+  margin-top:6px;
+  padding-top:6px;
+  font-size:10px;
+}
+
+body.dark-mode .finance-hero--portfolio{
+  background:linear-gradient(135deg, rgba(15,23,42,0.92) 0%, rgba(22,36,58,0.88) 100%);
+  border-color:rgba(54,215,232,0.28);
+}
+
+body.dark-mode .finance-kpi{
+  background:rgba(15,23,42,0.75);
+  border-color:rgba(148,163,184,0.2);
+}
+
+@media (max-width: 900px){
+  .finance-kpi-strip{
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+  }
+
+  .finance-page--portfolio .finance-hero__header{
+    grid-template-columns:1fr;
+  }
+}

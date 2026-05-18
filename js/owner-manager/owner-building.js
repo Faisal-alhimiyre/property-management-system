@@ -244,7 +244,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     title.textContent = T("building.notFound");
   }
 
-  if (typeof WalajnaPaymentsApi !== "undefined" && WalajnaPaymentsApi.listMapped) {
+  // Avoid WalajnaPaymentsApi.listMapped() (N HTTP calls per contract). API path uses
+  // GET /api/buildings/:id/installments via loadInstallmentsForBuildingSummary().
+  if (
+    !apartmentsFromApi &&
+    typeof WalajnaPaymentsApi !== "undefined" &&
+    WalajnaPaymentsApi.listMapped
+  ) {
     void (async () => {
       try {
         payments = await WalajnaPaymentsApi.listMapped();

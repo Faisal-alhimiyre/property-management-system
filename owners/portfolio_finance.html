@@ -15,9 +15,9 @@
 <body data-nav="user" data-wl-bc="portfolio-finance">
   <div id="navbar-container"></div>
 
-  <main class="finance-page">
+  <main class="finance-page finance-page--compact finance-page--portfolio">
 
-    <section class="finance-hero">
+    <section class="finance-hero finance-hero--portfolio">
       <div class="finance-hero__header">
         <div class="finance-hero__content">
           <h1 id="pageTitle" class="finance-title" data-i18n="finance.summaryAllBuildings">الملخص المالي - جميع العمائر</h1>
@@ -45,29 +45,29 @@
 
     <p id="periodCaption" class="finance-period-caption"></p>
 
-    <section class="finance-cards">
-      <article class="finance-card">
+    <section class="finance-cards finance-kpi-strip" aria-label="Portfolio totals">
+      <article class="finance-card finance-kpi finance-kpi--income">
         <span class="finance-card__label" data-i18n="finance.cardIncome">الدخل</span>
         <strong id="incomeValue" class="finance-card__value">0</strong>
       </article>
 
-      <article class="finance-card">
+      <article class="finance-card finance-kpi finance-kpi--costs">
         <span class="finance-card__label" data-i18n="finance.cardCosts">التكاليف</span>
         <strong id="costValue" class="finance-card__value">0</strong>
       </article>
 
-      <article class="finance-card">
+      <article class="finance-card finance-kpi finance-kpi--late">
         <span class="finance-card__label" data-i18n="finance.cardLate">المتأخرات</span>
         <strong id="lateValue" class="finance-card__value">0</strong>
       </article>
 
-      <article class="finance-card">
+      <article class="finance-card finance-kpi finance-kpi--profit">
         <span class="finance-card__label" data-i18n="finance.cardProfit">الربح</span>
         <strong id="profitValue" class="finance-card__value">0</strong>
       </article>
     </section>
 
-    <section class="finance-table-section">
+    <section class="finance-table-section finance-table-section--portfolio">
       <div class="finance-table-header">
         <h2 data-i18n="finance.aptDetails">تفاصيل الشقق</h2>
         <div class="finance-table-header__aside">

@@ -87,3 +87,79 @@ async def get_contracts(current_user: dict = Depends(get_current_user)):
     someone else's unit — both sets must be merged or /api/contracts is empty for them.
     """
     return await asyncio.to_thread(_get_contracts_merged, current_user)
+
+
+def _get_contract_by_id(contract_id: int, current_user: dict) -> dict:
+    """Return one contract row if the user may view it (owner of unit or linked tenant)."""
+    try:
+        uid = int(current_user["id"])
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    res = (
+        supabase.table("contracts")
+        .select("*")
+        .eq("id", contract_id)
+        .limit(1)
+        .execute()
+    )
+    rows = getattr(res, "data", None) or []
+    if not rows:
+        raise HTTPException(status_code=404, detail="Contract not found")
+    row = rows[0]
+
+    apt_id = row.get("apartment_id")
+    if apt_id is None:
+        raise HTTPException(status_code=404, detail="Contract not found")
+
+    apt_res = (
+        supabase.table("apartments")
+        .select("id, owner_id, tenant_user_id, tenant_national_id")
+        .eq("id", int(apt_id))
+        .limit(1)
+        .execute()
+    )
+    apt_rows = getattr(apt_res, "data", None) or []
+    if not apt_rows:
+        raise HTTPException(status_code=404, detail="Contract not found")
+    apt = apt_rows[0]
+
+    try:
+        is_landlord = int(apt.get("owner_id") or -1) == uid
+    except (TypeError, ValueError):
+        is_landlord = False
+
+    if not is_landlord:
+        is_linked = apt.get("tenant_user_id") == uid
+        if not is_linked:
+            national_id = current_user.get("national_id")
+            is_linked = bool(
+                national_id and apt.get("tenant_national_id") == national_id
+            )
+        if not is_linked:
+            tenant_id = row.get("tenant_id")
+            if tenant_id is not None:
+                t_res = (
+                    supabase.table("tenants")
+                    .select("id")
+                    .eq("user_id", uid)
+                    .eq("id", int(tenant_id))
+                    .limit(1)
+                    .execute()
+                )
+                is_linked = bool(getattr(t_res, "data", None))
+            else:
+                is_linked = False
+        if not is_linked:
+            raise HTTPException(status_code=403, detail="Not authorized")
+
+    return row
+
+
+@router.get("/contracts/{contract_id}")
+async def get_contract(
+    contract_id: int,
+    current_user: dict = Depends(get_current_user),
+):
+    """Single contract by id (avoids downloading the full /api/contracts list on detail pages)."""
+    return await asyncio.to_thread(_get_contract_by_id, contract_id, current_user)
