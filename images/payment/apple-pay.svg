@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-hidden="true">
+  <rect x="2" y="2" width="44" height="44" rx="10" fill="#111827"/>
+  <path fill="#fff" d="M24.1 11.2c.7-.9 1.9-1.5 3-1.6-.1 1.1-.4 2.2-1.1 3.1-.7.9-1.9 1.6-3 1.5.1-1.1.5-2.1 1.1-3zm-2.4 4.1c2.8-.1 4.3 1.7 5.4 1.7 1.1 0 3.5-2.1 5.8-1.6 1-.2 3.8 1 3.9 4.1 0 3.3-2.8 6.5-4 6.5-1.1 0-2.2-1.6-4.1-1.6-1.9 0-2.9 1.6-4.1 1.6-1.2 0-3.3-2.8-4-5.5-1.7-6.6.9-9.8 2.2-9.8z"/>
+  <text x="24" y="40" text-anchor="middle" fill="#fff" font-family="system-ui,sans-serif" font-size="7" font-weight="700">Pay</text>
+</svg>
