@@ -721,6 +721,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.querySelectorAll(".building-card-menu").forEach((menu) => {
       menu.classList.remove("is-open");
     });
+    document.querySelectorAll(".building-card.menu-open").forEach((card) => {
+      card.classList.remove("menu-open");
+    });
   }
 
   /** One building may have rows keyed by DB id and by legacy `code` — same units twice. */
@@ -1400,6 +1403,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         if (menu && !isOpen) {
           menu.classList.add("is-open");
+          const card = btn.closest(".building-card");
+          if (card) card.classList.add("menu-open");
         }
       });
     });

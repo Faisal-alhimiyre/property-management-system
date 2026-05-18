@@ -16,12 +16,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   const normalizeId = (value) => String(value || "").trim();
 
   let apartments = [];
-  const costs = JSON.parse(localStorage.getItem("walajna_costs") || "[]");
+  const costsLocal = JSON.parse(localStorage.getItem("walajna_costs") || "[]");
   let payments = [];
 
-  /** Merged paid installments for all buildings (GET /api/buildings/:id/installments). */
+  /** All owner installments (GET /api/owner/installments); filtered client-side by building pick. */
+  let serverInstallmentsAllFull = [];
   let serverInstallmentsAll = [];
+  /** All owner costs (GET /api/owner/costs); filtered client-side by building pick. */
+  let serverCostsAllFull = [];
+  let serverCostsAll = [];
   let incomeFromApi = false;
+  let costsFromApi = false;
 
   let allBuildingApartments = [];
   let allBuildingApartmentsFull = [];
@@ -75,29 +80,101 @@ document.addEventListener("DOMContentLoaded", async () => {
     return Array.from(byKey.values());
   }
 
-  async function loadInstallmentsForBuildings(buildingIds) {
-    serverInstallmentsAll = [];
-    if (
-      typeof WalajnaAuth === "undefined" ||
-      !WalajnaAuth.fetchWithAuth ||
-      !buildingIds.length
-    ) {
-      return;
-    }
-    const results = await Promise.all(
-      buildingIds.map((bid) =>
-        WalajnaAuth.fetchWithAuth(
-          `${WalajnaAuth.API_BASE}/api/buildings/${encodeURIComponent(bid)}/installments`,
-          { method: "GET" }
-        )
-          .then((res) => (res.ok ? res.json() : []))
-          .catch(() => [])
-      )
-    );
-    serverInstallmentsAll = results.flatMap((chunk) => (Array.isArray(chunk) ? chunk : []));
+  function parseIsoDate(raw) {
+    if (!raw) return null;
+    const d = new Date(raw);
+    return Number.isNaN(d.getTime()) ? null : d;
   }
 
-  if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.refreshForSession) {
+  function getApartmentApiId(apartment) {
+    if (apartment?.apiId != null && String(apartment.apiId).trim() !== "") {
+      return String(apartment.apiId);
+    }
+    return normalizeId(apartment?.id);
+  }
+
+  function applyInstallmentsScopeFilter() {
+    const allowedAptIds = new Set(
+      allBuildingApartments
+        .map((a) => getApartmentApiId(a))
+        .filter(Boolean)
+    );
+    const allowedBuildingIds = new Set(
+      allBuildingApartments.map((a) => normalizeId(a.buildingId)).filter(Boolean)
+    );
+    serverInstallmentsAll = (serverInstallmentsAllFull || []).filter((row) => {
+      const rowBid = row.building_id != null ? normalizeId(row.building_id) : "";
+      if (rowBid && allowedBuildingIds.has(rowBid)) return true;
+      const rowApt = row.apartment_id != null ? String(row.apartment_id) : "";
+      return rowApt && allowedAptIds.has(rowApt);
+    });
+  }
+
+  async function loadInstallmentsBulk() {
+    serverInstallmentsAllFull = [];
+    serverInstallmentsAll = [];
+    if (typeof WalajnaAuth === "undefined" || !WalajnaAuth.fetchWithAuth) {
+      return;
+    }
+    try {
+      const res = await WalajnaAuth.fetchWithAuth(
+        `${WalajnaAuth.API_BASE}/api/owner/installments`,
+        { method: "GET" }
+      );
+      if (!res.ok) {
+        console.warn("portfolio-finance: owner installments fetch failed", res.status);
+        return;
+      }
+      const data = await res.json();
+      serverInstallmentsAllFull = Array.isArray(data) ? data : [];
+      applyInstallmentsScopeFilter();
+    } catch (e) {
+      console.warn("portfolio-finance: owner installments fetch failed", e);
+    }
+  }
+
+  function applyCostsScopeFilter() {
+    const allowedAptIds = new Set(
+      allBuildingApartments
+        .map((a) => getApartmentApiId(a))
+        .filter(Boolean)
+    );
+    serverCostsAll = (serverCostsAllFull || []).filter((row) =>
+      allowedAptIds.has(String(row.apartment_id ?? ""))
+    );
+  }
+
+  async function loadCostsBulk() {
+    serverCostsAllFull = [];
+    serverCostsAll = [];
+    costsFromApi = false;
+    if (typeof WalajnaAuth === "undefined" || !WalajnaAuth.fetchWithAuth) {
+      return;
+    }
+    try {
+      const res = await WalajnaAuth.fetchWithAuth(
+        `${WalajnaAuth.API_BASE}/api/owner/costs`,
+        { method: "GET" }
+      );
+      if (!res.ok) {
+        console.warn("portfolio-finance: owner costs fetch failed", res.status);
+        return;
+      }
+      const data = await res.json();
+      serverCostsAllFull = Array.isArray(data) ? data : [];
+      costsFromApi = true;
+      applyCostsScopeFilter();
+    } catch (e) {
+      console.warn("portfolio-finance: owner costs fetch failed", e);
+    }
+  }
+
+  const sessionUser =
+    typeof WalajnaAuth !== "undefined" &&
+    typeof WalajnaAuth.getCurrentUser === "function" &&
+    WalajnaAuth.getCurrentUser();
+
+  if (!sessionUser && typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.refreshForSession) {
     try {
       await WalajnaApartmentsApi.refreshForSession();
       apartments = WalajnaApartmentsApi.getSessionList();
@@ -105,21 +182,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       console.warn("portfolio-finance: apartments API failed", e);
       apartments = [];
     }
+  } else if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.getSessionList) {
+    apartments = WalajnaApartmentsApi.getSessionList();
   } else {
     apartments = [];
-  }
-
-  if (
-    typeof WalajnaPaymentsApi !== "undefined" &&
-    WalajnaPaymentsApi.listMapped &&
-    typeof WalajnaAuth !== "undefined" &&
-    WalajnaAuth.fetchWithAuth
-  ) {
-    try {
-      payments = await WalajnaPaymentsApi.listMapped();
-    } catch (e) {
-      console.warn("portfolio-finance: payments API failed", e);
-    }
   }
 
   if (
@@ -196,12 +262,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (merged.length) {
           allBuildingApartmentsFull = merged;
           incomeFromApi = true;
-          const installmentBuildingIds =
-            typeof WalajnaOwnerBuildingPick !== "undefined" &&
-            WalajnaOwnerBuildingPick.hasFilter()
-              ? [...WalajnaOwnerBuildingPick.getSelectedIds()]
-              : [...buildingIdSet];
-          await loadInstallmentsForBuildings(installmentBuildingIds);
+          await Promise.all([loadInstallmentsBulk(), loadCostsBulk()]);
           allBuildingApartments =
             typeof WalajnaOwnerBuildingPick !== "undefined"
               ? WalajnaOwnerBuildingPick.filterApartments(allBuildingApartmentsFull)
@@ -396,11 +457,25 @@ document.addEventListener("DOMContentLoaded", async () => {
   function getApartmentCostsForRange(apartment, start, end) {
     if (!apartment) return 0;
 
+    const apiAptId = getApartmentApiId(apartment);
+
+    if (costsFromApi) {
+      return serverCostsAll
+        .filter((row) => String(row.apartment_id ?? "") === apiAptId)
+        .filter((row) => {
+          const costDate = parseIsoDate(row.expense_date || row.created_at);
+          if (!costDate) return false;
+          return costDate >= start && costDate <= end;
+        })
+        .reduce((sum, row) => sum + Number(row.amount || 0), 0);
+    }
+
     const currentContractId = getApartmentCurrentContractId(apartment);
 
-    return costs
+    return costsLocal
       .filter((cost) => {
-        if (normalizeId(cost.apartmentId) !== normalizeId(apartment.id)) {
+        const costApt = normalizeId(cost.apartmentId);
+        if (costApt !== normalizeId(apartment.id) && costApt !== apiAptId) {
           return false;
         }
 
@@ -410,11 +485,8 @@ document.addEventListener("DOMContentLoaded", async () => {
           }
         }
 
-        const rawDate = cost.date || cost.createdAt;
-        if (!rawDate) return false;
-
-        const costDate = new Date(rawDate);
-        if (Number.isNaN(costDate.getTime())) return false;
+        const costDate = parseIsoDate(cost.date || cost.createdAt);
+        if (!costDate) return false;
 
         return costDate >= start && costDate <= end;
       })
@@ -602,9 +674,33 @@ document.addEventListener("DOMContentLoaded", async () => {
     return getApartmentRealizedIncomeForRange(apartment, earliest, endDate);
   }
 
-  function getApartmentLateAmount(apartment, rangeEnd) {
+  function getApartmentOverdueThrough(apartment, rangeEnd) {
     if (!apartment || !isApartmentOccupied(apartment)) {
       return 0;
+    }
+
+    if (incomeFromApi) {
+      const apiAptId = getApartmentApiId(apartment);
+      const periodEnd =
+        rangeEnd instanceof Date ? new Date(rangeEnd.getTime()) : parseIsoDate(rangeEnd) || new Date();
+      const now = new Date();
+      now.setHours(23, 59, 59, 999);
+      const asOf = periodEnd.getTime() < now.getTime() ? periodEnd : now;
+      let sum = 0;
+      (serverInstallmentsAll || []).forEach((row) => {
+        const rowApt = row.apartment_id != null ? String(row.apartment_id) : "";
+        if (rowApt !== apiAptId) return;
+        const status = String(row.status || "").toLowerCase();
+        if (status === "paid" || status === "cancelled") return;
+        const due = parseIsoDate(row.due_date || row.dueDate);
+        if (!due) return;
+        due.setHours(0, 0, 0, 0);
+        const cutoff = new Date(asOf);
+        cutoff.setHours(0, 0, 0, 0);
+        if (due.getTime() > cutoff.getTime()) return;
+        sum += Number(row.amount || 0);
+      });
+      return sum;
     }
 
     const currentContractId = getApartmentCurrentContractId(apartment);
@@ -715,7 +811,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       .map((apartment) => {
         const income = getApartmentRealizedIncomeForRange(apartment, start, end);
         const apartmentCosts = getApartmentCostsForRange(apartment, start, end);
-        const lateAmount = getApartmentLateAmount(apartment, end);
+        const lateAmount = getApartmentOverdueThrough(apartment, end);
         const profit = income - apartmentCosts;
         return renderApartmentCard(apartment, income, apartmentCosts, lateAmount, profit);
       })
@@ -793,7 +889,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         group.units.forEach((apartment) => {
           const income = getApartmentRealizedIncomeForRange(apartment, start, end);
           const apartmentCosts = getApartmentCostsForRange(apartment, start, end);
-          const lateAmount = getApartmentLateAmount(apartment, end);
+          const lateAmount = getApartmentOverdueThrough(apartment, end);
           bIncome += income;
           bCosts += apartmentCosts;
           bLate += lateAmount;
@@ -915,15 +1011,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       allBuildingApartmentsFull
     );
 
-    if (WalajnaOwnerBuildingPick.hasFilter()) {
-      await loadInstallmentsForBuildings([
-        ...WalajnaOwnerBuildingPick.getSelectedIds(),
-      ]);
-    } else if (ownerBuildingsCatalog.length) {
-      await loadInstallmentsForBuildings(
-        ownerBuildingsCatalog.map((b) => b.id)
-      );
-    }
+    applyInstallmentsScopeFilter();
+    applyCostsScopeFilter();
 
     const anchor = document.querySelector(".finance-cards");
     WalajnaOwnerBuildingPick.mountFilterBanner({

@@ -18,10 +18,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   const MAIN_COLS = 6;
   const normalizeId = (value) => String(value || "").trim();
 
-  let apartments = [];
   let allBuildingApartments = [];
   let allBuildingApartmentsFull = [];
   let ownerBuildingsCatalog = [];
+  /** Costs from GET /api/owner/costs (canonical); filtered client-side by building pick. */
+  let portfolioCostsCacheFull = [];
+  let portfolioCostsCache = [];
+  let costsFromApi = false;
 
   function mapApiApartmentToRow(api) {
     if (!api) return null;
@@ -63,6 +66,92 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (!prev || score(apt) > score(prev)) byKey.set(key, apt);
     }
     return Array.from(byKey.values());
+  }
+
+  function buildApartmentIndexByApiId() {
+    const map = new Map();
+    for (const apt of allBuildingApartmentsFull) {
+      const apiId = apt.apiId != null ? String(apt.apiId) : String(apt.id || "");
+      if (apiId) map.set(apiId, apt);
+      const uiId = String(apt.id || "");
+      if (uiId && uiId !== apiId) map.set(uiId, apt);
+    }
+    return map;
+  }
+
+  function mapApiCostRow(row, aptById) {
+    const rawAptId = String(row.apartment_id ?? "");
+    const apt = aptById.get(rawAptId) || null;
+    const expenseRaw = row.expense_date;
+    const expenseDate =
+      typeof expenseRaw === "string"
+        ? expenseRaw.slice(0, 10)
+        : expenseRaw && typeof expenseRaw === "object" && expenseRaw.toISOString
+          ? expenseRaw.toISOString().slice(0, 10)
+          : String(expenseRaw || "").slice(0, 10);
+    let createdAt = "";
+    if (row.created_at) {
+      const c = row.created_at;
+      createdAt = typeof c === "string" ? c.slice(0, 10) : new Date(c).toISOString().slice(0, 10);
+    }
+    const uiAptId = apt ? String(apt.id || apt.apiId || rawAptId) : rawAptId;
+    return {
+      id: String(row.id),
+      serverId: row.id,
+      apartmentId: uiAptId,
+      contractId: row.contract_id != null ? String(row.contract_id) : null,
+      type: row.cost_type,
+      amount: Number(row.amount),
+      status: row.status,
+      expenseDate: expenseDate || "—",
+      createdAt: createdAt || "—",
+      notes: row.notes || "",
+      _buildingId: normalizeId(apt?.buildingId) || "",
+      _buildingName: apt?.buildingName || "—",
+      _aptNum: String(apt?.number ?? apt?.apartmentNumber ?? "—"),
+      _aptId: uiAptId,
+    };
+  }
+
+  function applyCostsScopeFilter() {
+    const aptById = buildApartmentIndexByApiId();
+    const allowedAptIds = new Set(
+      allBuildingApartments
+        .map((a) => (a.apiId != null ? String(a.apiId) : String(a.id || "")))
+        .filter(Boolean)
+    );
+    portfolioCostsCache = (portfolioCostsCacheFull || [])
+      .filter((row) => allowedAptIds.has(String(row.apartment_id ?? "")))
+      .map((row) => mapApiCostRow(row, aptById));
+  }
+
+  async function loadCostsBulk() {
+    portfolioCostsCacheFull = [];
+    portfolioCostsCache = [];
+    costsFromApi = false;
+    if (
+      typeof WalajnaAuth === "undefined" ||
+      !WalajnaAuth.fetchWithAuth ||
+      !allBuildingApartmentsFull.length
+    ) {
+      return;
+    }
+    try {
+      const res = await WalajnaAuth.fetchWithAuth(
+        `${WalajnaAuth.API_BASE}/api/owner/costs`,
+        { method: "GET" }
+      );
+      if (!res.ok) {
+        console.warn("portfolio-costs: owner costs fetch failed", res.status);
+        return;
+      }
+      const data = await res.json();
+      portfolioCostsCacheFull = Array.isArray(data) ? data : [];
+      costsFromApi = true;
+      applyCostsScopeFilter();
+    } catch (e) {
+      console.warn("portfolio-costs: owner costs fetch failed", e);
+    }
   }
 
   async function loadOwnerApartmentsFromApi() {
@@ -132,20 +221,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.refreshForSession) {
-    try {
-      await WalajnaApartmentsApi.refreshForSession();
-      apartments = WalajnaApartmentsApi.getSessionList();
-    } catch (e) {
-      apartments = [];
-    }
-  } else {
-    apartments = [];
-  }
+  const apartmentsLoaded = await loadOwnerApartmentsFromApi();
 
-  await loadOwnerApartmentsFromApi();
-
-  if (
+  if (apartmentsLoaded && ownerBuildingsCatalog.length) {
+    await loadCostsBulk();
+  } else if (
     typeof WalajnaCostsApi !== "undefined" &&
     WalajnaCostsApi.isAvailable &&
     WalajnaCostsApi.isAvailable() &&
@@ -231,6 +311,24 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function getPortfolioCosts() {
+    if (costsFromApi) {
+      const allowedAptIds = new Set(
+        allBuildingApartments.map((a) => String(a.id || a.apiId || "")).filter(Boolean)
+      );
+      const allowedApiIds = new Set(
+        allBuildingApartments
+          .map((a) => (a.apiId != null ? String(a.apiId) : ""))
+          .filter(Boolean)
+      );
+      return portfolioCostsCache.filter((c) => {
+        const aptKey = String(c._aptId || c.apartmentId || "");
+        return (
+          allowedAptIds.has(aptKey) ||
+          allowedApiIds.has(aptKey) ||
+          allowedAptIds.has(String(c.apartmentId || ""))
+        );
+      });
+    }
     return getCosts()
       .filter(costBelongsToOwner)
       .map(enrichCost)
@@ -351,22 +449,22 @@ document.addEventListener("DOMContentLoaded", async () => {
       .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
     costsSummary.innerHTML = `
-      <div class="sum-card">
+      <article class="sum-card finance-kpi finance-kpi--costs">
         <span class="sum-label">${escapeHtml(T("costs.sumTotal"))}</span>
         <div class="sum-value">${formatAmount(total)}</div>
-      </div>
-      <div class="sum-card">
+      </article>
+      <article class="sum-card finance-kpi finance-kpi--income">
         <span class="sum-label">${escapeHtml(T("costs.sumApproved"))}</span>
         <div class="sum-value">${formatAmount(approved)}</div>
-      </div>
-      <div class="sum-card">
+      </article>
+      <article class="sum-card finance-kpi finance-kpi--late">
         <span class="sum-label">${escapeHtml(T("costs.sumPending"))}</span>
         <div class="sum-value">${formatAmount(pending)}</div>
-      </div>
-      <div class="sum-card">
+      </article>
+      <article class="sum-card finance-kpi finance-kpi--profit">
         <span class="sum-label">${escapeHtml(T("costs.sumCancelled"))}</span>
         <div class="sum-value">${formatAmount(cancelled)}</div>
-      </div>
+      </article>
     `;
   }
 
@@ -535,8 +633,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     const groupsWithCosts = distributeCostsToGroups(baseGroups, filteredCosts);
 
     if (costsCount) {
-      costsCount.textContent = T("costs.portfolioBuildingMeta", {
-        buildings: baseGroups.length,
+      const buildingsShown = baseGroups.filter((g) => g.buildingId !== "__orphan__").length;
+      costsCount.textContent = T("costs.portfolioTableMeta", {
+        buildings: buildingsShown,
         expenses: filteredCosts.length,
       });
     }
@@ -566,13 +665,29 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (!id) return;
       const confirmed = confirm(T("costs.confirmDelete"));
       if (!confirmed) return;
-      const updatedCosts = getCosts().filter((item) => item.id !== id);
-      saveCosts(updatedCosts);
-      renderPage();
+      void (async () => {
+        try {
+          if (
+            costsFromApi &&
+            typeof WalajnaCostsApi !== "undefined" &&
+            WalajnaCostsApi.deleteOnServer
+          ) {
+            await WalajnaCostsApi.deleteOnServer(id);
+            await loadCostsBulk();
+          } else {
+            const updatedCosts = getCosts().filter((item) => item.id !== id);
+            saveCosts(updatedCosts);
+          }
+        } catch (err) {
+          alert(err?.message || T("common.error"));
+          return;
+        }
+        renderPage();
+      })();
     }
   });
 
-  function refreshPortfolioPickUi() {
+  async function refreshPortfolioPickUi() {
     if (!allBuildingApartmentsFull.length) return;
     if (typeof WalajnaOwnerBuildingPick === "undefined") return;
 
@@ -581,13 +696,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     );
     rebuildOwnerScopeSets();
 
+    applyCostsScopeFilter();
+
     const anchor = document.getElementById("costsSummary");
     WalajnaOwnerBuildingPick.mountFilterBanner({
       anchor,
       buildings: ownerBuildingsCatalog,
       onChange: () => {
-        refreshPortfolioPickUi();
-        renderPage();
+        void refreshPortfolioPickUi().then(renderPage);
       },
     });
   }
@@ -595,8 +711,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   searchInput?.addEventListener("input", renderPage);
   document.addEventListener("walajna:i18n-applied", () => renderPage());
 
-  refreshPortfolioPickUi();
-  renderPage();
+  void refreshPortfolioPickUi().then(renderPage);
 
   if (typeof window.walajnaRefreshBreadcrumb === "function") {
     window.walajnaRefreshBreadcrumb();

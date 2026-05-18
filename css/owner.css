@@ -819,12 +819,14 @@ body.dark-mode .building-card.is-multi-selected {
   gap: 16px;
   justify-content: start;
   align-items: start;
+  overflow: visible;
 }
 
 /* building card */
 
 .building-card {
   position: relative;
+  z-index: 1;
   background: #ffffff;
   border-radius: 16px;
   border: 1px solid rgba(0, 0, 0, 0.05);
@@ -841,6 +843,13 @@ body.dark-mode .building-card.is-multi-selected {
     0 4px 12px rgba(0, 0, 0, 0.05),
     0 12px 30px rgba(0, 0, 0, 0.08);
   align-self: start;
+  overflow: visible;
+}
+
+.building-card:hover,
+.building-card.menu-open,
+.building-card:has(.building-card-menu.is-open) {
+  z-index: 100;
 }
 
 .building-card:hover {
@@ -961,6 +970,7 @@ body.dark-mode .building-card.is-pinned:hover {
   margin-top: 2px;
   margin-bottom: 8px;
   flex-shrink: 0;
+  overflow: visible;
 }
 
 .building-card__layout-banner {
@@ -1250,7 +1260,7 @@ body.dark-mode .legend-list--occupancy {
   position: absolute;
   top: 10px;
   inset-inline-end: 10px;
-  z-index: 12;
+  z-index: 101;
 }
 
 .building-card__head .building-menu-wrap {
@@ -1260,7 +1270,7 @@ body.dark-mode .legend-list--occupancy {
   grid-area: menu;
   justify-self: end;
   align-self: start;
-  z-index: 12;
+  z-index: 101;
 }
 
 .building-more-btn {
@@ -1294,7 +1304,7 @@ body.dark-mode .legend-list--occupancy {
 .building-card-menu {
   position: absolute;
   top: 40px;
-  right: 0;
+  inset-inline-end: 0;
   min-width: 150px;
   background: #fff;
   border: 1px solid rgba(15, 23, 42, 0.08);
@@ -1302,6 +1312,7 @@ body.dark-mode .legend-list--occupancy {
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.14);
   padding: 6px;
   display: none;
+  z-index: 102;
 }
 
 .building-card-menu.is-open {
@@ -1519,11 +1530,6 @@ body.dark-mode .legend-list--occupancy {
     border-radius: 14px;
     gap: 0;
     overflow: visible;
-    z-index: 1;
-  }
-
-  .building-card:has(.building-card-menu.is-open) {
-    z-index: 40;
   }
 
   .building-card:not(:has(.apartments-grid)) .building-card__layout-banner {
@@ -1549,14 +1555,6 @@ body.dark-mode .legend-list--occupancy {
     font-size: 9px;
     padding: 2px 6px;
     border-radius: 999px;
-  }
-
-  .building-card__head .building-menu-wrap {
-    z-index: 45;
-  }
-
-  .building-card-menu {
-    z-index: 50;
   }
 
   .building-more-btn {

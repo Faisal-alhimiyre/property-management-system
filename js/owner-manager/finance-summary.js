@@ -142,7 +142,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     await WalajnaAuth.hydrateSession();
   }
 
-  if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.refreshForSession) {
+  const sessionUser =
+    typeof WalajnaAuth !== "undefined" &&
+    typeof WalajnaAuth.getCurrentUser === "function" &&
+    WalajnaAuth.getCurrentUser();
+
+  if (!sessionUser && typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.refreshForSession) {
     try {
       await WalajnaApartmentsApi.refreshForSession();
       apartments = WalajnaApartmentsApi.getSessionList();
@@ -150,6 +155,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       console.warn("finance-summary: apartments API failed", e);
       apartments = [];
     }
+  } else if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.getSessionList) {
+    apartments = WalajnaApartmentsApi.getSessionList();
   } else {
     apartments = [];
   }
@@ -164,19 +171,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       return Array.isArray(rows) ? rows : [];
     } catch {
       return [];
-    }
-  }
-
-  if (
-    typeof WalajnaPaymentsApi !== "undefined" &&
-    WalajnaPaymentsApi.listMapped &&
-    typeof WalajnaAuth !== "undefined" &&
-    WalajnaAuth.fetchWithAuth
-  ) {
-    try {
-      payments = await WalajnaPaymentsApi.listMapped();
-    } catch (e) {
-      console.warn("finance-summary: payments API failed", e);
     }
   }
 
@@ -230,6 +224,20 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     } catch (e) {
       console.warn("finance-summary: API load failed (no local buildings fallback)", e);
+    }
+  }
+
+  if (
+    !incomeFromApi &&
+    typeof WalajnaPaymentsApi !== "undefined" &&
+    WalajnaPaymentsApi.listMapped &&
+    typeof WalajnaAuth !== "undefined" &&
+    WalajnaAuth.fetchWithAuth
+  ) {
+    try {
+      payments = await WalajnaPaymentsApi.listMapped();
+    } catch (e) {
+      console.warn("finance-summary: payments API failed", e);
     }
   }
 

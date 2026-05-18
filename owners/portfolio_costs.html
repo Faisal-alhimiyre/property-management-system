@@ -15,8 +15,8 @@
 <body data-nav="user" data-wl-bc="portfolio-costs">
   <div id="navbar-container"></div>
 
-  <main class="pay-wrap">
-    <div class="pay-header">
+  <main class="pay-wrap pay-wrap--portfolio">
+    <header class="pay-header pay-header--portfolio">
       <div>
         <h2 id="pageTitle" data-i18n="costs.pageTitle">سجل المصروفات</h2>
         <p id="pageSub"></p>
@@ -25,15 +25,17 @@
       <div class="pay-search">
         <input id="searchInput" type="text" data-i18n-placeholder="costs.searchPh" placeholder="" />
       </div>
-    </div>
+    </header>
 
-    <div class="costs-topbar costs-topbar--portfolio">
-      <div id="costsCount" class="count-label"></div>
-    </div>
+    <div id="costsSummary" class="pay-summary finance-kpi-strip" role="region" aria-label="Expense totals"></div>
 
-    <div id="costsSummary" class="pay-summary"></div>
-
-    <section class="finance-table-section portfolio-costs-accordion">
+    <section class="finance-table-section portfolio-costs-accordion finance-table-section--portfolio">
+      <div class="finance-table-header">
+        <h2 data-i18n="costs.portfolioTableTitle">المصروفات حسب العمارة</h2>
+        <div class="finance-table-header__aside">
+          <span id="costsCount" class="finance-table-meta"></span>
+        </div>
+      </div>
       <div id="costsTableContainer" class="finance-table-wrap costs-portfolio-table-wrap"></div>
     </section>
   </main>
