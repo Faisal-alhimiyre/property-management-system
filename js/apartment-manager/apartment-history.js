@@ -536,32 +536,31 @@ document.addEventListener("DOMContentLoaded", async () => {
               <h3>${escapeHtml(tenantName)}</h3>
             </div>
 
-            <div class="card-body">
-              <div class="info-box">
-                <span class="label">${escapeHtml(T("history.label.id"))}</span>
-                <strong>${escapeHtml(nationalId)}</strong>
+            <div class="card-body card-body--tenant">
+              <div class="card-row card-row--${contractId ? "4" : "3"}">
+                <div class="info-box">
+                  <span class="label">${escapeHtml(T("history.label.id"))}</span>
+                  <strong>${escapeHtml(nationalId)}</strong>
+                </div>
+                <div class="info-box">
+                  <span class="label">${escapeHtml(T("history.label.start"))}</span>
+                  <strong>${escapeHtml(startDate)}</strong>
+                </div>
+                <div class="info-box">
+                  <span class="label">${escapeHtml(T("history.label.end"))}</span>
+                  <strong>${escapeHtml(endDate)}</strong>
+                </div>
+                ${
+                  contractId
+                    ? `
+                <div class="info-box">
+                  <span class="label">${escapeHtml(T("history.label.contractId"))}</span>
+                  <strong>${escapeHtml(contractId)}</strong>
+                </div>
+                `
+                    : ""
+                }
               </div>
-
-              <div class="info-box">
-                <span class="label">${escapeHtml(T("history.label.start"))}</span>
-                <strong>${escapeHtml(startDate)}</strong>
-              </div>
-
-              <div class="info-box">
-                <span class="label">${escapeHtml(T("history.label.end"))}</span>
-                <strong>${escapeHtml(endDate)}</strong>
-              </div>
-
-              ${
-                contractId
-                  ? `
-                    <div class="info-box">
-                      <span class="label">${escapeHtml(T("history.label.contractId"))}</span>
-                      <strong>${escapeHtml(contractId)}</strong>
-                    </div>
-                  `
-                  : ""
-              }
             </div>
           </div>
         `;
@@ -616,79 +615,71 @@ document.addEventListener("DOMContentLoaded", async () => {
               <h3>${escapeHtml(title)}</h3>
             </div>
 
-            <div class="card-body">
+            <div class="card-body card-body--maintenance">
               <div class="info-box">
                 <span class="label">${escapeHtml(T("owner.archiveMaintenanceType"))}</span>
                 <strong>${escapeHtml(typeLabel)}</strong>
               </div>
-
               <div class="info-box">
                 <span class="label">${escapeHtml(T("history.label.desc"))}</span>
                 <strong>${escapeHtml(description)}</strong>
               </div>
-
               <div class="info-box">
                 <span class="label">${escapeHtml(T("history.label.recorded"))}</span>
                 <strong>${escapeHtml(createdAt)}</strong>
               </div>
-
               <div class="info-box">
                 <span class="label">${escapeHtml(T("common.status"))}</span>
                 <strong>${escapeHtml(statusLabel)}</strong>
               </div>
-
               ${
                 ownerReply
                   ? `
-                    <div class="info-box">
-                      <span class="label">${escapeHtml(T("owner.archiveMaintenanceReply"))}</span>
-                      <strong>${escapeHtml(ownerReply)}</strong>
-                    </div>
-                  `
+              <div class="info-box">
+                <span class="label">${escapeHtml(T("owner.archiveMaintenanceReply"))}</span>
+                <strong>${escapeHtml(ownerReply)}</strong>
+              </div>
+              `
                   : ""
               }
-
               ${
                 cost.amount != null && cost.amount !== ""
                   ? `
-                    <div class="info-box">
-                      <span class="label">${escapeHtml(T("owner.archiveMaintenanceAmount"))}</span>
-                      <strong>${escapeHtml(String(cost.amount))}</strong>
-                    </div>
-                  `
+              <div class="info-box">
+                <span class="label">${escapeHtml(T("owner.archiveMaintenanceAmount"))}</span>
+                <strong>${escapeHtml(String(cost.amount))}</strong>
+              </div>
+              `
                   : ""
               }
-
-              ${
-                tenantName !== dash
-                  ? `
-                    <div class="info-box">
-                      <span class="label">${escapeHtml(T("history.label.linkedTenant"))}</span>
-                      <strong>${escapeHtml(tenantName)}</strong>
-                    </div>
-                  `
-                  : ""
-              }
-
-              ${
-                tenantNationalId !== dash
-                  ? `
-                    <div class="info-box">
-                      <span class="label">${escapeHtml(T("history.label.id"))}</span>
-                      <strong>${escapeHtml(tenantNationalId)}</strong>
-                    </div>
-                  `
-                  : ""
-              }
-
               ${
                 contractId !== dash
                   ? `
-                    <div class="info-box">
-                      <span class="label">${escapeHtml(T("history.label.contractId"))}</span>
-                      <strong>${escapeHtml(contractId)}</strong>
-                    </div>
-                  `
+              <div class="info-box">
+                <span class="label">${escapeHtml(T("history.label.contractId"))}</span>
+                <strong>${escapeHtml(contractId)}</strong>
+              </div>
+              `
+                  : ""
+              }
+              ${
+                tenantName !== dash
+                  ? `
+              <div class="info-box">
+                <span class="label">${escapeHtml(T("history.label.linkedTenant"))}</span>
+                <strong>${escapeHtml(tenantName)}</strong>
+              </div>
+              `
+                  : ""
+              }
+              ${
+                tenantNationalId !== dash
+                  ? `
+              <div class="info-box">
+                <span class="label">${escapeHtml(T("history.label.id"))}</span>
+                <strong>${escapeHtml(tenantNationalId)}</strong>
+              </div>
+              `
                   : ""
               }
             </div>

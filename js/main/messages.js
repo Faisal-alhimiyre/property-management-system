@@ -275,7 +275,9 @@ document.addEventListener("DOMContentLoaded", async () => {
             </div>
           </div>
 
-          <p class="message-preview">${escapeHtml(truncateText(msg.body || "", 150))}</p>
+          <div class="message-body">
+            <p class="message-preview">${escapeHtml(truncateText(msg.body || "", 150)) || escapeHtml(T("common.dash"))}</p>
+          </div>
 
           <div class="message-actions">
             <span class="message-date">${escapeHtml(T("messages.sentAt"))}: ${formatDate(msg.dateSent || msg.createdAt)}</span>
