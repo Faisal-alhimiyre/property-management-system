@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
   <script>(function(){try{var l=localStorage.getItem("walajna_language")||"ar";if(l!=="en"&&l!=="ar"&&l!=="ur")l="ar";document.documentElement.setAttribute("lang",l==="en"?"en":(l==="ur"?"ur":"ar"));document.documentElement.setAttribute("dir",l==="en"?"ltr":"rtl");}catch(e){}})();</script>
@@ -14,7 +14,7 @@
 <body data-nav="user" data-wl-bc="apartment-details">
   <div id="navbar-container"></div>
 
-  <main class="apartment-details-wrap">
+  <main class="apartment-details-wrap apartment-details-wrap--compact">
     <div class="header">
       <h2 id="aptTitle"></h2>
       <p id="pageRoleLabel" class="page-role-label"></p>
@@ -57,47 +57,47 @@
             </div>
             <div class="item">
               <span class="label" data-i18n="aptInfo.identityId"></span>
-              <span class="value" id="identityNumber">—</span>
+              <span class="value value--mono" id="identityNumber">—</span>
             </div>
           </div>
         </section>
 
         <section class="details-card">
-      <h3 class="section-title" data-i18n="aptInfo.aptSection"></h3>
-      <div class="details-grid">
-        <div class="item">
-          <span class="label" data-i18n="aptInfo.aptNumber"></span>
-          <span class="value" id="aptNumber">—</span>
-        </div>
-        <div class="item">
-          <span class="label" data-i18n="aptInfo.buildingName"></span>
-          <span class="value" id="buildingName">—</span>
-        </div>
-        <div class="item">
-          <span class="label" data-i18n="common.status"></span>
-          <span class="value" id="leaseStatus">—</span>
-        </div>
-        <div class="item">
-          <span class="label" data-i18n="paymentsUi.monthlyRent"></span>
-          <span class="value" id="rentAmount">—</span>
-        </div>
-        <div class="item">
-          <span class="label" data-i18n="common.floorWord"></span>
-          <span class="value" id="floorNumber">—</span>
-        </div>
-        <div class="item">
-          <span class="label" data-i18n="ownerEdit.bedrooms"></span>
-          <span class="value" id="bedrooms">—</span>
-        </div>
-        <div class="item">
-          <span class="label" data-i18n="ownerEdit.bathrooms"></span>
-          <span class="value" id="bathrooms">—</span>
-        </div>
-        <div class="item">
-          <span class="label" data-i18n="ownerEdit.livingRooms"></span>
-          <span class="value" id="livingRooms">—</span>
-        </div>
-      </div>
+          <h3 class="section-title" data-i18n="aptInfo.aptSection"></h3>
+          <div class="details-grid">
+            <div class="item">
+              <span class="label" data-i18n="aptInfo.aptNumber"></span>
+              <span class="value" id="aptNumber">—</span>
+            </div>
+            <div class="item">
+              <span class="label" data-i18n="aptInfo.buildingName"></span>
+              <span class="value" id="buildingName">—</span>
+            </div>
+            <div class="item">
+              <span class="label" data-i18n="common.status"></span>
+              <span class="value" id="leaseStatus">—</span>
+            </div>
+            <div class="item">
+              <span class="label" data-i18n="paymentsUi.monthlyRent"></span>
+              <span class="value" id="rentAmount">—</span>
+            </div>
+            <div class="item">
+              <span class="label" data-i18n="common.floorWord"></span>
+              <span class="value" id="floorNumber">—</span>
+            </div>
+            <div class="item">
+              <span class="label" data-i18n="ownerEdit.bedrooms"></span>
+              <span class="value" id="bedrooms">—</span>
+            </div>
+            <div class="item">
+              <span class="label" data-i18n="ownerEdit.bathrooms"></span>
+              <span class="value" id="bathrooms">—</span>
+            </div>
+            <div class="item">
+              <span class="label" data-i18n="ownerEdit.livingRooms"></span>
+              <span class="value" id="livingRooms">—</span>
+            </div>
+          </div>
         </section>
 
         <section class="details-card details-card--extra-full">
@@ -222,7 +222,7 @@
           </div>
           <div class="item">
             <label class="label" for="linkNationalId" data-i18n="aptInfo.identityId"></label>
-            <input id="linkNationalId" type="text" maxlength="10" />
+            <input id="linkNationalId" type="text" maxlength="10" inputmode="numeric" data-wl-digits-only />
           </div>
           <div class="item">
             <label class="label" for="linkNationality" data-i18n="aptInfo.nationality"></label>
@@ -238,27 +238,27 @@
           </div>
           <div class="item">
             <label class="label" for="linkPhoneNumber" data-i18n="settings.label.phone"></label>
-            <input id="linkPhoneNumber" type="text" maxlength="10" />
+            <input id="linkPhoneNumber" type="text" maxlength="10" inputmode="numeric" data-wl-digits-only />
           </div>
           <div class="item">
             <label class="label" for="linkRent" data-i18n="paymentsUi.annualRent"></label>
-            <input id="linkRent" type="number" min="0" step="0.01" />
+            <input id="linkRent" type="number" min="0" step="500" data-wl-numeric="money-500" />
           </div>
           <div class="item">
             <label class="label" for="linkBedrooms" data-i18n="ownerEdit.bedrooms"></label>
-            <input id="linkBedrooms" type="number" min="0" />
+            <input id="linkBedrooms" type="number" min="0" step="1" data-wl-numeric="integer" />
           </div>
           <div class="item">
             <label class="label" for="linkBathrooms" data-i18n="ownerEdit.bathrooms"></label>
-            <input id="linkBathrooms" type="number" min="0" />
+            <input id="linkBathrooms" type="number" min="0" step="1" data-wl-numeric="integer" />
           </div>
           <div class="item">
             <label class="label" for="linkLivingRooms" data-i18n="ownerEdit.livingRooms"></label>
-            <input id="linkLivingRooms" type="number" min="0" />
+            <input id="linkLivingRooms" type="number" min="0" step="1" data-wl-numeric="integer" />
           </div>
           <div class="item">
             <label class="label" for="linkFloorNumber" data-i18n="common.floorWord"></label>
-            <input id="linkFloorNumber" type="number" min="0" />
+            <input id="linkFloorNumber" type="number" min="0" readonly aria-readonly="true" />
           </div>
           <div class="item">
             <label class="label" for="linkPaymentCycle" data-i18n="paymentsUi.payCycle"></label>
@@ -271,7 +271,7 @@
           </div>
           <div class="item">
             <label class="label" for="linkInsurancePaid" data-i18n="aptInfo.insurancePaid"></label>
-            <input id="linkInsurancePaid" type="text" />
+            <input id="linkInsurancePaid" type="text" inputmode="numeric" data-wl-digits-only />
           </div>
           <div class="item">
             <label class="label" for="linkStartDate" data-i18n="apt.link.startDate"></label>
@@ -283,7 +283,7 @@
           </div>
           <div class="item">
             <label class="label" for="linkMeterNumber" data-i18n="lease.meter"></label>
-            <input id="linkMeterNumber" type="text" />
+            <input id="linkMeterNumber" type="text" inputmode="numeric" data-wl-digits-only />
           </div>
           <div class="item">
             <label class="label" for="linkNotes" data-i18n="common.note"></label>
@@ -385,11 +385,13 @@
   <script src="../js/main/theme.js"></script>
   <script src="../js/main/breadcrumbs.js"></script>
   <script src="../js/main/auth.js"></script>
+  <script src="../js/main/buildings-api.js"></script>
   <script src="../js/main/nav.js"></script>
   <script src="../js/main/tenant-requests-api.js"></script>
   <script src="../js/main/apartments-api.js"></script>
   <script src="../js/main/documents-api.js"></script>
   <script src="../js/main/saudi-national-id.js"></script>
+  <script src="../js/main/walajna-numeric-input.js"></script>
   <script src="../js/apartment-manager/apartment-storage.js"></script>
   <script src="../js/apartment-manager/apartment-utils.js"></script>
   <script src="../js/apartment-manager/apartment-ui.js"></script>

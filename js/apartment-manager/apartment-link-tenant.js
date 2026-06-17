@@ -2,11 +2,18 @@
    Apartment Link Tenant System
    ======================================== */
 
-function initLinkTenantSystem(aptId, currentUser) {
+function initLinkTenantSystem(aptId, currentUser, options) {
   const T = (k, p) =>
     window.walajna_language && window.walajna_language.t
       ? window.walajna_language.t(k, p)
       : k;
+
+  if (typeof WalajnaNumericInput !== "undefined" && WalajnaNumericInput.initLinkTenantForm) {
+    WalajnaNumericInput.initLinkTenantForm(document);
+  }
+
+  const canAssignTenant =
+    options && typeof options.canAssignTenant === "function" ? options.canAssignTenant : () => true;
 
   const elements = {
     modal: document.getElementById("linkTenantModal"),
@@ -125,8 +132,8 @@ function initLinkTenantSystem(aptId, currentUser) {
       window.walajna_language && typeof window.walajna_language.localeForDates === "function"
         ? window.walajna_language.localeForDates()
         : window.walajna_language && window.walajna_language.get() === "en"
-          ? "en-GB"
-          : "ar-SA";
+          ? "en-GB-u-nu-latn"
+          : "ar-SA-u-nu-latn";
     return date.toLocaleDateString(loc);
   }
 
@@ -137,8 +144,8 @@ function initLinkTenantSystem(aptId, currentUser) {
       window.walajna_language && typeof window.walajna_language.localeForNumbers === "function"
         ? window.walajna_language.localeForNumbers()
         : window.walajna_language && window.walajna_language.get() === "en"
-          ? "en-SA"
-          : "ar-SA";
+          ? "en-SA-u-nu-latn"
+          : "ar-SA-u-nu-latn";
     return `${number.toLocaleString(loc)} ${T("common.sar")}`;
   }
 
@@ -344,8 +351,8 @@ function syncEndDateWithStartDate(force = false) {
         window.walajna_language && typeof window.walajna_language.localeForNumbers === "function"
           ? window.walajna_language.localeForNumbers()
           : window.walajna_language && window.walajna_language.get() === "en"
-            ? "en-SA"
-            : "ar-SA";
+            ? "en-SA-u-nu-latn"
+            : "ar-SA-u-nu-latn";
       const hal = halalasList[index] ?? 0;
       const amt = hal / 100;
       const amountStr =
@@ -366,7 +373,6 @@ function syncEndDateWithStartDate(force = false) {
       fullName:
         currentUser?.fullName ||
         currentUser?.name ||
-        currentUser?.username ||
         dash,
       nationalId:
         currentUser?.nationalId ||
@@ -1457,6 +1463,11 @@ function resetForm() {
   function openModal(apartmentData = null) {
     if (!elements.modal) return;
 
+    if (!apartmentData && !canAssignTenant()) {
+      alert(T("building.completeLayoutAlert"));
+      return;
+    }
+
     resetForm();
 
     if (apartmentData) {
@@ -1856,8 +1867,14 @@ function resetForm() {
       ""
     ).toString().trim();
     
+    const floorRaw = formData?.floorNumber;
+    const floorNum =
+      floorRaw !== "" && floorRaw != null && !Number.isNaN(Number(floorRaw))
+        ? Number(floorRaw)
+        : null;
+
     const payload = {
-      tenant_user_id:     savedApartment?.tenantUserId ?? null,
+      tenant_user_id: savedApartment?.tenantUserId ?? null,
       tenant_national_id: tenantNationalIdValue || null,
       bedrooms:
         formData?.bedrooms != null && formData?.bedrooms !== ""
@@ -1872,16 +1889,44 @@ function resetForm() {
           ? Number(formData.livingRooms)
           : null,
       tenant_info: {
-        fullName:    formData.fullName    ?? null,
-        phoneNumber: formData.phone       ?? null,
+        fullName: formData.fullName ?? null,
+        phoneNumber: formData.phone ?? null,
         nationality: formData.nationality ?? null,
-        tenantType:  formData.tenantType  ?? null,
-        nationalId:  tenantNationalIdValue || null,
+        tenantType: formData.tenantType ?? null,
+        nationalId: tenantNationalIdValue || null,
       },
       start_date: formData.startDate ?? null,
-      end_date:   formData.endDate   ?? null,
-      rent:       formData?.rent != null && formData?.rent !== "" ? Number(formData.rent) : (savedApartment.rent != null ? Number(savedApartment.rent) : null),
-      notes:      formData.notes     ?? null,
+      end_date: formData.endDate ?? null,
+      rent:
+        formData?.rent != null && formData?.rent !== ""
+          ? Number(formData.rent)
+          : savedApartment.rent != null
+            ? Number(savedApartment.rent)
+            : null,
+      yearly_rent:
+        Number.isFinite(Number(formData?.yearlyRent)) && Number(formData.yearlyRent) > 0
+          ? Number(formData.yearlyRent)
+          : null,
+      notes: formData.notes ?? null,
+      meter_number: formData.meterNumber != null && String(formData.meterNumber).trim() !== "" ? String(formData.meterNumber).trim() : null,
+      floor_number: floorNum,
+      payment_cycle: formData.paymentCycle ?? null,
+      installments_count:
+        formData.installmentsCount != null && formData.installmentsCount !== ""
+          ? Number(formData.installmentsCount)
+          : null,
+      insurance_paid: formData.insurancePaid != null && String(formData.insurancePaid).trim() !== "" ? String(formData.insurancePaid).trim() : null,
+      broker: {
+        name: formData.brokerName ?? "",
+        commercialRegister: formData.brokerCommercialRegister ?? "",
+        phone: formData.brokerPhone ?? "",
+      },
+      services: {
+        electricityIncluded: !!formData.electricityIncluded,
+        waterIncluded: !!formData.waterIncluded,
+        gasType: formData.gasType || "none",
+        acType: formData.acType || "none",
+      },
     };
 
     const url = `${apiBase}/api/apartments/${numericId}/assign-tenant`;
@@ -2066,6 +2111,11 @@ function resetForm() {
 
     if (validationMessage) {
       showError(validationMessage);
+      return;
+    }
+
+    if (currentMode === "create" && !canAssignTenant()) {
+      showError(T("building.completeLayoutAlert"));
       return;
     }
 

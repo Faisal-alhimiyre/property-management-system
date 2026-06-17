@@ -51,7 +51,7 @@
 
           <div class="hero__buttons">
             <a href="../auth/login.html" class="btn btn--primary btn--lg btn--pop" data-i18n="home.ctaStart"></a>
-            <a href="#features" class="btn btn--ghost btn--lg btn--outline-pop" data-i18n="home.ctaMore"></a>
+            <a href="#about" class="btn btn--ghost btn--lg btn--outline-pop" data-i18n="home.ctaMore"></a>
           </div>
         </div>
 
@@ -175,6 +175,32 @@
       <div class="hero__slant" aria-hidden="true"></div>
     </main>
 
+    <section id="about" class="section section--about">
+      <div class="section__head">
+        <h2 class="section__title" data-i18n="home.aboutTitle"></h2>
+        <div class="section__rule" aria-hidden="true"></div>
+      </div>
+
+      <div class="about-panel">
+        <p class="about-lead" data-i18n="home.aboutLead"></p>
+
+        <div class="about-grid">
+          <article class="about-card">
+            <h3 class="about-card__title" data-i18n="home.aboutMissionTitle"></h3>
+            <p class="about-card__text" data-i18n="home.aboutMissionText"></p>
+          </article>
+          <article class="about-card">
+            <h3 class="about-card__title" data-i18n="home.aboutOwnersTitle"></h3>
+            <p class="about-card__text" data-i18n="home.aboutOwnersText"></p>
+          </article>
+          <article class="about-card">
+            <h3 class="about-card__title" data-i18n="home.aboutTenantsTitle"></h3>
+            <p class="about-card__text" data-i18n="home.aboutTenantsText"></p>
+          </article>
+        </div>
+      </div>
+    </section>
+
     <section id="features" class="section section--features">
       <div class="section__head">
         <h2 class="section__title" data-i18n="home.featuresTitle"></h2>
@@ -217,7 +243,7 @@
       </div>
     </section>
 
-    <section id="how" class="section section--how">
+        <section id="how" class="section section--how">
       <div class="section__head">
         <h2 class="section__title" data-i18n="home.howTitle"></h2>
         <div class="section__rule" aria-hidden="true"></div>
@@ -275,6 +301,18 @@
     }
     document.addEventListener("DOMContentLoaded", setHomeFooter);
     document.addEventListener("walajna:i18n-applied", setHomeFooter);
+  </script>
+  <script>
+    (function () {
+      function scrollToHash() {
+        var id = (location.hash || "").replace(/^#/, "");
+        if (!id) return;
+        var el = document.getElementById(id);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      document.addEventListener("DOMContentLoaded", scrollToHash);
+      window.addEventListener("hashchange", scrollToHash);
+    })();
   </script>
   <script src="../js/main/theme.js"></script>
   <script src="../js/main/auth.js"></script>

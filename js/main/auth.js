@@ -1,8 +1,29 @@
 // auth.js — httpOnly cookie session + minimal client profile in sessionStorage
 
-const API_BASE = 'http://127.0.0.1:8002';
+function resolveApiBase() {
+  const explicit = (window.__WALAJNA_API_BASE || '').trim();
+  if (explicit) return explicit.replace(/\/+$/, '');
+
+  const fromStorage = (localStorage.getItem('walajna_api_base') || '').trim();
+  if (fromStorage) return fromStorage.replace(/\/+$/, '');
+
+  const host = String(window.location.hostname || '').toLowerCase();
+  if (host === '127.0.0.1' || host === 'localhost') {
+    return 'http://127.0.0.1:8002';
+  }
+
+  // GitHub Pages → Render API (update if your Render service URL changes).
+  if (host.endsWith('github.io')) {
+    return 'https://property-management-system-155h.onrender.com';
+  }
+
+  return 'https://property-management-system-155h.onrender.com';
+}
+
+const API_BASE = resolveApiBase();
 
 const USER_KEY = 'walajna_current_user';
+const TOKEN_KEY = 'walajna_access_token';
 const ACTIVE_ROLE_KEY = 'activeRole';
 
 function mapServerUser(u) {
@@ -21,7 +42,15 @@ function mapServerUser(u) {
 }
 
 function getAccessToken() {
-  return null;
+  try {
+    return (
+      sessionStorage.getItem(TOKEN_KEY) ||
+      localStorage.getItem(TOKEN_KEY) ||
+      null
+    );
+  } catch {
+    return null;
+  }
 }
 
 function getCurrentUser() {
@@ -48,7 +77,7 @@ function getActiveRole() {
   return r || null;
 }
 
-function setSession({ user }) {
+function setSession({ user, access_token }) {
   if (!user) return;
   const normalized = mapServerUser(user) || user;
   if (!Array.isArray(normalized.roles)) {
@@ -57,17 +86,32 @@ function setSession({ user }) {
   sessionStorage.setItem(USER_KEY, JSON.stringify(normalized));
   const role = normalized.role || normalized.roles[0] || 'tenant';
   sessionStorage.setItem(ACTIVE_ROLE_KEY, role);
+  const tok =
+    (typeof access_token === 'string' && access_token.trim()) ||
+    (typeof user.access_token === 'string' && user.access_token.trim()) ||
+    '';
+  if (tok) {
+    sessionStorage.setItem(TOKEN_KEY, tok);
+    try {
+      localStorage.setItem(TOKEN_KEY, tok);
+    } catch {
+      /* ignore */
+    }
+    unauthorizedRedirectInFlight = false;
+  }
 }
 
 function clearSession() {
   try {
     sessionStorage.removeItem(USER_KEY);
+    sessionStorage.removeItem(TOKEN_KEY);
     sessionStorage.removeItem(ACTIVE_ROLE_KEY);
   } catch {
     /* ignore */
   }
   try {
     localStorage.removeItem('access_token');
+    localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     localStorage.removeItem(ACTIVE_ROLE_KEY);
   } catch {
@@ -88,10 +132,32 @@ async function logoutOnServer() {
 }
 
 let unauthorizedRedirectInFlight = false;
+let lastUnauthorizedAt = 0;
+
+/** Only force login when 401 means invalid/expired session — not DB blips or parallel noise. */
+async function shouldForceLogoutOn401(response) {
+  if (!getAccessToken()) return false;
+  try {
+    const data = await response.clone().json();
+    const detail = data && data.detail;
+    const msg = typeof detail === 'string' ? detail : '';
+    if (
+      msg === 'Session validation failed' ||
+      msg === 'Database temporarily unavailable. Please retry.'
+    ) {
+      return false;
+    }
+  } catch {
+    /* empty body or non-JSON */
+  }
+  return true;
+}
 
 function handleUnauthorized(message) {
-  if (unauthorizedRedirectInFlight) return;
+  const now = Date.now();
+  if (unauthorizedRedirectInFlight || now - lastUnauthorizedAt < 3000) return;
   unauthorizedRedirectInFlight = true;
+  lastUnauthorizedAt = now;
   void logoutOnServer();
   clearSession();
   const reason = message || 'انتهت الجلسة أو التوكن غير صالح. سجل الدخول مرة أخرى.';
@@ -118,11 +184,21 @@ function isUsersMeProbeWithoutClientUser(url) {
   }
 }
 
-function getAuthHeaders(additional = {}) {
-  return {
-    'Content-Type': 'application/json',
-    ...additional,
-  };
+function getAuthHeaders(additional = {}, { json = true } = {}) {
+  const headers = { ...additional };
+  if (json) {
+    headers['Content-Type'] = 'application/json';
+  }
+  const token = getAccessToken();
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
+}
+
+function getBearerHeader() {
+  const token = getAccessToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 /**
@@ -140,13 +216,15 @@ function fetchWithAuth(url, options = {}) {
     credentials: 'include',
     ...rest,
     headers: {
-      ...(useJsonHeaders ? getAuthHeaders() : {}),
+      ...getBearerHeader(),
+      ...(useJsonHeaders ? getAuthHeaders({}, { json: true }) : {}),
       ...(optHeaders || {}),
     },
-  }).then((response) => {
+  }).then(async (response) => {
     if (
       response.status === 401 &&
-      !isUsersMeProbeWithoutClientUser(url)
+      !isUsersMeProbeWithoutClientUser(url) &&
+      (await shouldForceLogoutOn401(response))
     ) {
       handleUnauthorized();
     }

@@ -92,7 +92,7 @@
       });
 
       const monthFmt = new Intl.DateTimeFormat(
-        window.walajna_language?.localeForDates?.() || "ar-SA",
+        window.walajna_language?.localeForDates?.() || "ar-SA-u-nu-latn",
         { month: "long" }
       );
 
@@ -326,7 +326,13 @@
 
       const monthlyRent =
         mode === "history"
-          ? Number(historyContract.rentAmount || apartment.rent || 0)
+          ? (() => {
+              const hy = Number(
+                historyContract.yearlyRent ?? historyContract.yearly_rent
+              );
+              if (Number.isFinite(hy) && hy > 0) return hy / 12;
+              return Number(historyContract.rentAmount || 0);
+            })()
           : utils.getMonthlyRentAmount(apartment);
 
       const effectiveSettings =

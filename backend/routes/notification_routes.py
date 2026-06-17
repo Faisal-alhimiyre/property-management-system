@@ -1,14 +1,27 @@
+import asyncio
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
-from models import Notification
 from config import supabase
 from routes.auth_routes import get_current_user
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
 
 @router.get("/notifications")
 async def get_notifications(current_user: dict = Depends(get_current_user)):
-    notifications = supabase.table("notifications").select("*").eq("user_id", current_user["id"]).execute()
-    return notifications.data
+    uid = current_user["id"]
+
+    def _read():
+        return supabase.table("notifications").select("*").eq("user_id", uid).execute()
+
+    try:
+        notifications = await asyncio.to_thread(_read)
+        return notifications.data
+    except Exception:
+        logger.exception("get_notifications failed for user_id=%s", uid)
+        return []
 
 @router.put("/notifications/{notification_id}/read")
 async def mark_as_read(notification_id: int, current_user: dict = Depends(get_current_user)):

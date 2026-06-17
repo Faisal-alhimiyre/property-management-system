@@ -58,6 +58,94 @@
   z-index: 1;
 }
 
+@media (min-width: 769px) {
+  .walajna-topbar__inner {
+    flex-wrap: nowrap;
+  }
+}
+
+/* Hamburger — hidden on desktop */
+.walajna-nav-toggle{
+  display: none;
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 12px;
+  background: rgba(255,255,255,.14);
+  color: var(--walajna-text);
+  cursor: pointer;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.walajna-nav-toggle__bars,
+.walajna-nav-toggle__bars::before,
+.walajna-nav-toggle__bars::after{
+  display: block;
+  width: 20px;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  position: relative;
+}
+
+.walajna-nav-toggle__bars::before,
+.walajna-nav-toggle__bars::after{
+  content: "";
+  position: absolute;
+  left: 0;
+}
+
+.walajna-nav-toggle__bars::before{ top: -6px; }
+.walajna-nav-toggle__bars::after{ top: 6px; }
+
+#navbar-container.is-nav-open .walajna-nav-toggle__bars,
+.walajna-topbar.is-nav-open .walajna-nav-toggle__bars{
+  background: transparent;
+}
+#navbar-container.is-nav-open .walajna-nav-toggle__bars::before,
+.walajna-topbar.is-nav-open .walajna-nav-toggle__bars::before{
+  top: 0;
+  transform: rotate(45deg);
+}
+#navbar-container.is-nav-open .walajna-nav-toggle__bars::after,
+.walajna-topbar.is-nav-open .walajna-nav-toggle__bars::after{
+  top: 0;
+  transform: rotate(-45deg);
+}
+
+.walajna-nav-panel{
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  justify-content: flex-start;
+}
+
+.walajna-topbar__brand-group{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.walajna-nav-backdrop{
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 109;
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: rgba(15, 23, 42, 0.45);
+  cursor: pointer;
+}
+
+body.walajna-nav-open{
+  overflow: hidden;
+}
+
 /* Keeps a wide wordmark from squeezing nav links; logo height capped to bar (see .brand-logo). */
 .walajna-topbar__brand{
   flex-shrink: 0;
@@ -87,6 +175,19 @@
     transform .18s ease,
     box-shadow .18s ease,
     color .18s ease;
+  position: relative;
+}
+
+.nav-unread-dot{
+  position:absolute;
+  top:6px;
+  inset-inline-end:6px;
+  width:10px;
+  height:10px;
+  border-radius:50%;
+  background:#ff3b30;
+  border:2px solid rgba(255,255,255,0.95);
+  box-shadow:0 0 10px rgba(255,59,48,0.75);
 }
 
 .walajna-topbar__nav a:hover{
@@ -290,41 +391,268 @@ body.dark-mode .nav-role-switcher__select option{
   background: #020617;
 }
 
-/* موبايل */
-@media (max-width: 900px){
+/* Phone: side drawer menu (panel is sibling of header — not clipped by topbar) */
+@media (max-width: 768px){
   .walajna-topbar{
-    height: auto;
-    min-height: 88px;
-    padding: 8px 0;
+    height: 64px;
+    min-height: 64px;
+    max-height: 64px;
+    padding: 0;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
   .walajna-topbar__inner{
-    padding: 0 16px;
-    gap: 14px;
-    flex-wrap: wrap;
+    height: 100%;
+    min-height: 0;
+    padding: 0 12px;
+    gap: 0;
+    flex-wrap: nowrap;
+    align-items: center;
   }
 
-  .walajna-topbar__nav{
-    gap: 10px;
-    justify-content: center;
-    flex-wrap: wrap;
+  .walajna-topbar__brand-group{
+    position: relative;
+    flex: 1 1 auto;
     width: 100%;
-    order: 3;
-    margin-right: 0;
+    min-width: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0;
   }
 
-  .walajna-topbar__nav a{
-    font-size: 17px;
-    padding: 8px 10px;
-    border-radius: 12px;
-  }
-
-  .brand-logo{
-    max-height: min(76px, calc(var(--walajna-topbar-height, 88px) - 12px));
+  .walajna-nav-toggle{
+    display: inline-flex;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 2;
   }
 
   .walajna-topbar__brand{
-    max-width: min(88vw, 560px);
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    flex: unset;
+    max-width: min(calc(100% - 108px), 280px);
+    justify-content: center;
+    pointer-events: none;
+  }
+
+  .walajna-topbar__brand .brand-logo-link{
+    pointer-events: auto;
+  }
+
+  .walajna-topbar__icons{
+    display: none !important;
+  }
+
+  .walajna-nav-drawer-extras{
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255, 255, 255, 0.16);
+    width: 100%;
+  }
+
+  #navbar-container .walajna-nav-panel{
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    inset-inline-start: 0;
+    width: min(88vw, 300px);
+    max-width: 300px;
+    z-index: 110;
+    overflow-y: auto;
+    padding: calc(var(--walajna-topbar-height, 64px) + 16px) 16px max(24px, env(safe-area-inset-bottom, 16px));
+    background: var(--walajna-bar);
+    border-inline-end: 1px solid var(--walajna-border);
+    box-shadow: 18px 0 40px rgba(15, 23, 42, 0.35);
+    visibility: hidden;
+    pointer-events: none;
+    transform: translate3d(-100%, 0, 0);
+    transition: transform 0.28s ease, visibility 0.28s;
+  }
+
+  [dir="rtl"] #navbar-container .walajna-nav-panel{
+    transform: translate3d(100%, 0, 0);
+    box-shadow: -18px 0 40px rgba(15, 23, 42, 0.35);
+  }
+
+  #navbar-container.is-nav-open .walajna-nav-panel{
+    visibility: visible;
+    pointer-events: auto;
+    transform: translate3d(0, 0, 0);
+  }
+
+  #navbar-container.is-nav-open .walajna-nav-backdrop{
+    display: block;
+  }
+
+  .walajna-topbar__nav{
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .walajna-topbar__nav a{
+    font-size: 18px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    width: 100%;
+  }
+
+  .nav-role-switcher{
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    margin: 12px 0 0;
+  }
+
+  .nav-role-switcher__select{
+    width: 100%;
+  }
+
+  .brand-logo{
+    max-height: 44px;
+  }
+
+  .icon-btn{
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
+  }
+}
+
+@media (min-width: 769px){
+  /* Laptop/desktop: nav (inline-start) | logo center | icons (inline-end) — mirrors with dir=rtl/ltr */
+  .walajna-topbar{
+    height: 88px;
+    min-height: 88px;
+    padding: 0;
+  }
+
+  .walajna-topbar__inner{
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    padding: 0 26px;
+    gap: 16px 22px;
+  }
+
+  .walajna-topbar__leading,
+  .walajna-topbar__cluster{
+    display: contents;
+  }
+
+  .walajna-topbar__inner > .walajna-nav-panel{
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: start;
+    align-self: center;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .walajna-topbar__brand-group{
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: center;
+    align-self: center;
+    width: 100%;
+    max-width: 100%;
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+  }
+
+  .walajna-topbar__brand-group .brand-logo-link{
+    pointer-events: auto;
+  }
+
+  .walajna-topbar__icons{
+    grid-column: 3;
+    grid-row: 1;
+    justify-self: end;
+    align-self: center;
+    display: flex !important;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  [dir="rtl"] .walajna-topbar__icons{
+    flex-direction: row-reverse;
+  }
+
+  #navbar-container > .walajna-nav-panel{
+    display: none !important;
+  }
+
+  .walajna-nav-toggle{
+    display: none !important;
+  }
+
+  #navbar-container .walajna-nav-panel,
+  .walajna-nav-panel{
+    display: flex !important;
+    position: static;
+    flex: 1 1 auto;
+    overflow: visible;
+    padding: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    transform: none !important;
+    width: auto;
+    max-width: none;
+    inset: auto;
+  }
+
+  .walajna-topbar__nav{
+    flex-direction: row;
+    flex-wrap: nowrap;
+    width: auto;
+    max-width: 100%;
+    gap: clamp(12px, 2vw, 30px);
+  }
+
+  .walajna-topbar__nav a{
+    white-space: nowrap;
+  }
+
+  .walajna-topbar__nav a{
+    width: auto;
+    font-size: 20px;
+    padding: 12px 14px;
+  }
+
+  .walajna-topbar__brand{
+    max-width: min(78vw, 680px);
+  }
+
+  .brand-logo{
+    max-height: calc(var(--walajna-topbar-height, 88px) - 6px);
+  }
+
+  .walajna-nav-backdrop{
+    display: none !important;
+  }
+
+  body.walajna-nav-open{
+    overflow: auto;
   }
 }
 

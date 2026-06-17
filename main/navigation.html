@@ -14,27 +14,40 @@
 <body>
   <header class="walajna-topbar">
     <div class="walajna-topbar__inner">
-
-      <nav class="walajna-topbar__nav" data-i18n-aria-label="nav.main" aria-label="">
-        <a id="nav-home" href="#" class="is-active"></a>
-        <a id="nav-link-2" href="#"></a>
-        <a id="nav-link-3" href="#"></a>
-        <a id="nav-link-4" href="#"></a>
-      </nav>
-
-      <div class="walajna-topbar__brand">
-        <a id="nav-logo-link" href="#" class="brand-logo-link" data-i18n-aria-label="common.logo" aria-label="">
-          <img src="../pics/logo.png" alt="ALAJNA" class="brand-logo">
-        </a>
+      <div class="walajna-topbar__brand-group">
+        <div class="walajna-topbar__brand">
+          <a id="nav-logo-link" href="#" class="brand-logo-link" data-i18n-aria-label="common.logo" aria-label="">
+            <img src="../pics/logo.png" alt="ALAJNA" class="brand-logo">
+          </a>
+        </div>
+        <button
+          type="button"
+          class="walajna-nav-toggle"
+          id="walajna-nav-toggle"
+          aria-expanded="false"
+          aria-controls="walajna-nav-panel"
+          data-i18n-aria-label="nav.openMenu"
+        >
+          <span class="walajna-nav-toggle__bars" aria-hidden="true"></span>
+        </button>
       </div>
 
       <div class="walajna-topbar__icons">
         <a id="nav-support" class="icon-btn" href="#" aria-label="" title="">🎧</a>
         <a id="nav-settings" class="icon-btn" href="#" aria-label="" title="">⚙️</a>
       </div>
-
     </div>
   </header>
+
+  <div class="walajna-nav-panel" id="walajna-nav-panel" aria-hidden="true">
+    <nav class="walajna-topbar__nav" data-i18n-aria-label="nav.main" aria-label="">
+      <a id="nav-home" href="#" class="is-active"></a>
+      <a id="nav-link-2" href="#"></a>
+      <a id="nav-link-3" href="#"></a>
+      <a id="nav-link-4" href="#"></a>
+    </nav>
+  </div>
+  <button type="button" class="walajna-nav-backdrop" id="walajna-nav-backdrop" hidden aria-hidden="true" tabindex="-1"></button>
   <script>
     document.addEventListener("DOMContentLoaded", function () {
       if (window.walajna_language && typeof window.walajna_language.apply === "function") {

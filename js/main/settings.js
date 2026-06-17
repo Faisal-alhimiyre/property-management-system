@@ -54,7 +54,20 @@ function getUsers() {
   return JSON.parse(localStorage.getItem("walajna_users") || "[]");
 }
 
+/**
+ * Same source as `auth.js`: cookie-backed sessions store the profile in sessionStorage.
+ * Do not read only localStorage — that misses real logins and triggers the wrong fallback.
+ */
 function getCurrentUser() {
+  if (typeof WalajnaAuth !== "undefined" && typeof WalajnaAuth.getCurrentUser === "function") {
+    return WalajnaAuth.getCurrentUser();
+  }
+  try {
+    const ss = sessionStorage.getItem("walajna_current_user");
+    if (ss) return JSON.parse(ss);
+  } catch {
+    /* ignore */
+  }
   try {
     return JSON.parse(localStorage.getItem("walajna_current_user") || "null");
   } catch {
@@ -81,41 +94,60 @@ function setText(id, value) {
   if (el) el.textContent = value || "—";
 }
 
-function findLoggedInUser() {
+/** Profile row in `walajna_users` for password/edit flows; null if this account exists only on the server. */
+function findWalajnaUsersRow(current) {
+  if (!current) return null;
   const users = getUsers();
-  const current = getCurrentUser();
-
   if (!users.length) return null;
 
-  if (current) {
-    let user = null;
-
-    if (current.nationalId) {
-      user = users.find(u => u.nationalId === current.nationalId);
-      if (user) return user;
-    }
-
-    if (current.email) {
-      user = users.find(u => (u.email || "").toLowerCase() === current.email.toLowerCase());
-      if (user) return user;
-    }
-
-    if (current.username) {
-      user = users.find(u => (u.username || "").toLowerCase() === current.username.toLowerCase());
-      if (user) return user;
-    }
+  if (current.id != null && String(current.id).trim() !== "") {
+    const sid = String(current.id);
+    const byId = users.find((u) => String(u.id ?? "") === sid);
+    if (byId) return byId;
   }
 
-  return users[users.length - 1];
+  if (current.nationalId) {
+    const u = users.find((x) => String(x.nationalId) === String(current.nationalId));
+    if (u) return u;
+  }
+
+  if (current.email) {
+    const e = String(current.email).toLowerCase();
+    const u = users.find((x) => (x.email || "").toLowerCase() === e);
+    if (u) return u;
+  }
+
+  return null;
+}
+
+/** Display profile: local demo row if present, otherwise fields from the active session (server login). */
+function profileFromSession(current) {
+  const row = findWalajnaUsersRow(current);
+  if (row) return row;
+  if (!current) return null;
+  const email = current.email || "";
+  return {
+    id: current.id,
+    fullName: current.name || current.fullName || "",
+    email,
+    phone: current.phone || "",
+    nationalId: current.nationalId || current.national_id || "",
+    role: current.role || (Array.isArray(current.roles) ? current.roles[0] : null),
+  };
+}
+
+function findLoggedInUser() {
+  const current = getCurrentUser();
+  if (!current) return null;
+  return profileFromSession(current);
 }
 
 function loadProfile() {
-  const user = findLoggedInUser();
   const current = getCurrentUser();
+  const user = findLoggedInUser();
 
   if (!user) {
     setText("p_fullName", "—");
-    setText("p_username", "—");
     setText("p_email", "—");
     setText("p_phone", wlT("common.notAvailable"));
     setText("p_nationalId", "—");
@@ -127,7 +159,6 @@ function loadProfile() {
   }
 
   setText("p_fullName", user.fullName);
-  setText("p_username", user.username);
   setText("p_email", user.email);
   setText("p_phone", user.phone || wlT("common.notAvailable"));
   setText("p_nationalId", user.nationalId);
@@ -140,7 +171,17 @@ function loadProfile() {
   }
 }
 
-loadProfile();
+function refreshSettingsProfile() {
+  if (typeof WalajnaAuth !== "undefined" && typeof WalajnaAuth.hydrateSession === "function") {
+    WalajnaAuth.hydrateSession()
+      .then(() => loadProfile())
+      .catch(() => loadProfile());
+    return;
+  }
+  loadProfile();
+}
+
+refreshSettingsProfile();
 
 /* Change password */
 const savePasswordBtn = document.getElementById("savePasswordBtn");
@@ -173,19 +214,7 @@ if (savePasswordBtn) {
       return;
     }
 
-    let userIndex = -1;
-
-    if (current?.nationalId) {
-      userIndex = users.findIndex(u => u.nationalId === current.nationalId);
-    } else if (current?.email) {
-      userIndex = users.findIndex(u => (u.email || "").toLowerCase() === current.email.toLowerCase());
-    } else if (current?.username) {
-      userIndex = users.findIndex(u => (u.username || "").toLowerCase() === current.username.toLowerCase());
-    }
-
-    if (userIndex === -1 && users.length > 0) {
-      userIndex = users.length - 1;
-    }
+    const userIndex = getEditableUserIndex();
 
     if (userIndex === -1) {
       passwordMessage.textContent = wlT("settings.pwd.noUser");
@@ -238,9 +267,22 @@ if (themeToggle) {
 const logoutBtn = document.getElementById("logoutBtn");
 
 if (logoutBtn) {
-  logoutBtn.addEventListener("click", () => {
-    localStorage.removeItem("walajna_current_user");
-    localStorage.removeItem("activeRole");
+  logoutBtn.addEventListener("click", async () => {
+    if (typeof WalajnaAuth !== "undefined" && WalajnaAuth.logoutOnServer) {
+      await WalajnaAuth.logoutOnServer();
+    }
+    if (typeof WalajnaAuth !== "undefined" && WalajnaAuth.clearSession) {
+      WalajnaAuth.clearSession();
+    } else {
+      try {
+        sessionStorage.removeItem("walajna_current_user");
+        sessionStorage.removeItem("activeRole");
+      } catch {
+        /* ignore */
+      }
+      localStorage.removeItem("walajna_current_user");
+      localStorage.removeItem("activeRole");
+    }
     alert(wlT("settings.logoutAlert"));
     window.location.href = "../auth/login.html";
   });
@@ -268,10 +310,9 @@ if (deleteAccountBtn) {
       filteredUsers = users.filter(u => u.nationalId !== current.nationalId);
     } else if (current?.email) {
       filteredUsers = users.filter(u => (u.email || "").toLowerCase() !== current.email.toLowerCase());
-    } else if (current?.username) {
-      filteredUsers = users.filter(u => (u.username || "").toLowerCase() !== current.username.toLowerCase());
     } else {
-      filteredUsers.pop();
+      alert(wlT("settings.deleteAccount.noLocalRow"));
+      return;
     }
 
     localStorage.setItem("walajna_users", JSON.stringify(filteredUsers));
@@ -312,30 +353,29 @@ function isValidSaudiPhone(phone){
   return /^05\d{8}$/.test(phone);
 }
 
-function getEditableUserIndex(){
+function getEditableUserIndex() {
   const users = getUsers();
   const current = getCurrentUser();
+  if (!users.length || !current) return -1;
 
-  if (!users.length) return -1;
+  if (current.id != null && String(current.id).trim() !== "") {
+    const sid = String(current.id);
+    const byId = users.findIndex((u) => String(u.id ?? "") === sid);
+    if (byId !== -1) return byId;
+  }
 
-  let index = -1;
-
-  if (current?.nationalId) {
-    index = users.findIndex(u => u.nationalId === current.nationalId);
+  if (current.nationalId) {
+    const index = users.findIndex((u) => String(u.nationalId) === String(current.nationalId));
     if (index !== -1) return index;
   }
 
-  if (current?.email) {
-    index = users.findIndex(u => (u.email || "").toLowerCase() === current.email.toLowerCase());
+  if (current.email) {
+    const e = String(current.email).toLowerCase();
+    const index = users.findIndex((u) => (u.email || "").toLowerCase() === e);
     if (index !== -1) return index;
   }
 
-  if (current?.username) {
-    index = users.findIndex(u => (u.username || "").toLowerCase() === current.username.toLowerCase());
-    if (index !== -1) return index;
-  }
-
-  return users.length - 1;
+  return -1;
 }
 
 if (editInfoModal && openEditInfoModalBtn) {
@@ -447,7 +487,16 @@ document.getElementById("verifyEmailBtn")?.addEventListener("click", () => {
   const current = getCurrentUser();
   if (current) {
     current.email = newEmail;
-    localStorage.setItem("walajna_current_user", JSON.stringify(current));
+    try {
+      sessionStorage.setItem("walajna_current_user", JSON.stringify(current));
+    } catch {
+      /* ignore */
+    }
+    try {
+      localStorage.setItem("walajna_current_user", JSON.stringify(current));
+    } catch {
+      /* ignore */
+    }
   }
 
   emailVerificationCode = null;
@@ -522,7 +571,16 @@ document.getElementById("verifyPhoneBtn")?.addEventListener("click", () => {
   const current = getCurrentUser();
   if (current) {
     current.phone = newPhone;
-    localStorage.setItem("walajna_current_user", JSON.stringify(current));
+    try {
+      sessionStorage.setItem("walajna_current_user", JSON.stringify(current));
+    } catch {
+      /* ignore */
+    }
+    try {
+      localStorage.setItem("walajna_current_user", JSON.stringify(current));
+    } catch {
+      /* ignore */
+    }
   }
 
   phoneVerificationCode = null;
@@ -541,6 +599,9 @@ document.getElementById("verifyPhoneBtn")?.addEventListener("click", () => {
   sel.setAttribute("aria-label", wlT("settings.lang.title"));
   sel.addEventListener("change", () => {
     walajna_language.set(sel.value);
+    if (typeof window.walajnaUpdateNavbarLabels === "function") {
+      window.walajnaUpdateNavbarLabels();
+    }
     loadProfile();
   });
 })();
@@ -555,7 +616,7 @@ document.addEventListener("walajna:navbar-ready", () => {
 
 document.addEventListener("walajna:i18n-applied", () => {
   applyGuestSettingsLayout();
-  loadProfile();
+  refreshSettingsProfile();
   const sel = document.getElementById("walajnaLangSelect");
   if (sel && window.walajna_language) sel.value = walajna_language.get();
 });

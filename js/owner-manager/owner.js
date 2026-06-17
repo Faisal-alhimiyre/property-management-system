@@ -10,22 +10,270 @@ document.addEventListener("DOMContentLoaded", async () => {
   requireRole('owner');
   ensureRoleSetup();
 
+  const phoneLegendDock = document.querySelector(
+    ".walajna-legend-phone .walajna-legend-phone__dock"
+  );
+  if (phoneLegendDock && window.matchMedia("(max-width: 768px)").matches) {
+    phoneLegendDock.removeAttribute("open");
+  }
+
   const container = document.getElementById("buildingsContainer");
   const emptyState = document.getElementById("emptyState");
   const globalRequestsAlert = document.getElementById("globalRequestsAlert");
+  const portfolioFinanceHomeBtn = document.getElementById("portfolioFinanceHomeBtn");
+  const buildingsArchiveBtn = document.getElementById("buildingsArchiveBtn");
 
-  const PINS_KEY = "walajna_owner_building_pins";
+  if (portfolioFinanceHomeBtn) {
+    portfolioFinanceHomeBtn.addEventListener("click", () => {
+      window.location.href = "portfolio_finance.html";
+    });
+  }
+  if (buildingsArchiveBtn) {
+    buildingsArchiveBtn.addEventListener("click", () => {
+      window.location.href = "owner_archive.html";
+    });
+  }
 
-  function readPins() {
+  const ARCHIVE_KEY = "walajna_buildings_archive";
+  const ARCHIVE_LIMIT = 100;
+
+  function readBuildingArchive() {
     try {
-      return JSON.parse(sessionStorage.getItem(PINS_KEY) || "{}");
+      const rows = JSON.parse(localStorage.getItem(ARCHIVE_KEY) || "[]");
+      return Array.isArray(rows) ? rows : [];
     } catch {
-      return {};
+      return [];
     }
   }
 
-  function writePins(map) {
-    sessionStorage.setItem(PINS_KEY, JSON.stringify(map || {}));
+  function writeBuildingArchive(rows) {
+    localStorage.setItem(ARCHIVE_KEY, JSON.stringify(Array.isArray(rows) ? rows : []));
+  }
+
+  function toMonthKey(rawDate) {
+    const d = new Date(rawDate);
+    if (Number.isNaN(d.getTime())) return null;
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  }
+
+  function buildIncomeHistoryFromInstallments(installments) {
+    const byMonth = new Map();
+    (installments || []).forEach((item) => {
+      if (String(item.status || "").toLowerCase() !== "paid") return;
+      const k = toMonthKey(item.paid_at || item.paidAt || item.due_date || item.dueDate);
+      if (!k) return;
+      const amount = Number(item.amount || 0);
+      if (!Number.isFinite(amount)) return;
+      byMonth.set(k, (byMonth.get(k) || 0) + amount);
+    });
+    return Array.from(byMonth.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([month, amount]) => ({ month, amount }));
+  }
+
+  function buildIncomeHistoryByApartment(installments, buildingApartments) {
+    const numberByApiId = new Map();
+    (buildingApartments || []).forEach((apt) => {
+      const aid = apt.apiId ?? apt.id;
+      if (aid == null) return;
+      numberByApiId.set(String(aid), String(apt.number ?? apt.apartment_number ?? ""));
+    });
+
+    const byApartment = new Map();
+    (installments || []).forEach((item) => {
+      if (String(item.status || "").toLowerCase() !== "paid") return;
+      const aptId = item.apartment_id != null ? String(item.apartment_id) : "";
+      if (!aptId) return;
+      const aptNum = numberByApiId.get(aptId) || aptId;
+      const month = toMonthKey(item.paid_at || item.paidAt || item.due_date || item.dueDate);
+      if (!month) return;
+      const amount = Number(item.amount || 0);
+      if (!Number.isFinite(amount)) return;
+      if (!byApartment.has(aptNum)) byApartment.set(aptNum, new Map());
+      const byMonth = byApartment.get(aptNum);
+      byMonth.set(month, (byMonth.get(month) || 0) + amount);
+    });
+
+    return Array.from(byApartment.entries()).map(([apartmentNumber, monthMap]) => ({
+      apartmentNumber,
+      rows: Array.from(monthMap.entries())
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([month, amount]) => ({ month, amount })),
+    }));
+  }
+
+  async function fetchCostsForApartments(buildingApartments) {
+    const out = [];
+    const aptIds = [
+      ...new Set(
+        (buildingApartments || [])
+          .map((a) => a.apiId ?? a.id)
+          .filter((x) => Number.isFinite(Number(x)))
+          .map((x) => Number(x))
+      ),
+    ];
+    if (
+      !aptIds.length ||
+      typeof WalajnaAuth === "undefined" ||
+      !WalajnaAuth.fetchWithAuth
+    ) {
+      return out;
+    }
+    for (const apartmentId of aptIds) {
+      try {
+        const res = await WalajnaAuth.fetchWithAuth(
+          `${WalajnaAuth.API_BASE}/api/costs?apartment_id=${encodeURIComponent(apartmentId)}`,
+          { method: "GET" }
+        );
+        if (!res.ok) continue;
+        const rows = await res.json();
+        if (Array.isArray(rows)) out.push(...rows);
+      } catch {
+        // ignore per-apartment fetch errors
+      }
+    }
+    return out;
+  }
+
+  function buildMaintenanceHistoryRows(buildingId, buildingApartments, maintenanceRows, costRows) {
+    const aptIds = new Set(
+      (buildingApartments || [])
+        .map((a) => String(a.apiId ?? a.id ?? ""))
+        .filter(Boolean)
+    );
+    const aptNumbersById = new Map(
+      (buildingApartments || [])
+        .map((a) => [String(a.apiId ?? a.id ?? ""), String(a.number ?? a.apartment_number ?? "")])
+        .filter(([id]) => id)
+    );
+
+    const maintenanceApiRows = (maintenanceRows || [])
+      .filter((item) => {
+        const aid = String(item.apartment_id ?? "");
+        const bid = String(item.building_id ?? "");
+        return (aid && aptIds.has(aid)) || (bid && String(buildingId) === bid);
+      })
+      .map((item) => ({
+        id: item.id ?? null,
+        apartmentId: item.apartment_id ?? null,
+        apartmentNumber: item.apartment_number ?? aptNumbersById.get(String(item.apartment_id ?? "")) ?? null,
+        title: item.title || "",
+        description: item.description || "",
+        requestType: item.request_type || "maintenance",
+        status: item.status || "",
+        priority: item.priority || "",
+        amount: item.amount ?? item.cost ?? null,
+        ownerReply: item.owner_reply || "",
+        createdAt: item.created_at || null,
+        resolvedAt: item.resolved_at || null,
+        source: "maintenance_api",
+      }))
+      .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+
+    const costsApiRows = (costRows || []).map((c) => ({
+      id: c.id ?? null,
+      apartmentId: c.apartment_id ?? null,
+      apartmentNumber: aptNumbersById.get(String(c.apartment_id ?? "")) ?? null,
+      title: c.cost_type || "maintenance",
+      description: c.notes || "",
+      requestType: c.cost_type || "maintenance",
+      status: c.status || "recorded",
+      priority: "",
+      amount: c.amount ?? null,
+      ownerReply: "",
+      createdAt: c.expense_date || c.created_at || null,
+      resolvedAt: null,
+      source: "costs_api",
+    }));
+
+    const localCostsRows = (() => {
+      let rows = [];
+      try {
+        const parsed = JSON.parse(localStorage.getItem("walajna_costs") || "[]");
+        rows = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        rows = [];
+      }
+      return rows
+        .filter((c) => {
+          const aid = String(c.apartmentId ?? "");
+          const bid = String(c.buildingId ?? "");
+          return (aid && aptIds.has(aid)) || (bid && String(buildingId) === bid);
+        })
+        .map((c) => ({
+          id: c.id ?? null,
+          apartmentId: c.apartmentId ?? null,
+          apartmentNumber: c.apartmentNumber ?? aptNumbersById.get(String(c.apartmentId ?? "")) ?? null,
+          title: c.title || c.category || c.type || "maintenance",
+          description: c.description || c.notes || "",
+          requestType: c.category || c.type || "maintenance",
+          status: "recorded",
+          priority: "",
+          amount: c.amount ?? null,
+          ownerReply: "",
+          createdAt: c.date || c.createdAt || null,
+          resolvedAt: null,
+          source: "costs_local",
+        }));
+    })();
+
+    return [...maintenanceApiRows, ...costsApiRows, ...localCostsRows];
+  }
+
+  async function fetchBuildingInstallments(buildingId) {
+    try {
+      const res = await WalajnaAuth.fetchWithAuth(
+        `${WalajnaAuth.API_BASE}/api/buildings/${encodeURIComponent(buildingId)}/installments`,
+        { method: "GET" }
+      );
+      if (!res.ok) return [];
+      const rows = await res.json();
+      return Array.isArray(rows) ? rows : [];
+    } catch {
+      return [];
+    }
+  }
+
+  async function archiveBuildingBeforeDelete(buildingId) {
+    const building = buildings.find((b) => String(b.id) === String(buildingId));
+    if (!building) return;
+
+    const buildingApartments = getApartmentsForBuilding(buildingId, apartments);
+    const costRows = await fetchCostsForApartments(buildingApartments);
+    const maintenanceHistory = buildMaintenanceHistoryRows(
+      buildingId,
+      buildingApartments,
+      maintenanceRows,
+      costRows
+    );
+    const installments = await fetchBuildingInstallments(buildingId);
+    const incomeHistory = buildIncomeHistoryFromInstallments(installments);
+    const incomeHistoryByApartment = buildIncomeHistoryByApartment(installments, buildingApartments);
+
+    const snapshot = {
+      archiveId: `b-${buildingId}-${Date.now()}`,
+      buildingId: String(building.id),
+      archivedAt: new Date().toISOString(),
+      building: {
+        id: building.id,
+        name: building.name,
+        city: building.city,
+        neighborhood: building.neighborhood || null,
+        code: building.code || null,
+        apartmentCount: Number(building.apartmentCount ?? building.apartments_count ?? 0),
+        totalFloors: Number(building.totalFloors ?? building.total_floors ?? 0),
+      },
+      apartments: buildingApartments,
+      maintenanceHistory,
+      incomeHistory,
+      incomeHistoryByApartment,
+      incomeInstallments: installments,
+      totalIncome: incomeHistory.reduce((sum, row) => sum + Number(row.amount || 0), 0),
+    };
+
+    const archive = readBuildingArchive().filter((x) => String(x.buildingId) !== String(buildingId));
+    archive.unshift(snapshot);
+    writeBuildingArchive(archive.slice(0, ARCHIVE_LIMIT));
   }
 
   async function getServerBuildings() {
@@ -36,8 +284,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       );
       if (response.ok) {
         const serverBuildings = await response.json();
-        const pins = readPins();
-
         return serverBuildings.map((building) => ({
           ...building,
           ownerId: building.ownerId ?? building.owner_id ?? null,
@@ -48,9 +294,10 @@ document.addEventListener("DOMContentLoaded", async () => {
           id: building.id,
           name: building.name,
           city: building.city,
+          neighborhood: building.neighborhood ?? "",
           code: building.code ?? null,
-          isPinned: !!(pins[String(building.id)] && pins[String(building.id)].pinned),
-          pinnedAt: pins[String(building.id)]?.pinnedAt ?? null,
+          isPinned: !!(building.is_pinned ?? building.isPinned),
+          pinnedAt: building.pinned_at ?? building.pinnedAt ?? null,
         }));
       }
     } catch (e) {
@@ -72,6 +319,45 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
+  /** After unit-layout, session may hold room counts before the next list GET reflects them. */
+  function overlaySessionRoomCountsOntoOwnerApartments(rows) {
+    const list = Array.isArray(rows) ? rows : [];
+    if (
+      typeof WalajnaApartmentsApi === "undefined" ||
+      typeof WalajnaApartmentsApi.getSessionList !== "function"
+    ) {
+      return list;
+    }
+    const session = WalajnaApartmentsApi.getSessionList();
+    if (!Array.isArray(session) || !session.length) return list;
+
+    const sessionById = new Map(
+      session.filter((s) => s && s.id != null).map((s) => [String(s.id), s])
+    );
+
+    const roomSum = (o) =>
+      (Number(o?.bedrooms) || 0) +
+      (Number(o?.bathrooms) || 0) +
+      (Number(o?.livingRooms ?? o?.living_rooms) || 0);
+
+    return list.map((row) => {
+      const s = sessionById.get(String(row.id));
+      if (!s) return row;
+      if (roomSum(s) <= roomSum(row)) return row;
+      return {
+        ...row,
+        bedrooms: s.bedrooms != null ? Number(s.bedrooms) : row.bedrooms,
+        bathrooms: s.bathrooms != null ? Number(s.bathrooms) : row.bathrooms,
+        livingRooms:
+          s.livingRooms != null
+            ? Number(s.livingRooms)
+            : s.living_rooms != null
+              ? Number(s.living_rooms)
+              : row.livingRooms,
+      };
+    });
+  }
+
   async function fetchOwnerApartments() {
     try {
       const res = await WalajnaAuth.fetchWithAuth(
@@ -80,21 +366,37 @@ document.addEventListener("DOMContentLoaded", async () => {
       );
       if (!res.ok) return [];
       const rows = await res.json();
-      return rows.map(mapApiApartmentToDashboard);
+      const mapped = (Array.isArray(rows) ? rows : [])
+        .map(mapApiApartmentToDashboard)
+        .filter(Boolean);
+      return overlaySessionRoomCountsOntoOwnerApartments(mapped);
     } catch {
       return [];
     }
   }
 
   function mapApiApartmentToDashboard(apt) {
-    const id = apt.id;
+    if (!apt) return null;
+    const id = apt.id ?? apt.apiId;
+    if (id == null) return null;
+    const br = apt.bedrooms ?? apt.Bedrooms;
+    const ba = apt.bathrooms ?? apt.Bathrooms;
+    const lv = apt.living_rooms ?? apt.livingRooms;
+    const toNumOrNull = (v) => {
+      if (v == null || v === "") return null;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    };
     return {
       id: String(id),
-      apiId: id,
-      buildingId: String(apt.building_id ?? ""),
-      number: String(apt.apartment_number ?? ""),
-      floorNumber: Number(apt.floor_number ?? 0),
-      leaseStatus: apt.lease_status || "vacant",
+      apiId: apt.apiId ?? apt.id,
+      buildingId: String(apt.building_id ?? apt.buildingId ?? ""),
+      number: String(apt.apartment_number ?? apt.apartmentNumber ?? ""),
+      floorNumber: Number(apt.floor_number ?? apt.floorNumber ?? 0),
+      bedrooms: toNumOrNull(br),
+      bathrooms: toNumOrNull(ba),
+      livingRooms: toNumOrNull(lv),
+      leaseStatus: apt.lease_status || apt.leaseStatus || "vacant",
       rent: apt.rent,
       tenantUserId: apt.tenant_user_id ?? null,
       tenantNationalId: apt.tenant_national_id ?? null,
@@ -244,21 +546,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function isApartmentOccupied(apartment) {
+    if (!apartment) return false;
+    const ti = apartment.tenantInfo;
     return !!(
-      apartment?.tenantUserId ||
-      apartment?.tenantNationalId ||
-      apartment?.tenantInfo?.fullName ||
-      apartment?.tenantInfo?.phoneNumber ||
-      apartment?.tenantInfo?.nationality ||
-      apartment?.tenantInfo?.tenantType ||
-      apartment?.currentContractId ||
-      apartment?.contractId ||
-      apartment?.contract?.id ||
-      apartment?.contract?.startDate ||
-      apartment?.contract?.endDate ||
-      apartment?.contract?.rentAmount ||
-      apartment?.contract?.paymentCycle ||
-      apartment?.contract?.meterNumber
+      apartment.tenantUserId ||
+      apartment.tenantNationalId ||
+      String(ti?.fullName || ti?.full_name || "").trim() ||
+      String(ti?.phoneNumber || ti?.phone_number || "").trim()
     );
   }
 
@@ -357,27 +651,37 @@ document.addEventListener("DOMContentLoaded", async () => {
     const confirmed = confirm(wlT("owner.confirmDeleteBuilding"));
     if (!confirmed) return;
 
-    try {
-      const res = await WalajnaAuth.fetchWithAuth(
-        `${WalajnaAuth.API_BASE}/api/buildings/${encodeURIComponent(buildingId)}`,
-        { method: "DELETE" }
-      );
-      if (!res.ok) {
-        const t = await res.text();
-        alert("تعذر حذف العمارة من الخادم: " + (t || res.status));
+    await archiveBuildingBeforeDelete(buildingId);
+
+    const idStr = String(buildingId ?? "").trim();
+    const isNumericServerId = /^\d+$/.test(idStr);
+
+    if (isNumericServerId) {
+      try {
+        const res = await WalajnaAuth.fetchWithAuth(
+          `${WalajnaAuth.API_BASE}/api/buildings/${encodeURIComponent(buildingId)}`,
+          { method: "DELETE" }
+        );
+        if (!res.ok && res.status !== 404) {
+          const t = await res.text();
+          alert("تعذر حذف العمارة من الخادم: " + (t || res.status));
+          return;
+        }
+      } catch (e) {
+        console.warn(e);
+        alert("تعذر الاتصال بالخادم لحذف العمارة.");
         return;
       }
-    } catch (e) {
-      console.warn(e);
-      alert("تعذر الاتصال بالخادم لحذف العمارة.");
-      return;
     }
 
-    const pins = readPins();
-    delete pins[String(buildingId)];
-    writePins(pins);
+    if (
+      typeof WalajnaBuildingsApi !== "undefined" &&
+      WalajnaBuildingsApi.removeBuildingFromSession
+    ) {
+      WalajnaBuildingsApi.removeBuildingFromSession(buildingId);
+    }
 
-    alert(wlT("owner.buildingDeleted"));
+    alert(wlT("owner.buildingArchived"));
     window.location.reload();
   }
 
@@ -385,22 +689,40 @@ document.addEventListener("DOMContentLoaded", async () => {
     return !!building?.isPinned;
   }
 
-  function toggleBuildingPin(buildingId) {
-    const pins = readPins();
-    const key = String(buildingId);
-    const cur = pins[key];
-    if (cur && cur.pinned) {
-      delete pins[key];
-    } else {
-      pins[key] = { pinned: true, pinnedAt: new Date().toISOString() };
+  async function toggleBuildingPin(buildingId, currentlyPinned) {
+    const nextPinned = currentlyPinned === undefined ? true : !currentlyPinned;
+    try {
+      const res = await WalajnaAuth.fetchWithAuth(
+        `${WalajnaAuth.API_BASE}/api/buildings/${encodeURIComponent(String(buildingId))}/pin`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pinned: nextPinned }),
+        }
+      );
+      if (!res.ok) {
+        let msg = wlT("owner.pinError");
+        try {
+          const j = await res.json();
+          if (j?.detail) msg = typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail);
+        } catch {
+          /* ignore */
+        }
+        alert(msg);
+        return;
+      }
+      window.location.reload();
+    } catch {
+      alert(wlT("owner.pinError"));
     }
-    writePins(pins);
-    window.location.reload();
   }
 
   function closeAllBuildingMenus() {
     document.querySelectorAll(".building-card-menu").forEach((menu) => {
       menu.classList.remove("is-open");
+    });
+    document.querySelectorAll(".building-card.menu-open").forEach((card) => {
+      card.classList.remove("menu-open");
     });
   }
 
@@ -435,7 +757,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function getApartmentsForBuilding(buildingId, allApartments) {
     const target = String(buildingId);
-    const building = allBuildings.find((item) => String(item.id) === target);
+    const building = ownerBuildingsList.find((item) => String(item.id) === target);
     const buildingCode = building?.code ? String(building.code) : null;
 
     // Support both old local linkage (building code) and new linkage (building numeric id).
@@ -544,11 +866,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  const [allBuildings, fetchedApartments, maintenanceRows] = await Promise.all([
+  if (typeof WalajnaBuildingsApi !== "undefined" && WalajnaBuildingsApi.clearLegacyMirror) {
+    WalajnaBuildingsApi.clearLegacyMirror();
+  }
+
+  const [allBuildingsRaw, fetchedApartments, maintenanceRows] = await Promise.all([
     getServerBuildings(),
     fetchOwnerApartments(),
     fetchOwnerMaintenance(),
   ]);
+  if (typeof WalajnaBuildingsApi !== "undefined" && WalajnaBuildingsApi.persistSessionList) {
+    WalajnaBuildingsApi.persistSessionList(allBuildingsRaw);
+  }
+  const allBuildings = allBuildingsRaw;
   let apartments = fetchedApartments;
 
   const ownerBuildingsList = allBuildings.filter(
@@ -595,10 +925,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       return (b.createdAt || "").localeCompare(a.createdAt || "");
     });
 
-  apartments = await backfillMissingApartmentsFromBuildings(
-    buildings,
-    apartments,
-    currentUser.id
+  apartments = overlaySessionRoomCountsOntoOwnerApartments(
+    await backfillMissingApartmentsFromBuildings(buildings, apartments, currentUser.id)
   );
 
   if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.persistSessionList) {
@@ -633,18 +961,304 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  container.innerHTML = buildings
-    .map((building) => {
-      const buildingApartments = getApartmentsForBuilding(building.id, apartments);
+  const pickStore =
+    typeof WalajnaOwnerBuildingPick !== "undefined"
+      ? WalajnaOwnerBuildingPick.loadState()
+      : { editActive: false, buildingIds: new Set() };
+  const selectedBuildingIds = new Set(pickStore.buildingIds);
+  let showOnlySelectedMode = false;
+  let ownerBuildingsEditMode = !!pickStore.editActive;
 
-      const newRequestsCount = getNewRequestsCountForBuilding(
-        building.id,
-        apartments,
-        maintenanceRows
-      );
+  function persistOwnerBuildingPick() {
+    if (typeof WalajnaOwnerBuildingPick === "undefined") return;
+    WalajnaOwnerBuildingPick.save(ownerBuildingsEditMode, selectedBuildingIds);
+  }
 
-      const sizeClass = getBuildingSizeClass(buildingApartments.length);
+  const ownerDashboardEl = document.querySelector(".owner-dashboard");
+  const ownerBuildingsEditBtn = document.getElementById("ownerBuildingsEditBtn");
 
+  function normalizeArabicSearchText(raw) {
+    return String(raw || "")
+      .replace(/[\u0640]/g, "")
+      .replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g, "")
+      .replace(/[أإآٱ]/g, "ا")
+      .replace(/ى/g, "ي")
+      .replace(/ة/g, "ه")
+      .trim()
+      .toLowerCase();
+  }
+
+  /** Unique حي names from the owner’s buildings (from map geocode), for the dropdown only. */
+  function distinctNeighborhoodLabels(buildingList) {
+    const byNorm = new Map();
+    for (const b of buildingList || []) {
+      const raw = String(b.neighborhood ?? "").trim();
+      if (!raw) continue;
+      const key = normalizeArabicSearchText(raw);
+      if (!key) continue;
+      if (!byNorm.has(key)) byNorm.set(key, raw);
+    }
+    return Array.from(byNorm.values()).sort((a, b) => a.localeCompare(b, "ar"));
+  }
+
+  function populateOwnerNeighborhoodSelect(selectEl, buildingList) {
+    if (!selectEl) return;
+    const previous = selectEl.value;
+    const labels = distinctNeighborhoodLabels(buildingList);
+    selectEl.innerHTML = "";
+    const optAll = document.createElement("option");
+    optAll.value = "";
+    optAll.textContent = "كل الأحياء";
+    selectEl.appendChild(optAll);
+    for (const label of labels) {
+      const o = document.createElement("option");
+      o.value = label;
+      o.textContent = label;
+      selectEl.appendChild(o);
+    }
+    if (previous && [...selectEl.options].some((opt) => opt.value === previous)) {
+      selectEl.value = previous;
+    } else {
+      selectEl.value = "";
+    }
+  }
+
+  function buildingMatchesNeighborhoodChoice(building, selectedLabel) {
+    const sel = String(selectedLabel || "").trim();
+    if (!sel) return true;
+    return (
+      normalizeArabicSearchText(building.neighborhood || "") ===
+      normalizeArabicSearchText(sel)
+    );
+  }
+
+  /** Match buildings that have at least one unit in the given color-legend state. */
+  function buildingMatchesLegendIndicatorFilter(buildingId, typeFilter) {
+    if (!typeFilter || typeFilter === "all") return true;
+    const apts = getApartmentsForBuilding(buildingId, apartments);
+    if (!apts.length) return false;
+
+    if (typeFilter === "vacant") {
+      return apts.some((a) => !isApartmentOccupied(a));
+    }
+
+    if (typeFilter === "rented") {
+      return apts.some((a) => isApartmentOccupied(a));
+    }
+
+    return apts.some((a) => getApartmentRequestIndicator(a) === typeFilter);
+  }
+
+  const OWNER_REQUEST_INDICATORS = [
+    "rent-overdue",
+    "maintenance",
+    "complaint",
+    "suggestion",
+    "request",
+  ];
+
+  /** Open request / overdue flags — independent of rented vs vacant counts. */
+  function getApartmentRequestIndicator(apartment) {
+    if (isApartmentRentOverdue(apartment, payments)) {
+      return "rent-overdue";
+    }
+
+    const highestPriorityRequest = getHighestPriorityRequest(
+      apartment,
+      maintenanceRows
+    );
+    if (!highestPriorityRequest) {
+      return null;
+    }
+
+    const typeId = highestPriorityRequest.typeId;
+    return OWNER_REQUEST_INDICATORS.includes(typeId) ? typeId : null;
+  }
+
+  function getPortfolioIndicatorCountScope() {
+    if (!ownerBuildingsEditMode) {
+      return null;
+    }
+    if (selectedBuildingIds.size === 0) {
+      return new Set();
+    }
+    return selectedBuildingIds;
+  }
+
+  function computePortfolioIndicatorCounts(scopeBuildingIds) {
+    const counts = {
+      total: 0,
+      rented: 0,
+      vacant: 0,
+      "rent-overdue": 0,
+      maintenance: 0,
+      complaint: 0,
+      suggestion: 0,
+      request: 0,
+    };
+
+    const apartmentsToCount = [];
+    if (scopeBuildingIds === null) {
+      for (const building of buildings) {
+        apartmentsToCount.push(
+          ...getApartmentsForBuilding(building.id, apartments)
+        );
+      }
+    } else {
+      for (const buildingId of scopeBuildingIds) {
+        apartmentsToCount.push(
+          ...getApartmentsForBuilding(buildingId, apartments)
+        );
+      }
+    }
+
+    for (const apartment of apartmentsToCount) {
+      counts.total += 1;
+      if (isApartmentOccupied(apartment)) {
+        counts.rented += 1;
+      } else {
+        counts.vacant += 1;
+      }
+
+      const requestIndicator = getApartmentRequestIndicator(apartment);
+      if (requestIndicator && counts[requestIndicator] != null) {
+        counts[requestIndicator] += 1;
+      }
+    }
+
+    return counts;
+  }
+
+  function updatePortfolioIndicatorCounts() {
+    const counts = computePortfolioIndicatorCounts(getPortfolioIndicatorCountScope());
+    document.querySelectorAll("[data-owner-indicator-count]").forEach((el) => {
+      const key = el.getAttribute("data-owner-indicator-count");
+      if (!key || counts[key] == null) return;
+      el.textContent = String(counts[key]);
+    });
+  }
+
+  function getOwnerNeighborhoodAndRequestFilterValues() {
+    const neighborhoodFilterSelect = document.getElementById("ownerBuildingsNeighborhoodFilter");
+    const requestFilterSelect = document.getElementById("ownerBuildingsRequestFilter");
+    return {
+      neighborhoodChoice: neighborhoodFilterSelect?.value || "",
+      requestFilter: requestFilterSelect?.value || "all",
+    };
+  }
+
+  function syncOwnerEditModeUi() {
+    if (ownerDashboardEl) {
+      ownerDashboardEl.classList.toggle("is-owner-edit-mode", ownerBuildingsEditMode);
+    }
+    if (ownerBuildingsEditBtn) {
+      ownerBuildingsEditBtn.setAttribute("aria-pressed", ownerBuildingsEditMode ? "true" : "false");
+      ownerBuildingsEditBtn.textContent = ownerBuildingsEditMode
+        ? wlT("owner.buildingsCancelEdit")
+        : wlT("owner.buildingsEnterEdit");
+    }
+  }
+
+  function syncOwnerPickUiVisibility() {
+    const containerEl = document.getElementById("buildingsContainer");
+    if (containerEl) {
+      containerEl.classList.toggle("is-owner-pick-active", ownerBuildingsEditMode);
+    }
+  }
+
+  function computeOwnerBuildingsFilterList() {
+    const { neighborhoodChoice, requestFilter } = getOwnerNeighborhoodAndRequestFilterValues();
+    return buildings.filter(
+      (b) =>
+        buildingMatchesNeighborhoodChoice(b, neighborhoodChoice) &&
+        buildingMatchesLegendIndicatorFilter(b.id, requestFilter)
+    );
+  }
+
+  function computeOwnerBuildingsDisplayList() {
+    if (showOnlySelectedMode) {
+      return buildings.filter((b) => selectedBuildingIds.has(String(b.id)));
+    }
+    return computeOwnerBuildingsFilterList();
+  }
+
+  function updateSelectionToolbar() {
+    const showBtn = document.getElementById("ownerShowSelectedOnlyBtn");
+    const actionsWrap = document.getElementById("ownerBuildingsFilterPickActions");
+    if (!showBtn) return;
+
+    if (actionsWrap) {
+      actionsWrap.hidden = !ownerBuildingsEditMode;
+    }
+
+    if (showOnlySelectedMode) {
+      showBtn.hidden = true;
+    } else {
+      showBtn.hidden = false;
+      showBtn.disabled = selectedBuildingIds.size === 0;
+    }
+  }
+
+  function resetOwnerBuildingsFiltersToDefault() {
+    showOnlySelectedMode = false;
+    selectedBuildingIds.clear();
+    persistOwnerBuildingPick();
+    const neighborhoodFilterSelect = document.getElementById(
+      "ownerBuildingsNeighborhoodFilter"
+    );
+    const requestFilterSelect = document.getElementById("ownerBuildingsRequestFilter");
+    if (neighborhoodFilterSelect) neighborhoodFilterSelect.value = "";
+    if (requestFilterSelect) requestFilterSelect.value = "all";
+    refreshOwnerBuildingsView();
+  }
+
+  function refreshOwnerBuildingsView() {
+    syncOwnerEditModeUi();
+    syncOwnerPickUiVisibility();
+    const list = computeOwnerBuildingsDisplayList();
+    updateOwnerBuildingsCountDisplay(list.length);
+    updatePortfolioIndicatorCounts();
+    updateSelectionToolbar();
+    renderBuildingCards(list);
+  }
+
+  function applyOwnerBuildingFilters() {
+    showOnlySelectedMode = false;
+    refreshOwnerBuildingsView();
+  }
+
+  function createBuildingCardHtml(building) {
+    const bid = String(building.id);
+    const displayName = String(building.name || "").trim();
+    const isChecked = selectedBuildingIds.has(bid);
+    const selectAria = String(wlT("owner.buildingsSelectForListAria")).replace(/"/g, "&quot;");
+
+    const buildingApartments = getApartmentsForBuilding(building.id, apartments);
+
+    const newRequestsCount = getNewRequestsCountForBuilding(
+      building.id,
+      apartments,
+      maintenanceRows
+    );
+
+    const sizeClass = getBuildingSizeClass(buildingApartments.length);
+
+    const layoutComplete =
+      typeof WalajnaApartmentsApi !== "undefined" &&
+      WalajnaApartmentsApi.isBuildingUnitLayoutComplete
+        ? WalajnaApartmentsApi.isBuildingUnitLayoutComplete(building, buildingApartments)
+        : true;
+    const layoutBanner = !layoutComplete
+      ? `<div class="building-card__layout-banner" role="status">${String(
+          wlT("building.completeLayoutBanner")
+        )
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")}</div>`
+      : "";
+
+    let squaresHtml = "";
+    if (layoutComplete) {
       const floorsMap = new Map();
 
       buildingApartments.forEach((apartment) => {
@@ -659,7 +1273,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       const sortedFloorNumbers = [...floorsMap.keys()].sort((a, b) => b - a);
 
-      const squaresHtml = sortedFloorNumbers
+      squaresHtml = sortedFloorNumbers
         .map((floorNumber) => {
           const floorApartments = floorsMap.get(floorNumber) || [];
 
@@ -668,7 +1282,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             const bNum = Number(b.number || 0);
             return aNum - bNum;
           });
-           const isWide = sortedFloorApartments.length >= 6;
+          const isWide = sortedFloorApartments.length >= 6;
           const floorSquares = sortedFloorApartments
             .map((apartment) => {
               const typeClass = getApartmentStatusClass(
@@ -692,139 +1306,269 @@ document.addEventListener("DOMContentLoaded", async () => {
               `;
             })
             .join("");
-return `
+          return `
   <div class="apartment-floor ${isWide ? "wide-floor" : ""}" data-floor="${floorNumber}">
     ${floorSquares}
   </div>
 `;
         })
         .join("");
+    }
 
-      return `
+    return `
         <article
-          class="building-card ${sizeClass} ${newRequestsCount > 0 ? "has-notifications" : ""} ${isBuildingPinned(building) ? "is-pinned" : ""}"
+          class="building-card ${sizeClass} ${newRequestsCount > 0 ? "has-notifications" : ""} ${isBuildingPinned(building) ? "is-pinned" : ""} ${isChecked ? "is-multi-selected" : ""}"
           data-building-id="${building.id}"
         >
+          <label class="building-card-select-wrap">
+            <input
+              type="checkbox"
+              class="building-card-select"
+              data-building-id="${building.id}"
+              ${isChecked ? "checked" : ""}
+              aria-label="${selectAria}"
+            />
+          </label>
           ${
             newRequestsCount > 0
               ? `<span class="building-notification-badge">${newRequestsCount}</span>`
               : ""
           }
 
-          <div class="building-menu-wrap">
-            <button
-              type="button"
-              class="building-more-btn"
-              data-menu-btn="true"
-              data-building-id="${building.id}"
-              aria-label="${String(wlT("owner.buildingMenu")).replace(/"/g, "&quot;")}"
-            >
-              ⋮
-            </button>
-
-            <div class="building-card-menu" data-menu="${building.id}">
-              <button
-                type="button"
-                data-action="toggle-pin-building"
-                data-building-id="${building.id}"
-              >
-                ${building.isPinned ? wlT("owner.unpin") : wlT("owner.pin")}
-              </button>
-
-              <button
-                type="button"
-                data-action="edit-building"
-                data-building-id="${building.id}"
-              >
-                ${wlT("common.edit")}
-              </button>
-
-              <button
-                type="button"
-                class="danger"
-                data-action="delete-building"
-                data-building-id="${building.id}"
-              >
-                ${wlT("common.delete")}
-              </button>
-            </div>
-          </div>
-
           <div class="building-card__head">
-            <h3 class="building-title">${building.isPinned ? "📌 " : ""}${building.name}</h3>
+            <h3 class="building-title" dir="auto" title="${String(displayName || "").replace(/"/g, "&quot;")}">${building.isPinned ? "📌 " : ""}${displayName}</h3>
+            <div class="building-menu-wrap">
+              <button
+                type="button"
+                class="building-more-btn"
+                data-menu-btn="true"
+                data-building-id="${building.id}"
+                aria-label="${String(wlT("owner.buildingMenu")).replace(/"/g, "&quot;")}"
+              >
+                ⋮
+              </button>
+
+              <div class="building-card-menu" data-menu="${building.id}">
+                <button
+                  type="button"
+                  data-action="toggle-pin-building"
+                  data-building-id="${building.id}"
+                  data-is-pinned="${building.isPinned ? "1" : "0"}"
+                >
+                  ${building.isPinned ? wlT("owner.unpin") : wlT("owner.pin")}
+                </button>
+
+                <button
+                  type="button"
+                  data-action="edit-building"
+                  data-building-id="${building.id}"
+                >
+                  ${wlT("common.edit")}
+                </button>
+
+                <button
+                  type="button"
+                  class="danger"
+                  data-action="delete-building"
+                  data-building-id="${building.id}"
+                >
+                  ${wlT("common.delete")}
+                </button>
+              </div>
+            </div>
             <span class="building-count">${wlT("owner.aptCountLabel", { n: buildingApartments.length })}</span>
           </div>
+          ${layoutBanner}
 
-          <div class="apartments-grid">
-            ${squaresHtml}
-          </div>
+          ${
+            layoutComplete && squaresHtml
+              ? `<div class="apartments-grid">${squaresHtml}</div>`
+              : ""
+          }
         </article>
       `;
-    })
-    .join("");
+  }
 
-  document.querySelectorAll("[data-menu-btn]").forEach((btn) => {
-    btn.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
+  function bindBuildingCardEvents() {
+    document.querySelectorAll("[data-menu-btn]").forEach((btn) => {
+      btn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
 
-      const buildingId = btn.dataset.buildingId;
-      const menu = document.querySelector(`[data-menu="${buildingId}"]`);
-      const isOpen = menu?.classList.contains("is-open");
+        const buildingId = btn.dataset.buildingId;
+        const menu = document.querySelector(`[data-menu="${buildingId}"]`);
+        const isOpen = menu?.classList.contains("is-open");
 
-      closeAllBuildingMenus();
+        closeAllBuildingMenus();
 
-      if (menu && !isOpen) {
-        menu.classList.add("is-open");
-      }
+        if (menu && !isOpen) {
+          menu.classList.add("is-open");
+          const card = btn.closest(".building-card");
+          if (card) card.classList.add("menu-open");
+        }
+      });
     });
+
+    document.querySelectorAll('[data-action="toggle-pin-building"]').forEach((btn) => {
+      btn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const buildingId = btn.dataset.buildingId;
+        const currentlyPinned = btn.dataset.isPinned === "1";
+        closeAllBuildingMenus();
+        void toggleBuildingPin(buildingId, currentlyPinned);
+      });
+    });
+
+    document.querySelectorAll('[data-action="edit-building"]').forEach((btn) => {
+      btn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const buildingId = btn.dataset.buildingId;
+        closeAllBuildingMenus();
+        editBuilding(buildingId);
+      });
+    });
+
+    document.querySelectorAll('[data-action="delete-building"]').forEach((btn) => {
+      btn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const buildingId = btn.dataset.buildingId;
+        closeAllBuildingMenus();
+        deleteBuilding(buildingId);
+      });
+    });
+
+    document.querySelectorAll(".building-card-select").forEach((input) => {
+      input.addEventListener("click", (event) => {
+        event.stopPropagation();
+      });
+      input.addEventListener("change", (event) => {
+        event.stopPropagation();
+        const id = String(input.dataset.buildingId ?? "");
+        if (!id) return;
+        if (input.checked) {
+          selectedBuildingIds.add(id);
+        } else {
+          selectedBuildingIds.delete(id);
+        }
+        const card = input.closest(".building-card");
+        if (card) {
+          card.classList.toggle("is-multi-selected", input.checked);
+        }
+        updateSelectionToolbar();
+        persistOwnerBuildingPick();
+        updatePortfolioIndicatorCounts();
+        if (showOnlySelectedMode) {
+          if (selectedBuildingIds.size === 0) {
+            showOnlySelectedMode = false;
+          }
+          refreshOwnerBuildingsView();
+        }
+      });
+    });
+
+    document.querySelectorAll(".building-card").forEach((card) => {
+      card.addEventListener("click", async (event) => {
+        if (event.target.closest(".building-menu-wrap")) return;
+        if (event.target.closest(".building-card-select-wrap")) return;
+
+        const buildingId = card.dataset.buildingId;
+        if (!buildingId) return;
+
+        /* In edit mode only the checkbox toggles selection; the card opens the building. */
+        await markBuildingRequestsAsSeen(buildingId);
+        window.location.href = `owner_building.html?buildingId=${encodeURIComponent(
+          buildingId
+        )}`;
+      });
+    });
+  }
+
+  function exitOwnerBuildingsEditMode() {
+    ownerBuildingsEditMode = false;
+    showOnlySelectedMode = false;
+    selectedBuildingIds.clear();
+    if (typeof WalajnaOwnerBuildingPick !== "undefined") {
+      WalajnaOwnerBuildingPick.clear();
+    }
+    const neighborhoodFilterSelect = document.getElementById(
+      "ownerBuildingsNeighborhoodFilter"
+    );
+    const requestFilterSelect = document.getElementById("ownerBuildingsRequestFilter");
+    if (neighborhoodFilterSelect) neighborhoodFilterSelect.value = "";
+    if (requestFilterSelect) requestFilterSelect.value = "all";
+    refreshOwnerBuildingsView();
+  }
+
+  function enterOwnerBuildingsEditMode() {
+    ownerBuildingsEditMode = true;
+    showOnlySelectedMode = false;
+    persistOwnerBuildingPick();
+    refreshOwnerBuildingsView();
+  }
+
+  function renderBuildingCards(list) {
+    if (!list.length) {
+      container.innerHTML = "";
+      const p = document.createElement("p");
+      p.className = "buildings-filter-empty";
+      p.setAttribute("dir", "rtl");
+      p.textContent = wlT("owner.buildingsFilterEmpty");
+      container.appendChild(p);
+      return;
+    }
+    container.innerHTML = list.map(createBuildingCardHtml).join("");
+    bindBuildingCardEvents();
+  }
+
+  function updateOwnerBuildingsCountDisplay(visibleCount) {
+    const el = document.getElementById("ownerBuildingsCount");
+    if (!el) return;
+    const total = buildings.length;
+    const v = Math.max(0, Number(visibleCount) || 0);
+    const text = v === total ? String(total) : `${total}/${v}`;
+    el.textContent = text;
+  }
+
+  const neighborhoodFilterSelect = document.getElementById("ownerBuildingsNeighborhoodFilter");
+  populateOwnerNeighborhoodSelect(neighborhoodFilterSelect, buildings);
+  refreshOwnerBuildingsView();
+
+  document.addEventListener("walajna:i18n-applied", () => {
+    refreshOwnerBuildingsView();
   });
 
-  document.querySelectorAll('[data-action="toggle-pin-building"]').forEach((btn) => {
-    btn.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
+  const requestFilterSelect = document.getElementById("ownerBuildingsRequestFilter");
+  if (neighborhoodFilterSelect) {
+    neighborhoodFilterSelect.addEventListener("change", applyOwnerBuildingFilters);
+  }
+  if (requestFilterSelect) {
+    requestFilterSelect.addEventListener("change", applyOwnerBuildingFilters);
+  }
 
-      const buildingId = btn.dataset.buildingId;
-      closeAllBuildingMenus();
-      toggleBuildingPin(buildingId);
-    });
+  document.getElementById("ownerShowSelectedOnlyBtn")?.addEventListener("click", () => {
+    if (selectedBuildingIds.size === 0) {
+      alert(wlT("owner.buildingsPickEmptyFiltered"));
+      return;
+    }
+    showOnlySelectedMode = true;
+    refreshOwnerBuildingsView();
+  });
+  document.getElementById("ownerResetFiltersBtn")?.addEventListener("click", () => {
+    resetOwnerBuildingsFiltersToDefault();
   });
 
-  document.querySelectorAll('[data-action="edit-building"]').forEach((btn) => {
-    btn.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-
-      const buildingId = btn.dataset.buildingId;
-      closeAllBuildingMenus();
-      editBuilding(buildingId);
-    });
-  });
-
-  document.querySelectorAll('[data-action="delete-building"]').forEach((btn) => {
-    btn.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-
-      const buildingId = btn.dataset.buildingId;
-      closeAllBuildingMenus();
-      deleteBuilding(buildingId);
-    });
-  });
-
-  document.querySelectorAll(".building-card").forEach((card) => {
-    card.addEventListener("click", async (event) => {
-      if (event.target.closest(".building-menu-wrap")) return;
-
-      const buildingId = card.dataset.buildingId;
-
-      await markBuildingRequestsAsSeen(buildingId);
-
-      window.location.href = `owner_building.html?buildingId=${encodeURIComponent(
-        buildingId
-      )}`;
-    });
+  ownerBuildingsEditBtn?.addEventListener("click", () => {
+    if (ownerBuildingsEditMode) {
+      exitOwnerBuildingsEditMode();
+    } else {
+      enterOwnerBuildingsEditMode();
+    }
   });
 
   document.addEventListener("click", (event) => {

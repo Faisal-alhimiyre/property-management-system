@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <script>(function(){try{var l=localStorage.getItem("walajna_language")||"ar";if(l!=="en"&&l!=="ar"&&l!=="ur")l="ar";document.documentElement.setAttribute("lang",l==="en"?"en":(l==="ur"?"ur":"ar"));document.documentElement.setAttribute("dir",l==="en"?"ltr":"rtl");}catch(e){}})();</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title data-i18n="meta.portfolioCostsTitle">تفاصيل التكاليف - ولجنا</title>
+  <link rel="stylesheet" href="../css/theme.css" />
+  <link rel="stylesheet" href="../css/navstyle.css" />
+  <link rel="stylesheet" href="../css/finance-summary.css" />
+  <link rel="stylesheet" href="../css/costs.css" />
+  <script src="../js/main/walajna-i18n-ur.js"></script>
+  <script src="../js/main/walajna-i18n.js"></script>
+</head>
+<body data-nav="user" data-wl-bc="portfolio-costs">
+  <div id="navbar-container"></div>
+
+  <main class="pay-wrap pay-wrap--portfolio">
+    <header class="pay-header pay-header--portfolio">
+      <div>
+        <h2 id="pageTitle" data-i18n="costs.pageTitle">سجل المصروفات</h2>
+        <p id="pageSub"></p>
+      </div>
+
+      <div class="pay-search">
+        <input id="searchInput" type="text" data-i18n-placeholder="costs.searchPh" placeholder="" />
+      </div>
+    </header>
+
+    <div id="costsSummary" class="pay-summary finance-kpi-strip" role="region" aria-label="Expense totals"></div>
+
+    <section class="finance-table-section portfolio-costs-accordion finance-table-section--portfolio">
+      <div class="finance-table-header">
+        <h2 data-i18n="costs.portfolioTableTitle">المصروفات حسب العمارة</h2>
+        <div class="finance-table-header__aside">
+          <span id="costsCount" class="finance-table-meta"></span>
+        </div>
+      </div>
+      <div id="costsTableContainer" class="finance-table-wrap costs-portfolio-table-wrap"></div>
+    </section>
+  </main>
+
+  <script src="../js/main/theme.js"></script>
+  <script src="../js/main/breadcrumbs.js"></script>
+  <script src="../js/main/auth.js"></script>
+  <script src="../js/main/buildings-api.js"></script>
+  <script src="../js/main/nav.js"></script>
+  <script src="../js/main/apartments-api.js"></script>
+  <script src="../js/main/costs-api.js"></script>
+  <script src="../js/main/owner-building-pick.js"></script>
+  <script src="../js/owner-manager/portfolio-costs.js"></script>
+</body>
+</html>

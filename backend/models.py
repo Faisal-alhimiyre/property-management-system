@@ -1,5 +1,7 @@
-from pydantic import BaseModel, ConfigDict
-from typing import Optional, List
+
+import json
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from typing import Any, Optional, List
 from datetime import datetime, date
 
 class User(BaseModel):
@@ -26,7 +28,7 @@ class Apartment(BaseModel):
     living_rooms: Optional[int] = None
     address: str
     description: Optional[str] = None
-    rent: float
+    rent: Optional[float] = None
     maintenance_id: Optional[int] = None
     created_at: Optional[datetime] = None
 
@@ -94,6 +96,34 @@ class DocumentResponse(BaseModel):
     url: str
     generated_automatically: Optional[bool] = False
     uploaded_at: Optional[datetime] = None
+
+
+class CostCreate(BaseModel):
+    """POST /api/costs — owner-only; persists to public.costs."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    apartment_id: int
+    contract_id: Optional[int] = None
+    cost_type: str
+    amount: float
+    status: str = "pending"
+    expense_date: date
+    notes: Optional[str] = None
+
+
+class CostResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    id: int
+    apartment_id: int
+    contract_id: Optional[int] = None
+    cost_type: str
+    amount: float
+    status: str
+    expense_date: date
+    notes: Optional[str] = None
+    created_at: Optional[datetime] = None
 
 
 class ContractPdfRenderCreate(BaseModel):
@@ -202,9 +232,9 @@ class ApartmentResponse(BaseModel):
     bedrooms: Optional[int] = None
     bathrooms: Optional[int] = None
     living_rooms: Optional[int] = None
-    address: str
+    address: str = ""
     description: Optional[str] = None
-    rent: float
+    rent: Optional[float] = None
     tenant_user_id: Optional[int] = None
     tenant_national_id: Optional[str] = None
     tenant_info: Optional[dict] = None
@@ -212,28 +242,85 @@ class ApartmentResponse(BaseModel):
     lease_status: Optional[str] = "vacant"
     maintenance_id: Optional[int] = None
     created_at: Optional[datetime] = None
+    # Built from public.contracts link-tenant columns (+ dates); API-only, not an apartments column.
+    lease_terms: Optional[dict[str, Any]] = None
     # Filled for tenants on GET /apartments/{id} only (linked tenant); not a DB column.
     owner_public_name: Optional[str] = None
     owner_public_national_id: Optional[str] = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def coerce_supabase_apartment_row(cls, data: Any) -> Any:
+        """DB rows may omit NOT NULL legacy fields or return JSON as strings; avoid 500 on list endpoints."""
+        if not isinstance(data, dict):
+            return data
+        out = dict(data)
+        if out.get("address") is None:
+            out["address"] = ""
+        if out.get("rent") is None:
+            out["rent"] = 0.0
+        ti = out.get("tenant_info")
+        if isinstance(ti, str) and ti.strip():
+            try:
+                parsed = json.loads(ti)
+                out["tenant_info"] = parsed if isinstance(parsed, dict) else None
+            except json.JSONDecodeError:
+                out["tenant_info"] = None
+        return out
+
 class Building(BaseModel):
     id: Optional[int] = None
     owner_id: Optional[int] = None
-    name: str
+    name: str = Field(min_length=3, max_length=40)
+
+    @field_validator("name")
+    @classmethod
+    def normalize_building_name(cls, value: str) -> str:
+        return " ".join(str(value or "").split())
     city: str
+    neighborhood: Optional[str] = None
     code: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     total_floors: Optional[int] = None
     apartments_count: Optional[int] = None
+    apartments_per_floor: Optional[int] = None
     created_at: Optional[datetime] = None
 
+class BuildingPinUpdate(BaseModel):
+    pinned: bool
+
+
 class BuildingResponse(BaseModel):
-    id: int
-    owner_id: int
+    id: int | str
+    owner_id: int | str
     name: str
     city: str
+    neighborhood: Optional[str] = None
     code: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     total_floors: Optional[int] = None
     apartments_count: Optional[int] = None
+    apartments_per_floor: Optional[int] = None
+    is_pinned: bool = False
+    pinned_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
+
+
+class UnitLayoutItem(BaseModel):
+    """One physical unit when applying per-floor counts + room mix from the owner wizard."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    floor_number: int
+    apartment_number: str
+    bedrooms: int = 0
+    bathrooms: int = 0
+    living_rooms: int = 0
+
+
+class UnitLayoutBody(BaseModel):
+    units: list[UnitLayoutItem]
 
 # Add more response models as needed

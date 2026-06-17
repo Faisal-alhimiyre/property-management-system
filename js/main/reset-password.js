@@ -13,38 +13,31 @@ function showResetMessage(message, isSuccess = false) {
   resetMessage.style.color = isSuccess ? "#d1fae5" : "#ffefef";
 }
 
-function getUsers() {
-  return JSON.parse(localStorage.getItem("walajna_users")) || [];
+function getResetToken() {
+  return localStorage.getItem("walajna_reset_token");
 }
 
-function getResetUserId() {
-  return localStorage.getItem("walajna_reset_user");
+function apiBase() {
+  return (typeof WalajnaAuth !== "undefined" && WalajnaAuth.API_BASE) || "http://127.0.0.1:8002";
 }
 
 console.log("reset-password.js loaded");
 
 (function validateResetAccess() {
-  const resetUserId = getResetUserId();
-  const users = getUsers();
-
-  console.log("resetUserId:", resetUserId);
-  console.log("users:", users);
-
-  const userExists = users.some((user) => user.id === resetUserId);
-
-  if (!resetUserId || !userExists) {
+  const resetToken = getResetToken();
+  if (!resetToken) {
     alert(T("reset.expired"));
     window.location.href = "../auth/forgetpass.html";
   }
 })();
 
-resetForm.addEventListener("submit", function (e) {
+resetForm.addEventListener("submit", async function (e) {
   e.preventDefault();
 
   const newPassword = newPasswordInput.value.trim();
   const confirmPassword = confirmPasswordInput.value.trim();
-  const resetUserId = getResetUserId();
-  const users = getUsers();
+  const resetToken = getResetToken();
+  const submitBtn = resetForm.querySelector('button[type="submit"]');
 
   console.log("submit fired");
   console.log("newPassword:", newPassword);
@@ -68,64 +61,45 @@ resetForm.addEventListener("submit", function (e) {
     return;
   }
 
-  const userIndex = users.findIndex((user) => user.id === resetUserId);
-
-  console.log("userIndex:", userIndex);
-
-  if (userIndex === -1) {
-    showResetMessage(T("reset.userMissing"));
+  if (!resetToken) {
+    showResetMessage(T("reset.expired"));
     return;
   }
 
-  users[userIndex].password = newPassword;
-  const localUser = users[userIndex] || {};
-
-  console.log("updated user:", localUser);
-  localStorage.setItem("walajna_users", JSON.stringify(users));
-
-  const API_BASE =
-    (typeof WalajnaAuth !== "undefined" && WalajnaAuth.API_BASE) ||
-    "http://127.0.0.1:8002";
-
-  const payload = {
-    user_id: resetUserId,
-    national_id: localUser.nationalId || localUser.national_id || "",
-    email: localStorage.getItem("walajna_reset_email") || localUser.email || "",
-    phone: localStorage.getItem("walajna_reset_phone") || localUser.phoneNumber || localUser.phone || "",
-    new_password: newPassword,
-  };
-
-  fetch(`${API_BASE}/api/reset-password`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  })
-    .then(async (res) => {
-      if (!res.ok) {
-        let detail = `HTTP ${res.status}`;
-        try {
-          const err = await res.json();
-          detail = err?.detail || detail;
-        } catch {
-          /* ignore */
-        }
-        throw new Error(detail);
-      }
-      localStorage.removeItem("walajna_reset_user");
-      localStorage.removeItem("walajna_reset_email");
-      localStorage.removeItem("walajna_reset_phone");
-      localStorage.removeItem("walajna_reset_code");
-      localStorage.removeItem("walajna_reset_method");
-      showResetMessage(T("reset.success"), true);
-      setTimeout(() => {
-        window.location.href = "../auth/login.html";
-      }, 1200);
-    })
-    .catch((err) => {
-      console.error("reset-password backend sync failed", err);
-      showResetMessage("تم تغيير كلمة المرور محلياً فقط. أعد المحاولة أو تواصل مع الدعم.");
+  try {
+    if (submitBtn) submitBtn.disabled = true;
+    const res = await fetch(`${apiBase()}/api/reset-password`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        reset_token: resetToken,
+        new_password: newPassword,
+      }),
     });
+    if (!res.ok) {
+      let detail = `HTTP ${res.status}`;
+      try {
+        const err = await res.json();
+        detail = String(err?.detail || detail);
+      } catch {
+        /* ignore */
+      }
+      throw new Error(detail);
+    }
+
+    localStorage.removeItem("walajna_reset_identifier");
+    localStorage.removeItem("walajna_reset_method");
+    localStorage.removeItem("walajna_reset_token");
+    showResetMessage(T("reset.success"), true);
+    setTimeout(() => {
+      window.location.href = "../auth/login.html";
+    }, 1200);
+  } catch (err) {
+    console.error("reset-password failed", err);
+    showResetMessage(String(err?.message || err || T("common.tryAgain")));
+    if (submitBtn) submitBtn.disabled = false;
+  }
 });
 
 document.addEventListener("walajna:i18n-applied", () => {

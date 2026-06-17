@@ -13,10 +13,10 @@
     style.id = "walajnaPaymentsStyles";
     style.textContent = `
       .payments-alert{
-        margin-bottom:16px;
-        padding:14px 16px;
+        margin-bottom:10px;
+        padding:10px 12px;
         border-radius:12px;
-        font-size:14px;
+        font-size:13px;
         font-weight:600;
         display:flex;
         align-items:center;
@@ -35,11 +35,11 @@
         border:1px solid #fca5a5;
       }
       .payments-dash{
-        margin-bottom:22px;
-        border-radius:20px;
+        margin-bottom:14px;
+        border-radius:14px;
         border:1px solid rgba(15,23,42,0.08);
         background:#fff;
-        box-shadow:0 8px 24px rgba(15,23,42,0.06);
+        box-shadow:0 6px 18px rgba(15,23,42,0.06);
         overflow:hidden;
       }
       .payments-dash__titlebar{
@@ -47,21 +47,21 @@
         flex-wrap:wrap;
         align-items:flex-end;
         justify-content:space-between;
-        gap:16px;
-        padding:20px 22px 16px;
+        gap:12px;
+        padding:12px 14px 10px;
         border-bottom:1px solid rgba(15,23,42,0.06);
       }
       .payments-dash__page-title{
         margin:0;
-        font-size:26px;
+        font-size:1.25rem;
         font-weight:900;
         color:#0f172a;
         line-height:1.2;
         letter-spacing:-0.02em;
       }
       .payments-dash__page-sub{
-        margin:8px 0 0;
-        font-size:13px;
+        margin:4px 0 0;
+        font-size:0.78rem;
         font-weight:700;
         color:#64748b;
         line-height:1.35;
@@ -71,17 +71,17 @@
       }
       .payments-dash__filters{
         display:flex;
-        gap:10px;
+        gap:8px;
         align-items:center;
         flex-wrap:wrap;
       }
       .payments-dash__search{
-        width:min(190px, 100%);
+        width:min(168px, 100%);
         box-sizing:border-box;
         border:1px solid rgba(15,23,42,0.12);
-        border-radius:14px;
-        padding:11px 14px;
-        font-size:14px;
+        border-radius:10px;
+        padding:8px 12px;
+        font-size:13px;
         font-weight:700;
         background:#f8fafc;
         color:#0f172a;
@@ -96,8 +96,8 @@
         flex-wrap:wrap;
         align-items:flex-start;
         justify-content:space-between;
-        gap:16px;
-        padding:18px 22px;
+        gap:12px;
+        padding:12px 14px;
         border-bottom:1px solid rgba(15,23,42,0.06);
         background:#fafbfc;
       }
@@ -109,8 +109,8 @@
         color:#64748b;
       }
       .payments-dash__tenant-name{
-        margin-top:6px;
-        font-size:22px;
+        margin-top:4px;
+        font-size:1.1rem;
         font-weight:900;
         color:#0f172a;
         line-height:1.25;
@@ -118,16 +118,16 @@
       .payments-dash__chips{
         display:flex;
         flex-wrap:wrap;
-        gap:10px;
-        margin-top:12px;
+        gap:8px;
+        margin-top:8px;
       }
       .payments-dash__chip{
         display:inline-flex;
         align-items:center;
         gap:8px;
-        padding:8px 14px;
+        padding:6px 12px;
         border-radius:999px;
-        font-size:13px;
+        font-size:12px;
         font-weight:800;
         background:#f1f5f9;
         color:#334155;
@@ -143,47 +143,47 @@
         color:#334155;
       }
       .payments-dash__count{
-        font-size:13px;
+        font-size:12px;
         font-weight:800;
         color:#475569;
-        padding:10px 14px;
-        border-radius:14px;
+        padding:8px 12px;
+        border-radius:10px;
         background:#fff;
         border:1px solid rgba(15,23,42,0.08);
         align-self:center;
       }
       .payments-dash__grid{
         display:grid;
-        grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
-        gap:14px;
-        padding:18px 22px 22px;
+        grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
+        gap:8px;
+        padding:12px 14px 14px;
       }
       .payments-dash__stat{
         position:relative;
-        border-radius:14px;
-        padding:14px 16px;
+        border-radius:12px;
+        padding:10px 12px;
         background:#fafbfc;
         border:1px solid rgba(15,23,42,0.08);
-        min-height:88px;
+        min-height:0;
         display:flex;
         flex-direction:column;
         justify-content:flex-end;
       }
       .payments-dash__stat .label{
-        font-size:12px;
+        font-size:11px;
         font-weight:800;
         color:#64748b;
-        margin-bottom:8px;
+        margin-bottom:4px;
       }
       .payments-dash__stat .value{
-        font-size:20px;
+        font-size:1rem;
         font-weight:900;
         color:#0f172a;
         letter-spacing:-0.02em;
       }
       .payments-dash__stat .sub{
-        margin-top:6px;
-        font-size:12px;
+        margin-top:4px;
+        font-size:11px;
         font-weight:700;
         color:#94a3b8;
       }
@@ -209,11 +209,11 @@
       }
       .payments-table th,
       .payments-table td{
-        padding:12px;
+        padding:10px 12px;
         border-bottom:1px solid #eef2f7;
         text-align:right;
         vertical-align:middle;
-        font-size:14px;
+        font-size:13px;
       }
       .payments-table th{
         background:#f9fafb;
@@ -254,10 +254,10 @@
       }
       .payments-action-btn{
         border:none;
-        border-radius:10px;
-        padding:8px 12px;
+        border-radius:9px;
+        padding:7px 11px;
         cursor:pointer;
-        font-size:13px;
+        font-size:12px;
         font-family:inherit;
       }
       .payments-action-btn.primary{
@@ -368,7 +368,7 @@
         color:#e5edf7;
       }
       body.dark-mode .payments-dash__search:focus{
-        border-color:#06b6d4;
+        border-color:rgba(148,163,184,0.55);
         background:#0f172a;
       }
       body.dark-mode .payments-dash__search::placeholder{
@@ -836,7 +836,10 @@
       });
     }
 
-    if (amountInput) amountInput.value = payment.amount || "";
+    if (amountInput) {
+      const amt = Math.round(Number(payment.amount || 0));
+      amountInput.value = amt > 0 ? String(amt) : "";
+    }
     if (paidAtInput) paidAtInput.value = utils.getTodayDateString();
     if (methodInput) methodInput.value = "";
     if (notesInput) notesInput.value = "";

@@ -20,7 +20,7 @@
     <div class="glow glow-3"></div>
   </div>
 
-  <div class="messages-shell">
+  <div class="messages-shell messages-shell--compact">
     <aside class="sidebar glass-card">
       <div class="brand-box">
         <div>
@@ -32,7 +32,6 @@
       <nav class="side-nav"></nav>
 
       <div class="legend-box">
-        <h4 data-i18n="messages.legendTitle"></h4>
         <div class="legend-item">
           <span class="legend-dot complaint"></span>
           <span data-i18n="messages.type.complaint"></span>
@@ -48,6 +47,10 @@
         <div class="legend-item">
           <span class="legend-dot request"></span>
           <span data-i18n="messages.type.request"></span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-dot payment"></span>
+          <span data-i18n="messages.type.payment"></span>
         </div>
       </div>
     </aside>
@@ -75,6 +78,7 @@
               <option value="maintenance" data-i18n-label="messages.type.maintenance"></option>
               <option value="suggestion" data-i18n-label="messages.type.suggestion"></option>
               <option value="request" data-i18n-label="messages.type.request"></option>
+              <option value="payment" data-i18n-label="messages.type.payment"></option>
             </select>
 
             <select id="statusFilter">
@@ -121,6 +125,7 @@
 
   <script src="../js/main/theme.js"></script>
   <script src="../js/main/auth.js"></script>
+  <script src="../js/main/buildings-api.js"></script>
   <script src="../js/main/nav.js"></script>
   <script src="../js/main/tenant-requests-api.js"></script>
   <script src="../js/main/apartments-api.js"></script>

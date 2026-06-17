@@ -86,8 +86,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       window.walajna_language && typeof window.walajna_language.localeForDates === "function"
         ? window.walajna_language.localeForDates()
         : window.walajna_language && window.walajna_language.get() === "en"
-          ? "en-GB"
-          : "ar-SA";
+          ? "en-GB-u-nu-latn"
+          : "ar-SA-u-nu-latn";
     return date.toLocaleDateString(loc);
   }
 
@@ -98,8 +98,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       window.walajna_language && typeof window.walajna_language.localeForNumbers === "function"
         ? window.walajna_language.localeForNumbers()
         : window.walajna_language && window.walajna_language.get() === "en"
-          ? "en-SA"
-          : "ar-SA";
+          ? "en-SA-u-nu-latn"
+          : "ar-SA-u-nu-latn";
     return `${number.toLocaleString(loc)} ${T("common.sar")}`;
   }
 
@@ -400,7 +400,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       floorNumber.textContent =
         apartment.floorNumber ?? contract.floorNumber ?? T("common.dash");
     }
-    if (rentAmount) rentAmount.textContent = formatMoney(contract.rentAmount || apartment.rent);
+    if (rentAmount) {
+      const y = Number(contract.yearlyRent ?? contract.yearly_rent);
+      const m = Number.isFinite(y) && y > 0 ? y / 12 : Number(contract.rentAmount || 0);
+      rentAmount.textContent = formatMoney(m);
+    }
 
     if (tenantFullName) {
       tenantFullName.textContent = tenantInfo.fullName || tenantInfo.name || T("common.dash");

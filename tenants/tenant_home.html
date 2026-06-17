@@ -23,6 +23,26 @@
   </section>
 
   <section class="buildings-grid">
+    <div id="tenantPaymentAlerts" class="tenant-alerts-wrap"></div>
+  </section>
+
+  <section class="buildings-grid tenant-topbar-wrap">
+    <div class="tenant-topbar">
+      <div class="tenant-search-box">
+        <input id="tenantApartmentSearch" type="text" data-i18n-placeholder="tenant.home.searchPh" placeholder="">
+      </div>
+      <div class="tenant-filter-box">
+        <select id="tenantApartmentFilter">
+          <option value="all" data-i18n-label="tenant.home.filterAll"></option>
+          <option value="replied" data-i18n-label="tenant.home.filterReplied"></option>
+          <option value="overdue" data-i18n-label="tenant.home.filterOverdue"></option>
+        </select>
+      </div>
+    </div>
+    <div id="tenantUnitsStats" class="tenant-units-stats"></div>
+  </section>
+
+  <section class="buildings-grid">
     <div class="buildings-grid" id="tenantApartments"></div>
   </section>
 

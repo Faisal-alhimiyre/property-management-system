@@ -1,4 +1,7 @@
 document.addEventListener("DOMContentLoaded", async () => {
+  if (typeof WalajnaNumericInput !== "undefined" && WalajnaNumericInput.initLinkTenantForm) {
+    WalajnaNumericInput.initLinkTenantForm(document);
+  }
   const T = (k, p) =>
     window.walajna_language && window.walajna_language.t
       ? window.walajna_language.t(k, p)
@@ -61,16 +64,30 @@ document.addEventListener("DOMContentLoaded", async () => {
   let apartmentsFromApi = false;
 
   let payments = [];
-  const costs = JSON.parse(localStorage.getItem("walajna_costs") || "[]");
+  let apiLoadError = null;
+  let costs = JSON.parse(localStorage.getItem("walajna_costs") || "[]");
 
   function mapApiApartmentToLocal(apt) {
-    const id = apt.id;
+    if (!apt) return null;
+    const id = apt.id ?? apt.apiId;
+    if (id == null) return null;
+    const br = apt.bedrooms ?? apt.Bedrooms;
+    const ba = apt.bathrooms ?? apt.Bathrooms;
+    const lv = apt.living_rooms ?? apt.livingRooms;
+    const toNumOrNull = (v) => {
+      if (v == null || v === "") return null;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    };
     return {
       id: String(id),
-      apiId: id,
-      buildingId: String(apt.building_id ?? ""),
-      number: String(apt.apartment_number ?? ""),
-      floorNumber: Number(apt.floor_number ?? 0),
+      apiId: apt.apiId ?? apt.id,
+      buildingId: String(apt.building_id ?? apt.buildingId ?? ""),
+      number: String(apt.apartment_number ?? apt.apartmentNumber ?? ""),
+      floorNumber: Number(apt.floor_number ?? apt.floorNumber ?? 0),
+      bedrooms: toNumOrNull(br),
+      bathrooms: toNumOrNull(ba),
+      livingRooms: toNumOrNull(lv),
       leaseStatus: apt.lease_status || "vacant",
       rent: apt.rent,
       tenantUserId: apt.tenant_user_id ?? null,
@@ -94,16 +111,71 @@ document.addEventListener("DOMContentLoaded", async () => {
     return Number(b.apartments_count ?? b.apartmentCount ?? 0);
   }
 
+  function pickBuildingRowFromApiList(rows, urlBuildingId) {
+    if (!Array.isArray(rows) || urlBuildingId == null || String(urlBuildingId).trim() === "") {
+      return null;
+    }
+    const p = String(urlBuildingId).trim();
+    return (
+      rows.find((b) => String(b.id) === p) ||
+      rows.find((b) => String(b.code ?? "").trim() === p) ||
+      null
+    );
+  }
+
+  function apartmentRowMatchesBuildingRef(a, urlParam, bld) {
+    const ab = String(a.buildingId ?? "");
+    const urlP = String(urlParam ?? "");
+    if (!bld) return ab === urlP;
+    const pk = String(bld.id ?? "");
+    const bc = bld.code != null ? String(bld.code).trim() : "";
+    return ab === urlP || ab === pk || (!!bc && ab === bc);
+  }
+
+  /** Numeric / canonical id for /api/buildings/:id/... (not the display code). */
+  function pathBuildingIdForApi(bld, urlParam) {
+    if (bld && bld.id != null && String(bld.id).trim() !== "") return bld.id;
+    return urlParam;
+  }
+
   try {
-    const [bRes, aRes, mRes] = await Promise.all([
+    const apartmentsFetch =
+      typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.listForBuilding
+        ? WalajnaApartmentsApi.listForBuilding(buildingId)
+        : WalajnaAuth.fetchWithAuth(
+            `${WalajnaAuth.API_BASE}/api/apartments?building_id=${encodeURIComponent(buildingId)}`,
+            { method: "GET" }
+          ).then(async (aRes) => {
+            if (!aRes.ok) return [];
+            const all = await aRes.json();
+            const rows = Array.isArray(all) ? all : [];
+            const mappedAll = rows
+              .map((row) =>
+                typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.mapApiRowToClient
+                  ? WalajnaApartmentsApi.mapApiRowToClient(row)
+                  : mapApiApartmentToLocal(row)
+              )
+              .filter(Boolean);
+            if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.mergeSessionApartments) {
+              WalajnaApartmentsApi.mergeSessionApartments(mappedAll);
+            }
+            return mappedAll;
+          });
+
+    const [bRes, mappedSlice, mRes] = await Promise.all([
       WalajnaAuth.fetchWithAuth(`${WalajnaAuth.API_BASE}/api/buildings`, { method: "GET" }),
-      WalajnaAuth.fetchWithAuth(`${WalajnaAuth.API_BASE}/api/apartments`, { method: "GET" }),
-      WalajnaAuth.fetchWithAuth(`${WalajnaAuth.API_BASE}/api/maintenance`, { method: "GET" }),
+      apartmentsFetch,
+      WalajnaAuth.fetchWithAuth(
+        `${WalajnaAuth.API_BASE}/api/maintenance?building_id=${encodeURIComponent(buildingId)}`,
+        { method: "GET" }
+      ),
     ]);
 
+    let serverBuildingsList = [];
+
     if (bRes.ok) {
-      const buildings = await bRes.json();
-      const raw = buildings.find((b) => String(b.id) === String(buildingId)) || null;
+      serverBuildingsList = await bRes.json();
+      const raw = pickBuildingRowFromApiList(serverBuildingsList, buildingId);
       if (raw) {
         building = {
           ...raw,
@@ -113,20 +185,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     }
 
-    if (aRes.ok) {
-      const all = await aRes.json();
-      const rows = Array.isArray(all) ? all : [];
-      const mappedAll = rows
-        .map((row) =>
-          typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.mapApiRowToClient
-            ? WalajnaApartmentsApi.mapApiRowToClient(row)
-            : mapApiApartmentToLocal(row)
-        )
-        .filter(Boolean);
-      if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.persistSessionList) {
-        WalajnaApartmentsApi.persistSessionList(mappedAll);
-      }
-      apartments = mappedAll.filter((a) => String(a.buildingId) === String(buildingId));
+    if (Array.isArray(mappedSlice)) {
+      apartments = mappedSlice.filter((a) => apartmentRowMatchesBuildingRef(a, buildingId, building));
       apartmentsFromApi = true;
     }
 
@@ -135,38 +195,48 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     const expectedUnits = expectedSlotsFromBuilding(building);
+    const seedPathId = pathBuildingIdForApi(building, buildingId);
     if (apartments.length === 0 && building && expectedUnits > 0) {
       await WalajnaAuth.fetchWithAuth(
-        `${WalajnaAuth.API_BASE}/api/buildings/${encodeURIComponent(buildingId)}/seed-apartments`,
+        `${WalajnaAuth.API_BASE}/api/buildings/${encodeURIComponent(seedPathId)}/seed-apartments`,
         { method: "POST" }
       );
-      const aRes2 = await WalajnaAuth.fetchWithAuth(
-        `${WalajnaAuth.API_BASE}/api/apartments`,
-        { method: "GET" }
-      );
-      if (aRes2.ok) {
-        const all = await aRes2.json();
-        const rows = Array.isArray(all) ? all : [];
-        const mappedAll = rows
-          .map((row) =>
-            typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.mapApiRowToClient
-              ? WalajnaApartmentsApi.mapApiRowToClient(row)
-              : mapApiApartmentToLocal(row)
-          )
-          .filter(Boolean);
-        if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.persistSessionList) {
-          WalajnaApartmentsApi.persistSessionList(mappedAll);
+      if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.listForBuilding) {
+        const again = await WalajnaApartmentsApi.listForBuilding(buildingId);
+        apartments = again.filter((a) => String(a.buildingId) === String(buildingId));
+      } else {
+        const aRes2 = await WalajnaAuth.fetchWithAuth(
+          `${WalajnaAuth.API_BASE}/api/apartments?building_id=${encodeURIComponent(buildingId)}`,
+          { method: "GET" }
+        );
+        if (aRes2.ok) {
+          const all = await aRes2.json();
+          const rows = Array.isArray(all) ? all : [];
+          const mappedAll = rows
+            .map((row) =>
+              typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.mapApiRowToClient
+                ? WalajnaApartmentsApi.mapApiRowToClient(row)
+                : mapApiApartmentToLocal(row)
+            )
+            .filter(Boolean);
+          if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.mergeSessionApartments) {
+            WalajnaApartmentsApi.mergeSessionApartments(mappedAll);
+          }
+          apartments = mappedAll.filter((a) => apartmentRowMatchesBuildingRef(a, buildingId, building));
         }
-        apartments = mappedAll.filter((a) => String(a.buildingId) === String(buildingId));
-        apartmentsFromApi = true;
       }
+      apartmentsFromApi = true;
     }
   } catch (e) {
-    console.warn("owner-building API load failed, falling back to local storage", e);
-    const buildings = JSON.parse(localStorage.getItem("walajna_buildings") || "[]");
-    apartments = JSON.parse(localStorage.getItem("walajna_apartments") || "[]");
-    building = buildings.find((b) => String(b.id) === String(buildingId)) || null;
+    apiLoadError = e;
+    apartmentsFromApi = false;
+    building = null;
+    apartments = [];
+    maintenanceRows = [];
+    console.warn("owner-building API load failed (no local fallback)", e);
   }
+
+  const apiPathBuildingId = pathBuildingIdForApi(building, buildingId);
 
   if (building && title) {
     title.textContent = building.name;
@@ -174,7 +244,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     title.textContent = T("building.notFound");
   }
 
-  if (typeof WalajnaPaymentsApi !== "undefined" && WalajnaPaymentsApi.listMapped) {
+  // Avoid WalajnaPaymentsApi.listMapped() (N HTTP calls per contract). API path uses
+  // GET /api/buildings/:id/installments via loadInstallmentsForBuildingSummary().
+  if (
+    !apartmentsFromApi &&
+    typeof WalajnaPaymentsApi !== "undefined" &&
+    WalajnaPaymentsApi.listMapped
+  ) {
     void (async () => {
       try {
         payments = await WalajnaPaymentsApi.listMapped();
@@ -189,11 +265,626 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function openFinanceSummary() {
     if (!buildingId) return;
-    window.location.href = `finance_summary.html?buildingId=${encodeURIComponent(buildingId)}`;
+    window.location.href = `finance_summary.html?buildingId=${encodeURIComponent(String(apiPathBuildingId))}`;
   }
 
   if (financeBtn) {
     financeBtn.addEventListener("click", openFinanceSummary);
+  }
+
+  /** Building details+ wizard: per-floor apartment counts → room mix per unit (POST /api/buildings/:id/unit-layout). */
+  const buildingDetailsModal = document.getElementById("buildingDetailsModal");
+  let wizardUnitsDraft = [];
+  let wizardBulkPendingKey = "";
+
+  function setWizardFooterMode(mode) {
+    const nextBtn = document.getElementById("buildingDetailsNextBtn");
+    const backBtn = document.getElementById("buildingDetailsBackBtn");
+    const saveBtn = document.getElementById("buildingDetailsSaveBtn");
+    const confirmSaveBtn = document.getElementById("buildingDetailsConfirmSaveBtn");
+    if (nextBtn) nextBtn.hidden = mode !== "step1";
+    if (saveBtn) saveBtn.hidden = mode !== "step2";
+    if (confirmSaveBtn) confirmSaveBtn.hidden = mode !== "step3";
+    if (backBtn) backBtn.hidden = mode === "step1";
+  }
+
+  function resetBuildingDetailsWizard() {
+    wizardUnitsDraft = [];
+    wizardBulkPendingKey = "";
+    const err = document.getElementById("buildingDetailsError");
+    if (err) err.textContent = "";
+    const step1 = document.getElementById("buildingDetailsStep1Wrap");
+    const step2 = document.getElementById("buildingDetailsStep2Wrap");
+    const step3 = document.getElementById("buildingDetailsStep3Wrap");
+    if (step3) step3.hidden = true;
+    if (step2) step2.hidden = true;
+    if (step1) step1.hidden = false;
+    const nextBtn = document.getElementById("buildingDetailsNextBtn");
+    if (nextBtn) nextBtn.disabled = true;
+    setWizardFooterMode("step1");
+    const titleEl = document.getElementById("buildingDetailsModalTitle");
+    const sub = document.getElementById("buildingDetailsModalSubtitle");
+    if (titleEl) titleEl.textContent = T("building.detailsWizardTitle");
+    if (sub) sub.textContent = T("building.detailsWizardStep1Short");
+  }
+
+  function closeBuildingDetailsModal() {
+    if (!buildingDetailsModal) return;
+    buildingDetailsModal.classList.remove("is-open");
+    buildingDetailsModal.setAttribute("aria-hidden", "true");
+    resetBuildingDetailsWizard();
+  }
+
+  function resolveWizardTotalFloors() {
+    const fromBuilding = Number(building?.totalFloors ?? building?.total_floors ?? 0);
+    if (fromBuilding >= 1) return Math.min(200, fromBuilding);
+    let maxF = 0;
+    for (const a of apartments) {
+      if (!apartmentRowMatchesBuildingRef(a, buildingId, building)) continue;
+      const f = Number(a.floorNumber ?? a.floor_number ?? 0);
+      if (Number.isFinite(f) && f > maxF) maxF = f;
+    }
+    if (maxF >= 1) return Math.min(200, maxF);
+    return 1;
+  }
+
+  function getWizardFloorCount() {
+    const el = document.getElementById("wizardTotalFloorsInput");
+    const n = el ? Number(el.value) : 0;
+    return Math.min(200, Math.max(1, n || 1));
+  }
+
+  /** Registered apartment capacity from add-building / building record (0 = not set, no cap in UI). */
+  function getWizardApartmentsCapacity() {
+    const c = Number(building?.apartmentCount ?? building?.apartments_count ?? 0);
+    return Number.isFinite(c) && c >= 1 ? Math.floor(c) : 0;
+  }
+
+  function bindPerFloorInputs() {
+    const wrap = document.getElementById("buildingDetailsPerFloorFields");
+    if (!wrap) return;
+    wrap.querySelectorAll("input").forEach((inp) => {
+      inp.addEventListener("input", validateFloorCountsStep);
+    });
+  }
+
+  function renderPerFloorCountFields() {
+    const wrap = document.getElementById("buildingDetailsPerFloorFields");
+    if (!wrap) return;
+    const floors = getWizardFloorCount();
+    wrap.innerHTML = "";
+    for (let f = 1; f <= floors; f++) {
+      const row = document.createElement("div");
+      row.className = "building-details-floor-row";
+      const label = document.createElement("label");
+      label.className = "label";
+      label.htmlFor = `floorCount${f}`;
+      label.textContent = T("building.floorAptsShort", { n: f });
+      label.title = T("building.apartmentsOnFloor", { n: f });
+      const input = document.createElement("input");
+      input.type = "number";
+      input.id = `floorCount${f}`;
+      input.min = "0";
+      input.step = "1";
+      input.value = "0";
+      input.inputMode = "numeric";
+      row.appendChild(label);
+      row.appendChild(input);
+      wrap.appendChild(row);
+    }
+    bindPerFloorInputs();
+    updateLayoutRemainingCounter();
+    validateFloorCountsStep();
+  }
+
+  function readFloorCountsSum() {
+    const floors = getWizardFloorCount();
+    let sum = 0;
+    let ok = true;
+    for (let f = 1; f <= floors; f++) {
+      const inp = document.getElementById(`floorCount${f}`);
+      if (!inp) {
+        ok = false;
+        break;
+      }
+      const v = String(inp.value ?? "").trim();
+      if (v === "" || !/^\d+$/.test(v)) {
+        ok = false;
+        break;
+      }
+      const n = Number(v);
+      if (n < 0 || !Number.isFinite(n)) {
+        ok = false;
+        break;
+      }
+      sum += n;
+    }
+    return { sum, ok };
+  }
+
+  function updateLayoutRemainingCounter() {
+    const bar = document.getElementById("buildingLayoutRemainingBar");
+    const countEl = document.getElementById("buildingLayoutRemainingCount");
+    const cap = getWizardApartmentsCapacity();
+    if (!bar || !countEl) return;
+    if (cap < 1) {
+      bar.hidden = true;
+      return;
+    }
+    bar.hidden = false;
+    const { sum, ok } = readFloorCountsSum();
+    const remaining = cap - (ok ? sum : 0);
+    countEl.textContent = String(remaining);
+    bar.classList.toggle("is-complete", ok && remaining === 0);
+    bar.classList.toggle("is-over", ok && remaining < 0);
+  }
+
+  function validateFloorCountsStep() {
+    const nextBtn = document.getElementById("buildingDetailsNextBtn");
+    const errEl = document.getElementById("buildingDetailsError");
+    if (!nextBtn) return false;
+    const { sum, ok } = readFloorCountsSum();
+    const cap = getWizardApartmentsCapacity();
+    let valid = false;
+    if (ok) {
+      if (cap >= 1) valid = sum === cap;
+      else valid = sum >= 1;
+    }
+
+    updateLayoutRemainingCounter();
+    nextBtn.disabled = !valid;
+
+    if (errEl) {
+      if (!ok) {
+        errEl.textContent = T("building.layoutNeedCountsShort");
+      } else if (cap < 1 && sum < 1) {
+        errEl.textContent = T("building.layoutNeedCountsShort");
+      } else {
+        errEl.textContent = "";
+      }
+    }
+    return valid;
+  }
+
+  function openBuildingDetailsWizard() {
+    if (apiLoadError) {
+      alert(T("building.wizardNeedsServer"));
+      return;
+    }
+    if (!building) {
+      alert(T("building.noBuildingWizard"));
+      return;
+    }
+    if (!buildingDetailsModal) return;
+    const tfInput = document.getElementById("wizardTotalFloorsInput");
+    if (tfInput) tfInput.value = String(resolveWizardTotalFloors());
+    buildingDetailsModal.classList.add("is-open");
+    buildingDetailsModal.setAttribute("aria-hidden", "false");
+    resetBuildingDetailsWizard();
+    renderPerFloorCountFields();
+  }
+
+  function buildUnitsFromFloorCounts() {
+    const floors = getWizardFloorCount();
+    const units = [];
+    let aptNum = 1;
+    for (let f = 1; f <= floors; f++) {
+      const inp = document.getElementById(`floorCount${f}`);
+      const count = inp ? Math.max(0, Number(inp.value || 0)) : 0;
+      for (let i = 0; i < count; i++) {
+        units.push({
+          floor_number: f,
+          apartment_number: String(aptNum++),
+          bedrooms: 0,
+          bathrooms: 0,
+          living_rooms: 0,
+        });
+      }
+    }
+    return units;
+  }
+
+  function wizardStep2ParseRoomInput(el) {
+    if (!el) return { ok: false, value: 0 };
+    const raw = String(el.value ?? "").trim();
+    if (raw === "" || !/^\d+$/.test(raw)) return { ok: false, value: 0 };
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0) return { ok: false, value: 0 };
+    return { ok: true, value: n };
+  }
+
+  function isWizardUnitRoomConfigured(idx) {
+    const u = wizardUnitsDraft[idx];
+    if (!u) return false;
+    const fromDraft =
+      Math.max(0, Number(u.bedrooms ?? 0)) +
+        Math.max(0, Number(u.bathrooms ?? 0)) +
+        Math.max(0, Number(u.living_rooms ?? 0)) >=
+      1;
+    if (fromDraft) return true;
+    const b = document.getElementById(`unit-${idx}-bedrooms`);
+    const ba = document.getElementById(`unit-${idx}-bathrooms`);
+    const lv = document.getElementById(`unit-${idx}-living_rooms`);
+    const pb = wizardStep2ParseRoomInput(b);
+    const pba = wizardStep2ParseRoomInput(ba);
+    const plv = wizardStep2ParseRoomInput(lv);
+    if (!pb.ok || !pba.ok || !plv.ok) return false;
+    return pb.value + pba.value + plv.value >= 1;
+  }
+
+  function getWizardUnitRoomValidation(idx) {
+    const b = document.getElementById(`unit-${idx}-bedrooms`);
+    const ba = document.getElementById(`unit-${idx}-bathrooms`);
+    const lv = document.getElementById(`unit-${idx}-living_rooms`);
+    const pb = wizardStep2ParseRoomInput(b);
+    const pba = wizardStep2ParseRoomInput(ba);
+    const plv = wizardStep2ParseRoomInput(lv);
+    if (!pb.ok || !pba.ok || !plv.ok) {
+      return { ok: false, errorKey: "building.layoutRoomsInvalid" };
+    }
+    if (pb.value + pba.value + plv.value < 1) {
+      return { ok: false, errorKey: "building.layoutRoomsIncomplete" };
+    }
+    return { ok: true, errorKey: null };
+  }
+
+  function getWizardPendingUnitIndices() {
+    const pending = [];
+    for (let idx = 0; idx < wizardUnitsDraft.length; idx++) {
+      if (!isWizardUnitRoomConfigured(idx)) pending.push(idx);
+    }
+    return pending;
+  }
+
+  function wizardAllUnitsRoomValidation() {
+    if (!wizardUnitsDraft.length) return { ok: false, errorKey: "building.layoutRoomsIncomplete" };
+    for (let idx = 0; idx < wizardUnitsDraft.length; idx++) {
+      if (!isWizardUnitRoomConfigured(idx)) {
+        return { ok: false, errorKey: "building.layoutRoomsIncomplete" };
+      }
+    }
+    return { ok: true, errorKey: null };
+  }
+
+  function syncWizardStep2SaveState() {
+    const step2 = document.getElementById("buildingDetailsStep2Wrap");
+    const saveBtn = document.getElementById("buildingDetailsSaveBtn");
+    if (!step2 || step2.hidden || !saveBtn || saveBtn.hidden) return;
+    saveBtn.disabled = !wizardUnitsDraft.length;
+  }
+
+  function collectAllConfirmIntoDraft() {
+    wizardUnitsDraft.forEach((u, idx) => {
+      const b = document.getElementById(`unit-${idx}-bedrooms`);
+      const ba = document.getElementById(`unit-${idx}-bathrooms`);
+      const lv = document.getElementById(`unit-${idx}-living_rooms`);
+      if (!b && !ba && !lv) return;
+      u.bedrooms = Math.max(0, Number(b?.value ?? 0));
+      u.bathrooms = Math.max(0, Number(ba?.value ?? 0));
+      u.living_rooms = Math.max(0, Number(lv?.value ?? 0));
+    });
+  }
+
+  function syncWizardConfirmSaveState() {
+    const step3 = document.getElementById("buildingDetailsStep3Wrap");
+    const confirmSaveBtn = document.getElementById("buildingDetailsConfirmSaveBtn");
+    const errEl = document.getElementById("buildingDetailsError");
+    if (!step3 || step3.hidden) return;
+    collectAllConfirmIntoDraft();
+    const v = wizardAllUnitsRoomValidation();
+    if (confirmSaveBtn) confirmSaveBtn.disabled = !v.ok;
+    if (errEl && !v.ok) errEl.textContent = T(v.errorKey);
+    else if (errEl) errEl.textContent = "";
+  }
+
+  function renderWizardConfirmAll() {
+    const wrap = document.getElementById("buildingDetailsConfirmFields");
+    const progress = document.getElementById("wizardConfirmProgress");
+    if (!wrap) return;
+    wrap.innerHTML = "";
+    const total = wizardUnitsDraft.length;
+    if (progress) {
+      progress.textContent = T("building.confirmAllApts", { total });
+    }
+
+    wizardUnitsDraft.forEach((u, idx) => {
+      const row = document.createElement("div");
+      row.className = "building-details-confirm-row";
+      row.dataset.unitIdx = String(idx);
+
+      const label = document.createElement("div");
+      label.className = "building-details-confirm-row__label";
+      label.textContent = `${T("building.aptLabel", { n: u.apartment_number })} · ${T("building.floorTitle", { n: u.floor_number })}`;
+
+      function field(suffix, labelKey, value) {
+        const d = document.createElement("div");
+        d.className = "building-details-confirm-field";
+        const l = document.createElement("label");
+        l.className = "building-details-confirm-label";
+        l.htmlFor = `unit-${idx}-${suffix}`;
+        l.textContent = T(labelKey);
+        const inp = document.createElement("input");
+        inp.type = "number";
+        inp.className = "building-details-confirm-input";
+        inp.id = `unit-${idx}-${suffix}`;
+        inp.min = "0";
+        inp.step = "1";
+        inp.inputMode = "numeric";
+        inp.value = String(value ?? 0);
+        d.appendChild(l);
+        d.appendChild(inp);
+        return d;
+      }
+
+      row.appendChild(label);
+      row.appendChild(field("bedrooms", "lease.rooms", u.bedrooms));
+      row.appendChild(field("bathrooms", "lease.bathrooms", u.bathrooms));
+      row.appendChild(field("living_rooms", "lease.living", u.living_rooms));
+      wrap.appendChild(row);
+    });
+
+    if (window.walajna_language && typeof window.walajna_language.apply === "function") {
+      window.walajna_language.apply(wrap);
+    }
+    syncWizardConfirmSaveState();
+  }
+
+  function showWizardStep2() {
+    if (!validateFloorCountsStep()) return;
+    const errClear = document.getElementById("buildingDetailsError");
+    if (errClear) errClear.textContent = "";
+    wizardUnitsDraft = buildUnitsFromFloorCounts();
+    const step1 = document.getElementById("buildingDetailsStep1Wrap");
+    const step2 = document.getElementById("buildingDetailsStep2Wrap");
+    const step3 = document.getElementById("buildingDetailsStep3Wrap");
+    const titleEl = document.getElementById("buildingDetailsModalTitle");
+    const sub = document.getElementById("buildingDetailsModalSubtitle");
+    if (step1) step1.hidden = true;
+    if (step3) step3.hidden = true;
+    if (step2) step2.hidden = false;
+    if (titleEl) titleEl.textContent = T("building.detailsWizardTitle");
+    if (sub) sub.textContent = T("building.detailsWizardStep2");
+    setWizardFooterMode("step2");
+
+    refreshWizardBulkChecklist({ resetBulkInputs: true });
+    if (window.walajna_language && typeof window.walajna_language.apply === "function") {
+      const step2 = document.getElementById("buildingDetailsStep2Wrap");
+      if (step2) window.walajna_language.apply(step2);
+    }
+
+    syncWizardStep2SaveState();
+  }
+
+  function showWizardStep3() {
+    const errClear = document.getElementById("buildingDetailsError");
+    if (errClear) errClear.textContent = "";
+    const step2 = document.getElementById("buildingDetailsStep2Wrap");
+    const step3 = document.getElementById("buildingDetailsStep3Wrap");
+    const titleEl = document.getElementById("buildingDetailsModalTitle");
+    const sub = document.getElementById("buildingDetailsModalSubtitle");
+    if (step2) step2.hidden = true;
+    if (step3) step3.hidden = false;
+    if (titleEl) titleEl.textContent = T("building.confirmLayoutTitle");
+    if (sub) sub.textContent = T("building.confirmLayoutSubtitle");
+    setWizardFooterMode("step3");
+    renderWizardConfirmAll();
+    if (window.walajna_language && typeof window.walajna_language.apply === "function" && step3) {
+      window.walajna_language.apply(step3);
+    }
+  }
+
+  function proceedToWizardConfirm() {
+    if (!wizardUnitsDraft.length) return;
+    showWizardStep3();
+  }
+
+  function refreshWizardBulkChecklist(options = {}) {
+    const { resetBulkInputs = false } = options;
+    const box = document.getElementById("wizardBulkChecklist");
+    const doneEl = document.getElementById("wizardBulkAllDone");
+    const selectAllBtn = document.getElementById("wizardBulkSelectAllBtn");
+    const applyRow = document.querySelector(".building-details-bulk-apply-row");
+    if (!box) return;
+
+    const pending = getWizardPendingUnitIndices();
+    const pendingKey = pending.join(",");
+    if (!resetBulkInputs && pendingKey === wizardBulkPendingKey) {
+      return;
+    }
+    wizardBulkPendingKey = pendingKey;
+
+    const checkedBefore = new Set(
+      [...box.querySelectorAll('input[type="checkbox"].wizard-bulk-cb:checked')].map((cb) =>
+        Number(cb.dataset.idx)
+      )
+    );
+
+    box.innerHTML = "";
+
+    if (pending.length === 0) {
+      if (doneEl) doneEl.hidden = false;
+      if (selectAllBtn) selectAllBtn.disabled = true;
+      if (applyRow) applyRow.hidden = true;
+    } else {
+      if (doneEl) doneEl.hidden = true;
+      if (selectAllBtn) selectAllBtn.disabled = false;
+      if (applyRow) applyRow.hidden = false;
+      pending.forEach((idx) => {
+        const u = wizardUnitsDraft[idx];
+        const lab = document.createElement("label");
+        lab.className = "building-details-bulk-checkitem";
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.className = "wizard-bulk-cb";
+        cb.dataset.idx = String(idx);
+        if (checkedBefore.has(idx)) cb.checked = true;
+        const span = document.createElement("span");
+        span.textContent = T("building.aptLabel", { n: u.apartment_number });
+        lab.appendChild(cb);
+        lab.appendChild(span);
+        box.appendChild(lab);
+      });
+    }
+
+    if (resetBulkInputs) {
+      const br = document.getElementById("wizardBulkBedrooms");
+      const ba = document.getElementById("wizardBulkBathrooms");
+      const lv = document.getElementById("wizardBulkLiving");
+      if (br) br.value = "0";
+      if (ba) ba.value = "0";
+      if (lv) lv.value = "0";
+    }
+
+  }
+
+  function applyWizardBulkRoomLayout() {
+    const err = document.getElementById("buildingDetailsError");
+    const box = document.getElementById("wizardBulkChecklist");
+    const brIn = document.getElementById("wizardBulkBedrooms");
+    const baIn = document.getElementById("wizardBulkBathrooms");
+    const lvIn = document.getElementById("wizardBulkLiving");
+    if (!box || !wizardUnitsDraft.length) return;
+    const checked = box.querySelectorAll('input[type="checkbox"].wizard-bulk-cb:checked');
+    if (!checked.length) {
+      if (err) err.textContent = T("building.bulkNoneSelected");
+      return;
+    }
+    const bedrooms = Math.max(0, Number(brIn?.value ?? 0));
+    const bathrooms = Math.max(0, Number(baIn?.value ?? 0));
+    const living = Math.max(0, Number(lvIn?.value ?? 0));
+    checked.forEach((cb) => {
+      const idx = Number(cb.dataset.idx);
+      if (!Number.isFinite(idx) || idx < 0 || idx >= wizardUnitsDraft.length) return;
+      const u = wizardUnitsDraft[idx];
+      u.bedrooms = bedrooms;
+      u.bathrooms = bathrooms;
+      u.living_rooms = living;
+    });
+    if (err) err.textContent = "";
+    refreshWizardBulkChecklist();
+    syncWizardStep2SaveState();
+  }
+
+  function wizardBackToStep1() {
+    const step1 = document.getElementById("buildingDetailsStep1Wrap");
+    const step2 = document.getElementById("buildingDetailsStep2Wrap");
+    const step3 = document.getElementById("buildingDetailsStep3Wrap");
+    const titleEl = document.getElementById("buildingDetailsModalTitle");
+    const sub = document.getElementById("buildingDetailsModalSubtitle");
+    if (step3) step3.hidden = true;
+    if (step1) step1.hidden = false;
+    if (step2) step2.hidden = true;
+    if (titleEl) titleEl.textContent = T("building.detailsWizardTitle");
+    if (sub) sub.textContent = T("building.detailsWizardStep1Short");
+    setWizardFooterMode("step1");
+    validateFloorCountsStep();
+  }
+
+  function wizardBackToStep2() {
+    const err = document.getElementById("buildingDetailsError");
+    if (err) err.textContent = "";
+    collectAllConfirmIntoDraft();
+    const step2 = document.getElementById("buildingDetailsStep2Wrap");
+    const step3 = document.getElementById("buildingDetailsStep3Wrap");
+    const titleEl = document.getElementById("buildingDetailsModalTitle");
+    const sub = document.getElementById("buildingDetailsModalSubtitle");
+    if (step3) step3.hidden = true;
+    if (step2) step2.hidden = false;
+    if (titleEl) titleEl.textContent = T("building.detailsWizardTitle");
+    if (sub) sub.textContent = T("building.detailsWizardStep2");
+    setWizardFooterMode("step2");
+    refreshWizardBulkChecklist();
+    syncWizardStep2SaveState();
+  }
+
+  function wizardConfirmGoBack() {
+    const step3 = document.getElementById("buildingDetailsStep3Wrap");
+    const step2 = document.getElementById("buildingDetailsStep2Wrap");
+    if (step3 && !step3.hidden) {
+      collectAllConfirmIntoDraft();
+      wizardBackToStep2();
+      return;
+    }
+    if (step2 && !step2.hidden) {
+      wizardBackToStep1();
+    }
+  }
+
+  async function saveBuildingUnitLayout() {
+    const confirmSaveBtn = document.getElementById("buildingDetailsConfirmSaveBtn");
+    const err = document.getElementById("buildingDetailsError");
+    collectAllConfirmIntoDraft();
+    const v = wizardAllUnitsRoomValidation();
+    if (!v.ok) {
+      if (err) err.textContent = T(v.errorKey);
+      syncWizardConfirmSaveState();
+      return;
+    }
+    if (confirmSaveBtn) confirmSaveBtn.disabled = true;
+    try {
+      const res = await WalajnaAuth.fetchWithAuth(
+        `${WalajnaAuth.API_BASE}/api/buildings/${encodeURIComponent(String(apiPathBuildingId))}/unit-layout`,
+        { method: "POST", body: JSON.stringify({ units: wizardUnitsDraft }) }
+      );
+      if (!res.ok) {
+        let msg = T("building.layoutError");
+        try {
+          const j = await res.json();
+          if (j?.detail) msg = typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail);
+        } catch {
+          /* ignore */
+        }
+        if (err) err.textContent = msg;
+        if (confirmSaveBtn) confirmSaveBtn.disabled = false;
+        syncWizardConfirmSaveState();
+        return;
+      }
+      alert(T("building.layoutSaved"));
+      window.location.reload();
+    } catch {
+      if (err) err.textContent = T("building.layoutError");
+      if (confirmSaveBtn) confirmSaveBtn.disabled = false;
+      syncWizardConfirmSaveState();
+    }
+  }
+
+  grid.addEventListener("click", (event) => {
+    const btn = event.target.closest("#buildingLayoutCtaBtn");
+    if (btn) {
+      event.preventDefault();
+      openBuildingDetailsWizard();
+    }
+  });
+  document.getElementById("closeBuildingDetailsModal")?.addEventListener("click", closeBuildingDetailsModal);
+  document.getElementById("cancelBuildingDetailsModal")?.addEventListener("click", closeBuildingDetailsModal);
+  document.querySelectorAll("[data-close-building-details]").forEach((el) => {
+    el.addEventListener("click", closeBuildingDetailsModal);
+  });
+  document.getElementById("buildingDetailsNextBtn")?.addEventListener("click", showWizardStep2);
+  document.getElementById("buildingDetailsBackBtn")?.addEventListener("click", wizardConfirmGoBack);
+  document.getElementById("buildingDetailsSaveBtn")?.addEventListener("click", proceedToWizardConfirm);
+  document.getElementById("buildingDetailsConfirmSaveBtn")?.addEventListener("click", () => {
+    void saveBuildingUnitLayout();
+  });
+  document.getElementById("wizardBulkApplyBtn")?.addEventListener("click", applyWizardBulkRoomLayout);
+  document.getElementById("wizardBulkSelectAllBtn")?.addEventListener("click", () => {
+    document.querySelectorAll("#wizardBulkChecklist .wizard-bulk-cb:not(:disabled)").forEach((cb) => {
+      cb.checked = true;
+    });
+  });
+  document.getElementById("wizardBulkClearChecksBtn")?.addEventListener("click", () => {
+    document.querySelectorAll("#wizardBulkChecklist .wizard-bulk-cb").forEach((cb) => {
+      cb.checked = false;
+    });
+  });
+  if (buildingDetailsModal) {
+    buildingDetailsModal.addEventListener("input", (e) => {
+      const confirmWrap = document.getElementById("buildingDetailsConfirmFields");
+      if (confirmWrap && confirmWrap.contains(e.target)) {
+        syncWizardConfirmSaveState();
+        return;
+      }
+    });
   }
 
   /**
@@ -229,19 +920,24 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function getBuildingApartments() {
-    const target = String(buildingId);
-    const code = building?.code ? String(building.code) : null;
-    const filtered = apartments.filter((a) => {
-      const apartmentBuildingId = String(a.buildingId ?? "");
-      return apartmentBuildingId === target || (code && apartmentBuildingId === code);
-    });
-    return dedupeApartmentsByUnit(filtered, target);
+    const filtered = apartments.filter((a) =>
+      apartmentRowMatchesBuildingRef(a, buildingId, building)
+    );
+    const canonical =
+      building?.id != null && String(building.id).trim() !== ""
+        ? String(building.id)
+        : String(buildingId);
+    return dedupeApartmentsByUnit(filtered, canonical);
   }
 
   function buildGeneratedApartment(apartmentNumber, floorNumber) {
+    const canonBid =
+      building?.id != null && String(building.id).trim() !== ""
+        ? String(building.id)
+        : String(buildingId);
     return {
-      id: `${buildingId}-A${apartmentNumber}`,
-      buildingId: String(buildingId),
+      id: `${canonBid}-A${apartmentNumber}`,
+      buildingId: canonBid,
       buildingName: building?.name || "",
       number: String(apartmentNumber),
       floorNumber: Number(floorNumber) || 1,
@@ -285,7 +981,28 @@ document.addEventListener("DOMContentLoaded", async () => {
     return current;
   }
 
-  const buildingApartments = ensureApartmentsExist();
+  ensureApartmentsExist();
+
+  function isCurrentBuildingUnitLayoutComplete() {
+    if (!building) return true;
+    if (typeof WalajnaApartmentsApi === "undefined" || !WalajnaApartmentsApi.isBuildingUnitLayoutComplete) {
+      return true;
+    }
+    return WalajnaApartmentsApi.isBuildingUnitLayoutComplete(building, getBuildingApartments());
+  }
+
+  /** Floor count for empty floor rows before the owner finishes «Building details+». */
+  function resolveSkeletonFloorCount() {
+    const fromBuilding = Number(building?.totalFloors ?? building?.total_floors ?? 0);
+    if (fromBuilding >= 1) return Math.min(200, Math.floor(fromBuilding));
+    let maxF = 0;
+    for (const a of getBuildingApartments()) {
+      const f = Number(a.floorNumber ?? a.floor_number ?? 0);
+      if (Number.isFinite(f) && f > maxF) maxF = f;
+    }
+    if (maxF >= 1) return Math.min(200, maxF);
+    return 1;
+  }
 
   /** Paid schedule rows for all contracts on this building's apartments (includes vacated units; see GET /api/buildings/:id/installments). */
   let serverInstallmentsForBuilding = [];
@@ -298,8 +1015,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       window.walajna_language && typeof window.walajna_language.localeForNumbers === "function"
         ? window.walajna_language.localeForNumbers()
         : window.walajna_language && window.walajna_language.get() === "en"
-          ? "en-SA"
-          : "ar-SA";
+          ? "en-SA-u-nu-latn"
+          : "ar-SA-u-nu-latn";
     if (!n) return T("common.sarZero");
     return `${n.toLocaleString(loc)} ${T("common.sar")}`;
   }
@@ -327,19 +1044,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function isApartmentOccupied(apartment) {
+    if (!apartment) return false;
+    const ti = apartment.tenantInfo;
     return !!(
-      apartment?.tenantUserId ||
-      apartment?.tenantNationalId ||
-      apartment?.tenantInfo?.fullName ||
-      apartment?.tenantInfo?.phoneNumber ||
-      apartment?.tenantInfo?.nationality ||
-      apartment?.tenantInfo?.tenantType ||
-      apartment?.contract?.id ||
-      apartment?.contract?.startDate ||
-      apartment?.contract?.endDate ||
-      apartment?.contract?.rentAmount ||
-      apartment?.contract?.paymentCycle ||
-      apartment?.contract?.meterNumber
+      apartment.tenantUserId ||
+      apartment.tenantNationalId ||
+      String(ti?.fullName || ti?.full_name || "").trim() ||
+      String(ti?.phoneNumber || ti?.phone_number || "").trim()
     );
   }
 
@@ -418,7 +1129,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         typeof WalajnaTenantRequests !== "undefined" &&
         WalajnaTenantRequests.markOwnerSeenBuilding
       ) {
-        await WalajnaTenantRequests.markOwnerSeenBuilding(buildingId);
+        await WalajnaTenantRequests.markOwnerSeenBuilding(apiPathBuildingId);
       }
     } catch (e) {
       console.warn("[owner-building] mark owner seen", e);
@@ -528,6 +1239,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (!apartment) return;
 
+    if (!isApartmentOccupied(apartment)) {
+      if (!isCurrentBuildingUnitLayoutComplete()) {
+        alert(T("building.completeLayoutAlert"));
+        return;
+      }
+    }
+
     selectedApartmentId = apartmentId;
 
     const tenantInfo = apartment.tenantInfo || {};
@@ -545,7 +1263,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     setFieldValue("linkNationality", tenantInfo.nationality);
     setFieldValue("linkTenantType", tenantInfo.tenantType);
     setFieldValue("linkPhoneNumber", tenantInfo.phoneNumber);
-    setFieldValue("linkRent", apartment.rent || contract.rentAmount || "");
+    const contractYearly = Number(contract.yearlyRent ?? contract.yearly_rent);
+    const fallbackMonthly = Number(contract.rentAmount || 0);
+    const rentFieldValue =
+      Number.isFinite(contractYearly) && contractYearly > 0
+        ? contractYearly
+        : fallbackMonthly > 0
+          ? fallbackMonthly * 12
+          : "";
+    setFieldValue("linkRent", rentFieldValue);
 
     setFieldValue("linkFloorNumber", apartment.floorNumber);
     setFieldValue("linkRoomsCount", apartment.roomsCount);
@@ -633,7 +1359,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     return "";
   }
 
-  function saveApartmentEdit() {
+  async function saveApartmentEdit() {
     if (!selectedApartmentId) return;
 
     const formData = readEditFormData();
@@ -646,18 +1372,78 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
+    const aptForSave = apartments.find((x) => String(x.id) === String(selectedApartmentId));
+    const formHasTenant =
+      formData.fullName ||
+      formData.nationalId ||
+      formData.nationality ||
+      formData.tenantType ||
+      formData.phone;
+
+    if (aptForSave && !isApartmentOccupied(aptForSave)) {
+      if (!isCurrentBuildingUnitLayoutComplete()) {
+        if (formHasTenant) {
+          showError(T("building.completeLayoutAlert"));
+          return;
+        }
+      }
+    }
+
+    const clearingTenant =
+      aptForSave &&
+      isApartmentOccupied(aptForSave) &&
+      !formHasTenant;
+
+    const authed =
+      typeof WalajnaAuth !== "undefined" && WalajnaAuth.getCurrentUser?.();
+    if (
+      clearingTenant &&
+      authed &&
+      typeof WalajnaApartmentsApi !== "undefined" &&
+      WalajnaApartmentsApi.vacateTenant
+    ) {
+      const apiId =
+        aptForSave.apiId != null
+          ? Number(aptForSave.apiId)
+          : Number(aptForSave.id);
+      if (Number.isFinite(apiId)) {
+        try {
+          await WalajnaApartmentsApi.vacateTenant(apiId);
+          closeEditModal();
+          window.location.reload();
+          return;
+        } catch (e) {
+          alert(e?.message || String(e));
+          return;
+        }
+      }
+    }
+
     const updatedApartments = apartments.map((apt) => {
       if (String(apt.id) !== String(selectedApartmentId)) return apt;
 
       const oldContract = apt.contract || {};
-      const oldTenantInfo = apt.tenantInfo || {};
 
-      const hasTenantData =
-        formData.fullName ||
-        formData.nationalId ||
-        formData.nationality ||
-        formData.tenantType ||
-        formData.phone;
+      if (!formHasTenant) {
+        return {
+          ...apt,
+          rent: formData.rent ? Number(formData.rent) : "",
+          floorNumber: formData.floorNumber ? Number(formData.floorNumber) : null,
+          roomsCount: formData.roomsCount ? Number(formData.roomsCount) : null,
+          bathroomsCount: formData.bathroomsCount ? Number(formData.bathroomsCount) : null,
+          livingRoomsCount: formData.livingRoomsCount
+            ? Number(formData.livingRoomsCount)
+            : null,
+          tenantUserId: null,
+          tenantNationalId: null,
+          tenantInfo: {},
+          currentContractId: null,
+          contractId: null,
+          contract: {},
+          leaseStatus: "vacant",
+          status: TAr("finance.vacant"),
+        };
+      }
 
       return {
         ...apt,
@@ -669,22 +1455,25 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         tenantNationalId: formData.nationalId || null,
 
-        tenantInfo: hasTenantData
-          ? {
-              fullName: formData.fullName || "",
-              phoneNumber: formData.phone || "",
-              nationality: formData.nationality || "",
-              tenantType: formData.tenantType || "",
-            }
-          : oldTenantInfo,
+        tenantInfo: {
+          fullName: formData.fullName || "",
+          phoneNumber: formData.phone || "",
+          nationality: formData.nationality || "",
+          tenantType: formData.tenantType || "",
+        },
 
         contract: {
           ...oldContract,
           startDate: formData.startDate || "",
           endDate: formData.endDate || "",
-          rentAmount: formData.rent ? Number(formData.rent) : Number(oldContract.rentAmount || 0),
-          paymentCycle: formData.paymentCycle || apt.paymentDefaults?.paymentCycle || "monthly",
-          installmentsCount: formData.installmentsCount ? Number(formData.installmentsCount) : Number(oldContract.installmentsCount || 0),
+          rentAmount: formData.rent
+            ? Number(formData.rent)
+            : Number(oldContract.rentAmount || 0),
+          paymentCycle:
+            formData.paymentCycle || apt.paymentDefaults?.paymentCycle || "monthly",
+          installmentsCount: formData.installmentsCount
+            ? Number(formData.installmentsCount)
+            : Number(oldContract.installmentsCount || 0),
           insurancePaid: formData.insurancePaid || "",
           meterNumber: formData.meterNumber || "",
           notes: formData.notes || "",
@@ -1034,7 +1823,7 @@ async function evictApartment(apartmentId) {
     const currentMonthStart = startOfMonth(today);
     const currentMonthEnd = endOfMonth(today);
 
-    const monthlyIncome = buildingApartments.reduce((sum, apartment) => {
+    const monthlyIncome = getBuildingApartments().reduce((sum, apartment) => {
       return sum + getApartmentRealizedIncomeForRange(
         apartment,
         currentMonthStart,
@@ -1042,7 +1831,7 @@ async function evictApartment(apartmentId) {
       );
     }, 0);
 
-    const expenses = buildingApartments.reduce((sum, apartment) => {
+    const expenses = getBuildingApartments().reduce((sum, apartment) => {
       return sum + getApartmentExpensesForRange(
         apartment,
         currentMonthStart,
@@ -1052,11 +1841,11 @@ async function evictApartment(apartmentId) {
 
     const profit = monthlyIncome - expenses;
 
-    const occupiedUnits = buildingApartments.filter((apartment) => {
+    const occupiedUnits = getBuildingApartments().filter((apartment) => {
       return isApartmentOccupied(apartment);
     }).length;
 
-    const lateUnits = buildingApartments.filter((apartment) => {
+    const lateUnits = getBuildingApartments().filter((apartment) => {
       return isApartmentRentOverdue(apartment);
     }).length;
 
@@ -1065,7 +1854,7 @@ async function evictApartment(apartmentId) {
       expenses,
       profit,
       occupiedUnits,
-      totalUnits: buildingApartments.length,
+      totalUnits: getBuildingApartments().length,
       lateUnits,
     };
   }
@@ -1118,7 +1907,7 @@ async function evictApartment(apartmentId) {
     }
     try {
       const res = await WalajnaAuth.fetchWithAuth(
-        `${WalajnaAuth.API_BASE}/api/buildings/${encodeURIComponent(buildingId)}/installments`,
+        `${WalajnaAuth.API_BASE}/api/buildings/${encodeURIComponent(String(apiPathBuildingId))}/installments`,
         { method: "GET" }
       );
       if (!res.ok) {
@@ -1128,6 +1917,50 @@ async function evictApartment(apartmentId) {
       serverInstallmentsForBuilding = Array.isArray(data) ? data : [];
     } catch (e) {
       console.warn("owner-building: building installments fetch failed", e);
+    }
+  }
+
+  async function loadCostsForBuildingSummary() {
+    if (
+      !apartmentsFromApi ||
+      typeof WalajnaAuth === "undefined" ||
+      !WalajnaAuth.fetchWithAuth ||
+      !WalajnaAuth.getCurrentUser ||
+      !WalajnaAuth.getCurrentUser()
+    ) {
+      return;
+    }
+    try {
+      const res = await WalajnaAuth.fetchWithAuth(
+        `${WalajnaAuth.API_BASE}/api/buildings/${encodeURIComponent(buildingId)}/costs`,
+        { method: "GET" }
+      );
+      if (!res.ok) return;
+      const rows = await res.json();
+      const aggregated = [];
+      for (const row of Array.isArray(rows) ? rows : []) {
+        const sid = row.apartment_id;
+        const apartment = getBuildingApartments().find(
+          (a) =>
+            String(a.apiId ?? "") === String(sid) || String(a.id) === String(sid)
+        );
+        if (!apartment) continue;
+        aggregated.push({
+          id: String(row.id ?? ""),
+          apartmentId: String(apartment.id),
+          contractId:
+            row.contract_id != null && String(row.contract_id) !== ""
+              ? String(row.contract_id)
+              : null,
+          amount: Number(row.amount || 0),
+          status: String(row.status || "pending"),
+          date: String(row.expense_date || "").slice(0, 10),
+          createdAt: String(row.created_at || "").slice(0, 10),
+        });
+      }
+      costs = aggregated;
+    } catch (e) {
+      console.warn("owner-building: building costs fetch failed", e);
     }
   }
 
@@ -1168,9 +2001,39 @@ async function evictApartment(apartmentId) {
   }
 
   function renderApartmentGrid() {
+  if (!building && apiLoadError) {
+    grid.innerHTML = `
+      <div class="finance-empty">
+        ${escapeHtml(T("building.notFound"))}
+      </div>
+      <div style="margin-top:10px;">
+        <button id="ownerBuildingRetryBtn" class="btn-primary" type="button">Retry</button>
+      </div>
+    `;
+    const retryBtn = document.getElementById("ownerBuildingRetryBtn");
+    if (retryBtn) {
+      retryBtn.addEventListener("click", () => window.location.reload());
+    }
+    return;
+  }
+
+  if (building && !isCurrentBuildingUnitLayoutComplete()) {
+    grid.innerHTML = `
+      <div class="building-layout-cta" role="region" aria-labelledby="buildingLayoutCtaTitle">
+        <p id="buildingLayoutCtaTitle" class="building-layout-cta__message">${escapeHtml(
+          T("building.completeLayoutCtaMessage")
+        )}</p>
+        <button type="button" id="buildingLayoutCtaBtn" class="building-layout-cta__btn">
+          ${escapeHtml(T("building.detailsPlusBtn"))}
+        </button>
+      </div>
+    `;
+    return;
+  }
+
   const floors = {};
 
-  buildingApartments.forEach((apartment) => {
+  getBuildingApartments().forEach((apartment) => {
     const floor = Number(apartment.floorNumber || 1);
 
     if (!floors[floor]) {
@@ -1358,7 +2221,10 @@ async function evictApartment(apartmentId) {
 
   populateLinkTenantTypeSelect();
   refreshAll();
-  void loadInstallmentsForBuildingSummary().then(() => {
+  void Promise.all([
+    loadInstallmentsForBuildingSummary(),
+    loadCostsForBuildingSummary(),
+  ]).then(() => {
     renderBuildingFinancialSummary();
   });
   document.addEventListener("walajna:i18n-applied", () => {

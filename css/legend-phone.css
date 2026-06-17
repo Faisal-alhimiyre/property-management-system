@@ -1,0 +1,254 @@
+/* Phone-only color legend (≤768px). Laptop legends are separate markup — hidden here at 769px+. */
+
+@media (min-width: 769px) {
+  .walajna-legend-phone {
+    display: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .walajna-legend-phone {
+    position: fixed;
+    inset-inline-start: 0;
+    inset-inline-end: auto;
+    top: 50%;
+    bottom: auto;
+    transform: translateY(-50%);
+    z-index: 90;
+    padding: 0;
+    pointer-events: none;
+  }
+
+  .walajna-legend-phone__dock {
+    pointer-events: auto;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    margin: 0;
+    position: relative;
+  }
+
+  .walajna-legend-phone__tab {
+    list-style: none;
+    cursor: pointer;
+    margin: 0;
+    padding: 14px 10px;
+    min-width: 40px;
+    max-width: 40px;
+    align-self: center;
+    border-radius: 0 14px 14px 0;
+    background: rgba(255, 255, 255, 0.97);
+    border: 1px solid rgba(26, 47, 74, 0.14);
+    border-inline-start: none;
+    box-shadow: 4px 0 18px rgba(15, 23, 42, 0.14);
+    font-size: 0;
+    line-height: 1;
+    color: transparent;
+    user-select: none;
+  }
+
+  [dir="rtl"] .walajna-legend-phone__tab {
+    border-radius: 14px 0 0 14px;
+    border-inline-start: 1px solid rgba(26, 47, 74, 0.14);
+    border-inline-end: none;
+    box-shadow: -4px 0 18px rgba(15, 23, 42, 0.14);
+  }
+
+  .walajna-legend-phone__tab::-webkit-details-marker {
+    display: none;
+  }
+
+  .walajna-legend-phone__tab::before {
+    content: "‹";
+    display: block;
+    font-size: 22px;
+    font-weight: 900;
+    color: #0f2740;
+    text-align: center;
+  }
+
+  [dir="rtl"] .walajna-legend-phone__tab::before {
+    content: "›";
+  }
+
+  .walajna-legend-phone__dock[open] .walajna-legend-phone__tab::before {
+    content: "›";
+  }
+
+  [dir="rtl"] .walajna-legend-phone__dock[open] .walajna-legend-phone__tab::before {
+    content: "‹";
+  }
+
+  .walajna-legend-phone__dock:not([open]) .walajna-legend-phone__panel {
+    display: none;
+  }
+
+  .walajna-legend-phone__panel {
+    --legend-swatch-col: 16px;
+    --legend-count-col: 2.75em;
+    position: absolute;
+    inset-inline-start: calc(100% - 1px);
+    top: 50%;
+    transform: translateY(-50%);
+    width: min(260px, calc(100vw - 56px));
+    max-width: 260px;
+    border: 1px solid rgba(26, 47, 74, 0.12);
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.2);
+    border-radius: 14px;
+    padding: 12px 14px;
+    max-height: min(52vh, 340px);
+    overflow-y: auto;
+    background: rgba(255, 255, 255, 0.98);
+    pointer-events: auto;
+  }
+
+  .walajna-legend-phone__title--occupancy {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--legend-swatch-col) var(--legend-count-col);
+    align-items: center;
+    column-gap: 8px;
+  }
+
+  .walajna-legend-phone__title--occupancy > :first-child {
+    grid-column: 1;
+  }
+
+  .walajna-legend-phone .legend-count--total {
+    grid-column: 3;
+    justify-self: start;
+    font-size: 16px;
+    min-width: var(--legend-count-col);
+  }
+
+  .legend-divider--phone {
+    margin: 10px 0;
+    border: 0;
+    border-top: 1px solid rgba(12, 24, 49, 0.14);
+  }
+
+  body.dark-mode .legend-divider--phone {
+    border-top-color: rgba(148, 163, 184, 0.28);
+  }
+
+  .walajna-legend-phone__title {
+    margin: 0 0 10px;
+    font-size: 15px;
+    font-weight: 900;
+    color: #0f2740;
+  }
+
+  .walajna-legend-phone__list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .walajna-legend-phone__list--occupancy {
+    padding: 6px 8px;
+    border-radius: 8px;
+    background: rgba(12, 24, 49, 0.05);
+    border: 1px solid rgba(12, 24, 49, 0.08);
+  }
+
+  body.dark-mode .walajna-legend-phone__list--occupancy {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(148, 163, 184, 0.14);
+  }
+
+  .walajna-legend-phone__item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--legend-swatch-col) var(--legend-count-col);
+    align-items: center;
+    column-gap: 8px;
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--muted, #64748b);
+  }
+
+  .walajna-legend-phone__item > :first-child {
+    grid-column: 1;
+    min-width: 0;
+  }
+
+  .walajna-legend-phone__meta {
+    display: contents;
+  }
+
+  .walajna-legend-phone__meta .walajna-legend-phone__swatch {
+    grid-column: 2;
+    justify-self: center;
+  }
+
+  .walajna-legend-phone__meta .legend-count {
+    grid-column: 3;
+    justify-self: start;
+  }
+
+  .walajna-legend-phone .legend-count {
+    font-size: 13px;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    color: #0f2740;
+    min-width: var(--legend-count-col);
+    text-align: start;
+  }
+
+  body.dark-mode .walajna-legend-phone .legend-count {
+    color: #e5edf7;
+  }
+
+  .walajna-legend-phone__swatch {
+    width: 16px;
+    height: 16px;
+    border-radius: 5px;
+    flex-shrink: 0;
+  }
+
+  .walajna-legend-phone__swatch.none {
+    background: var(--none);
+  }
+
+  .walajna-legend-phone__swatch.rented {
+    background: var(--none);
+    border: 3px solid #22c55e;
+    box-sizing: border-box;
+  }
+
+  .walajna-legend-phone__swatch.rent-overdue {
+    background: var(--rent-overdue);
+  }
+
+  .walajna-legend-phone__swatch.maintenance {
+    background: var(--maintenance);
+  }
+
+  .walajna-legend-phone__swatch.complaint {
+    background: var(--complaint);
+  }
+
+  .walajna-legend-phone__swatch.suggestion {
+    background: var(--suggestion);
+  }
+
+  .walajna-legend-phone__swatch.request {
+    background: var(--request);
+  }
+
+  body.dark-mode .walajna-legend-phone__tab {
+    background: rgba(15, 23, 42, 0.96);
+    border-color: rgba(148, 163, 184, 0.28);
+  }
+
+  body.dark-mode .walajna-legend-phone__tab::before {
+    color: #e5edf7;
+  }
+
+  body.dark-mode .walajna-legend-phone__panel {
+    background: rgba(15, 23, 42, 0.98);
+    border-color: rgba(148, 163, 184, 0.25);
+  }
+
+  body.dark-mode .walajna-legend-phone__title {
+    color: #e5edf7;
+  }
+}

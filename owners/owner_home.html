@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="../css/theme.css">
   <link rel="stylesheet" href="../css/navstyle.css">
   <link rel="stylesheet" href="../css/owner.css">
+  <link rel="stylesheet" href="../css/legend-phone.css">
   <script src="../js/main/walajna-i18n-ur.js"></script>
   <script src="../js/main/walajna-i18n.js"></script>
 </head>
@@ -17,11 +18,33 @@
 
   <main class="owner-dashboard">
     <div class="page-head">
-      <div>
+      <div class="page-head-lead">
         <h2 class="page-title" data-i18n="owner.pageTitle"></h2>
+        <div class="owner-buildings-count-badge" aria-live="polite" aria-atomic="true">
+          <span class="owner-buildings-count-icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d="M4 10.5 12 4.5l8 6v8.5a.75.75 0 0 1-.75.75H15v-6.25a.75.75 0 0 0-.75-.75h-4.5a.75.75 0 0 0-.75.75V19.5H4.75A.75.75 0 0 1 4 18.5v-8z"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </span>
+          <span id="ownerBuildingsCount" class="owner-buildings-count-value"></span>
+        </div>
       </div>
 
-      <a class="add-building-btn" href="owner_edit.html" data-i18n="owner.addBuilding"></a>
+      <div class="page-head-actions">
+        <button
+          type="button"
+          id="ownerBuildingsEditBtn"
+          class="owner-buildings-edit-btn"
+          aria-pressed="false"
+          data-i18n="owner.buildingsEnterEdit"
+        ></button>
+        <a class="add-building-btn" href="owner_edit.html" data-i18n="owner.addBuilding"></a>
+      </div>
     </div>
 
     <section
@@ -34,48 +57,122 @@
     <div class="dashboard-content">
       <aside class="legend-sidebar">
         <section class="legend-card">
-          <h3 class="legend-title" data-i18n="owner.legendTitle"></h3>
-
-          <div class="legend-list">
+          <h3 class="legend-title legend-title--occupancy">
+            <span data-i18n="owner.legend.totalApartments"></span>
+            <span class="legend-count legend-count--total" data-owner-indicator-count="total">0</span>
+          </h3>
+          <div class="legend-list legend-list--occupancy">
             <div class="legend-item">
-              <span data-i18n="owner.legend.vacant"></span>
-              <span class="legend-color none"></span>
+              <span class="legend-item__label" data-i18n="owner.legend.rented"></span>
+              <span class="legend-item__meta">
+                <span class="legend-color rented"></span>
+                <span class="legend-count" data-owner-indicator-count="rented">0</span>
+              </span>
             </div>
 
             <div class="legend-item">
-              <span data-i18n="owner.legend.rented"></span>
-              <span class="legend-color rented"></span>
+              <span class="legend-item__label" data-i18n="owner.legend.vacant"></span>
+              <span class="legend-item__meta">
+                <span class="legend-color none"></span>
+                <span class="legend-count" data-owner-indicator-count="vacant">0</span>
+              </span>
+            </div>
+          </div>
+
+          <hr class="legend-divider" aria-hidden="true" />
+
+          <div class="legend-list legend-list--requests">
+            <div class="legend-item">
+              <span class="legend-item__label" data-i18n="owner.legend.overdue"></span>
+              <span class="legend-item__meta">
+                <span class="legend-color rent-overdue"></span>
+                <span class="legend-count" data-owner-indicator-count="rent-overdue">0</span>
+              </span>
             </div>
 
             <div class="legend-item">
-              <span data-i18n="owner.legend.overdue"></span>
-              <span class="legend-color rent-overdue"></span>
+              <span class="legend-item__label" data-i18n="owner.legend.maintenance"></span>
+              <span class="legend-item__meta">
+                <span class="legend-color maintenance"></span>
+                <span class="legend-count" data-owner-indicator-count="maintenance">0</span>
+              </span>
             </div>
 
             <div class="legend-item">
-              <span data-i18n="owner.legend.maintenance"></span>
-              <span class="legend-color maintenance"></span>
+              <span class="legend-item__label" data-i18n="owner.legend.complaint"></span>
+              <span class="legend-item__meta">
+                <span class="legend-color complaint"></span>
+                <span class="legend-count" data-owner-indicator-count="complaint">0</span>
+              </span>
             </div>
 
             <div class="legend-item">
-              <span data-i18n="owner.legend.complaint"></span>
-              <span class="legend-color complaint"></span>
+              <span class="legend-item__label" data-i18n="owner.legend.suggestion"></span>
+              <span class="legend-item__meta">
+                <span class="legend-color suggestion"></span>
+                <span class="legend-count" data-owner-indicator-count="suggestion">0</span>
+              </span>
             </div>
 
             <div class="legend-item">
-              <span data-i18n="owner.legend.suggestion"></span>
-              <span class="legend-color suggestion"></span>
-            </div>
-
-            <div class="legend-item">
-              <span data-i18n="owner.legend.request"></span>
-              <span class="legend-color request"></span>
+              <span class="legend-item__label" data-i18n="owner.legend.request"></span>
+              <span class="legend-item__meta">
+                <span class="legend-color request"></span>
+                <span class="legend-count" data-owner-indicator-count="request">0</span>
+              </span>
             </div>
           </div>
         </section>
       </aside>
 
       <div class="content-main">
+        <section
+          class="buildings-filters buildings-filters--modern"
+          id="ownerBuildingsFilters"
+          dir="rtl"
+          aria-label="تصفية العمائر"
+        >
+          <div class="buildings-filters__inner">
+            <div class="buildings-filters__controls">
+              <div class="buildings-filter-field">
+                <label for="ownerBuildingsNeighborhoodFilter">تصفية حسب الحي</label>
+                <div class="buildings-filter-select-shell">
+                  <select id="ownerBuildingsNeighborhoodFilter" class="buildings-filter-select">
+                    <option value="">كل الأحياء</option>
+                  </select>
+                </div>
+              </div>
+              <div class="buildings-filter-field">
+                <label for="ownerBuildingsRequestFilter">طلبات الشقق</label>
+                <div class="buildings-filter-select-shell">
+                  <select id="ownerBuildingsRequestFilter" class="buildings-filter-select">
+                    <option value="all" data-i18n="owner.buildingsFilterAll"></option>
+                    <option value="vacant" data-i18n="owner.legend.vacant"></option>
+                    <option value="rented" data-i18n="owner.legend.rented"></option>
+                    <option value="rent-overdue" data-i18n="owner.legend.overdue"></option>
+                    <option value="maintenance" data-i18n="owner.legend.maintenance"></option>
+                    <option value="complaint" data-i18n="owner.legend.complaint"></option>
+                    <option value="suggestion" data-i18n="owner.legend.suggestion"></option>
+                    <option value="request" data-i18n="owner.legend.request"></option>
+                  </select>
+                </div>
+              </div>
+              <div id="ownerBuildingsFilterPickActions" class="buildings-filter-actions" hidden>
+                <button type="button" id="ownerResetFiltersBtn" class="buildings-filter-pick-btn">
+                  <span data-i18n="owner.buildingsBackToDefault"></span>
+                </button>
+                <button
+                  type="button"
+                  id="ownerShowSelectedOnlyBtn"
+                  class="buildings-filter-pick-btn buildings-filter-pick-btn--primary"
+                >
+                  <span data-i18n="owner.buildingsShow"></span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section id="buildingsContainer" class="buildings-container">
         </section>
 
@@ -84,11 +181,80 @@
     </div>
   </main>
 
+  <aside class="walajna-legend-phone" data-i18n-aria-label="owner.legend.totalApartments">
+    <details class="walajna-legend-phone__dock">
+      <summary class="walajna-legend-phone__tab" data-i18n-aria-label="owner.legend.totalApartments"></summary>
+      <section class="walajna-legend-phone__panel">
+        <h3 class="walajna-legend-phone__title walajna-legend-phone__title--occupancy">
+          <span data-i18n="owner.legend.totalApartments"></span>
+          <span class="legend-count legend-count--total" data-owner-indicator-count="total">0</span>
+        </h3>
+        <div class="walajna-legend-phone__list walajna-legend-phone__list--occupancy">
+          <div class="walajna-legend-phone__item">
+            <span data-i18n="owner.legend.rented"></span>
+            <span class="walajna-legend-phone__meta">
+              <span class="walajna-legend-phone__swatch rented"></span>
+              <span class="legend-count" data-owner-indicator-count="rented">0</span>
+            </span>
+          </div>
+          <div class="walajna-legend-phone__item">
+            <span data-i18n="owner.legend.vacant"></span>
+            <span class="walajna-legend-phone__meta">
+              <span class="walajna-legend-phone__swatch none"></span>
+              <span class="legend-count" data-owner-indicator-count="vacant">0</span>
+            </span>
+          </div>
+        </div>
+        <hr class="legend-divider legend-divider--phone" aria-hidden="true" />
+        <div class="walajna-legend-phone__list walajna-legend-phone__list--requests">
+          <div class="walajna-legend-phone__item">
+            <span data-i18n="owner.legend.overdue"></span>
+            <span class="walajna-legend-phone__meta">
+              <span class="walajna-legend-phone__swatch rent-overdue"></span>
+              <span class="legend-count" data-owner-indicator-count="rent-overdue">0</span>
+            </span>
+          </div>
+          <div class="walajna-legend-phone__item">
+            <span data-i18n="owner.legend.maintenance"></span>
+            <span class="walajna-legend-phone__meta">
+              <span class="walajna-legend-phone__swatch maintenance"></span>
+              <span class="legend-count" data-owner-indicator-count="maintenance">0</span>
+            </span>
+          </div>
+          <div class="walajna-legend-phone__item">
+            <span data-i18n="owner.legend.complaint"></span>
+            <span class="walajna-legend-phone__meta">
+              <span class="walajna-legend-phone__swatch complaint"></span>
+              <span class="legend-count" data-owner-indicator-count="complaint">0</span>
+            </span>
+          </div>
+          <div class="walajna-legend-phone__item">
+            <span data-i18n="owner.legend.suggestion"></span>
+            <span class="walajna-legend-phone__meta">
+              <span class="walajna-legend-phone__swatch suggestion"></span>
+              <span class="legend-count" data-owner-indicator-count="suggestion">0</span>
+            </span>
+          </div>
+          <div class="walajna-legend-phone__item">
+            <span data-i18n="owner.legend.request"></span>
+            <span class="walajna-legend-phone__meta">
+              <span class="walajna-legend-phone__swatch request"></span>
+              <span class="legend-count" data-owner-indicator-count="request">0</span>
+            </span>
+          </div>
+        </div>
+      </section>
+    </details>
+  </aside>
+
   <script src="../js/main/breadcrumbs.js"></script>
   <script src="../js/main/auth.js"></script>
+  <script src="../js/main/buildings-api.js"></script>
   <script src="../js/main/nav.js"></script>
   <script src="../js/main/tenant-requests-api.js"></script>
   <script src="../js/main/apartments-api.js"></script>
+  <script src="../js/main/building-name.js"></script>
+  <script src="../js/main/owner-building-pick.js"></script>
   <script src="../js/owner-manager/owner.js"></script>
   <script src="../js/main/theme.js"></script>
 </body>

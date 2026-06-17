@@ -22,7 +22,24 @@
     } catch {
       /* ignore */
     }
-    return readLocalJson("walajna_apartments", "[]");
+    return [];
+  }
+
+  function readBuildingsForBreadcrumb() {
+    if (global.WalajnaBuildingsApi && typeof global.WalajnaBuildingsApi.getSessionList === "function") {
+      const session = global.WalajnaBuildingsApi.getSessionList();
+      if (Array.isArray(session) && session.length) return session;
+    }
+    try {
+      const ses = global.sessionStorage.getItem("walajna_buildings_session");
+      if (ses) {
+        const parsed = JSON.parse(ses);
+        if (Array.isArray(parsed) && parsed.length) return parsed;
+      }
+    } catch {
+      /* ignore */
+    }
+    return [];
   }
 
   function pathFlags() {
@@ -116,7 +133,7 @@
 
   function aptTitleFromRecord(apt) {
     if (!apt) return "—";
-    const buildings = readLocalJson("walajna_buildings", "[]");
+    const buildings = readBuildingsForBreadcrumb();
     const bData = buildings.find((b) => String(b.id) === String(apt.buildingId));
     const bName = (bData && bData.name) || apt.buildingName || "—";
     const aptN = apt.number || apt.apartmentNumber || "—";
@@ -126,7 +143,7 @@
   /** Owner: Home → Building → Apartment (link to details). */
   function ownerApartmentPrefix(apt) {
     if (!apt) return null;
-    const buildings = readLocalJson("walajna_buildings", "[]");
+    const buildings = readBuildingsForBreadcrumb();
     const bData = buildings.find((b) => String(b.id) === String(apt.buildingId));
     const bName = (bData && bData.name) || apt.buildingName || "—";
     const bid = apt.buildingId;
@@ -212,11 +229,36 @@
 
     if (bc === "owner-buildings") {
       segments = [{ labelKey: "owner.pageTitle", current: true }];
+    } else if (bc === "owner-archive") {
+      segments = [
+        { href: resolveHref("owner_home"), labelKey: "owner.pageTitle" },
+        { labelKey: "owner.archiveTitle", current: true },
+      ];
+    } else if (bc === "owner-archive-building") {
+      segments = [
+        { href: resolveHref("owner_home"), labelKey: "owner.pageTitle" },
+        { href: hrefOwnersPage("owner_archive.html"), labelKey: "owner.archiveTitle" },
+        { labelKey: "owner.archiveBuildingTitle", current: true },
+      ];
+    } else if (bc === "archive-income-history") {
+      const archiveId = params.get("archiveId");
+      segments = [
+        { href: resolveHref("owner_home"), labelKey: homeBreadcrumbLabelKey() },
+        { href: hrefOwnersPage("owner_archive.html"), labelKey: "owner.archiveTitle" },
+        {
+          href: hrefOwnersPage(
+            "owner_archive_building.html",
+            "?archiveId=" + encodeURIComponent(archiveId || "")
+          ),
+          labelKey: "owner.archiveBuildingTitle",
+        },
+        { labelKey: "bc.archiveIncomeHistory", current: true },
+      ];
     } else if (bc === "tenant-units") {
       segments = [{ labelKey: "tenant.unitsTitle", current: true }];
     } else if (bc === "owner-building") {
       const buildingId = params.get("buildingId");
-      const buildings = readLocalJson("walajna_buildings", "[]");
+      const buildings = readBuildingsForBreadcrumb();
       const building = buildings.find((b) => String(b.id) === String(buildingId));
       const bname = (building && building.name) || t("building.notFound");
       segments = [
@@ -241,7 +283,7 @@
         ];
       } else {
         const bid = apt.buildingId;
-        const buildings = readLocalJson("walajna_buildings", "[]");
+        const buildings = readBuildingsForBreadcrumb();
         const bData = buildings.find((b) => String(b.id) === String(bid));
         const bName = (bData && bData.name) || apt.buildingName || "—";
         segments = [
@@ -322,7 +364,7 @@
       const editBuildingId = params.get("buildingId");
       const isEdit = params.get("mode") === "edit" && editBuildingId;
       if (isEdit) {
-        const buildings = readLocalJson("walajna_buildings", "[]");
+        const buildings = readBuildingsForBreadcrumb();
         const b = buildings.find((x) => String(x.id) === String(editBuildingId));
         const bname = (b && b.name) || t("building.notFound");
         segments = [
@@ -382,7 +424,7 @@
       }
     } else if (bc === "finance-summary") {
       const buildingId = params.get("buildingId");
-      const buildings = readLocalJson("walajna_buildings", "[]");
+      const buildings = readBuildingsForBreadcrumb();
       const building = buildings.find((b) => String(b.id) === String(buildingId));
       const bname = (building && building.name) || t("building.notFound");
       segments = [
@@ -390,6 +432,40 @@
         { href: resolveHref("owner_building", { buildingId: buildingId }), label: bname },
         { labelKey: "bc.financeSummary", current: true },
       ];
+    } else if (bc === "portfolio-finance") {
+      const refBuildingId = params.get("refBuildingId");
+      if (refBuildingId) {
+        const buildings = readBuildingsForBreadcrumb();
+        const building = buildings.find((b) => String(b.id) === String(refBuildingId));
+        const bname = (building && building.name) || t("building.notFound");
+        segments = [
+          { href: resolveHref("owner_home"), labelKey: homeBreadcrumbLabelKey() },
+          { href: resolveHref("owner_building", { buildingId: refBuildingId }), label: bname },
+          { labelKey: "bc.portfolioFinance", current: true },
+        ];
+      } else {
+        segments = [
+          { href: resolveHref("owner_home"), labelKey: homeBreadcrumbLabelKey() },
+          { labelKey: "bc.portfolioFinance", current: true },
+        ];
+      }
+    } else if (bc === "portfolio-costs") {
+      const refBuildingId = params.get("refBuildingId");
+      if (refBuildingId) {
+        const buildings = readBuildingsForBreadcrumb();
+        const building = buildings.find((b) => String(b.id) === String(refBuildingId));
+        const bname = (building && building.name) || t("building.notFound");
+        segments = [
+          { href: resolveHref("owner_home"), labelKey: homeBreadcrumbLabelKey() },
+          { href: resolveHref("owner_building", { buildingId: refBuildingId }), label: bname },
+          { labelKey: "bc.portfolioCosts", current: true },
+        ];
+      } else {
+        segments = [
+          { href: resolveHref("owner_home"), labelKey: homeBreadcrumbLabelKey() },
+          { labelKey: "bc.portfolioCosts", current: true },
+        ];
+      }
     }
 
     if (segments.length) set(segments);

@@ -186,18 +186,6 @@ body {
   box-shadow: 0 14px 34px rgba(15, 23, 42, 0.1);
 }
 
-/* right colored line */
-.card::after {
-  content: "";
-  position: absolute;
-  top: 10px;
-  bottom: 10px;
-  right: 0;
-  width: 8px;
-  border-radius: 12px 0 0 12px;
-  background: linear-gradient(180deg, #4fc3f7 0%, #3b82f6 100%);
-}
-
 .card-header {
   margin-bottom: 18px;
 }
@@ -262,7 +250,7 @@ body {
 
 /* maintenance card */
 .card.maintenance-card .card-body .info-box {
-  flex: 1 1 320px;
+  flex: 1 1 200px;
 }
 
 /* mobile */
@@ -367,6 +355,177 @@ body.dark-mode .back-btn{
     0 4px 12px rgba(15, 23, 42, 0.25);
 }
 
-body.dark-mode .card::after{
-  background:linear-gradient(180deg, #22d3ee 0%, #0891b2 100%);
+/* ===== Compact apartment history ===== */
+.page-shell--compact{
+  max-width:1100px;
+  margin:10px auto 28px;
+  padding:0 12px;
+}
+
+.page-shell--compact .page-head{
+  padding:12px 14px;
+  border-radius:14px;
+  margin-bottom:12px;
+}
+
+.page-shell--compact .page-title{
+  font-size:1.25rem;
+  letter-spacing:-0.02em;
+}
+
+.page-shell--compact .page-subtitle{
+  font-size:0.78rem;
+}
+
+.page-shell--compact .layout{
+  gap:12px;
+}
+
+.page-shell--compact .sidebar{
+  width:200px;
+  flex:0 0 200px;
+  padding:12px 14px;
+  border-radius:14px;
+  top:12px;
+}
+
+.page-shell--compact .sidebar-title{
+  margin-bottom:10px;
+  font-size:0.85rem;
+}
+
+.page-shell--compact .sidebar-btn{
+  padding:10px 12px;
+  margin-bottom:8px;
+  border-radius:10px;
+  font-size:14px;
+}
+
+.page-shell--compact .sidebar-btn:hover{
+  transform:none;
+}
+
+.page-shell--compact .content-wrap{
+  gap:10px;
+}
+
+.page-shell--compact .section-head{
+  min-height:0;
+  padding:10px 14px;
+  border-radius:12px;
+  font-size:1rem;
+}
+
+.page-shell--compact .content{
+  gap:10px;
+}
+
+.page-shell--compact .card{
+  padding:12px 14px 14px 16px;
+  border-radius:14px;
+  min-height:0;
+}
+
+.page-shell--compact .card:hover{
+  transform:none;
+  box-shadow:var(--shadow);
+}
+
+.page-shell--compact .card::after{
+  width:4px;
+  top:8px;
+  bottom:8px;
+}
+
+.page-shell--compact .card-header{
+  margin-bottom:8px;
+}
+
+.page-shell--compact .card-header h3{
+  font-size:1rem;
+}
+
+.page-shell--compact .card-body{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+.page-shell--compact .card-row{
+  display:grid;
+  gap:8px;
+}
+
+.page-shell--compact .card-row--3{
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+}
+
+.page-shell--compact .card-row--4{
+  grid-template-columns:repeat(4, minmax(0, 1fr));
+}
+
+.page-shell--compact .card-row--2{
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+}
+
+.page-shell--compact .card-row--details{
+  grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.page-shell--compact .info-box--note{
+  grid-column:1 / -1;
+}
+
+.page-shell--compact .info-box{
+  flex:none;
+  min-height:0;
+  padding:8px 10px;
+  border-radius:10px;
+}
+
+.page-shell--compact .label{
+  font-size:10px;
+  margin-bottom:3px;
+}
+
+.page-shell--compact .info-box strong{
+  font-size:13px;
+  line-height:1.45;
+}
+
+.page-shell--compact .card-body.card-body--maintenance{
+  display:flex;
+  flex-wrap:wrap;
+  flex-direction:row;
+  align-items:stretch;
+  gap:8px;
+}
+
+.page-shell--compact .card-body.card-body--maintenance > .info-box{
+  flex:0 1 calc(33.333% - 6px);
+  min-width:140px;
+  max-width:100%;
+  min-height:0;
+}
+
+body.dark-mode .page-shell--compact .page-head,
+body.dark-mode .page-shell--compact .sidebar,
+body.dark-mode .page-shell--compact .section-head,
+body.dark-mode .page-shell--compact .card,
+body.dark-mode .page-shell--compact .info-box{
+  box-shadow:none;
+}
+
+@media (max-width:900px){
+  .page-shell--compact .card-row--4{
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width:640px){
+  .page-shell--compact .card-row--3,
+  .page-shell--compact .card-row--4,
+  .page-shell--compact .card-row--2{
+    grid-template-columns:1fr;
+  }
 }

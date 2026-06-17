@@ -7,11 +7,26 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (typeof WalajnaAuth !== "undefined" && WalajnaAuth.hydrateSession) {
     await WalajnaAuth.hydrateSession();
   }
-  if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.refreshForSession) {
-    try {
-      await WalajnaApartmentsApi.refreshForSession();
-    } catch (e) {
-      console.warn("[apartment-page] apartments cache refresh failed", e);
+  const paramsEarly = new URLSearchParams(window.location.search);
+  const aptIdEarly = paramsEarly.get("id");
+  const currentUserEarly =
+    typeof getCurrentUser === "function" ? getCurrentUser() : null;
+  const skipSessionBulkLoad = Boolean(aptIdEarly && currentUserEarly);
+
+  if (!skipSessionBulkLoad) {
+    if (typeof WalajnaBuildingsApi !== "undefined" && WalajnaBuildingsApi.refreshForSession) {
+      try {
+        await WalajnaBuildingsApi.refreshForSession();
+      } catch (e) {
+        console.warn("[apartment-page] buildings cache refresh failed", e);
+      }
+    }
+    if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.refreshForSession) {
+      try {
+        await WalajnaApartmentsApi.refreshForSession();
+      } catch (e) {
+        console.warn("[apartment-page] apartments cache refresh failed", e);
+      }
     }
   }
   if (typeof ensureRoleSetup === "function") {
@@ -91,6 +106,36 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function mapApiApartmentToLocal(apiApartment) {
     if (!apiApartment) return null;
+    const lt =
+      apiApartment.lease_terms && typeof apiApartment.lease_terms === "object"
+        ? apiApartment.lease_terms
+        : null;
+    const cid = apiApartment.current_contract_id ?? null;
+    let contract = null;
+    if (cid || lt) {
+      const yrForMonthly =
+        lt?.yearlyRent != null && String(lt.yearlyRent).trim() !== ""
+          ? Number(lt.yearlyRent)
+          : NaN;
+      const rentAmountFromYearly =
+        Number.isFinite(yrForMonthly) && yrForMonthly > 0 ? yrForMonthly / 12 : undefined;
+      contract = {
+        id: cid,
+        startDate:
+          lt?.startDate != null ? String(lt.startDate).slice(0, 10) : undefined,
+        endDate:
+          lt?.endDate != null ? String(lt.endDate).slice(0, 10) : undefined,
+        yearlyRent: lt?.yearlyRent,
+        rentAmount: rentAmountFromYearly ?? lt?.monthlyRent,
+        paymentCycle: lt?.paymentCycle,
+        installmentsCount: lt?.installmentsCount,
+        insurancePaid: lt?.insurancePaid,
+        meterNumber: lt?.meterNumber,
+        notes: lt?.notes,
+        brokerInfo: lt?.brokerInfo,
+        services: lt?.services,
+      };
+    }
     return {
       id: String(apiApartment.id ?? aptId),
       apiId: apiApartment.id ?? null,
@@ -137,8 +182,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       tenantNationalId: apiApartment.tenant_national_id ?? null,
       tenantInfo: apiApartment.tenant_info || null,
       currentContractId: apiApartment.current_contract_id ?? null,
+      contractId: apiApartment.current_contract_id ?? null,
       leaseStatus: apiApartment.lease_status || "vacant",
       maintenanceId: apiApartment.maintenance_id ?? null,
+      contract,
+      leaseTerms: lt,
     };
   }
 
@@ -163,38 +211,60 @@ document.addEventListener("DOMContentLoaded", async () => {
     return "monthly";
   }
 
-  async function fetchInstallmentsMeta(contractId) {
-    if (!contractId || typeof WalajnaAuth === "undefined") return null;
-    try {
-      const res = await WalajnaAuth.fetchWithAuth(
-        `${WalajnaAuth.API_BASE}/api/contracts/${encodeURIComponent(String(contractId))}/installments`,
-        { method: "GET" }
-      );
-      if (!res.ok) return null;
-      const rows = await res.json();
-      const list = Array.isArray(rows) ? rows : [];
-      if (!list.length) return null;
-      return {
-        paymentCycle: inferPaymentCycleFromInstallments(list),
-        installmentsCount: list.length,
-      };
-    } catch {
-      return null;
+  /** One GET /installments per contract per page load (shared by lease meta + next payment). */
+  const installmentRowsPromiseByContract = new Map();
+
+  function getInstallmentRowsPromise(contractId) {
+    const key = String(contractId ?? "").trim();
+    if (!key || typeof WalajnaAuth === "undefined") return Promise.resolve([]);
+    if (installmentRowsPromiseByContract.has(key)) {
+      return installmentRowsPromiseByContract.get(key);
     }
+    const p = (async () => {
+      try {
+        const res = await WalajnaAuth.fetchWithAuth(
+          `${WalajnaAuth.API_BASE}/api/contracts/${encodeURIComponent(key)}/installments`,
+          { method: "GET" }
+        );
+        if (!res.ok) return [];
+        const rows = await res.json();
+        return Array.isArray(rows) ? rows : [];
+      } catch {
+        return [];
+      }
+    })();
+    installmentRowsPromiseByContract.set(key, p);
+    return p;
+  }
+
+  async function fetchInstallmentsMeta(contractId) {
+    const list = await getInstallmentRowsPromise(contractId);
+    if (!list.length) return null;
+    return {
+      paymentCycle: inferPaymentCycleFromInstallments(list),
+      installmentsCount: list.length,
+    };
+  }
+
+  function contractNeedsApiEnrichment(contractData) {
+    if (!contractData) return true;
+    const hasDates = contractData.startDate && contractData.endDate;
+    const yr = Number(contractData.yearlyRent ?? contractData.yearly_rent);
+    const hasRent =
+      (Number.isFinite(yr) && yr > 0) || Number(contractData.rentAmount || 0) > 0;
+    return !hasDates || !hasRent;
   }
 
   async function fetchContractById(contractId) {
     if (!contractId || typeof WalajnaAuth === "undefined") return null;
     try {
       const res = await WalajnaAuth.fetchWithAuth(
-        `${WalajnaAuth.API_BASE}/api/contracts`,
+        `${WalajnaAuth.API_BASE}/api/contracts/${encodeURIComponent(String(contractId))}`,
         { method: "GET" }
       );
       if (!res.ok) return null;
-      const rows = await res.json();
-      if (!Array.isArray(rows)) return null;
-      const match = rows.find((c) => String(c.id) === String(contractId));
-      if (!match) return null;
+      const match = await res.json();
+      if (!match || typeof match !== "object") return null;
       let parsedTerms = null;
       if (typeof match.terms === "string" && match.terms.trim().startsWith("{")) {
         try {
@@ -203,23 +273,58 @@ document.addEventListener("DOMContentLoaded", async () => {
           parsedTerms = null;
         }
       }
-      const installmentsMeta = await fetchInstallmentsMeta(contractId);
+      const needsInstallmentMeta =
+        !match.payment_cycle &&
+        !parsedTerms?.paymentCycle &&
+        !parsedTerms?.payment_cycle &&
+        match.installments_count == null &&
+        parsedTerms?.installmentsCount == null &&
+        parsedTerms?.installments_count == null;
+      const installmentsMeta = needsInstallmentMeta
+        ? await fetchInstallmentsMeta(contractId)
+        : null;
+      const termsNotes =
+        (parsedTerms && (parsedTerms.notes || parsedTerms.note)) || "";
+      const legacyTermsPlain =
+        typeof match.terms === "string" &&
+        match.terms.trim() &&
+        !match.terms.trim().startsWith("{")
+          ? match.terms
+          : "";
+      const leaseNotesCol = String(
+        match.lease_notes ?? match.leaseNotes ?? ""
+      ).trim();
+      const meterCol = match.meter_number ?? match.meterNumber;
+      const insuranceCol = match.insurance_paid ?? match.insurancePaid;
+
       return {
         id: match.id,
         startDate: match.start_date || "",
         endDate: match.end_date || "",
+        yearlyRent:
+          match.yearly_rent != null && match.yearly_rent !== ""
+            ? Number(match.yearly_rent)
+            : parsedTerms?.yearlyRent ?? parsedTerms?.yearly_rent ?? undefined,
         notes:
-          (parsedTerms && (parsedTerms.notes || parsedTerms.note)) ||
-          (typeof match.terms === "string" && !String(match.terms).trim().startsWith("{")
-            ? match.terms
-            : "") ||
+          leaseNotesCol ||
+          termsNotes ||
+          legacyTermsPlain ||
           "",
         meterNumber:
+          (meterCol != null && String(meterCol).trim() !== ""
+            ? String(meterCol).trim()
+            : "") ||
           (parsedTerms &&
             (parsedTerms.meterNumber ||
               parsedTerms.meter_number ||
               parsedTerms.meter)) ||
           "",
+        insurancePaid:
+          insuranceCol != null && String(insuranceCol).trim() !== ""
+            ? String(insuranceCol).trim()
+            : String(
+                parsedTerms?.insurancePaid ?? parsedTerms?.insurance_paid ?? ""
+              ).trim() || "",
         paymentCycle:
           match.payment_cycle ||
           parsedTerms?.paymentCycle ||
@@ -233,8 +338,12 @@ document.addEventListener("DOMContentLoaded", async () => {
           installmentsMeta?.installmentsCount ??
           undefined,
         rentAmount:
+          (match.yearly_rent != null &&
+          match.yearly_rent !== "" &&
+          Number(match.yearly_rent) > 0
+            ? Number(match.yearly_rent) / 12
+            : undefined) ??
           match.rent_amount ??
-          match.monthly_rent ??
           parsedTerms?.rentAmount ??
           parsedTerms?.rent ??
           undefined,
@@ -266,7 +375,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (shouldRefreshFromApi) {
     const freshApartment = await fetchFreshApartmentById(aptId);
     if (freshApartment) {
-      if (freshApartment.currentContractId) {
+      if (
+        freshApartment.currentContractId &&
+        contractNeedsApiEnrichment(freshApartment.contract)
+      ) {
         const freshContract = await fetchContractById(freshApartment.currentContractId);
         if (freshContract) {
           freshApartment.contract = {
@@ -308,15 +420,29 @@ document.addEventListener("DOMContentLoaded", async () => {
     return Math.round(n * 100) / 100;
   }
 
+  function toEnglishDigits(value) {
+    return String(value ?? "")
+      .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)))
+      .replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)));
+  }
+
+  function forceLatinDigitsLocale(locale, fallback) {
+    const base = String(locale || fallback || "en-GB").trim();
+    return base.includes("-u-nu-") ? base : `${base}-u-nu-latn`;
+  }
+
   function formatMoney(value) {
-    const loc =
+    const locRaw =
       window.walajna_language && typeof window.walajna_language.localeForNumbers === "function"
         ? window.walajna_language.localeForNumbers()
         : window.walajna_language && window.walajna_language.get() === "en"
           ? "en-SA"
           : "ar-SA";
+    const loc = forceLatinDigitsLocale(locRaw, "en-SA");
     const rounded = roundMoneySAR(value);
-    return `${rounded.toLocaleString(loc, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ${T("common.sar")}`;
+    return toEnglishDigits(
+      `${rounded.toLocaleString(loc, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ${T("common.sar")}`
+    );
   }
 
   function normalizePaymentCycleForUi(cycle) {
@@ -342,13 +468,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!dateString) return "—";
     const date = new Date(dateString);
     if (Number.isNaN(date.getTime())) return dateString;
-    const loc =
+    const locRaw =
       window.walajna_language && typeof window.walajna_language.localeForDates === "function"
         ? window.walajna_language.localeForDates()
         : window.walajna_language && window.walajna_language.get() === "en"
           ? "en-GB"
           : "ar-SA";
-    return date.toLocaleDateString(loc);
+    const loc = forceLatinDigitsLocale(locRaw, "en-GB");
+    return toEnglishDigits(date.toLocaleDateString(loc));
   }
 
   function getPaymentCycleLabel(cycle) {
@@ -404,7 +531,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function isApartmentOccupied(apartmentData) {
-    return hasTenantData(apartmentData) || hasContractData(apartmentData);
+    return hasTenantData(apartmentData);
   }
 
   function getEffectiveLeaseStatus(apartmentData) {
@@ -462,7 +589,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function getMonthlyRent(contractData) {
-    return Number(contractData?.rentAmount || data?.rent || 0);
+    const y = Number(contractData?.yearlyRent ?? contractData?.yearly_rent);
+    if (Number.isFinite(y) && y > 0) return y / 12;
+    return Number(contractData?.rentAmount || 0);
   }
 
   /**
@@ -585,12 +714,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   async function fetchNextUnpaidInstallmentFromApi(contractId) {
     if (!contractId || typeof WalajnaAuth === "undefined") return null;
     try {
-      const res = await WalajnaAuth.fetchWithAuth(
-        `${WalajnaAuth.API_BASE}/api/contracts/${encodeURIComponent(contractId)}/installments`,
-        { method: "GET" }
-      );
-      if (!res.ok) return null;
-      const rows = await res.json();
+      const rows = await getInstallmentRowsPromise(contractId);
       if (!Array.isArray(rows) || !rows.length) return null;
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -717,9 +841,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       window.walajna_language && typeof window.walajna_language.localeForDates === "function"
         ? window.walajna_language.localeForDates()
         : window.walajna_language && window.walajna_language.get() === "en"
-          ? "en-GB"
-          : "ar-SA";
-    const formattedDate = dueDate.toLocaleDateString(loc);
+          ? "en-GB-u-nu-latn"
+          : "ar-SA-u-nu-latn";
+    const formattedDate = toEnglishDigits(dueDate.toLocaleDateString(loc));
 
     dateEl.textContent = "— " + formattedDate;
     amountEl.textContent = formatMoney(nextPayment.amount);
@@ -801,7 +925,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     if (insurancePaidEl) {
-      insurancePaidEl.textContent = contract.insurancePaid || "—";
+      insurancePaidEl.textContent = contract.insurancePaid
+        ? toEnglishDigits(String(contract.insurancePaid))
+        : "—";
     }
 
     if (phoneNumberEl) {
@@ -809,14 +935,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     if (identityNumberEl) {
-      identityNumberEl.textContent = data.tenantNationalId || "—";
+      identityNumberEl.textContent = data.tenantNationalId
+        ? toEnglishDigits(String(data.tenantNationalId))
+        : "—";
     }
   }
 
   function fillAdditionalInfo() {
     if (startDateEl) startDateEl.textContent = formatDate(contract.startDate);
     if (endDateEl) endDateEl.textContent = formatDate(contract.endDate);
-    if (meterNumberEl) meterNumberEl.textContent = contract.meterNumber || "—";
+    if (meterNumberEl) {
+      meterNumberEl.textContent = contract.meterNumber
+        ? toEnglishDigits(String(contract.meterNumber))
+        : "—";
+    }
     if (notesEl) notesEl.textContent = contract.notes || "—";
   }
 
@@ -855,7 +987,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       );
       if (owner) {
         name =
-          owner.fullName || owner.name || owner.username || null;
+          owner.fullName || owner.name || null;
         nid = owner.nationalId || owner.national_id || null;
       }
     }
@@ -978,6 +1110,15 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (effectiveLeaseStatus === "vacant") {
         if (mainActionBtn) {
           mainActionBtn.textContent = T("aptPage.linkTenant");
+          if (!buildingUnitLayoutOk) {
+            mainActionBtn.disabled = true;
+            mainActionBtn.setAttribute("aria-disabled", "true");
+            mainActionBtn.title = T("building.completeLayoutAlert");
+          } else {
+            mainActionBtn.disabled = false;
+            mainActionBtn.removeAttribute("aria-disabled");
+            mainActionBtn.removeAttribute("title");
+          }
           showElement(mainActionBtn);
         }
         if (actionsSection) {
@@ -989,6 +1130,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       if (mainActionBtn) {
         mainActionBtn.textContent = T("aptPage.editApt");
+        mainActionBtn.disabled = false;
+        mainActionBtn.removeAttribute("aria-disabled");
+        mainActionBtn.removeAttribute("title");
         showElement(mainActionBtn);
       }
 
@@ -1042,6 +1186,67 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
+  async function resolveOwnerBuildingUnitLayoutOk(apartmentRow, localBuildingRow) {
+    if (
+      !apartmentRow?.buildingId ||
+      typeof WalajnaApartmentsApi === "undefined" ||
+      !WalajnaApartmentsApi.isBuildingUnitLayoutComplete ||
+      !WalajnaApartmentsApi.listForBuilding
+    ) {
+      return true;
+    }
+    try {
+      const bid = String(apartmentRow.buildingId ?? "");
+      let bRow = localBuildingRow;
+      if (
+        (!bRow || (bRow.apartmentCount == null && bRow.apartments_count == null)) &&
+        typeof WalajnaBuildingsApi !== "undefined" &&
+        WalajnaBuildingsApi.getSessionList
+      ) {
+        const fromSession = WalajnaBuildingsApi.getSessionList().find(
+          (b) => String(b.id) === bid || String(b.code ?? "").trim() === bid
+        );
+        if (fromSession) bRow = fromSession;
+      }
+      if (
+        (!bRow || (bRow.apartmentCount == null && bRow.apartments_count == null)) &&
+        typeof WalajnaAuth !== "undefined" &&
+        WalajnaAuth.fetchWithAuth
+      ) {
+        const bRes = await WalajnaAuth.fetchWithAuth(
+          `${WalajnaAuth.API_BASE}/api/buildings`,
+          { method: "GET" }
+        );
+        if (bRes.ok) {
+          const list = await bRes.json();
+          const fromApi = (Array.isArray(list) ? list : []).find(
+            (b) => String(b.id) === bid || String(b.code ?? "").trim() === bid
+          );
+          if (fromApi) bRow = fromApi;
+        }
+      }
+      if (!bRow) return true;
+      const mappedBuilding = {
+        id: bRow.id ?? apartmentRow.buildingId,
+        apartmentCount: bRow.apartmentCount ?? bRow.apartments_count,
+        apartments_count: bRow.apartments_count ?? bRow.apartmentCount,
+      };
+      const apts = await WalajnaApartmentsApi.listForBuilding(apartmentRow.buildingId);
+      return WalajnaApartmentsApi.isBuildingUnitLayoutComplete(mappedBuilding, apts);
+    } catch (e) {
+      console.warn("[apartment-page] unit layout gate skipped", e);
+      return true;
+    }
+  }
+
+  let buildingUnitLayoutOk = true;
+  if (activeRole === "owner" && currentUser) {
+    void resolveOwnerBuildingUnitLayoutOk(data, buildingData).then((ok) => {
+      buildingUnitLayoutOk = ok;
+      applyActionVisibility();
+    });
+  }
+
   /* Owner/tenant bottom actions before any slow payment API — avoids ~2s flash of wrong buttons */
   applyActionVisibility();
   ensureHistoryButton();
@@ -1086,7 +1291,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   initDocumentsSystem(aptId);
   initRequestsSystem(aptId, uiRoleForWidgets, currentUser, effectiveLeaseStatus, data);
-  const linkTenantSystem = initLinkTenantSystem(aptId, currentUser);
+  const linkTenantSystem = initLinkTenantSystem(aptId, currentUser, {
+    canAssignTenant: () => buildingUnitLayoutOk,
+  });
 
   /* Renew button state may depend on payment fetch — refresh actions once */
   applyActionVisibility();
@@ -1301,3 +1508,136 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   });
 });
+
+/** Paste in console on apartment_info.html: walajnaDiagnoseApartmentPage() */
+window.walajnaDiagnoseApartmentPage = async function walajnaDiagnoseApartmentPage() {
+  const params = new URLSearchParams(window.location.search);
+  const aptId = params.get("id");
+  const API = typeof WalajnaAuth !== "undefined" ? WalajnaAuth.API_BASE : "(WalajnaAuth missing)";
+  const report = {
+    page: window.location.href,
+    urlApartmentId: aptId,
+    apiBase: API,
+    loggedIn: !!(typeof WalajnaAuth !== "undefined" && WalajnaAuth.getCurrentUser && WalajnaAuth.getCurrentUser()),
+    user: typeof WalajnaAuth !== "undefined" && WalajnaAuth.getCurrentUser ? WalajnaAuth.getCurrentUser() : null,
+    activeRole:
+      typeof WalajnaAuth !== "undefined" && WalajnaAuth.getActiveRole
+        ? WalajnaAuth.getActiveRole()
+        : sessionStorage.getItem("activeRole"),
+    localStorageApartments: [],
+    localStorageBuildings: [],
+    apiListApartments: null,
+    apiSingleApartment: null,
+    diagnosis: [],
+  };
+
+  try {
+    report.localStorageApartments = JSON.parse(localStorage.getItem("walajna_apartments") || "[]");
+  } catch (e) {
+    report.localStorageApartments = { parseError: String(e) };
+  }
+  try {
+    report.sessionBuildings =
+      typeof WalajnaBuildingsApi !== "undefined" && WalajnaBuildingsApi.getSessionList
+        ? WalajnaBuildingsApi.getSessionList()
+        : [];
+  } catch (e) {
+    report.localStorageBuildings = { parseError: String(e) };
+  }
+
+  const localMatch = Array.isArray(report.localStorageApartments)
+    ? report.localStorageApartments.find((a) => String(a.id) === String(aptId))
+    : null;
+  report.localMatch = localMatch || null;
+
+  if (!aptId) {
+    report.diagnosis.push("No ?id= in URL.");
+  } else if (!/^\d+$/.test(String(aptId).trim())) {
+    report.diagnosis.push(
+      `URL id "${aptId}" is NOT a server numeric id (API expects digits only, e.g. id=12). This often comes from old cached data after a DB reset.`
+    );
+  }
+
+  if (typeof WalajnaAuth === "undefined" || !WalajnaAuth.fetchWithAuth) {
+    report.diagnosis.push("WalajnaAuth not loaded — open page from the app, not a saved HTML file.");
+    console.table(report);
+    return report;
+  }
+
+  try {
+    const listRes = await WalajnaAuth.fetchWithAuth(`${API}/api/apartments`, { method: "GET" });
+    const listText = await listRes.text();
+    let listJson = null;
+    try {
+      listJson = listText ? JSON.parse(listText) : null;
+    } catch {
+      listJson = listText;
+    }
+    report.apiListApartments = { status: listRes.status, ok: listRes.ok, body: listJson };
+    if (listRes.status === 503) {
+      report.diagnosis.push("API returned 503 — Render waking up or Supabase unavailable. Wait 30–60s and retry.");
+    } else if (!listRes.ok) {
+      report.diagnosis.push(`GET /api/apartments failed (${listRes.status}).`);
+    }
+  } catch (e) {
+    report.apiListApartments = { error: String(e) };
+    report.diagnosis.push("Network error calling GET /api/apartments.");
+  }
+
+  if (aptId) {
+    try {
+      const oneRes = await WalajnaAuth.fetchWithAuth(
+        `${API}/api/apartments/${encodeURIComponent(aptId)}`,
+        { method: "GET" }
+      );
+      const oneText = await oneRes.text();
+      let oneJson = null;
+      try {
+        oneJson = oneText ? JSON.parse(oneText) : null;
+      } catch {
+        oneJson = oneText;
+      }
+      report.apiSingleApartment = { status: oneRes.status, ok: oneRes.ok, body: oneJson };
+      if (oneRes.status === 422) {
+        report.diagnosis.push(
+          `GET /api/apartments/${aptId} → 422: id must be a number. Use a link from the building page after login.`
+        );
+      } else if (oneRes.status === 404) {
+        report.diagnosis.push("Apartment not in database (404). DB may have been cleared — add buildings/units again.");
+      } else if (!oneRes.ok) {
+        report.diagnosis.push(`GET /api/apartments/${aptId} failed (${oneRes.status}).`);
+      } else {
+        report.diagnosis.push("API returned this apartment — page should load if you hard-refresh (Ctrl+F5).");
+      }
+    } catch (e) {
+      report.apiSingleApartment = { error: String(e) };
+      report.diagnosis.push("Network error calling GET /api/apartments/{id}.");
+    }
+  }
+
+  if (localMatch && report.apiSingleApartment && !report.apiSingleApartment.ok) {
+    report.diagnosis.push(
+      "Browser still has this unit in localStorage but API rejected it — clear site data OR open from building grid (numeric id)."
+    );
+  }
+
+  if (Array.isArray(report.localStorageApartments) && report.localStorageApartments.length && report.apiListApartments?.ok) {
+    const serverIds = new Set(
+      (report.apiListApartments.body || []).map((a) => String(a.id))
+    );
+    const stale = report.localStorageApartments.filter(
+      (a) => a.id != null && !serverIds.has(String(a.id))
+    );
+    if (stale.length) {
+      report.staleLocalOnly = stale.map((a) => ({ id: a.id, number: a.number || a.apartment_number }));
+      report.diagnosis.push(
+        `${stale.length} apartment(s) exist only in localStorage, not on server — remove walajna_apartments or re-add on server.`
+      );
+    }
+  }
+
+  console.log("=== Walajna apartment page diagnosis ===");
+  console.table(report.diagnosis.map((msg, i) => ({ step: i + 1, issue: msg })));
+  console.log(report);
+  return report;
+};

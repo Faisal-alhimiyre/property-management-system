@@ -3,6 +3,17 @@ import re
 import sys
 import asyncio
 
+# Use the OS-native certificate store (Windows / macOS) for TLS verification.
+# Fixes "CERTIFICATE_VERIFY_FAILED: unable to get local issuer certificate"
+# when antivirus / corporate proxy injects a custom root CA that certifi
+# does not include. Must run BEFORE importing httpx / supabase / requests.
+try:
+    import truststore
+    truststore.inject_into_ssl()
+    print("truststore: injected OS native CA store into ssl.")
+except Exception as _truststore_exc:
+    print(f"truststore unavailable, falling back to certifi: {_truststore_exc}")
+
 # Check if the application is running
 print("Starting the application...")
 print("=== MAIN.PY LOADED ===")
@@ -29,13 +40,30 @@ if sys.platform.startswith("win"):
 
 _cors_raw = os.getenv(
     "CORS_ORIGINS",
+    "https://faisal-alhimiyre.github.io,"
     "http://127.0.0.1:5500,http://localhost:5500,"
     "http://127.0.0.1:8002,http://localhost:8002,"
     "http://127.0.0.1:3000,http://localhost:3000",
 )
 _cors_origins = [o.strip() for o in _cors_raw.split(",") if o.strip()]
+_cors_origin_set = {o.rstrip("/") for o in _cors_origins}
 _cors_origin_regex = r"^http://(127\.0\.0\.1|localhost)(:\d+)?$"
 _dev_origin_re = re.compile(_cors_origin_regex)
+
+
+def _origin_allowed(origin: str) -> bool:
+    if not origin:
+        return False
+    if _dev_origin_re.match(origin):
+        return True
+    normalized = origin.rstrip("/")
+    if normalized in _cors_origin_set:
+        return True
+    # GitHub Pages origin is only scheme + host (no repo path in Origin header).
+    host = normalized.split("://", 1)[-1].split("/", 1)[0].lower()
+    if host == "faisal-alhimiyre.github.io":
+        return True
+    return False
 
 # Initialize the app
 try:
@@ -123,6 +151,13 @@ except Exception as e:
     print(f"Error importing notification router: {e}")
     notification_router = None
 
+try:
+    from routes.cost_routes import router as cost_router
+    print("Cost router imported successfully")
+except Exception as e:
+    print(f"Error importing cost router: {e}")
+    cost_router = None
+
 # Bind login on the app before include_router so POST /login is never overridden by another layer.
 if login_handler is not None:
     app.add_api_route("/login", login_handler, methods=["POST"], tags=["auth"])
@@ -153,10 +188,17 @@ if document_router:
     app.include_router(document_router, prefix="/api", tags=["documents"])
 if notification_router:
     app.include_router(notification_router, prefix="/api", tags=["notifications"])
+if cost_router:
+    app.include_router(cost_router, prefix="/api", tags=["costs"])
 
 @app.get("/")
 async def root():
     return {"message": "Property Management API"}
+
+
+@app.get("/health")
+async def health():
+    return {"ok": True}
 
 @app.options("/")
 async def options_root():
@@ -185,11 +227,10 @@ print("Test GET endpoint defined")
 @app.middleware("http")
 async def localhost_cors(request: Request, call_next):
     """
-    Single CORS layer for local dev (Live Server + API on different ports).
-    Echoes the request Origin so credentialed fetch always gets a matching ACAO header.
-    """
+    CORS for local dev (localhost) and production frontends listed in CORS_ORIGINS.
+  """
     origin = (request.headers.get("origin") or "").strip()
-    allowed = bool(origin and _dev_origin_re.match(origin))
+    allowed = _origin_allowed(origin)
 
     if request.method == "OPTIONS" and allowed:
         req_headers = request.headers.get("access-control-request-headers") or "*"

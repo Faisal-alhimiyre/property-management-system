@@ -21,6 +21,11 @@ CREATE TABLE IF NOT EXISTS public.buildings (
 CREATE INDEX IF NOT EXISTS buildings_owner_id_idx ON public.buildings(owner_id);
 CREATE UNIQUE INDEX IF NOT EXISTS buildings_code_unique_idx ON public.buildings(code) WHERE code IS NOT NULL;
 
+ALTER TABLE public.buildings
+  ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION,
+  ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION,
+  ADD COLUMN IF NOT EXISTS neighborhood TEXT;
+
 -- 2) Apartments columns expected by backend/frontend
 ALTER TABLE public.apartments
   ADD COLUMN IF NOT EXISTS building_id INTEGER REFERENCES public.buildings(id) ON DELETE SET NULL,

@@ -15,80 +15,175 @@
 <body data-nav="user" data-wl-bc="owner-edit">
   <div id="navbar-container"></div>
 
-  <main class="owner-form-page">
-    <section class="form-card">
-      <h2 id="ownerFormTitle" class="form-title" data-i18n="owner.formTitleAdd">إضافة عمارة</h2>
-      <p class="form-subtitle" data-i18n="owner.formSubtitle">أدخل بيانات العمارة وعدد الشقق</p>
+  <main class="owner-form-page owner-form-page--compact">
+    <header class="oe-hero">
+      <div class="oe-hero__mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 21h18M5 21V9l7-5 7 5v12M9 21v-6h6v6"/>
+        </svg>
+      </div>
+      <div class="oe-hero__text">
+        <h1 id="ownerFormTitle" class="oe-hero__title" data-i18n="owner.formTitleAdd">إضافة عمارة</h1>
+        <p class="oe-hero__sub" data-i18n="owner.formSubtitle">أدخل بيانات العمارة وعدد الشقق</p>
+      </div>
+    </header>
 
-      <form id="buildingForm" class="building-form">
-        <div class="form-group full">
-          <label for="buildingName" data-i18n="owner.label.buildingName">اسم العمارة</label>
-          <input type="text" id="buildingName" data-i18n-placeholder="owner.ph.buildingName" placeholder="مثال: عمارة الخالدية 1" required>
+    <section class="form-card oe-card">
+      <form id="buildingForm" class="building-form oe-form">
+        <fieldset class="oe-block">
+          <legend class="oe-block__label" data-i18n="owner.label.buildingName">اسم العمارة</legend>
+          <div class="form-group full oe-field">
+            <label class="sr-only" for="buildingName" data-i18n="owner.label.buildingName">اسم العمارة</label>
+            <div class="building-name-compose" id="buildingNameCompose">
+              <span
+                class="building-name-compose__affix building-name-compose__prefix"
+                id="buildingNameAffix"
+                data-i18n="owner.buildingNamePrefix"
+                aria-hidden="true"
+              >عمارة</span>
+              <input
+                type="text"
+                id="buildingName"
+                class="building-name-compose__input"
+                maxlength="30"
+                autocomplete="off"
+                data-i18n-placeholder="owner.ph.buildingName"
+                placeholder="مثال: الخالدية"
+                required
+              >
+            </div>
+            <div class="oe-field__meta">
+              <p class="form-field-hint" id="buildingNameHint" data-i18n="owner.hint.buildingName">اكتب اسمًا مميزًا للعمارة فقط — كلمة «عمارة» تُضاف تلقائياً.</p>
+              <p class="form-field-counter" id="buildingNameCounter" aria-live="polite">0 / 30</p>
+            </div>
+          </div>
+
+          <div class="oe-row oe-row--2">
+            <div class="form-group oe-field">
+              <label for="buildingCode" data-i18n="owner.label.buildingCode">رمز العمارة</label>
+              <input type="text" id="buildingCode" readonly class="form-input oe-input--code">
+            </div>
+            <div class="form-group select-group oe-field">
+              <label for="building-city" data-i18n="owner.label.city">المدينة</label>
+              <select id="building-city" required>
+                <option value="" data-i18n="owner.selectCity">اختر المدينة</option>
+              </select>
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="oe-block oe-block--map">
+          <legend class="oe-block__label" data-i18n="owner.label.buildingLocation">موقع العمارة على الخريطة</legend>
+          <div class="form-group full oe-field">
+            <label class="sr-only" for="buildingLocationDisplay" data-i18n="owner.label.buildingLocation">موقع العمارة على الخريطة</label>
+            <div class="map-picker-row oe-map-row">
+              <span class="oe-map-row__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 21s7-4.5 7-11a7 7 0 1 0-14 0c0 6.5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>
+                </svg>
+              </span>
+              <input
+                type="text"
+                id="buildingLocationDisplay"
+                class="map-location-display"
+                data-i18n-placeholder="owner.locationDisplayPlaceholder"
+                placeholder="لم يتم اختيار موقع بعد"
+                readonly
+              >
+              <button type="button" id="openMapPickerBtn" class="map-picker-btn" data-i18n="owner.mapOpenPicker">
+                اختيار من الخريطة
+              </button>
+            </div>
+            <p id="buildingNeighborhoodReadout" class="map-neighborhood-readout oe-map-readout" aria-live="polite">
+              سيُحدَّد الحي تلقائياً بعد اختيار الموقع على الخريطة.
+            </p>
+            <input type="hidden" id="buildingNeighborhood" value="">
+            <input type="hidden" id="buildingLat">
+            <input type="hidden" id="buildingLng">
+          </div>
+        </fieldset>
+
+        <fieldset class="oe-block">
+          <legend class="oe-block__label oe-block__label--split">
+            <span data-i18n="owner.label.apartmentCount">عدد الشقق</span>
+            <span class="oe-block__dot" aria-hidden="true">·</span>
+            <span data-i18n="owner.label.defaultPaymentCycle">دورة الدفع</span>
+          </legend>
+          <div class="oe-row oe-row--3">
+            <div class="form-group oe-field">
+              <label for="apartmentCount" data-i18n="owner.label.apartmentCount">عدد الشقق</label>
+              <input type="number" id="apartmentCount" min="1" data-i18n-placeholder="owner.ph.count" placeholder="14" required>
+            </div>
+            <div class="form-group oe-field">
+              <label for="totalFloors" data-i18n="owner.label.totalFloors">عدد الطوابق</label>
+              <input type="number" id="totalFloors" min="1" data-i18n-placeholder="owner.ph.floors" placeholder="7" />
+            </div>
+            <div class="form-group select-group oe-field">
+              <label for="defaultPaymentCycle" data-i18n="owner.label.defaultPaymentCycle">دورة الدفع الافتراضية</label>
+              <select id="defaultPaymentCycle" required>
+                <option value="monthly" data-i18n="payments.cycle.monthly">شهري</option>
+                <option value="quarterly" data-i18n="payments.cycle.quarterly">ربع سنوي</option>
+                <option value="semi_annual" data-i18n="payments.cycle.semi">نصف سنوي</option>
+                <option value="annual" data-i18n="payments.cycle.annual">سنوي</option>
+              </select>
+            </div>
+          </div>
+        </fieldset>
+
+        <div class="oe-submit">
+          <button type="submit" class="save-btn" data-i18n="owner.saveBuilding">حفظ العمارة</button>
+          <p id="formMessage" class="form-message"></p>
         </div>
-
-        <div class="form-group">
-          <label for="buildingCode" data-i18n="owner.label.buildingCode">رمز العمارة</label>
-          <input type="text" id="buildingCode" readonly class="form-input">
-        </div>
-
-        <div class="form-group select-group">
-          <label for="building-city" data-i18n="owner.label.city">المدينة</label>
-          <select id="building-city" required>
-            <option value="" data-i18n="owner.selectCity">اختر المدينة</option>
-          </select>
-        </div>
-
-        <div class="form-group full">
-          <label for="apartmentCount" data-i18n="owner.label.apartmentCount">عدد الشقق</label>
-          <input type="number" id="apartmentCount" min="1" data-i18n-placeholder="owner.ph.count" placeholder="مثال: 14" required>
-        </div>
-
-        <div class="form-group">
-          <label for="totalFloors" data-i18n="owner.label.totalFloors">عدد الطوابق</label>
-          <input type="number" id="totalFloors" min="1" data-i18n-placeholder="owner.ph.floors" placeholder="مثال: 7" />
-        </div>
-
-        <div class="form-group">
-          <label for="apartmentsPerFloor" data-i18n="owner.label.apartmentsPerFloor">عدد الشقق في كل طابق</label>
-          <input type="number" id="apartmentsPerFloor" min="1" data-i18n-placeholder="owner.ph.perFloor" placeholder="مثال: 2" />
-        </div>
-
-        <div class="form-group">
-          <label for="bedrooms" data-i18n="apt.html.label.bedrooms">عدد غرف النوم</label>
-          <input type="number" id="bedrooms" min="0" data-i18n-placeholder="owner.ph.bedrooms" placeholder="مثال: 3" required>
-        </div>
-
-        <div class="form-group">
-          <label for="bathrooms" data-i18n="apt.html.label.bathrooms">عدد دورات المياه</label>
-          <input type="number" id="bathrooms" min="0" data-i18n-placeholder="owner.ph.bathrooms" placeholder="مثال: 2" required>
-        </div>
-
-        <div class="form-group">
-          <label for="livingRooms" data-i18n="apt.html.label.livingRooms">عدد الصالات</label>
-          <input type="number" id="livingRooms" min="0" data-i18n-placeholder="owner.ph.livingRooms" placeholder="مثال: 1" required>
-        </div>
-
-        <div class="form-group select-group">
-          <label for="defaultPaymentCycle" data-i18n="owner.label.defaultPaymentCycle">دورة الدفع الافتراضية</label>
-          <select id="defaultPaymentCycle" required>
-            <option value="monthly" data-i18n="payments.cycle.monthly">شهري</option>
-            <option value="quarterly" data-i18n="payments.cycle.quarterly">ربع سنوي</option>
-            <option value="semi_annual" data-i18n="payments.cycle.semi">نصف سنوي</option>
-            <option value="annual" data-i18n="payments.cycle.annual">سنوي</option>
-          </select>
-        </div>
-
-        <button type="submit" class="save-btn" data-i18n="owner.saveBuilding">حفظ العمارة</button>
-        <p id="formMessage" class="form-message"></p>
       </form>
     </section>
   </main>
 
   <script src="../js/main/breadcrumbs.js"></script>
   <script src="../js/main/auth.js"></script>
+  <script src="../js/main/buildings-api.js"></script>
   <script src="../js/main/nav.js"></script>
   <script src="../js/main/apartments-api.js"></script>
   <script src="../js/apartment-manager/apartment-storage.js"></script>
+  <div id="mapModal" class="map-modal" hidden>
+    <div class="map-modal-panel">
+      <header class="map-modal-header">
+        <h3 class="map-modal-title" data-i18n="owner.mapTitle">اختيار موقع العمارة</h3>
+        <div class="map-search">
+          <input
+            type="text"
+            id="mapSearchInput"
+            class="map-search-input"
+            data-i18n-placeholder="owner.mapSearchPlaceholder"
+            placeholder="ابحث عن حي أو عنوان (مثال: جدة الحمدانية)"
+          >
+          <button type="button" id="mapSearchBtn" class="map-search-btn" data-i18n="owner.mapSearch">بحث</button>
+        </div>
+        <button type="button" id="closeMapPickerBtn" class="map-modal-close" data-i18n-aria-label="common.close" aria-label="إغلاق">✕</button>
+      </header>
+      <div class="map-modal-body">
+        <div class="map-modal-map-wrap">
+          <div id="buildingMap"></div>
+          <div class="map-modal-actions">
+            <button type="button" id="confirmMapLocationBtn" class="map-confirm-btn" disabled data-i18n="owner.mapConfirm">
+              تأكيد الموقع
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+  <script src="../js/main/building-name.js"></script>
   <script src="../js/owner-manager/owner-edit.js"></script>
   <script src="../js/main/theme.js"></script>
 </body>
