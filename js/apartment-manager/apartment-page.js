@@ -72,6 +72,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const evictTenantBtn = document.getElementById("evictTenantBtn");
   const tenantPayBtn = document.getElementById("tenantPayBtn");
   const viewCostsBtn = document.getElementById("viewCostsBtn");
+  const arPreviewBtn = document.getElementById("arPreviewBtn");
   const actionsSection = document.querySelector("section.actions");
 
   if (!title && !number && !building && !status && !rent) return;
@@ -1093,6 +1094,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     hideElement(evictTenantBtn);
     hideElement(tenantPayBtn);
     hideElement(viewCostsBtn);
+    hideElement(arPreviewBtn);
   }
 
   function applyTenantPayStyle() {
@@ -1121,6 +1123,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           }
           showElement(mainActionBtn);
         }
+        if (arPreviewBtn) showElement(arPreviewBtn);
         if (actionsSection) {
           actionsSection.classList.remove("actions--pending");
           actionsSection.removeAttribute("aria-busy");
@@ -1141,6 +1144,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       showElement(viewRequestsBtn);
       showElement(evictTenantBtn);
       showElement(viewCostsBtn);
+      if (arPreviewBtn) showElement(arPreviewBtn);
 
       if (renewContractBtn) {
         showElement(renewContractBtn);
@@ -1175,6 +1179,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     showElement(paymentsBtn);
     showElement(documentsBtn);
     showElement(viewRequestsBtn);
+    if (arPreviewBtn) showElement(arPreviewBtn);
 
     if (tenantPayBtn) {
       showElement(tenantPayBtn);
@@ -1341,6 +1346,32 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
 
       window.location.href = `../main/costs.html?id=${encodeURIComponent(aptId)}`;
+    });
+  }
+
+  if (arPreviewBtn) {
+    arPreviewBtn.addEventListener("click", () => {
+      if (!aptId) {
+        alert(T("aptPage.cannotIdentify"));
+        return;
+      }
+      if (typeof WalajnaAr === "undefined" || !WalajnaAr.openViewer) {
+        alert(T("aptInfo.actions.viewArUnavailable"));
+        return;
+      }
+      arPreviewBtn.disabled = true;
+      WalajnaAr.openViewer(data, buildingData)
+        .catch((err) => {
+          console.error("[apartment-page] AR preview failed", err);
+          alert(
+            err && err.message
+              ? err.message
+              : T("aptInfo.actions.viewArFailed")
+          );
+        })
+        .finally(() => {
+          arPreviewBtn.disabled = false;
+        });
     });
   }
 

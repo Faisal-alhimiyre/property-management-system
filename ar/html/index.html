@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>3D Apartment Preview</title>
+  <link rel="stylesheet" href="../css/style.css" />
+</head>
+<body class="form-page">
+  <main class="form-shell">
+    <header class="form-header">
+      <p class="form-kicker">CPIS-360 · floor plan</p>
+      <h1>Configure your building</h1>
+      <p class="form-lead">Choose how many floors and rooms you want. The 3D viewer opens on the next screen.</p>
+    </header>
+
+    <form id="building-form" novalidate>
+      <section class="form-section">
+        <h2 class="form-section-title">Building layout</h2>
+        <p id="form-stats" class="form-stats" aria-live="polite"></p>
+        <div class="field-grid field-grid--building">
+          <div class="form-field">
+            <label for="floors">Floors</label>
+            <input type="number" id="floors" name="floors" min="1" max="40" step="1" value="5" required />
+          </div>
+          <div class="form-field">
+            <label for="apartments">Apartments per floor</label>
+            <input type="number" id="apartments" name="apartments" min="1" max="16" step="1" value="2" required />
+          </div>
+        </div>
+      </section>
+
+      <section class="form-section">
+        <h2 class="form-section-title">Rooms in each apartment</h2>
+        <p class="form-fixed-note">Each apartment includes 1 kitchen and 1 living room.</p>
+        <div class="field-grid field-grid--rooms">
+          <div class="form-field">
+            <label for="bedrooms">Bedrooms</label>
+            <input type="number" id="bedrooms" name="bedrooms" min="0" max="12" step="1" value="2" />
+          </div>
+          <div class="form-field">
+            <label for="bathrooms">Bathrooms</label>
+            <input type="number" id="bathrooms" name="bathrooms" min="0" max="12" step="1" value="2" />
+          </div>
+          <div class="form-field form-field--fixed">
+            <span class="form-fixed-label">Kitchen</span>
+            <span class="form-fixed-value" aria-label="Kitchen count fixed at 1">1</span>
+          </div>
+          <div class="form-field form-field--fixed">
+            <span class="form-fixed-label">Living room</span>
+            <span class="form-fixed-value" aria-label="Living room count fixed at 1">1</span>
+          </div>
+        </div>
+      </section>
+
+      <div class="form-actions">
+        <button type="submit" id="btn-generate">Open 3D preview</button>
+      </div>
+      <p id="form-message" class="form-message" role="status"></p>
+    </form>
+  </main>
+
+  <script src="../js/ui.js"></script>
+  <script src="../js/form-app.js"></script>
+</body>
+</html>

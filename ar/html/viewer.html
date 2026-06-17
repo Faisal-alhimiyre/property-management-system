@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>3D apartment preview</title>
+  <link rel="stylesheet" href="../css/viewer.css" />
+  <script src="https://cdn.jsdelivr.net/npm/aframe@1.2.0/dist/aframe.min.js"></script>
+  <script src="../js/viewer-spin.js"></script>
+</head>
+<body>
+  <span id="viewer-hint" hidden>Loading…</span>
+  <p id="viewer-error" role="alert" hidden style="color:#9d174d;font-weight:600"></p>
+
+  <div class="action-pad" aria-label="Viewer actions">
+    <button type="button" id="btn-confirm-pick" class="pick-action pick-action--idle" disabled>Confirm</button>
+    <a id="btn-edit-building" href="index.html">Edit</a>
+    <button type="button" id="btn-back-building">Back</button>
+    <p id="pick-flow-note" class="pick-flow-note">Pick a floor, then pick an apartment</p>
+  </div>
+
+  <a-scene
+    id="viewer-scene"
+    vr-mode-ui="enabled: false"
+    loading-screen="enabled: false"
+    background="color: #c5cad3"
+    renderer="antialias: true"
+    device-orientation-permission-ui="enabled: false"
+  >
+    <a-entity id="building-mount" position="0 1 0" rotation="0 35 0" cpis-cube-spin></a-entity>
+
+    <a-entity id="camera-wrap" position="0 1 5.6">
+      <a-camera
+        id="viewer-camera"
+        position="0 0 0"
+        rotation="0 0 0"
+        look-controls="enabled: false"
+        wasd-controls="enabled: false"
+        camera="active: true; far: 100; near: 0.1; fov: 48"
+      ></a-camera>
+    </a-entity>
+
+    <a-entity light="type: ambient; color: #ffffff; intensity: 0.9"></a-entity>
+    <a-entity light="type: directional; color: #ffffff; intensity: 0.95" position="5 10 8"></a-entity>
+  </a-scene>
+
+  <script src="../js/ui.js"></script>
+  <script src="../../js/main/auth.js"></script>
+  <script src="../../js/main/ar-api.js"></script>
+  <script src="../js/walajna-viewer-boot.js"></script>
+  <script src="../js/viewer-camera.js"></script>
+  <script src="../js/apartment-plan-templates.js?v=scatter6"></script>
+  <script src="../js/generator.js?v=walajna8"></script>
+  <script src="../js/room-relocate.js"></script>
+  <script src="../js/viewer-navigation.js"></script>
+  <script src="../js/viewer-overlay.js?v=walajna3"></script>
+  <script src="../js/viewer-app-core.js?v=walajna3"></script>
+  <script src="../js/viewer-page.js?v=walajna3"></script>
+</body>
+</html>

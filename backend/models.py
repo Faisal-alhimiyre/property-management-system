@@ -323,4 +323,28 @@ class UnitLayoutItem(BaseModel):
 class UnitLayoutBody(BaseModel):
     units: list[UnitLayoutItem]
 
+
+class ApartmentArLayoutUpsert(BaseModel):
+    """Body for PUT /api/apartments/{id}/ar-layout — 3D viewer building spec."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    spec: dict[str, Any]
+    focus_apartment_number: Optional[str] = None
+    focus_floor_number: Optional[int] = None
+
+
+class ApartmentArLayoutResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    id: int
+    apartment_id: int
+    building_id: Optional[int] = None
+    owner_id: int
+    spec: dict[str, Any]
+    focus_apartment_number: Optional[str] = None
+    focus_floor_number: Optional[int] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
 # Add more response models as needed

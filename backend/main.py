@@ -158,6 +158,13 @@ except Exception as e:
     print(f"Error importing cost router: {e}")
     cost_router = None
 
+try:
+    from routes.ar_routes import router as ar_router
+    print("AR router imported successfully")
+except Exception as e:
+    print(f"Error importing AR router: {e}")
+    ar_router = None
+
 # Bind login on the app before include_router so POST /login is never overridden by another layer.
 if login_handler is not None:
     app.add_api_route("/login", login_handler, methods=["POST"], tags=["auth"])
@@ -190,6 +197,8 @@ if notification_router:
     app.include_router(notification_router, prefix="/api", tags=["notifications"])
 if cost_router:
     app.include_router(cost_router, prefix="/api", tags=["costs"])
+if ar_router:
+    app.include_router(ar_router, prefix="/api", tags=["ar"])
 
 @app.get("/")
 async def root():

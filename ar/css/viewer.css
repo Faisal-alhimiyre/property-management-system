@@ -1,0 +1,118 @@
+html,
+body {
+  margin: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background: #c5cad3;
+  font: 14px system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  touch-action: none;
+}
+
+a-scene {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+}
+
+a-scene canvas {
+  touch-action: none !important;
+  cursor: grab;
+}
+
+a-scene canvas:active {
+  cursor: grabbing;
+}
+
+#btn-back-building {
+  display: none;
+  cursor: pointer;
+}
+
+.pick-action {
+  cursor: not-allowed;
+}
+
+#btn-confirm-pick.pick-action--idle,
+#btn-confirm-pick:disabled {
+  background: #c4c9d1 !important;
+  border: 2px dashed #9ca3af !important;
+  color: #6b7280 !important;
+  box-shadow: none !important;
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+#btn-confirm-pick.pick-action--active:not(:disabled) {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border: 2px solid #0f172a !important;
+  color: #0f172a !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+  cursor: pointer;
+}
+
+.pick-flow-note {
+  order: 10;
+  width: 100%;
+  min-width: 148px;
+  max-width: 168px;
+  margin: 4px 0 0;
+  padding: 10px 12px;
+  font-size: 14px;
+  line-height: 1.45;
+  font-weight: 600;
+  color: #1e293b;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #94a3b8;
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  box-sizing: border-box;
+}
+
+#viewer-hint { display: none; }
+
+#viewer-error {
+  display: none;
+  margin: 0;
+}
+
+.action-pad {
+  position: fixed;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
+  min-width: 148px;
+}
+
+.action-pad button,
+.action-pad a {
+  width: 100%;
+  min-width: 148px;
+  height: 44px;
+  border: 2px solid #0f172a;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.95);
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.action-pad button:active:not(:disabled),
+.action-pad a:active {
+  background: #e0f2fe;
+}

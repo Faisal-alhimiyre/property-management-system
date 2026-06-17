@@ -23,6 +23,8 @@
       apartments_count: Number(row.apartments_count ?? row.apartmentCount ?? 0),
       totalFloors: row.totalFloors ?? row.total_floors ?? null,
       total_floors: row.total_floors ?? row.totalFloors ?? null,
+      apartmentsPerFloor: row.apartmentsPerFloor ?? row.apartments_per_floor ?? null,
+      apartments_per_floor: row.apartments_per_floor ?? row.apartmentsPerFloor ?? null,
       neighborhood: row.neighborhood ?? "",
       code: row.code ?? null,
       isPinned: !!(row.is_pinned ?? row.isPinned),
