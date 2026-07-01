@@ -241,6 +241,8 @@ class ApartmentResponse(BaseModel):
     current_contract_id: Optional[int] = None
     lease_status: Optional[str] = "vacant"
     maintenance_id: Optional[int] = None
+    # Open tenant requests for this unit (owner list GET); not a DB column.
+    open_requests: Optional[list[dict[str, Any]]] = None
     created_at: Optional[datetime] = None
     # Built from public.contracts link-tenant columns (+ dates); API-only, not an apartments column.
     lease_terms: Optional[dict[str, Any]] = None

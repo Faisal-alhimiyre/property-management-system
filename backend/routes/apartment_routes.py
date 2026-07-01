@@ -646,19 +646,25 @@ def _apply_maintenance_pointer_view_only(apartments_data: list[dict]) -> None:
             continue
     if not apt_ids:
         return
+    request_rows: list[dict] = []
+    chunk_size = 80
     try:
-        res = (
-            supabase.table("maintenance_requests")
-            .select("id, apartment_id, status, request_type")
-            .in_("apartment_id", apt_ids)
-            .execute()
-        )
+        for i in range(0, len(apt_ids), chunk_size):
+            chunk = apt_ids[i : i + chunk_size]
+            res = (
+                supabase.table("maintenance_requests")
+                .select("id, apartment_id, status, request_type, owner_seen")
+                .in_("apartment_id", chunk)
+                .execute()
+            )
+            request_rows.extend(getattr(res, "data", None) or [])
     except Exception:
         logger.exception("maintenance_requests batch read failed; skipping maintenance_id view apply")
         return
 
     open_ids_by_apt: dict[int, list[int]] = defaultdict(list)
-    for row in getattr(res, "data", None) or []:
+    open_requests_by_apt: dict[int, list[dict]] = defaultdict(list)
+    for row in request_rows:
         if not _maintenance_request_is_open(row.get("status")):
             continue
         rt = str(row.get("request_type") or "maintenance").lower()
@@ -669,9 +675,19 @@ def _apply_maintenance_pointer_view_only(apartments_data: list[dict]) -> None:
         if aid is None or rid is None:
             continue
         try:
-            open_ids_by_apt[int(aid)].append(int(rid))
+            iaid = int(aid)
+            irid = int(rid)
         except (TypeError, ValueError):
             continue
+        open_ids_by_apt[iaid].append(irid)
+        open_requests_by_apt[iaid].append(
+            {
+                "id": irid,
+                "request_type": rt,
+                "status": row.get("status"),
+                "owner_seen": bool(row.get("owner_seen")),
+            }
+        )
 
     expected: dict[int, int | None] = {}
     for aid in apt_ids:
@@ -687,14 +703,19 @@ def _apply_maintenance_pointer_view_only(apartments_data: list[dict]) -> None:
         except (TypeError, ValueError):
             continue
         exp = expected.get(iaid)
+        open_reqs = open_requests_by_apt.get(iaid) or []
         cur = apartment.get("maintenance_id")
         try:
             cur_i = int(cur) if cur is not None else None
         except (TypeError, ValueError):
             cur_i = None
-        if cur_i == exp:
-            continue
-        apartments_data[i] = {**apartment, "maintenance_id": exp}
+        patch: dict = {}
+        if cur_i != exp:
+            patch["maintenance_id"] = exp
+        if apartment.get("open_requests") != open_reqs:
+            patch["open_requests"] = open_reqs
+        if patch:
+            apartments_data[i] = {**apartment, **patch}
 
 
 def _denormalized_tenant_present(apt: dict) -> bool:

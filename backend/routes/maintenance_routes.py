@@ -75,13 +75,16 @@ def _fetch_requests_for_user(
                     )
                     add_rows(getattr(res, "data", None))
             else:
-                res = (
-                    supabase.table("maintenance_requests")
-                    .select("*")
-                    .in_("apartment_id", apt_ids)
-                    .execute()
-                )
-                add_rows(getattr(res, "data", None))
+                chunk_size = 80
+                for i in range(0, len(apt_ids), chunk_size):
+                    chunk = apt_ids[i : i + chunk_size]
+                    res = (
+                        supabase.table("maintenance_requests")
+                        .select("*")
+                        .in_("apartment_id", chunk)
+                        .execute()
+                    )
+                    add_rows(getattr(res, "data", None))
 
     return sorted(rows_by_id.values(), key=lambda r: int(r.get("id") or 0))
 

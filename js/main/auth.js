@@ -252,6 +252,66 @@ async function hydrateSession() {
   }
 }
 
+/** Confirm cookie/Bearer session before parallel dashboard fetches (avoids empty API rows on cold login). */
+async function ensureSessionValid() {
+  if (!getCurrentUser()) {
+    return false;
+  }
+  try {
+    const r = await fetchWithAuth(`${API_BASE}/users/me`, { method: 'GET' });
+    if (!r.ok) {
+      return r.status === 401 ? false : true;
+    }
+    const u = await r.json();
+    setSession({ user: u });
+    if (!sessionStorage.getItem(ACTIVE_ROLE_KEY) && u.role) {
+      sessionStorage.setItem(ACTIVE_ROLE_KEY, u.role);
+    }
+    return true;
+  } catch {
+    return true;
+  }
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * GET JSON with retries on transient 5xx / network errors.
+ * Returns { ok, data, status } — data is null when all attempts fail.
+ */
+async function fetchJsonWithAuthRetry(url, options = {}, retryOpts = {}) {
+  const retries = Math.max(1, Number(retryOpts.retries) || 3);
+  const delayMs = Number(retryOpts.delayMs) || 400;
+  const method = String(options.method || 'GET').toUpperCase();
+  let lastStatus = 0;
+
+  for (let attempt = 0; attempt < retries; attempt += 1) {
+    try {
+      const response = await fetchWithAuth(url, options);
+      lastStatus = response.status;
+      if (response.ok) {
+        const data = await response.json();
+        return { ok: true, data, status: response.status };
+      }
+      const retryable =
+        method === 'GET' &&
+        (response.status >= 500 || response.status === 429 || response.status === 408);
+      if (!retryable || attempt >= retries - 1) {
+        return { ok: false, data: null, status: response.status };
+      }
+    } catch {
+      if (attempt >= retries - 1) {
+        return { ok: false, data: null, status: lastStatus || 0 };
+      }
+    }
+    await delay(delayMs * (attempt + 1));
+  }
+
+  return { ok: false, data: null, status: lastStatus || 0 };
+}
+
 function requireAuth() {
   if (!getCurrentUser()) {
     window.location.href = '../auth/login.html';
@@ -294,7 +354,9 @@ window.WalajnaAuth = {
   handleUnauthorized,
   getAuthHeaders,
   fetchWithAuth,
+  fetchJsonWithAuthRetry,
   hydrateSession,
+  ensureSessionValid,
   logoutOnServer,
   requireAuth,
   requireRole,
