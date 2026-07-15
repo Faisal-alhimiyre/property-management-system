@@ -97,11 +97,119 @@ document.addEventListener("DOMContentLoaded", async () => {
       contractId: apt.current_contract_id ?? null,
       contract: apt.current_contract_id ? { id: apt.current_contract_id } : null,
       maintenanceId: apt.maintenance_id ?? null,
+      openRequests: Array.isArray(apt.open_requests)
+        ? apt.open_requests
+        : Array.isArray(apt.openRequests)
+          ? apt.openRequests
+          : [],
     };
+  }
+
+  function maintenanceRowsFromApartmentOpenRequests(apartmentRows) {
+    const out = [];
+    for (const apt of apartmentRows || []) {
+      const aid = apt.apiId ?? apt.id;
+      if (aid == null) continue;
+      for (const row of apt.openRequests || apt.open_requests || []) {
+        if (!row || row.id == null) continue;
+        out.push({
+          id: row.id,
+          apartment_id: aid,
+          request_type: row.request_type || row.requestType || "maintenance",
+          status: row.status || "open",
+          owner_seen: row.owner_seen ?? row.ownerSeen ?? false,
+        });
+      }
+    }
+    return out;
+  }
+
+  function mergeMaintenanceRows(primary, secondary) {
+    const byId = new Map();
+    for (const row of [...(secondary || []), ...(primary || [])]) {
+      if (!row || row.id == null) continue;
+      byId.set(String(row.id), row);
+    }
+    return Array.from(byId.values());
+  }
+
+  function apartmentsHintOpenRequests(apartmentRows) {
+    return (apartmentRows || []).some((apt) => {
+      const open = apt.openRequests || apt.open_requests || [];
+      if (Array.isArray(open) && open.length) return true;
+      return apt.maintenanceId != null || apt.maintenance_id != null;
+    });
+  }
+
+  async function fetchBuildingMaintenanceRows(bid) {
+    const url = `${WalajnaAuth.API_BASE}/api/maintenance?building_id=${encodeURIComponent(bid)}`;
+    if (WalajnaAuth.fetchJsonWithAuthRetry) {
+      const result = await WalajnaAuth.fetchJsonWithAuthRetry(url, { method: "GET" }, {
+        retries: 4,
+        delayMs: 350,
+      });
+      return result.ok && Array.isArray(result.data) ? result.data : [];
+    }
+    try {
+      const res = await WalajnaAuth.fetchWithAuth(url, { method: "GET" });
+      if (!res.ok) return [];
+      const rows = await res.json();
+      return Array.isArray(rows) ? rows : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function mapFetchedApartmentRows(rows) {
+    const list = Array.isArray(rows) ? rows : [];
+    return list
+      .map((row) =>
+        typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.mapApiRowToClient
+          ? WalajnaApartmentsApi.mapApiRowToClient(row)
+          : mapApiApartmentToLocal(row)
+      )
+      .filter(Boolean);
+  }
+
+  async function fetchApartmentsForBuildingPage(bid) {
+    if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.listForBuilding) {
+      return WalajnaApartmentsApi.listForBuilding(bid);
+    }
+    const url = `${WalajnaAuth.API_BASE}/api/apartments?building_id=${encodeURIComponent(bid)}`;
+    if (WalajnaAuth.fetchJsonWithAuthRetry) {
+      const result = await WalajnaAuth.fetchJsonWithAuthRetry(url, { method: "GET" }, {
+        retries: 3,
+        delayMs: 350,
+      });
+      if (!result.ok || !Array.isArray(result.data)) return [];
+      const mappedAll = mapFetchedApartmentRows(result.data);
+      if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.mergeSessionApartments) {
+        WalajnaApartmentsApi.mergeSessionApartments(mappedAll);
+      }
+      return mappedAll;
+    }
+    const aRes = await WalajnaAuth.fetchWithAuth(url, { method: "GET" });
+    if (!aRes.ok) return [];
+    const all = await aRes.json();
+    const mappedAll = mapFetchedApartmentRows(all);
+    if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.mergeSessionApartments) {
+      WalajnaApartmentsApi.mergeSessionApartments(mappedAll);
+    }
+    return mappedAll;
+  }
+
+  function applyMaintenanceRowsFromApartments() {
+    maintenanceRows = mergeMaintenanceRows(
+      maintenanceRows,
+      maintenanceRowsFromApartmentOpenRequests(apartments)
+    );
   }
 
   if (typeof WalajnaAuth !== "undefined" && WalajnaAuth.hydrateSession) {
     await WalajnaAuth.hydrateSession();
+  }
+  if (typeof WalajnaAuth !== "undefined" && WalajnaAuth.ensureSessionValid) {
+    await WalajnaAuth.ensureSessionValid();
   }
   if (typeof requireAuth === "function") requireAuth();
   if (typeof requireRole === "function") requireRole("owner");
@@ -139,36 +247,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   try {
-    const apartmentsFetch =
-      typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.listForBuilding
-        ? WalajnaApartmentsApi.listForBuilding(buildingId)
-        : WalajnaAuth.fetchWithAuth(
-            `${WalajnaAuth.API_BASE}/api/apartments?building_id=${encodeURIComponent(buildingId)}`,
-            { method: "GET" }
-          ).then(async (aRes) => {
-            if (!aRes.ok) return [];
-            const all = await aRes.json();
-            const rows = Array.isArray(all) ? all : [];
-            const mappedAll = rows
-              .map((row) =>
-                typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.mapApiRowToClient
-                  ? WalajnaApartmentsApi.mapApiRowToClient(row)
-                  : mapApiApartmentToLocal(row)
-              )
-              .filter(Boolean);
-            if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.mergeSessionApartments) {
-              WalajnaApartmentsApi.mergeSessionApartments(mappedAll);
-            }
-            return mappedAll;
-          });
-
-    const [bRes, mappedSlice, mRes] = await Promise.all([
+    const [bRes, mappedSlice] = await Promise.all([
       WalajnaAuth.fetchWithAuth(`${WalajnaAuth.API_BASE}/api/buildings`, { method: "GET" }),
-      apartmentsFetch,
-      WalajnaAuth.fetchWithAuth(
-        `${WalajnaAuth.API_BASE}/api/maintenance?building_id=${encodeURIComponent(buildingId)}`,
-        { method: "GET" }
-      ),
+      fetchApartmentsForBuildingPage(buildingId),
     ]);
 
     let serverBuildingsList = [];
@@ -190,8 +271,15 @@ document.addEventListener("DOMContentLoaded", async () => {
       apartmentsFromApi = true;
     }
 
-    if (mRes.ok) {
-      maintenanceRows = await mRes.json();
+    maintenanceRows = maintenanceRowsFromApartmentOpenRequests(apartments);
+    const maintenanceFromApi = await fetchBuildingMaintenanceRows(buildingId);
+    maintenanceRows = mergeMaintenanceRows(maintenanceFromApi, maintenanceRows);
+    if (!maintenanceFromApi.length && apartmentsHintOpenRequests(apartments)) {
+      await new Promise((r) => setTimeout(r, 600));
+      maintenanceRows = mergeMaintenanceRows(
+        await fetchBuildingMaintenanceRows(buildingId),
+        maintenanceRows
+      );
     }
 
     const expectedUnits = expectedSlotsFromBuilding(building);
@@ -201,30 +289,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         `${WalajnaAuth.API_BASE}/api/buildings/${encodeURIComponent(seedPathId)}/seed-apartments`,
         { method: "POST" }
       );
-      if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.listForBuilding) {
-        const again = await WalajnaApartmentsApi.listForBuilding(buildingId);
-        apartments = again.filter((a) => String(a.buildingId) === String(buildingId));
-      } else {
-        const aRes2 = await WalajnaAuth.fetchWithAuth(
-          `${WalajnaAuth.API_BASE}/api/apartments?building_id=${encodeURIComponent(buildingId)}`,
-          { method: "GET" }
-        );
-        if (aRes2.ok) {
-          const all = await aRes2.json();
-          const rows = Array.isArray(all) ? all : [];
-          const mappedAll = rows
-            .map((row) =>
-              typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.mapApiRowToClient
-                ? WalajnaApartmentsApi.mapApiRowToClient(row)
-                : mapApiApartmentToLocal(row)
-            )
-            .filter(Boolean);
-          if (typeof WalajnaApartmentsApi !== "undefined" && WalajnaApartmentsApi.mergeSessionApartments) {
-            WalajnaApartmentsApi.mergeSessionApartments(mappedAll);
-          }
-          apartments = mappedAll.filter((a) => apartmentRowMatchesBuildingRef(a, buildingId, building));
-        }
-      }
+      const again = await fetchApartmentsForBuildingPage(buildingId);
+      apartments = again.filter((a) => apartmentRowMatchesBuildingRef(a, buildingId, building));
+      applyMaintenanceRowsFromApartments();
+      maintenanceRows = mergeMaintenanceRows(
+        await fetchBuildingMaintenanceRows(buildingId),
+        maintenanceRows
+      );
       apartmentsFromApi = true;
     }
   } catch (e) {
@@ -1138,6 +1209,24 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   void markOwnerAcknowledgedBuildingOnHome();
 
+  function getOpenRequestsFromApartmentEmbedded(apartment) {
+    const open = apartment.openRequests || apartment.open_requests || [];
+    return (Array.isArray(open) ? open : [])
+      .map((row) => {
+        const rt = normalizeRequestTypeId(row.request_type || row.requestType);
+        return {
+          typeId: rt,
+          typeTitle: canonicalBadgeLabel(rt),
+          typeColor: rt === "maintenance" ? "#f59e0b" : TYPE_COLOR[rt] || "#94a3b8",
+          status: row.status,
+        };
+      })
+      .filter((r) => {
+        const st = String(r.status || "").toLowerCase();
+        return st !== "resolved" && st !== "closed";
+      });
+  }
+
   function getOpenRequests(apartment) {
     const fromMaint = getOpenMaintenanceForApartment(apartment).map((m) => ({
       typeId: "maintenance",
@@ -1146,8 +1235,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       status: m.status,
     }));
     const fromStored = getOpenNonMaintenanceRequestsForApartment(apartment);
+    const merged = [...fromMaint, ...fromStored];
+    const source = merged.length ? merged : getOpenRequestsFromApartmentEmbedded(apartment);
     const byType = new Map();
-    [...fromMaint, ...fromStored].forEach((r) => {
+    source.forEach((r) => {
       if (!byType.has(r.typeId)) byType.set(r.typeId, r);
     });
     return Array.from(byType.values()).sort(

@@ -79,6 +79,11 @@
       contract,
       leaseTerms: lt,
       maintenanceId: apt.maintenance_id ?? null,
+      openRequests: Array.isArray(apt.open_requests)
+        ? apt.open_requests
+        : Array.isArray(apt.openRequests)
+          ? apt.openRequests
+          : [],
       ownerPublicName: apt.owner_public_name ?? apt.ownerPublicName ?? null,
       owner_public_name: apt.owner_public_name ?? null,
       ownerPublicNationalId: apt.owner_public_national_id ?? apt.ownerPublicNationalId ?? null,
@@ -138,14 +143,25 @@
     persistSessionList(getSessionList().filter((a) => String(a.id) !== id));
   }
 
-  async function listAll() {
-    if (typeof WalajnaAuth === "undefined" || !WalajnaAuth.fetchWithAuth) return [];
-    const res = await WalajnaAuth.fetchWithAuth(`${apiBase()}/api/apartments`, { method: "GET" });
-    if (!res.ok) return [];
+  async function fetchApartmentsJson(url) {
+    if (typeof WalajnaAuth !== "undefined" && WalajnaAuth.fetchJsonWithAuthRetry) {
+      const result = await WalajnaAuth.fetchJsonWithAuthRetry(url, { method: "GET" }, {
+        retries: 3,
+        delayMs: 350,
+      });
+      return result.ok && Array.isArray(result.data) ? result.data : null;
+    }
+    if (typeof WalajnaAuth === "undefined" || !WalajnaAuth.fetchWithAuth) return null;
+    const res = await WalajnaAuth.fetchWithAuth(url, { method: "GET" });
+    if (!res.ok) return null;
     const rows = await res.json();
-    const mapped = (Array.isArray(rows) ? rows : [])
-      .map(mapApiRowToClient)
-      .filter(Boolean);
+    return Array.isArray(rows) ? rows : null;
+  }
+
+  async function listAll() {
+    const rows = await fetchApartmentsJson(`${apiBase()}/api/apartments`);
+    if (!rows) return [];
+    const mapped = rows.map(mapApiRowToClient).filter(Boolean);
     persistSessionList(mapped);
     return mapped;
   }
@@ -155,18 +171,13 @@
    * buildings cached in walajna_apartments_session are not wiped.
    */
   async function listForBuilding(buildingId) {
-    if (typeof WalajnaAuth === "undefined" || !WalajnaAuth.fetchWithAuth) return [];
     const bid = String(buildingId ?? "").trim();
     if (!bid) return listAll();
-    const res = await WalajnaAuth.fetchWithAuth(
-      `${apiBase()}/api/apartments?building_id=${encodeURIComponent(bid)}`,
-      { method: "GET" }
+    const rows = await fetchApartmentsJson(
+      `${apiBase()}/api/apartments?building_id=${encodeURIComponent(bid)}`
     );
-    if (!res.ok) return [];
-    const rows = await res.json();
-    const mapped = (Array.isArray(rows) ? rows : [])
-      .map(mapApiRowToClient)
-      .filter(Boolean);
+    if (!rows) return [];
+    const mapped = rows.map(mapApiRowToClient).filter(Boolean);
     mergeSessionApartments(mapped);
     return mapped;
   }

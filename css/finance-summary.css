@@ -497,6 +497,44 @@ body.dark-mode .owner-portfolio-pick-banner__cancel{
   min-width:160px;
 }
 
+.portfolio-building-name-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.portfolio-building-pick{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  margin:0;
+  cursor:pointer;
+}
+
+.portfolio-building-pick__input{
+  width:18px;
+  height:18px;
+  margin:0;
+  accent-color:#0d9488;
+  cursor:pointer;
+}
+
+.portfolio-building-row--unchecked td{
+  opacity:.72;
+}
+
+.portfolio-building-row--unchecked .portfolio-building-name{
+  color:#64748b;
+}
+
+.portfolio-building-name-row .portfolio-building-toggle,
+.portfolio-building-name-row .portfolio-building-open{
+  flex:1 1 auto;
+  width:auto;
+  min-width:0;
+}
+
 .portfolio-building-toggle{
   display:flex;
   align-items:center;
@@ -1016,6 +1054,10 @@ body.dark-mode .finance-table--portfolio tbody tr.portfolio-building-row:hover t
 body.dark-mode .finance-table--portfolio tbody tr.portfolio-building-nest td{
   background:#0b111c;
   border-bottom-color:rgba(148,163,184,.18);
+}
+
+body.dark-mode .portfolio-building-row--unchecked .portfolio-building-name{
+  color:#94a3b8;
 }
 
 body.dark-mode .portfolio-building-toggle{

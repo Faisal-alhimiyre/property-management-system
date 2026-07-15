@@ -572,10 +572,17 @@ def _login_from_json_dict(body: dict) -> dict:
             detail="يجب إدخال رقم الهوية أو البريد الإلكتروني",
         )
 
-    if national_id:
-        result = supabase.table("users").select("*").eq("national_id", national_id).execute()
-    else:
-        result = supabase.table("users").select("*").eq("email", email).execute()
+    try:
+        if national_id:
+            result = supabase.table("users").select("*").eq("national_id", national_id).execute()
+        else:
+            result = supabase.table("users").select("*").eq("email", email).execute()
+    except Exception as db_exc:
+        print("login supabase query failed:", type(db_exc).__name__, db_exc)
+        raise HTTPException(
+            status_code=503,
+            detail="Database temporarily unavailable. Please check SUPABASE_URL on the server and retry.",
+        ) from db_exc
 
     if not result.data or not verify_password(password, result.data[0]["password"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")

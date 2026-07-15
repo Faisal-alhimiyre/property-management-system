@@ -60,16 +60,106 @@
         editActive: false,
         buildingIds: new Set(),
         portfolioFilterDismissed: false,
+        portfolioCheckedIds: [],
+        portfolioCatalogSnapshot: [],
       };
     }
     const ids = Array.isArray(raw.buildingIds)
       ? raw.buildingIds.map((id) => String(id)).filter(Boolean)
       : [];
+    const portfolioCheckedIds = Array.isArray(raw.portfolioCheckedIds)
+      ? raw.portfolioCheckedIds.map((id) => String(id)).filter(Boolean)
+      : [];
+    const portfolioCatalogSnapshot = Array.isArray(raw.portfolioCatalogSnapshot)
+      ? raw.portfolioCatalogSnapshot.map((id) => String(id)).filter(Boolean)
+      : [];
     return {
       editActive: !!raw.editActive,
       buildingIds: new Set(ids),
       portfolioFilterDismissed: !!raw.portfolioFilterDismissed,
+      portfolioCheckedIds,
+      portfolioCatalogSnapshot,
     };
+  }
+
+  function catalogBuildingIds(catalog) {
+    return (Array.isArray(catalog) ? catalog : [])
+      .map((b) => String(b.id ?? "").trim())
+      .filter(Boolean);
+  }
+
+  /** Stored checkbox ids (empty = default: all totals, no boxes checked). */
+  function getPortfolioCheckedIdsStored(catalog) {
+    const all = catalogBuildingIds(catalog);
+    const state = loadState();
+    const ids = Array.isArray(state.portfolioCheckedIds) ? state.portfolioCheckedIds : [];
+    return ids.filter((id) => all.includes(id));
+  }
+
+  function isPortfolioTableFilterActive(catalog) {
+    return getPortfolioCheckedIdsStored(catalog).length > 0;
+  }
+
+  /** Checkbox UI — default shows every box unchecked. */
+  function isPortfolioBuildingChecked(buildingId, catalog) {
+    if (!isPortfolioTableFilterActive(catalog)) {
+      return false;
+    }
+    return getPortfolioCheckedIdsStored(catalog).includes(String(buildingId || "").trim());
+  }
+
+  /** Totals — default includes all buildings; with a filter, checked buildings only. */
+  function isPortfolioBuildingInTotals(buildingId, catalog) {
+    const id = String(buildingId || "").trim();
+    const all = catalogBuildingIds(catalog);
+    if (!id || !all.includes(id)) return false;
+    if (!isPortfolioTableFilterActive(catalog)) {
+      return true;
+    }
+    return getPortfolioCheckedIdsStored(catalog).includes(id);
+  }
+
+  function setPortfolioBuildingChecked(buildingId, checked, catalog) {
+    const userId = resolveUserId();
+    if (!userId) return;
+
+    const all = catalogBuildingIds(catalog);
+    const id = String(buildingId || "").trim();
+    if (!id || !all.includes(id)) return;
+
+    const state = loadState();
+    let ids = getPortfolioCheckedIdsStored(catalog);
+
+    if (!isPortfolioTableFilterActive(catalog) && checked) {
+      ids = [id];
+    } else if (checked) {
+      if (!ids.includes(id)) ids.push(id);
+    } else {
+      ids = ids.filter((x) => x !== id);
+    }
+
+    writeRaw({
+      v: 1,
+      userId,
+      editActive: state.editActive,
+      buildingIds: [...state.buildingIds],
+      portfolioFilterDismissed: state.portfolioFilterDismissed,
+      portfolioCheckedIds: ids,
+      portfolioCatalogSnapshot: all,
+    });
+  }
+
+  function hasPortfolioTableSelection(catalog) {
+    return isPortfolioTableFilterActive(catalog);
+  }
+
+  /** @deprecated use isPortfolioBuildingInTotals */
+  function getPortfolioCheckedIds(catalog) {
+    const all = catalogBuildingIds(catalog);
+    if (!isPortfolioTableFilterActive(catalog)) {
+      return new Set(all);
+    }
+    return new Set(getPortfolioCheckedIdsStored(catalog));
   }
 
   function save(editActive, buildingIds) {
@@ -85,6 +175,8 @@
       editActive: !!editActive,
       buildingIds: ids,
       portfolioFilterDismissed: false,
+      portfolioCheckedIds: readRaw()?.portfolioCheckedIds ?? [],
+      portfolioCatalogSnapshot: readRaw()?.portfolioCatalogSnapshot ?? [],
     });
   }
 
@@ -105,6 +197,8 @@
       editActive: false,
       buildingIds: [],
       portfolioFilterDismissed: false,
+      portfolioCheckedIds: [],
+      portfolioCatalogSnapshot: [],
     });
   }
 
@@ -119,6 +213,8 @@
       editActive: state.editActive,
       buildingIds: [...state.buildingIds],
       portfolioFilterDismissed: true,
+      portfolioCheckedIds: state.portfolioCheckedIds,
+      portfolioCatalogSnapshot: state.portfolioCatalogSnapshot,
     });
   }
 
@@ -176,6 +272,23 @@
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
+  }
+
+  function portfolioBuildingCheckboxHtml(buildingId, checked) {
+    const bid = escapeHtml(String(buildingId ?? ""));
+    const aria = escapeHtml(t("owner.buildingsSelectForListAria"));
+    const mark = checked ? " checked" : "";
+    return `
+      <label class="portfolio-building-pick" title="${aria}">
+        <input
+          type="checkbox"
+          class="portfolio-building-pick__input"
+          data-building-id="${bid}"
+          aria-label="${aria}"
+          ${mark}
+        />
+      </label>
+    `;
   }
 
   /**
@@ -258,6 +371,14 @@
     addBuildingId,
     removeBuildingId,
     filterApartments,
+    getPortfolioCheckedIds,
+    getPortfolioCheckedIdsStored,
+    isPortfolioTableFilterActive,
+    isPortfolioBuildingChecked,
+    isPortfolioBuildingInTotals,
+    setPortfolioBuildingChecked,
+    hasPortfolioTableSelection,
+    portfolioBuildingCheckboxHtml,
     mountFilterBanner,
   };
 })();

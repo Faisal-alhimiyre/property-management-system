@@ -852,6 +852,28 @@ document.addEventListener("DOMContentLoaded", async () => {
     portfolioApartmentsModal.setAttribute("aria-hidden", "true");
   }
 
+  function isPortfolioTableFilterActive() {
+    if (typeof WalajnaOwnerBuildingPick === "undefined") return false;
+    return WalajnaOwnerBuildingPick.isPortfolioTableFilterActive(ownerBuildingsCatalog);
+  }
+
+  function isPortfolioGroupInTotals(group) {
+    if (typeof WalajnaOwnerBuildingPick === "undefined") return true;
+    return WalajnaOwnerBuildingPick.isPortfolioBuildingInTotals(
+      group.buildingId,
+      ownerBuildingsCatalog
+    );
+  }
+
+  function portfolioCheckboxHtml(buildingId) {
+    if (typeof WalajnaOwnerBuildingPick === "undefined") return "";
+    const checked = WalajnaOwnerBuildingPick.isPortfolioBuildingChecked(
+      buildingId,
+      ownerBuildingsCatalog
+    );
+    return WalajnaOwnerBuildingPick.portfolioBuildingCheckboxHtml(buildingId, checked);
+  }
+
   function render() {
     if (!tableBody) return;
 
@@ -895,21 +917,31 @@ document.addEventListener("DOMContentLoaded", async () => {
           bLate += lateAmount;
         });
         const bProfit = bIncome - bCosts;
-        totalIncome += bIncome;
-        totalCosts += bCosts;
-        totalLate += bLate;
+        const includeInTotals = isPortfolioGroupInTotals(group);
+        if (includeInTotals) {
+          totalIncome += bIncome;
+          totalCosts += bCosts;
+          totalLate += bLate;
+        }
 
         const profitCls =
           bProfit > 0 ? "finance-value-profit" : bProfit < 0 ? "finance-value-cost" : "";
         const costCls = bCosts > 0 ? "finance-value-cost" : "";
         const rentedCount = group.units.filter((a) => isApartmentOccupied(a)).length;
+        const rowMutedCls =
+          isPortfolioTableFilterActive() && !includeInTotals
+            ? " portfolio-building-row--unchecked"
+            : "";
 
         parts.push(`
-          <tr class="portfolio-building-row" data-portfolio-idx="${idx}">
+          <tr class="portfolio-building-row${rowMutedCls}" data-portfolio-idx="${idx}">
             <td class="portfolio-building-name-cell">
-              <button type="button" class="portfolio-building-open" data-portfolio-open="${idx}">
-                <span class="portfolio-building-name">${escapeHtml(group.buildingName)}</span>
-              </button>
+              <div class="portfolio-building-name-row">
+                ${portfolioCheckboxHtml(group.buildingId)}
+                <button type="button" class="portfolio-building-open" data-portfolio-open="${idx}">
+                  <span class="portfolio-building-name">${escapeHtml(group.buildingName)}</span>
+                </button>
+              </div>
             </td>
             <td class="portfolio-building-meta">${escapeHtml(
               String(group.units.length)
@@ -934,14 +966,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     let rentedCountTotal = 0;
     if (allBuildingApartments.length) {
       const groups = groupApartmentsByBuilding(allBuildingApartments);
-      buildingCount = groups.length;
-      apartmentCount = allBuildingApartments.length;
-      rentedCountTotal = allBuildingApartments.filter((a) => isApartmentOccupied(a)).length;
+      const selectedGroups = groups.filter((g) => isPortfolioGroupInTotals(g));
+      buildingCount = selectedGroups.length;
+      for (const group of selectedGroups) {
+        apartmentCount += group.units.length;
+        rentedCountTotal += group.units.filter((a) => isApartmentOccupied(a)).length;
+      }
     }
 
     if (tableMeta) {
+      const allGroupCount = allBuildingApartments.length
+        ? groupApartmentsByBuilding(allBuildingApartments).length
+        : 0;
+      const buildingsLabel =
+        isPortfolioTableFilterActive() && allGroupCount > 0 && buildingCount < allGroupCount
+          ? `${buildingCount}/${allGroupCount}`
+          : buildingCount;
       tableMeta.textContent = T("finance.portfolioTableMeta", {
-        buildings: buildingCount,
+        buildings: buildingsLabel,
         apartments: apartmentCount,
         rented: rentedCountTotal,
       });
@@ -968,6 +1010,19 @@ document.addEventListener("DOMContentLoaded", async () => {
       const idx = Number(btn.getAttribute("data-portfolio-open"));
       if (!Number.isFinite(idx) || idx < 0 || idx >= renderedGroups.length) return;
       openPortfolioApartmentsModal(renderedGroups[idx]);
+    });
+
+    tableBody.addEventListener("change", (e) => {
+      const cb = e.target.closest(".portfolio-building-pick__input");
+      if (!cb || !tableBody.contains(cb)) return;
+      e.stopPropagation();
+      if (typeof WalajnaOwnerBuildingPick === "undefined") return;
+      WalajnaOwnerBuildingPick.setPortfolioBuildingChecked(
+        cb.dataset.buildingId,
+        cb.checked,
+        ownerBuildingsCatalog
+      );
+      render();
     });
   }
 

@@ -556,20 +556,50 @@ document.addEventListener("DOMContentLoaded", async () => {
       </table>`;
   }
 
+  function isPortfolioTableFilterActive() {
+    if (typeof WalajnaOwnerBuildingPick === "undefined") return false;
+    return WalajnaOwnerBuildingPick.isPortfolioTableFilterActive(ownerBuildingsCatalog);
+  }
+
+  function isPortfolioGroupInTotals(group) {
+    if (typeof WalajnaOwnerBuildingPick === "undefined") return true;
+    return WalajnaOwnerBuildingPick.isPortfolioBuildingInTotals(
+      group.buildingId,
+      ownerBuildingsCatalog
+    );
+  }
+
+  function portfolioCheckboxHtml(buildingId) {
+    if (typeof WalajnaOwnerBuildingPick === "undefined") return "";
+    const checked = WalajnaOwnerBuildingPick.isPortfolioBuildingChecked(
+      buildingId,
+      ownerBuildingsCatalog
+    );
+    return WalajnaOwnerBuildingPick.portfolioBuildingCheckboxHtml(buildingId, checked);
+  }
+
   function renderBuildingAccordion(groupsWithCosts) {
-    const foot = aggregateCosts(groupsWithCosts.flatMap((g) => g.costItems));
+    const checkedGroups = groupsWithCosts.filter((g) => isPortfolioGroupInTotals(g));
+    const foot = aggregateCosts(checkedGroups.flatMap((g) => g.costItems));
 
     const bodyRows = groupsWithCosts
       .map((g, idx) => {
         const nestId = `portfolio-costs-nest-${idx}`;
         const nestedHtml = renderNestedExpensesTable(g.costItems);
+        const rowMutedCls =
+          isPortfolioTableFilterActive() && !isPortfolioGroupInTotals(g)
+            ? " portfolio-building-row--unchecked"
+            : "";
         return `
-          <tr class="portfolio-building-row" data-portfolio-costs-idx="${idx}">
+          <tr class="portfolio-building-row${rowMutedCls}" data-portfolio-costs-idx="${idx}">
             <td class="portfolio-building-name-cell">
-              <button type="button" class="portfolio-building-toggle" aria-expanded="false" aria-controls="${nestId}">
-                <span class="portfolio-building-chevron" aria-hidden="true">▾</span>
-                <span class="portfolio-building-name">${escapeHtml(g.buildingName)}</span>
-              </button>
+              <div class="portfolio-building-name-row">
+                ${portfolioCheckboxHtml(g.buildingId)}
+                <button type="button" class="portfolio-building-toggle" aria-expanded="false" aria-controls="${nestId}">
+                  <span class="portfolio-building-chevron" aria-hidden="true">▾</span>
+                  <span class="portfolio-building-name">${escapeHtml(g.buildingName)}</span>
+                </button>
+              </div>
             </td>
             <td class="portfolio-building-meta">${escapeHtml(String(g.count))}</td>
             <td>${escapeHtml(formatAmount(g.total))}</td>
@@ -631,16 +661,29 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const baseGroups = groupApartmentsByBuilding(allBuildingApartments);
     const groupsWithCosts = distributeCostsToGroups(baseGroups, filteredCosts);
+    const costsForSummary = isPortfolioTableFilterActive()
+      ? filteredCosts.filter((item) =>
+          isPortfolioGroupInTotals({ buildingId: normalizeId(item._buildingId) })
+        )
+      : filteredCosts;
 
     if (costsCount) {
       const buildingsShown = baseGroups.filter((g) => g.buildingId !== "__orphan__").length;
+      const buildingsSelected = isPortfolioTableFilterActive()
+        ? baseGroups.filter(
+            (g) => g.buildingId !== "__orphan__" && isPortfolioGroupInTotals(g)
+          ).length
+        : buildingsShown;
       costsCount.textContent = T("costs.portfolioTableMeta", {
-        buildings: buildingsShown,
-        expenses: filteredCosts.length,
+        buildings:
+          buildingsSelected < buildingsShown
+            ? `${buildingsSelected}/${buildingsShown}`
+            : buildingsShown,
+        expenses: costsForSummary.length,
       });
     }
 
-    renderSummary(filteredCosts);
+    renderSummary(costsForSummary);
     costsTableContainer.innerHTML = renderBuildingAccordion(groupsWithCosts);
   }
 
@@ -685,6 +728,19 @@ document.addEventListener("DOMContentLoaded", async () => {
         renderPage();
       })();
     }
+  });
+
+  costsTableContainer.addEventListener("change", (e) => {
+    const cb = e.target.closest(".portfolio-building-pick__input");
+    if (!cb || !costsTableContainer.contains(cb)) return;
+    e.stopPropagation();
+    if (typeof WalajnaOwnerBuildingPick === "undefined") return;
+    WalajnaOwnerBuildingPick.setPortfolioBuildingChecked(
+      cb.dataset.buildingId,
+      cb.checked,
+      ownerBuildingsCatalog
+    );
+    renderPage();
   });
 
   async function refreshPortfolioPickUi() {
