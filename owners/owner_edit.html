@@ -94,9 +94,7 @@
                 اختيار من الخريطة
               </button>
             </div>
-            <p id="buildingNeighborhoodReadout" class="map-neighborhood-readout oe-map-readout" aria-live="polite">
-              سيُحدَّد الحي تلقائياً بعد اختيار الموقع على الخريطة.
-            </p>
+
             <input type="hidden" id="buildingNeighborhood" value="">
             <input type="hidden" id="buildingLat">
             <input type="hidden" id="buildingLng">
@@ -104,20 +102,17 @@
         </fieldset>
 
         <fieldset class="oe-block">
-          <legend class="oe-block__label oe-block__label--split">
-            <span data-i18n="owner.label.apartmentCount">عدد الشقق</span>
-            <span class="oe-block__dot" aria-hidden="true">·</span>
-            <span data-i18n="owner.label.defaultPaymentCycle">دورة الدفع</span>
-          </legend>
           <div class="oe-row oe-row--3">
             <div class="form-group oe-field">
               <label for="apartmentCount" data-i18n="owner.label.apartmentCount">عدد الشقق</label>
-              <input type="number" id="apartmentCount" min="1" data-i18n-placeholder="owner.ph.count" placeholder="14" required>
+              <input type="number" id="apartmentCount" min="1" required>
             </div>
+
             <div class="form-group oe-field">
               <label for="totalFloors" data-i18n="owner.label.totalFloors">عدد الطوابق</label>
-              <input type="number" id="totalFloors" min="1" data-i18n-placeholder="owner.ph.floors" placeholder="7" />
+              <input type="number" id="totalFloors" min="1" />
             </div>
+
             <div class="form-group select-group oe-field">
               <label for="defaultPaymentCycle" data-i18n="owner.label.defaultPaymentCycle">دورة الدفع الافتراضية</label>
               <select id="defaultPaymentCycle" required>
@@ -144,6 +139,7 @@
   <script src="../js/main/nav.js"></script>
   <script src="../js/main/apartments-api.js"></script>
   <script src="../js/apartment-manager/apartment-storage.js"></script>
+
   <div id="mapModal" class="map-modal" hidden>
     <div class="map-modal-panel">
       <header class="map-modal-header">
@@ -160,6 +156,7 @@
         </div>
         <button type="button" id="closeMapPickerBtn" class="map-modal-close" data-i18n-aria-label="common.close" aria-label="إغلاق">✕</button>
       </header>
+
       <div class="map-modal-body">
         <div class="map-modal-map-wrap">
           <div id="buildingMap"></div>
@@ -172,17 +169,20 @@
       </div>
     </div>
   </div>
+
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
     crossorigin=""
   />
+
   <script
     src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    integrity="sha256-20nQCchB9coqIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
     crossorigin=""
   ></script>
+
   <script src="../js/main/building-name.js"></script>
   <script src="../js/owner-manager/owner-edit.js"></script>
   <script src="../js/main/theme.js"></script>
