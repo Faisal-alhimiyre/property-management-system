@@ -215,6 +215,16 @@ body{
 .form-field-counter.is-near-limit{ color:#b45309; }
 .form-field-counter.is-over-limit{ color:var(--oe-danger); }
 
+/* Counter inside building-name box */
+.building-name-counter{
+  flex-shrink:0;
+  margin:0;
+  padding-inline-start:12px;
+  margin-inline-start:12px;
+  border-inline-start:1px solid rgba(26,47,74,0.12);
+  white-space:nowrap;
+}
+
 /* Building name compose */
 .building-name-compose{
   display:flex;
@@ -729,6 +739,11 @@ body.dark-mode .building-name-compose__prefix{
   border-color:rgba(148,163,184,0.22);
 }
 
+/* Counter divider inside building-name box */
+body.dark-mode .building-name-counter{
+  border-color:rgba(148,163,184,0.22);
+}
+
 body.dark-mode .oe-map-row__icon{
   background:rgba(34,211,238,0.12);
   border-color:rgba(34,211,238,0.35);
@@ -769,7 +784,9 @@ body.dark-mode .map-modal-panel{
   border:1px solid rgba(148,163,184,0.35);
 }
 
-body.dark-mode .map-modal-title{ color:#f1f5f9; }
+body.dark-mode .map-modal-title{
+  color:#f1f5f9;
+}
 
 body.dark-mode .map-search-input{
   background:#0f172a;
