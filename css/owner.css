@@ -849,7 +849,7 @@ body.dark-mode .building-card.is-multi-selected {
 .building-card:hover,
 .building-card.menu-open,
 .building-card:has(.building-card-menu.is-open) {
-  z-index: 100;
+  z-index: 20;
 }
 
 .building-card:hover {
