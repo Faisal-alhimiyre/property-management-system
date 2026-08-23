@@ -70,7 +70,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   async function restoreArchivedBuildingFromSnapshot() {
     if (!archiveId || !archiveRow) return;
-    const ok = confirm(T("owner.confirmRestoreArchiveBuilding"));
+    const ok = await WalajnaDialog.confirm(T("owner.confirmRestoreArchiveBuilding"));
     if (!ok) return;
 
     const b = archiveRow.building || {};

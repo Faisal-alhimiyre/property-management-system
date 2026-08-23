@@ -159,6 +159,13 @@ except Exception as e:
     cost_router = None
 
 try:
+    from routes.deposit_routes import router as deposit_router
+    print("Deposit router imported successfully")
+except Exception as e:
+    print(f"Error importing deposit router: {e}")
+    deposit_router = None
+
+try:
     from routes.ar_routes import router as ar_router
     print("AR router imported successfully")
 except Exception as e:
@@ -197,8 +204,11 @@ if notification_router:
     app.include_router(notification_router, prefix="/api", tags=["notifications"])
 if cost_router:
     app.include_router(cost_router, prefix="/api", tags=["costs"])
-if ar_router:
-    app.include_router(ar_router, prefix="/api", tags=["ar"])
+if deposit_router:
+    app.include_router(deposit_router, prefix="/api", tags=["deposits"])
+# AR temporarily disabled — leave routes.ar_routes import; do not mount.
+# if ar_router:
+#     app.include_router(ar_router, prefix="/api", tags=["ar"])
 
 @app.get("/")
 async def root():

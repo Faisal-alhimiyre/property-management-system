@@ -4,6 +4,31 @@ document.addEventListener("DOMContentLoaded", async () => {
       ? window.walajna_language.t(k, p)
       : k;
 
+  function setFinanceSummaryLoading(isLoading) {
+    document.body.classList.toggle("finance-page--loading", !!isLoading);
+    const loadingEl = document.getElementById("financeSummaryLoading");
+    const table = document.querySelector("#financeSummaryTableWrap table");
+    const wrap = document.getElementById("financeSummaryTableWrap");
+    const cards = document.querySelector(".finance-cards");
+    if (loadingEl) {
+      loadingEl.hidden = !isLoading;
+      if (!isLoading) loadingEl.remove();
+    }
+    if (table) table.hidden = !!isLoading;
+    if (wrap) wrap.setAttribute("aria-busy", isLoading ? "true" : "false");
+    if (cards) cards.setAttribute("aria-busy", isLoading ? "true" : "false");
+    if (isLoading) {
+      document
+        .querySelectorAll(
+          "#incomeValue, #costValue, #profitValue, #lateValue, #depositHeldValue, #tableMeta, #totalIncome, #totalCosts, #totalLate, #totalInsurance, #totalProfit, #detailDepositOriginal, #detailDepositUsed, #detailDepositRefunded, #detailDepositUnsettled, #detailDepositRemaining"
+        )
+        .forEach((el) => {
+          el.classList.add("is-pending");
+          el.textContent = "—";
+        });
+    }
+  }
+
   const params = new URLSearchParams(window.location.search);
   const rawBuildingId = params.get("buildingId") || "";
   const archiveId = params.get("archiveId") || "";
@@ -18,6 +43,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   let building = null;
   let buildingApartments = [];
   let archiveRow = null;
+  let buildingDataLoadOk = true;
 
   /** Paid installments for this building (includes vacated units; GET /api/buildings/:id/installments). */
   let serverInstallmentsForBuilding = [];
@@ -26,6 +52,43 @@ document.addEventListener("DOMContentLoaded", async () => {
   let incomeFromApi = false;
   let incomeFromArchive = false;
   let costsFromApi = false;
+  let depositSummary = {
+    held: 0,
+    original: 0,
+    used: 0,
+    replenished: 0,
+    refunded: 0,
+    unsettled: 0,
+    by_contract: {},
+    unsettled_items: [],
+  };
+
+  function delay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  async function fetchJsonList(url) {
+    if (typeof WalajnaAuth === "undefined") return { ok: false, data: [] };
+    if (WalajnaAuth.fetchJsonWithAuthRetry) {
+      const result = await WalajnaAuth.fetchJsonWithAuthRetry(
+        url,
+        { method: "GET" },
+        { retries: 4, delayMs: 400 }
+      );
+      if (!result.ok || !Array.isArray(result.data)) {
+        return { ok: false, data: [] };
+      }
+      return { ok: true, data: result.data };
+    }
+    try {
+      const res = await WalajnaAuth.fetchWithAuth(url, { method: "GET" });
+      if (!res.ok) return { ok: false, data: [] };
+      const data = await res.json();
+      return { ok: true, data: Array.isArray(data) ? data : [] };
+    } catch {
+      return { ok: false, data: [] };
+    }
+  }
 
   function mapApiApartmentToFinance(api) {
     if (!api) return null;
@@ -88,6 +151,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     return normalizeId(apartment?.id);
   }
 
+  function pathBuildingIdForApi() {
+    if (building && building.id != null && String(building.id).trim() !== "") {
+      return building.id;
+    }
+    return buildingId;
+  }
+
   async function loadInstallmentsForFinanceApartments() {
     serverInstallmentsForBuilding = [];
     if (
@@ -97,14 +167,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     ) {
       return;
     }
-    try {
-      const res = await WalajnaAuth.fetchWithAuth(
-        `${WalajnaAuth.API_BASE}/api/buildings/${encodeURIComponent(buildingId)}/installments`,
-        { method: "GET" }
+    const bid = pathBuildingIdForApi();
+    const url = `${WalajnaAuth.API_BASE}/api/buildings/${encodeURIComponent(bid)}/installments`;
+    if (WalajnaAuth.fetchJsonWithAuthRetry) {
+      const result = await WalajnaAuth.fetchJsonWithAuthRetry(
+        url,
+        { method: "GET" },
+        { retries: 4, delayMs: 350 }
       );
-      if (!res.ok) {
-        return;
-      }
+      if (!result.ok || !Array.isArray(result.data)) return;
+      serverInstallmentsForBuilding = result.data;
+      return;
+    }
+    try {
+      const res = await WalajnaAuth.fetchWithAuth(url, { method: "GET" });
+      if (!res.ok) return;
       const data = await res.json();
       serverInstallmentsForBuilding = Array.isArray(data) ? data : [];
     } catch (e) {
@@ -122,20 +199,81 @@ document.addEventListener("DOMContentLoaded", async () => {
     ) {
       return;
     }
-    try {
-      const res = await WalajnaAuth.fetchWithAuth(
-        `${WalajnaAuth.API_BASE}/api/buildings/${encodeURIComponent(buildingId)}/costs`,
-        { method: "GET" }
+    const bid = pathBuildingIdForApi();
+    const url = `${WalajnaAuth.API_BASE}/api/buildings/${encodeURIComponent(bid)}/costs`;
+    if (WalajnaAuth.fetchJsonWithAuthRetry) {
+      const result = await WalajnaAuth.fetchJsonWithAuthRetry(
+        url,
+        { method: "GET" },
+        { retries: 4, delayMs: 350 }
       );
-      if (!res.ok) {
-        return;
-      }
+      if (!result.ok || !Array.isArray(result.data)) return;
+      serverCostsForBuilding = result.data;
+      costsFromApi = true;
+      return;
+    }
+    try {
+      const res = await WalajnaAuth.fetchWithAuth(url, { method: "GET" });
+      if (!res.ok) return;
       const data = await res.json();
       serverCostsForBuilding = Array.isArray(data) ? data : [];
       costsFromApi = true;
     } catch (e) {
       console.warn("finance-summary: building costs fetch failed", e);
     }
+  }
+
+  async function loadDepositsSummaryForBuilding(asOf) {
+    depositSummary = {
+      held: 0,
+      original: 0,
+      used: 0,
+      replenished: 0,
+      refunded: 0,
+      unsettled: 0,
+      by_contract: {},
+      unsettled_items: [],
+    };
+    if (
+      typeof WalajnaAuth === "undefined" ||
+      !WalajnaAuth.fetchWithAuth ||
+      !buildingId
+    ) {
+      return;
+    }
+    const bid = pathBuildingIdForApi();
+    const qs = asOf ? `?as_of=${encodeURIComponent(asOf)}` : "";
+    const url = `${WalajnaAuth.API_BASE}/api/buildings/${encodeURIComponent(bid)}/deposits-summary${qs}`;
+    try {
+      const res = await WalajnaAuth.fetchWithAuth(url, { method: "GET" });
+      if (!res.ok) return;
+      const data = await res.json();
+      depositSummary = {
+        held: Number(data.held || 0),
+        original: Number(data.original || 0),
+        used: Number(data.used || 0),
+        replenished: Number(data.replenished || 0),
+        refunded: Number(data.refunded || 0),
+        unsettled: Number(data.unsettled || 0),
+        by_contract:
+          data.by_contract && typeof data.by_contract === "object"
+            ? data.by_contract
+            : {},
+        unsettled_items: Array.isArray(data.unsettled_items)
+          ? data.unsettled_items
+          : [],
+      };
+    } catch (e) {
+      console.warn("finance-summary: deposits summary failed", e);
+    }
+  }
+
+  function reportDateIsoFromEnd(end) {
+    if (!(end instanceof Date) || Number.isNaN(end.getTime())) return null;
+    const y = end.getFullYear();
+    const m = String(end.getMonth() + 1).padStart(2, "0");
+    const d = String(end.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
   }
 
   if (typeof WalajnaAuth !== "undefined" && WalajnaAuth.hydrateSession) {
@@ -178,20 +316,53 @@ document.addEventListener("DOMContentLoaded", async () => {
     typeof WalajnaAuth !== "undefined" &&
     WalajnaAuth.fetchWithAuth &&
     typeof WalajnaAuth.getCurrentUser === "function" &&
-    WalajnaAuth.getCurrentUser()
+    WalajnaAuth.getCurrentUser() &&
+    buildingId
   ) {
     try {
-      const [bRes, aRes] = await Promise.all([
-        WalajnaAuth.fetchWithAuth(`${WalajnaAuth.API_BASE}/api/buildings`, {
-          method: "GET",
-        }),
-        WalajnaAuth.fetchWithAuth(`${WalajnaAuth.API_BASE}/api/apartments`, {
-          method: "GET",
-        }),
+      const buildingsUrl = `${WalajnaAuth.API_BASE}/api/buildings`;
+      const apartmentsUrl = `${WalajnaAuth.API_BASE}/api/apartments?building_id=${encodeURIComponent(
+        buildingId
+      )}`;
+
+      let [buildingsResult, apartmentsResult] = await Promise.all([
+        fetchJsonList(buildingsUrl),
+        fetchJsonList(apartmentsUrl),
       ]);
-      if (bRes.ok) {
-        const blist = await bRes.json();
-        const raw = blist.find((b) => String(b.id) === String(buildingId));
+
+      const needsRetry =
+        !buildingsResult.ok ||
+        !apartmentsResult.ok ||
+        (apartmentsResult.ok && !apartmentsResult.data.length);
+      if (needsRetry) {
+        await delay(buildingsResult.ok && apartmentsResult.ok ? 450 : 700);
+        [buildingsResult, apartmentsResult] = await Promise.all([
+          fetchJsonList(buildingsUrl),
+          fetchJsonList(apartmentsUrl),
+        ]);
+      }
+
+      // Fallback: full apartments list if scoped query still empty.
+      if (
+        apartmentsResult.ok &&
+        !apartmentsResult.data.length &&
+        buildingsResult.ok
+      ) {
+        const allApts = await fetchJsonList(
+          `${WalajnaAuth.API_BASE}/api/apartments`
+        );
+        if (allApts.ok && allApts.data.length) {
+          apartmentsResult = allApts;
+        }
+      }
+
+      buildingDataLoadOk = buildingsResult.ok || apartmentsResult.ok;
+
+      if (buildingsResult.ok) {
+        const blist = buildingsResult.data;
+        const raw =
+          blist.find((b) => String(b.id) === String(buildingId)) ||
+          blist.find((b) => String(b.code ?? "").trim() === String(buildingId));
         if (raw) {
           building = {
             id: String(raw.id),
@@ -200,29 +371,40 @@ document.addEventListener("DOMContentLoaded", async () => {
           };
         }
       }
-      if (aRes.ok) {
-        const all = await aRes.json();
-        const target = String(buildingId);
+
+      if (apartmentsResult.ok) {
+        const all = apartmentsResult.data;
+        const target = String(building?.id || buildingId);
         const code = building?.code ? String(building.code) : null;
         const filtered = all.filter((a) => {
           const bid = String(a.building_id ?? "");
-          return bid === target || (code && bid === code);
+          return (
+            bid === target ||
+            bid === String(buildingId) ||
+            (code && bid === code)
+          );
         });
-        const mapped = filtered
-          .map(mapApiApartmentToFinance)
-          .filter(Boolean);
-        if (mapped.length) {
-          buildingApartments = dedupeFinanceApartments(mapped, buildingId);
+        const mapped = filtered.map(mapApiApartmentToFinance).filter(Boolean);
+        buildingApartments = dedupeFinanceApartments(
+          mapped,
+          building?.id || buildingId
+        );
+        if (buildingApartments.length) {
           incomeFromApi = true;
         }
+      } else if (!buildingsResult.ok) {
+        buildingDataLoadOk = false;
       }
-      if (buildingId && incomeFromApi) {
+
+      if (buildingId && (incomeFromApi || buildingApartments.length)) {
         await Promise.all([
           loadInstallmentsForFinanceApartments(),
           loadCostsForBuilding(),
         ]);
+        incomeFromApi = true;
       }
     } catch (e) {
+      buildingDataLoadOk = false;
       console.warn("finance-summary: API load failed (no local buildings fallback)", e);
     }
   }
@@ -277,6 +459,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         ? archiveRow.incomeInstallments
         : [];
       incomeFromArchive = serverInstallmentsForBuilding.length > 0;
+      buildingDataLoadOk = true;
     }
   }
 
@@ -289,6 +472,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   const costValueEl = document.getElementById("costValue");
   const profitValueEl = document.getElementById("profitValue");
   const lateValueEl = document.getElementById("lateValue");
+  const depositHeldValueEl = document.getElementById("depositHeldValue");
+  const detailDepositOriginalEl = document.getElementById("detailDepositOriginal");
+  const detailDepositUsedEl = document.getElementById("detailDepositUsed");
+  const detailDepositRefundedEl = document.getElementById("detailDepositRefunded");
+  const detailDepositUnsettledEl = document.getElementById("detailDepositUnsettled");
+  const detailDepositRemainingEl = document.getElementById("detailDepositRemaining");
+  const viewUnsettledInsuranceBtn = document.getElementById("viewUnsettledInsuranceBtn");
+  const unsettledInsuranceListEl = document.getElementById("unsettledInsuranceList");
+  const insuranceCardBtn = document.getElementById("insuranceCardBtn");
+  const insuranceDetailsPopover = document.getElementById("insuranceDetailsPopover");
+  const totalInsuranceEl = document.getElementById("totalInsurance");
 
   const tableBody = document.getElementById("tableBody");
   const tableMeta = document.getElementById("tableMeta");
@@ -297,6 +491,46 @@ document.addEventListener("DOMContentLoaded", async () => {
   const totalCostsEl = document.getElementById("totalCosts");
   const totalLateEl = document.getElementById("totalLate");
   const totalProfitEl = document.getElementById("totalProfit");
+
+  if (insuranceCardBtn && insuranceDetailsPopover) {
+    insuranceCardBtn.addEventListener("click", () => {
+      const open = insuranceDetailsPopover.hidden;
+      insuranceDetailsPopover.hidden = !open;
+      insuranceCardBtn.setAttribute("aria-expanded", open ? "true" : "false");
+      insuranceCardBtn.classList.toggle("is-open", open);
+      if (!open && unsettledInsuranceListEl) {
+        unsettledInsuranceListEl.hidden = true;
+      }
+    });
+  }
+
+  if (viewUnsettledInsuranceBtn && unsettledInsuranceListEl) {
+    viewUnsettledInsuranceBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const items = depositSummary.unsettled_items || [];
+      if (!items.length) return;
+      const showing = !unsettledInsuranceListEl.hidden;
+      if (showing) {
+        unsettledInsuranceListEl.hidden = true;
+        return;
+      }
+      unsettledInsuranceListEl.hidden = false;
+      unsettledInsuranceListEl.innerHTML = items
+        .map((item) => {
+          const aptId = item.apartment_id;
+          const num = item.apartment_number || aptId || "";
+          const rem = formatMoney(item.remaining);
+          const label = T("finance.unsettledApt", { n: num });
+          if (!aptId) {
+            return `<div class="finance-unsettled-list__item">${escapeHtml(label)} — ${escapeHtml(rem)}</div>`;
+          }
+          const href = `apartment_history.html?apartmentId=${encodeURIComponent(aptId)}`;
+          return `<a class="finance-unsettled-list__item" href="${href}">${escapeHtml(label)} — ${escapeHtml(rem)}</a>`;
+        })
+        .join("");
+    });
+  }
 
   function escapeHtml(value) {
     return String(value ?? "")
@@ -460,43 +694,65 @@ document.addEventListener("DOMContentLoaded", async () => {
     return apartment?.contract?.notes || T("common.dash");
   }
 
-  function getApartmentCostsForRange(apartment, start, end) {
-    if (!apartment) return 0;
+  function isCancelledCostStatus(status) {
+    return String(status || "").toLowerCase() === "cancelled";
+  }
+
+  function getApartmentCostBreakdownForRange(apartment, start, end) {
+    const empty = { total: 0, depositCovered: 0, ownerBorne: 0 };
+    if (!apartment) return empty;
 
     const apiAptId = getApartmentApiId(apartment);
+    let total = 0;
+    let depositCovered = 0;
 
     if (costsFromApi) {
-      return serverCostsForBuilding
+      serverCostsForBuilding
         .filter((row) => String(row.apartment_id ?? "") === apiAptId)
+        .filter((row) => !isCancelledCostStatus(row.status))
         .filter((row) => {
           const costDate = parseIsoDate(row.expense_date || row.created_at);
           if (!costDate) return false;
           return costDate >= start && costDate <= end;
         })
-        .reduce((sum, row) => sum + Number(row.amount || 0), 0);
-    }
-
-    const currentContractId = getApartmentCurrentContractId(apartment);
-
-    return costsLocal
-      .filter((cost) => {
-        const costApt = normalizeId(cost.apartmentId);
-        if (costApt !== normalizeId(apartment.id) && costApt !== apiAptId) {
-          return false;
-        }
-
-        if (cost.contractId && currentContractId) {
-          if (normalizeId(cost.contractId) !== normalizeId(currentContractId)) {
+        .forEach((row) => {
+          total += Number(row.amount || 0);
+          depositCovered += Number(row.deposit_covered_amount || 0);
+        });
+    } else {
+      const currentContractId = getApartmentCurrentContractId(apartment);
+      costsLocal
+        .filter((cost) => {
+          if (isCancelledCostStatus(cost.status)) return false;
+          const costApt = normalizeId(cost.apartmentId);
+          if (costApt !== normalizeId(apartment.id) && costApt !== apiAptId) {
             return false;
           }
-        }
+          if (cost.contractId && currentContractId) {
+            if (normalizeId(cost.contractId) !== normalizeId(currentContractId)) {
+              return false;
+            }
+          }
+          const costDate = parseIsoDate(cost.date || cost.createdAt || cost.expenseDate);
+          if (!costDate) return false;
+          return costDate >= start && costDate <= end;
+        })
+        .forEach((cost) => {
+          total += Number(cost.amount || 0);
+          depositCovered += Number(cost.depositCoveredAmount || 0);
+        });
+    }
 
-        const costDate = parseIsoDate(cost.date || cost.createdAt);
-        if (!costDate) return false;
+    depositCovered = Math.min(depositCovered, total);
+    return {
+      total,
+      depositCovered,
+      ownerBorne: Math.max(0, total - depositCovered),
+    };
+  }
 
-        return costDate >= start && costDate <= end;
-      })
-      .reduce((sum, cost) => sum + Number(cost.amount || 0), 0);
+  function getApartmentCostsForRange(apartment, start, end) {
+    return getApartmentCostBreakdownForRange(apartment, start, end).ownerBorne;
   }
 
   function getPaymentCoverageStart(payment) {
@@ -745,15 +1001,30 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  function renderTableRow(apartment, income, apartmentCosts, lateAmount, profit) {
+  function getApartmentInsuranceRemaining(apartment) {
+    const cid = getApartmentCurrentContractId(apartment);
+    if (!cid) return null;
+    const map = depositSummary.by_contract || {};
+    const key = String(cid);
+    if (!Object.prototype.hasOwnProperty.call(map, key)) {
+      // Current contract present but not in unsettled ledger map → remaining 0
+      return isApartmentOccupied(apartment) ? 0 : null;
+    }
+    const n = Number(map[key]);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function renderTableRow(apartment, income, apartmentCosts, lateAmount, insuranceRemaining, profit) {
     const tr = document.createElement("tr");
 
     const num = apartment.number || apartment.apartmentNumber || T("common.dash");
     const aptLabel = T("building.aptLabel", { n: num });
     const tenant =
       apartment?.tenantInfo?.fullName || T("finance.noTenant");
-    const noteRaw = buildNoteText(apartment);
-    const note = escapeHtml(noteRaw);
+    const insuranceText =
+      insuranceRemaining == null
+        ? T("common.dash")
+        : formatMoney(insuranceRemaining);
 
     tr.innerHTML = `
       <td>${escapeHtml(aptLabel)}</td>
@@ -762,7 +1033,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       <td>${escapeHtml(formatMoney(income))}</td>
       <td class="${apartmentCosts > 0 ? "finance-value-cost" : ""}">${escapeHtml(formatMoney(apartmentCosts))}</td>
       <td>${escapeHtml(formatMoney(lateAmount))}</td>
-      <td class="finance-note-cell" title="${note}">${note}</td>
+      <td>${escapeHtml(insuranceText)}</td>
       <td class="${profit > 0 ? "finance-value-profit" : profit < 0 ? "finance-value-cost" : ""}">${escapeHtml(formatMoney(profit))}</td>
     `;
 
@@ -775,8 +1046,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     const { start, end, label } = getSelectedDateRange();
 
     let totalIncome = 0;
-    let totalCosts = 0;
+    let totalOwnerBorne = 0;
     let totalLate = 0;
+    let totalCurrentInsurance = 0;
+    let hasAnyCurrentInsurance = false;
 
     tableBody.innerHTML = "";
 
@@ -785,48 +1058,137 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     if (!buildingApartments.length) {
+      const emptyMsg = buildingDataLoadOk
+        ? T("finance.noApts")
+        : T("finance.loadBuildingFailed");
       tableBody.innerHTML = `
         <tr>
           <td colspan="8">
-            <div class="finance-empty">${escapeHtml(T("finance.noApts"))}</div>
+            <div class="finance-empty">${escapeHtml(emptyMsg)}</div>
+            ${
+              buildingDataLoadOk
+                ? ""
+                : `<div style="margin-top:10px;text-align:center;">
+                    <button id="financeSummaryRetryBtn" class="finance-summary-btn finance-summary-btn--primary" type="button">${escapeHtml(
+                      T("common.retry")
+                    )}</button>
+                  </div>`
+            }
           </td>
         </tr>
       `;
+      if (!buildingDataLoadOk) {
+        document.getElementById("financeSummaryRetryBtn")?.addEventListener("click", () => {
+          window.location.reload();
+        });
+      }
     } else {
       const sortedUnits = [...buildingApartments].sort(compareApartmentsByUnitOrder);
       sortedUnits.forEach((apartment) => {
         const income = getApartmentRealizedIncomeForRange(apartment, start, end);
-        const apartmentCosts = getApartmentCostsForRange(apartment, start, end);
+        const breakdown = getApartmentCostBreakdownForRange(apartment, start, end);
         const lateAmount = getApartmentOverdueThrough(apartment, end);
-        const profit = income - apartmentCosts;
+        const insuranceRemaining = getApartmentInsuranceRemaining(apartment);
+        const profit = income - breakdown.ownerBorne;
 
         totalIncome += income;
-        totalCosts += apartmentCosts;
+        totalOwnerBorne += breakdown.ownerBorne;
         totalLate += lateAmount;
+        if (insuranceRemaining != null) {
+          totalCurrentInsurance += insuranceRemaining;
+          hasAnyCurrentInsurance = true;
+        }
 
         tableBody.appendChild(
-          renderTableRow(apartment, income, apartmentCosts, lateAmount, profit)
+          renderTableRow(
+            apartment,
+            income,
+            breakdown.ownerBorne,
+            lateAmount,
+            insuranceRemaining,
+            profit
+          )
         );
       });
     }
 
-    const totalProfit = totalIncome - totalCosts;
+    const totalProfit = totalIncome - totalOwnerBorne;
 
     if (tableMeta) {
+      tableMeta.classList.remove("is-pending");
       tableMeta.textContent = T("finance.aptCount", {
         n: buildingApartments.length,
       });
     }
 
-    if (incomeValueEl) incomeValueEl.textContent = formatMoney(totalIncome);
-    if (costValueEl) costValueEl.textContent = formatMoney(totalCosts);
-    if (profitValueEl) profitValueEl.textContent = formatMoney(totalProfit);
-    if (lateValueEl) lateValueEl.textContent = formatMoney(totalLate);
+    if (incomeValueEl) {
+      incomeValueEl.classList.remove("is-pending");
+      incomeValueEl.textContent = formatMoney(totalIncome);
+    }
+    if (costValueEl) {
+      costValueEl.classList.remove("is-pending");
+      costValueEl.textContent = formatMoney(totalOwnerBorne);
+    }
+    if (profitValueEl) {
+      profitValueEl.classList.remove("is-pending");
+      profitValueEl.textContent = formatMoney(totalProfit);
+    }
+    if (lateValueEl) {
+      lateValueEl.classList.remove("is-pending");
+      lateValueEl.textContent = formatMoney(totalLate);
+    }
+    if (depositHeldValueEl) {
+      depositHeldValueEl.classList.remove("is-pending");
+      depositHeldValueEl.textContent = formatMoney(depositSummary.held);
+    }
 
-    if (totalIncomeEl) totalIncomeEl.textContent = formatMoney(totalIncome);
-    if (totalCostsEl) totalCostsEl.textContent = formatMoney(totalCosts);
-    if (totalLateEl) totalLateEl.textContent = formatMoney(totalLate);
-    if (totalProfitEl) totalProfitEl.textContent = formatMoney(totalProfit);
+    const setDetail = (el, value) => {
+      if (!el) return;
+      el.classList.remove("is-pending");
+      el.textContent = formatMoney(value);
+    };
+    setDetail(detailDepositOriginalEl, depositSummary.original);
+    setDetail(detailDepositUsedEl, depositSummary.used);
+    setDetail(detailDepositRefundedEl, depositSummary.refunded);
+    setDetail(detailDepositUnsettledEl, depositSummary.unsettled);
+    setDetail(detailDepositRemainingEl, depositSummary.held);
+    if (viewUnsettledInsuranceBtn) {
+      const hasUnsettled = Number(depositSummary.unsettled || 0) > 0.009;
+      viewUnsettledInsuranceBtn.hidden = !hasUnsettled;
+    }
+    if (unsettledInsuranceListEl && Number(depositSummary.unsettled || 0) <= 0.009) {
+      unsettledInsuranceListEl.hidden = true;
+      unsettledInsuranceListEl.innerHTML = "";
+    }
+
+    if (totalIncomeEl) {
+      totalIncomeEl.classList.remove("is-pending");
+      totalIncomeEl.textContent = formatMoney(totalIncome);
+    }
+    if (totalCostsEl) {
+      totalCostsEl.classList.remove("is-pending");
+      totalCostsEl.textContent = formatMoney(totalOwnerBorne);
+    }
+    if (totalLateEl) {
+      totalLateEl.classList.remove("is-pending");
+      totalLateEl.textContent = formatMoney(totalLate);
+    }
+    if (totalInsuranceEl) {
+      totalInsuranceEl.classList.remove("is-pending");
+      totalInsuranceEl.textContent = hasAnyCurrentInsurance
+        ? formatMoney(totalCurrentInsurance)
+        : T("common.dash");
+    }
+    if (totalProfitEl) {
+      totalProfitEl.classList.remove("is-pending");
+      totalProfitEl.textContent = formatMoney(totalProfit);
+    }
+  }
+
+  async function refreshDepositsThenRender() {
+    const { end } = getSelectedDateRange();
+    await loadDepositsSummaryForBuilding(reportDateIsoFromEnd(end));
+    render();
   }
 
   if (periodDateInput) {
@@ -838,14 +1200,19 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   if (periodSelect) {
-    periodSelect.addEventListener("change", render);
+    periodSelect.addEventListener("change", () => {
+      refreshDepositsThenRender();
+    });
   }
 
   if (periodDateInput) {
-    periodDateInput.addEventListener("change", render);
+    periodDateInput.addEventListener("change", () => {
+      refreshDepositsThenRender();
+    });
   }
 
-  render();
+  setFinanceSummaryLoading(false);
+  await refreshDepositsThenRender();
 
   document.addEventListener("walajna:i18n-applied", () => {
     setBuildingTitle();

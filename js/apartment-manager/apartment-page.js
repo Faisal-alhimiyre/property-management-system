@@ -4,6 +4,18 @@ document.addEventListener("DOMContentLoaded", async () => {
       ? window.walajna_language.t(k, p)
       : k;
 
+  function setApartmentPageLoading(isLoading) {
+    document.body.classList.toggle("apartment-page--loading", !!isLoading);
+    const loadingEl = document.getElementById("apartmentPageLoading");
+    if (loadingEl) {
+      loadingEl.hidden = !isLoading;
+      loadingEl.setAttribute("aria-busy", isLoading ? "true" : "false");
+    }
+  }
+
+  /** Flip to true to bring back 3D/AR preview on apartment pages. */
+  const WALAJNA_AR_ENABLED = false;
+
   if (typeof WalajnaAuth !== "undefined" && WalajnaAuth.hydrateSession) {
     await WalajnaAuth.hydrateSession();
   }
@@ -52,6 +64,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const tenantNationalityEl = document.getElementById("tenantNationality");
   const tenantTypeEl = document.getElementById("tenantType");
   const insurancePaidEl = document.getElementById("insurancePaid");
+  const insuranceDeductedEl = document.getElementById("insuranceDeducted");
   const phoneNumberEl = document.getElementById("phoneNumber");
   const identityNumberEl = document.getElementById("identityNumber");
 
@@ -113,7 +126,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         : null;
     const cid = apiApartment.current_contract_id ?? null;
     let contract = null;
-    if (cid || lt) {
+    if (cid) {
       const yrForMonthly =
         lt?.yearlyRent != null && String(lt.yearlyRent).trim() !== ""
           ? Number(lt.yearlyRent)
@@ -245,6 +258,36 @@ document.addEventListener("DOMContentLoaded", async () => {
       paymentCycle: inferPaymentCycleFromInstallments(list),
       installmentsCount: list.length,
     };
+  }
+
+  function installmentIsResolved(row) {
+    const status = String(row?.status || "").toLowerCase();
+    return status === "paid" || status === "cancelled";
+  }
+
+  async function hasUnresolvedInstallments(contractId) {
+    if (!contractId) return false;
+    const rows = await getInstallmentRowsPromise(contractId);
+    return rows.some((row) => !installmentIsResolved(row));
+  }
+
+  async function syncRenewButtonPaymentGate() {
+    if (!renewContractBtn || renewContractBtn.hidden) return;
+    const inRenewWindow =
+      remainingDays !== null && remainingDays <= 30 && remainingDays >= 0;
+    if (!inRenewWindow) {
+      renewContractBtn.disabled = true;
+      renewContractBtn.removeAttribute("title");
+      return;
+    }
+    const contractId = getCurrentContractId();
+    const blocked = await hasUnresolvedInstallments(contractId);
+    renewContractBtn.disabled = blocked;
+    if (blocked) {
+      renewContractBtn.title = T("aptPage.renewBlockedUnpaid");
+    } else {
+      renewContractBtn.removeAttribute("title");
+    }
   }
 
   function contractNeedsApiEnrichment(contractData) {
@@ -405,6 +448,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       actionsSection.classList.remove("actions--pending");
       actionsSection.removeAttribute("aria-busy");
     }
+    setApartmentPageLoading(false);
     return;
   }
 
@@ -912,45 +956,83 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function fillTenantInfo() {
     const tenantInfo = data.tenantInfo || {};
+    const vacant = effectiveLeaseStatus === "vacant";
 
     if (tenantFullNameEl) {
-      tenantFullNameEl.textContent = tenantInfo.fullName || "—";
+      tenantFullNameEl.textContent = vacant ? "—" : (tenantInfo.fullName || "—");
     }
 
     if (tenantNationalityEl) {
-      tenantNationalityEl.textContent = tenantInfo.nationality || "—";
+      tenantNationalityEl.textContent = vacant ? "—" : (tenantInfo.nationality || "—");
     }
 
     if (tenantTypeEl) {
-      tenantTypeEl.textContent = tenantInfo.tenantType || "—";
+      tenantTypeEl.textContent = vacant ? "—" : (tenantInfo.tenantType || "—");
     }
 
     if (insurancePaidEl) {
-      insurancePaidEl.textContent = contract.insurancePaid
-        ? toEnglishDigits(String(contract.insurancePaid))
-        : "—";
+      insurancePaidEl.textContent =
+        vacant || !contract.insurancePaid
+          ? "—"
+          : toEnglishDigits(String(contract.insurancePaid));
     }
 
     if (phoneNumberEl) {
-      phoneNumberEl.textContent = tenantInfo.phoneNumber || "—";
+      phoneNumberEl.textContent = vacant ? "—" : (tenantInfo.phoneNumber || "—");
     }
 
     if (identityNumberEl) {
-      identityNumberEl.textContent = data.tenantNationalId
-        ? toEnglishDigits(String(data.tenantNationalId))
-        : "—";
+      identityNumberEl.textContent =
+        vacant || !data.tenantNationalId
+          ? "—"
+          : toEnglishDigits(String(data.tenantNationalId));
     }
   }
 
-  function fillAdditionalInfo() {
-    if (startDateEl) startDateEl.textContent = formatDate(contract.startDate);
-    if (endDateEl) endDateEl.textContent = formatDate(contract.endDate);
-    if (meterNumberEl) {
-      meterNumberEl.textContent = contract.meterNumber
-        ? toEnglishDigits(String(contract.meterNumber))
-        : "—";
+  async function fillAdditionalInfo() {
+    const vacant = effectiveLeaseStatus === "vacant" || !getCurrentContractId();
+    if (startDateEl) {
+      startDateEl.textContent = vacant ? "—" : formatDate(contract.startDate);
     }
-    if (notesEl) notesEl.textContent = contract.notes || "—";
+    if (endDateEl) {
+      endDateEl.textContent = vacant ? "—" : formatDate(contract.endDate);
+    }
+    if (meterNumberEl) {
+      meterNumberEl.textContent =
+        vacant || !contract.meterNumber
+          ? "—"
+          : toEnglishDigits(String(contract.meterNumber));
+    }
+    if (notesEl) notesEl.textContent = vacant ? "—" : (contract.notes || "—");
+
+    if (insuranceDeductedEl) {
+      insuranceDeductedEl.textContent = "—";
+      if (vacant) return;
+      const contractId = getCurrentContractId();
+      if (
+        contractId &&
+        typeof WalajnaAuth !== "undefined" &&
+        WalajnaAuth.fetchWithAuth
+      ) {
+        try {
+          const res = await WalajnaAuth.fetchWithAuth(
+            `${WalajnaAuth.API_BASE}/api/deposits/balance?contract_id=${encodeURIComponent(
+              String(contractId)
+            )}`,
+            { method: "GET" }
+          );
+          if (res.ok) {
+            const data = await res.json();
+            const used = Number(data.used);
+            insuranceDeductedEl.textContent = Number.isFinite(used)
+              ? formatMoney(used)
+              : "—";
+          }
+        } catch (e) {
+          console.warn("[apartment-page] deposit used fetch failed", e);
+        }
+      }
+    }
   }
 
   /**
@@ -1123,7 +1205,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           }
           showElement(mainActionBtn);
         }
-        if (arPreviewBtn) showElement(arPreviewBtn);
+        if (WALAJNA_AR_ENABLED && arPreviewBtn) showElement(arPreviewBtn);
         if (actionsSection) {
           actionsSection.classList.remove("actions--pending");
           actionsSection.removeAttribute("aria-busy");
@@ -1144,7 +1226,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       showElement(viewRequestsBtn);
       showElement(evictTenantBtn);
       showElement(viewCostsBtn);
-      if (arPreviewBtn) showElement(arPreviewBtn);
+      if (WALAJNA_AR_ENABLED && arPreviewBtn) showElement(arPreviewBtn);
 
       if (renewContractBtn) {
         showElement(renewContractBtn);
@@ -1153,6 +1235,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           remainingDays <= 30 &&
           remainingDays >= 0
         );
+        void syncRenewButtonPaymentGate();
       }
 
       hideElement(tenantPayBtn);
@@ -1179,7 +1262,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     showElement(paymentsBtn);
     showElement(documentsBtn);
     showElement(viewRequestsBtn);
-    if (arPreviewBtn) showElement(arPreviewBtn);
+    if (WALAJNA_AR_ENABLED && arPreviewBtn) showElement(arPreviewBtn);
 
     if (tenantPayBtn) {
       showElement(tenantPayBtn);
@@ -1264,8 +1347,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   updateRentDisplay(contract);
   fillExtraApartmentInfo();
   fillTenantInfo();
-  fillAdditionalInfo();
+  void fillAdditionalInfo();
   fillOwnerInfoForTenantOnly();
+  setApartmentPageLoading(false);
   await updateNextPaymentInfo(aptId);
 
   if (status) {
@@ -1349,7 +1433,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  if (arPreviewBtn) {
+  if (WALAJNA_AR_ENABLED && arPreviewBtn) {
     arPreviewBtn.addEventListener("click", () => {
       if (!aptId) {
         alert(T("aptPage.cannotIdentify"));
@@ -1378,16 +1462,351 @@ document.addEventListener("DOMContentLoaded", async () => {
   /* =========================
      11) RENEW CONTRACT
      ========================= */
-  if (renewContractBtn) {
-    renewContractBtn.addEventListener("click", () => {
-      if (remainingDays === null || remainingDays > 30) {
-        alert(T("aptPage.renewWindow"));
+  const renewLeaseModal = document.getElementById("renewLeaseModal");
+  const renewStartDateInput = document.getElementById("renewStartDate");
+  const renewEndDateInput = document.getElementById("renewEndDate");
+  const renewYearlyRentInput = document.getElementById("renewYearlyRent");
+  const renewPaymentCycleInput = document.getElementById("renewPaymentCycle");
+  const renewLeaseError = document.getElementById("renewLeaseError");
+  const saveRenewLeaseBtn = document.getElementById("saveRenewLeaseBtn");
+
+  function addOneYearIso(isoDate) {
+    const raw = String(isoDate || "").slice(0, 10);
+    const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return "";
+    const y = Number(m[1]) + 1;
+    const mo = Number(m[2]);
+    const d = Number(m[3]);
+    const last = new Date(y, mo, 0).getDate();
+    const day = Math.min(d, last);
+    return `${y}-${String(mo).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+
+  function addDaysIsoLocal(isoDate, days) {
+    const raw = String(isoDate || "").slice(0, 10);
+    const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return "";
+    const dt = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0);
+    dt.setDate(dt.getDate() + Number(days || 0));
+    const y = dt.getFullYear();
+    const mo = String(dt.getMonth() + 1).padStart(2, "0");
+    const d = String(dt.getDate()).padStart(2, "0");
+    return `${y}-${mo}-${d}`;
+  }
+
+  function syncRenewDateConstraints() {
+    if (!renewEndDateInput) return;
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const start = String(renewStartDateInput?.value || "").slice(0, 10);
+    const startPlusOne = start ? addDaysIsoLocal(start, 1) : todayStr;
+    const effectiveMin =
+      startPlusOne && todayStr
+        ? startPlusOne >= todayStr
+          ? startPlusOne
+          : todayStr
+        : todayStr;
+    renewEndDateInput.min = effectiveMin || todayStr;
+    const endVal = String(renewEndDateInput.value || "").slice(0, 10);
+    if (endVal && effectiveMin && endVal < effectiveMin) {
+      renewEndDateInput.value = start ? addOneYearIso(start) : effectiveMin;
+      if (
+        renewEndDateInput.value &&
+        String(renewEndDateInput.value).slice(0, 10) < effectiveMin
+      ) {
+        renewEndDateInput.value = effectiveMin;
+      }
+    }
+  }
+
+  async function openRenewLeaseModal() {
+    if (!renewLeaseModal) return;
+    if (remainingDays === null || remainingDays > 30 || remainingDays < 0) {
+      alert(T("aptPage.renewWindow"));
+      return;
+    }
+    const contractId = getCurrentContractId();
+    if (await hasUnresolvedInstallments(contractId)) {
+      alert(T("aptPage.renewBlockedUnpaid"));
+      return;
+    }
+    if (renewLeaseError) renewLeaseError.textContent = "";
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const oldEnd = String(contract.endDate || "").slice(0, 10);
+    const startPrefill =
+      oldEnd && oldEnd >= todayStr ? oldEnd : todayStr;
+    if (renewStartDateInput) renewStartDateInput.value = startPrefill;
+    if (renewEndDateInput) renewEndDateInput.value = addOneYearIso(startPrefill);
+    syncRenewDateConstraints();
+    const yearly = getYearlyRentForContract(contract);
+    if (renewYearlyRentInput) {
+      renewYearlyRentInput.value =
+        Number.isFinite(yearly) && yearly > 0 ? String(Math.round(yearly)) : "";
+    }
+    if (renewPaymentCycleInput) {
+      const currentCycle = normalizePaymentCycleForUi(
+        contract.paymentCycle || contract.payment_cycle || "monthly"
+      );
+      renewPaymentCycleInput.value = currentCycle;
+    }
+    renewLeaseModal.classList.add("is-open");
+    renewLeaseModal.setAttribute("aria-hidden", "false");
+    if (window.walajna_language && window.walajna_language.apply) {
+      window.walajna_language.apply(renewLeaseModal);
+    }
+  }
+
+  let renewLeaseSaveInFlight = false;
+
+  function setRenewSaveBusy(isBusy) {
+    if (renewLeaseModal) {
+      renewLeaseModal.classList.toggle("is-busy", !!isBusy);
+      const busyLayer = renewLeaseModal.querySelector(".wl-modal-busy");
+      if (busyLayer) busyLayer.setAttribute("aria-hidden", isBusy ? "false" : "true");
+    }
+    if (saveRenewLeaseBtn) {
+      if (isBusy) {
+        if (!saveRenewLeaseBtn.dataset.idleLabel) {
+          saveRenewLeaseBtn.dataset.idleLabel = saveRenewLeaseBtn.textContent || "";
+        }
+        saveRenewLeaseBtn.disabled = true;
+        saveRenewLeaseBtn.classList.add("is-busy");
+        saveRenewLeaseBtn.setAttribute("aria-busy", "true");
+        saveRenewLeaseBtn.innerHTML = `<span class="wl-btn-spinner" aria-hidden="true"></span><span>${T("renewModal.saving")}</span>`;
+      } else {
+        saveRenewLeaseBtn.disabled = false;
+        saveRenewLeaseBtn.classList.remove("is-busy");
+        saveRenewLeaseBtn.removeAttribute("aria-busy");
+        saveRenewLeaseBtn.textContent =
+          saveRenewLeaseBtn.dataset.idleLabel || T("renewModal.save");
+        delete saveRenewLeaseBtn.dataset.idleLabel;
+      }
+    }
+    const cancelRenew = document.getElementById("cancelRenewLeaseModal");
+    const closeRenew = document.getElementById("closeRenewLeaseModal");
+    if (cancelRenew) cancelRenew.disabled = !!isBusy;
+    if (closeRenew) closeRenew.disabled = !!isBusy;
+    if (renewStartDateInput) renewStartDateInput.disabled = !!isBusy;
+    if (renewEndDateInput) renewEndDateInput.disabled = !!isBusy;
+    if (renewYearlyRentInput) renewYearlyRentInput.disabled = !!isBusy;
+    if (renewPaymentCycleInput) renewPaymentCycleInput.disabled = !!isBusy;
+  }
+
+  function closeRenewLeaseModal() {
+    if (!renewLeaseModal) return;
+    if (renewLeaseSaveInFlight) return;
+    renewLeaseModal.classList.remove("is-open");
+    renewLeaseModal.classList.remove("is-busy");
+    renewLeaseModal.setAttribute("aria-hidden", "true");
+    if (renewLeaseError) renewLeaseError.textContent = "";
+  }
+
+  async function submitRenewLease() {
+    if (renewLeaseSaveInFlight) return;
+    if (renewLeaseError) renewLeaseError.textContent = "";
+    const startDate = String(renewStartDateInput?.value || "").trim();
+    const endDate = String(renewEndDateInput?.value || "").trim();
+    const yearlyRent = Number(renewYearlyRentInput?.value || 0);
+    const paymentCycle = normalizePaymentCycleForUi(
+      renewPaymentCycleInput?.value ||
+        contract.paymentCycle ||
+        contract.payment_cycle ||
+        "monthly"
+    );
+    if (!startDate || !endDate) {
+      if (renewLeaseError) renewLeaseError.textContent = T("renewModal.needDates");
+      return;
+    }
+    if (endDate <= startDate) {
+      if (renewLeaseError) renewLeaseError.textContent = T("renewModal.endAfterStart");
+      return;
+    }
+    const todayStr = new Date().toISOString().slice(0, 10);
+    if (endDate < todayStr) {
+      if (renewLeaseError) renewLeaseError.textContent = T("linkModal.val.endNotPast");
+      return;
+    }
+    if (!Number.isFinite(yearlyRent) || yearlyRent <= 0) {
+      if (renewLeaseError) renewLeaseError.textContent = T("renewModal.needRent");
+      return;
+    }
+    if (!["monthly", "quarterly", "semi_annual", "annual"].includes(paymentCycle)) {
+      if (renewLeaseError) renewLeaseError.textContent = T("renewModal.needCycle");
+      return;
+    }
+
+    const currentContractId = getCurrentContractId();
+    if (currentContractId) {
+      installmentRowsPromiseByContract.delete(String(currentContractId));
+    }
+    if (await hasUnresolvedInstallments(currentContractId)) {
+      if (renewLeaseError) renewLeaseError.textContent = T("aptPage.renewBlockedUnpaid");
+      return;
+    }
+
+    const apiAptId =
+      data?.apiId != null
+        ? data.apiId
+        : /^\d+$/.test(String(data?.id || ""))
+          ? Number(data.id)
+          : null;
+    if (apiAptId == null || !WalajnaAuth?.fetchWithAuth) {
+      if (renewLeaseError) renewLeaseError.textContent = T("aptPage.renewFailed");
+      return;
+    }
+
+    renewLeaseSaveInFlight = true;
+    setRenewSaveBusy(true);
+    try {
+      const res = await WalajnaAuth.fetchWithAuth(
+        `${WalajnaAuth.API_BASE}/api/apartments/${encodeURIComponent(String(apiAptId))}/renew-lease`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            start_date: startDate,
+            end_date: endDate,
+            yearly_rent: yearlyRent,
+            payment_cycle: paymentCycle,
+          }),
+        }
+      );
+      if (!res.ok) {
+        let msg = T("aptPage.renewFailed");
+        try {
+          const j = await res.json();
+          const detail = j?.detail;
+          if (
+            detail &&
+            typeof detail === "object" &&
+            detail.code === "UNRESOLVED_INSTALLMENTS"
+          ) {
+            msg = T("aptPage.renewBlockedUnpaid");
+          } else if (typeof detail === "string") {
+            msg = detail;
+          } else if (detail != null) {
+            msg = JSON.stringify(detail);
+          }
+        } catch {
+          /* ignore */
+        }
+        if (renewLeaseError) renewLeaseError.textContent = msg;
+        renewLeaseSaveInFlight = false;
+        setRenewSaveBusy(false);
         return;
       }
 
-      alert(T("aptPage.renewSoon"));
+      let renewPayload = null;
+      try {
+        renewPayload = await res.json();
+      } catch {
+        renewPayload = null;
+      }
+
+      const newContractId =
+        renewPayload?.renewed_contract_id ??
+        renewPayload?.current_contract_id ??
+        null;
+
+      // Renew API does not create a document — generate the new lease file here
+      // while keeping the previous contract's PDF in the list.
+      if (
+        newContractId != null &&
+        linkTenantSystem &&
+        typeof linkTenantSystem.generateLeaseContractDocument === "function"
+      ) {
+        try {
+          const monthly =
+            Number.isFinite(yearlyRent) && yearlyRent > 0 ? yearlyRent / 12 : Number(data?.rent) || 0;
+          const renewApt = {
+            ...data,
+            id: aptId,
+            apiId: apiAptId,
+            currentContractId: newContractId,
+            contract: {
+              ...(data?.contract || {}),
+              id: newContractId,
+              startDate,
+              endDate,
+              yearlyRent,
+              rentAmount: monthly,
+              paymentCycle,
+            },
+            rent: monthly,
+            tenantInfo: data?.tenantInfo || {},
+            tenantNationalId: data?.tenantNationalId || data?.tenant_national_id,
+          };
+          const renewDocData = {
+            fullName: renewApt.tenantInfo?.fullName || "",
+            nationalId: renewApt.tenantNationalId || "",
+            nationality: renewApt.tenantInfo?.nationality || "",
+            tenantType: renewApt.tenantInfo?.tenantType || "",
+            phone: renewApt.tenantInfo?.phoneNumber || "",
+            yearlyRent,
+            rent: monthly,
+            paymentCycle,
+            installmentsCount:
+              contract.installmentsCount ||
+              contract.installments_count ||
+              "",
+            startDate,
+            endDate,
+            insurancePaid: contract.insurancePaid || "",
+            meterNumber: contract.meterNumber || "",
+            notes: contract.notes || "",
+            brokerName: contract.brokerInfo?.name || "",
+            brokerCommercialRegister: contract.brokerInfo?.commercialRegister || "",
+            brokerPhone: contract.brokerInfo?.phone || "",
+            electricityIncluded: !!contract.services?.electricityIncluded,
+            waterIncluded: !!contract.services?.waterIncluded,
+            gasType: contract.services?.gasType || "none",
+            acType: contract.services?.acType || "none",
+          };
+          await linkTenantSystem.generateLeaseContractDocument(renewApt, renewDocData);
+        } catch (docErr) {
+          console.warn("[apartment-page] renew contract document failed", docErr);
+        }
+      }
+
+      setApartmentPageLoading(true);
+      renewLeaseSaveInFlight = false;
+      renewLeaseModal?.classList.remove("is-busy");
+      renewLeaseModal?.classList.remove("is-open");
+      renewLeaseModal?.setAttribute("aria-hidden", "true");
+      alert(T("aptPage.renewSuccess"));
+      window.location.reload();
+    } catch (e) {
+      console.warn("[apartment-page] renew-lease failed", e);
+      if (renewLeaseError) renewLeaseError.textContent = T("aptPage.renewFailed");
+      renewLeaseSaveInFlight = false;
+      setRenewSaveBusy(false);
+    }
+  }
+
+  if (renewContractBtn) {
+    renewContractBtn.addEventListener("click", () => {
+      void openRenewLeaseModal();
     });
   }
+  document.getElementById("closeRenewLeaseModal")?.addEventListener("click", closeRenewLeaseModal);
+  document.getElementById("cancelRenewLeaseModal")?.addEventListener("click", closeRenewLeaseModal);
+  document.querySelectorAll("[data-renew-close]").forEach((el) => {
+    el.addEventListener("click", closeRenewLeaseModal);
+  });
+  saveRenewLeaseBtn?.addEventListener("click", () => {
+    void submitRenewLease();
+  });
+  renewStartDateInput?.addEventListener("change", () => {
+    if (renewStartDateInput.value && renewEndDateInput) {
+      const start = String(renewStartDateInput.value).slice(0, 10);
+      const end = String(renewEndDateInput.value || "").slice(0, 10);
+      if (!end || end <= start) {
+        renewEndDateInput.value = addOneYearIso(start);
+      }
+    }
+    syncRenewDateConstraints();
+  });
+  renewStartDateInput?.addEventListener("input", syncRenewDateConstraints);
+  renewEndDateInput?.addEventListener("change", syncRenewDateConstraints);
+  renewEndDateInput?.addEventListener("input", syncRenewDateConstraints);
 
   /* =========================
      12) EVICT TENANT
@@ -1433,7 +1852,20 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
-    if (!confirm(T("aptPage.confirmEvict"))) return;
+    let refundAmount = 0;
+    if (
+      window.WalajnaInsuranceSettle &&
+      typeof WalajnaInsuranceSettle.confirmEvictionRefund === "function"
+    ) {
+      const result = await WalajnaInsuranceSettle.confirmEvictionRefund(
+        currentContractId,
+        { confirmKey: "aptPage.confirmEvict" }
+      );
+      if (!result.proceed) return;
+      refundAmount = Number(result.refundAmount || 0);
+    } else if (!(await WalajnaDialog.confirm(T("aptPage.confirmEvict"), { danger: true }))) {
+      return;
+    }
 
     const authed =
       typeof WalajnaAuth !== "undefined" && WalajnaAuth.getCurrentUser?.();
@@ -1444,7 +1876,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       Number.isFinite(apiAid)
     ) {
       try {
-        await WalajnaApartmentsApi.vacateTenant(apiAid);
+        await WalajnaApartmentsApi.vacateTenant(apiAid, { refundAmount });
         alert(T("aptPage.evicted"));
         window.location.reload();
         return;
@@ -1501,7 +1933,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     updateRentDisplay(contract);
     fillExtraApartmentInfo();
     fillTenantInfo();
-    fillAdditionalInfo();
+    void fillAdditionalInfo();
     fillOwnerInfoForTenantOnly();
     updateNextPaymentInfo(aptId);
     if (status) {

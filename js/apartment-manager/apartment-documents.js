@@ -84,37 +84,35 @@ function normalizeContractKey(value) {
   return value == null ? "" : String(value).trim();
 }
 
+function dedupeApartmentDocuments(docs) {
+  const list = Array.isArray(docs) ? docs.slice() : [];
+  const seen = new Set();
+  const out = [];
+  // Newest first so we keep the latest copy of a duplicate pair.
+  list
+    .slice()
+    .sort((a, b) => new Date(b.uploadedAt || 0) - new Date(a.uploadedAt || 0))
+    .forEach((doc) => {
+      const cid = normalizeContractKey(doc.contractId);
+      const name = String(doc.fileName || "").trim().toLowerCase();
+      const key = cid
+        ? `c:${cid}`
+        : name
+          ? `n:${name}`
+          : `id:${doc.serverId || doc.id}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push(doc);
+    });
+  return out;
+}
+
 function getDocumentsForApartmentContext(aptId) {
   const documents = getDocuments();
-  const currentContractId = getCurrentContractIdForApartment(aptId);
-  const currentKey = normalizeContractKey(currentContractId);
+  const aptKey = String(aptId);
 
-  // For active contract view, compare normalized IDs so number/string mismatches do not hide docs.
-  if (currentKey) {
-    const matched = documents.filter(
-      (doc) => normalizeContractKey(doc.contractId) === currentKey
-    );
-
-    if (matched.length > 0) {
-      return matched;
-    }
-
-    // If a generated contract exists without contractId (older data), keep showing it for this apartment.
-    return documents.filter((doc) => {
-      if (String(doc.apartmentId) !== String(aptId)) return false;
-      if (doc.docType !== "auto_lease_contract") return false;
-      return !normalizeContractKey(doc.contractId);
-    });
-  }
-
-  // If no active contract id is available, show only apartment docs that are not tied to old contracts.
-  const apartmentDocs = documents.filter(
-    (doc) => String(doc.apartmentId) === String(aptId)
-  );
-  const safeDocs = apartmentDocs.filter((doc) => !normalizeContractKey(doc.contractId));
-  if (safeDocs.length > 0) return safeDocs;
-
-  return [];
+  const apartmentDocs = documents.filter((doc) => String(doc.apartmentId) === aptKey);
+  return dedupeApartmentDocuments(apartmentDocs);
 }
 
 /* ========================================
@@ -370,6 +368,26 @@ async function upsertHtmlDocumentForApartment(htmlContent, aptId, fileName, matc
    Open Document
    ======================================== */
 
+function dataUrlToBlob(dataUrl) {
+  const raw = String(dataUrl || "");
+  const comma = raw.indexOf(",");
+  if (comma < 0) throw new Error("invalid data url");
+  const header = raw.slice(0, comma);
+  const payload = raw.slice(comma + 1);
+  const mimeMatch = header.match(/^data:([^;,]+)/i);
+  const mime = mimeMatch ? mimeMatch[1] : "application/octet-stream";
+  const isBase64 = /;base64/i.test(header);
+  if (isBase64) {
+    const binary = atob(payload);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return new Blob([bytes], { type: mime });
+  }
+  return new Blob([decodeURIComponent(payload)], { type: mime });
+}
+
 function openDocumentById(docId) {
   const documents = getDocuments();
   const doc = documents.find((d) => String(d.id) === String(docId));
@@ -404,9 +422,48 @@ function openDocumentById(docId) {
     return;
   }
 
+  // Large PDF data URLs go blank via location.href — open via blob URL instead.
+  if (isPdf && !isHtml && data.startsWith("data:")) {
+    try {
+      const blob = dataUrlToBlob(data);
+      if (!blob || blob.size < 64) {
+        window.alert(docT("aptDoc.missingData"));
+        win.close();
+        return;
+      }
+      win.location.href = URL.createObjectURL(blob);
+      return;
+    } catch (e) {
+      console.warn("[apartment-documents] pdf data url open failed", e);
+      window.alert(docT("aptDoc.openFailed"));
+      win.close();
+      return;
+    }
+  }
+
   if (isPdf && !isHtml) {
     win.location.href = data;
     return;
+  }
+
+  // HTML data URL: write content directly (iframe src with huge data URLs often blanks).
+  if (isHtml && data.startsWith("data:")) {
+    try {
+      const blob = dataUrlToBlob(data);
+      const reader = new FileReader();
+      reader.onload = () => {
+        win.document.open();
+        win.document.write(String(reader.result || ""));
+        win.document.close();
+      };
+      reader.onerror = () => {
+        win.location.href = URL.createObjectURL(blob);
+      };
+      reader.readAsText(blob);
+      return;
+    } catch (e) {
+      console.warn("[apartment-documents] html data url open failed", e);
+    }
   }
 
   const lang = window.walajna_language && window.walajna_language.get ? window.walajna_language.get() : "ar";
@@ -436,7 +493,7 @@ function openDocumentById(docId) {
         </style>
       </head>
       <body>
-        <iframe src="${doc.fileData}"></iframe>
+        <iframe src="${String(doc.fileData || "").replace(/"/g, "&quot;")}"></iframe>
       </body>
     </html>
   `);

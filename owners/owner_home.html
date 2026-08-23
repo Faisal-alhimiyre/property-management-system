@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
   <script>(function(){try{var l=localStorage.getItem("walajna_language")||"ar";if(l!=="en"&&l!=="ar"&&l!=="ur")l="ar";document.documentElement.setAttribute("lang",l==="en"?"en":(l==="ur"?"ur":"ar"));document.documentElement.setAttribute("dir",l==="en"?"ltr":"rtl");}catch(e){}})();</script>
@@ -12,8 +12,9 @@
   <link rel="stylesheet" href="../css/legend-phone.css">
   <script src="../js/main/walajna-i18n-ur.js"></script>
   <script src="../js/main/walajna-i18n.js"></script>
+  <script src="../js/main/walajna-dialog.js"></script>
 </head>
-<body data-nav="user" data-wl-bc="owner-buildings">
+<body class="owner-home--loading" data-nav="user" data-wl-bc="owner-buildings">
   <div id="navbar-container"></div>
 
   <main class="owner-dashboard">
@@ -59,14 +60,14 @@
         <section class="legend-card">
           <h3 class="legend-title legend-title--occupancy">
             <span data-i18n="owner.legend.totalApartments"></span>
-            <span class="legend-count legend-count--total" data-owner-indicator-count="total">0</span>
+            <span class="legend-count legend-count--total is-pending" data-owner-indicator-count="total">—</span>
           </h3>
           <div class="legend-list legend-list--occupancy">
             <div class="legend-item">
               <span class="legend-item__label" data-i18n="owner.legend.rented"></span>
               <span class="legend-item__meta">
                 <span class="legend-color rented"></span>
-                <span class="legend-count" data-owner-indicator-count="rented">0</span>
+                <span class="legend-count is-pending" data-owner-indicator-count="rented">—</span>
               </span>
             </div>
 
@@ -74,7 +75,7 @@
               <span class="legend-item__label" data-i18n="owner.legend.vacant"></span>
               <span class="legend-item__meta">
                 <span class="legend-color none"></span>
-                <span class="legend-count" data-owner-indicator-count="vacant">0</span>
+                <span class="legend-count is-pending" data-owner-indicator-count="vacant">—</span>
               </span>
             </div>
           </div>
@@ -86,7 +87,7 @@
               <span class="legend-item__label" data-i18n="owner.legend.overdue"></span>
               <span class="legend-item__meta">
                 <span class="legend-color rent-overdue"></span>
-                <span class="legend-count" data-owner-indicator-count="rent-overdue">0</span>
+                <span class="legend-count is-pending" data-owner-indicator-count="rent-overdue">—</span>
               </span>
             </div>
 
@@ -94,7 +95,7 @@
               <span class="legend-item__label" data-i18n="owner.legend.maintenance"></span>
               <span class="legend-item__meta">
                 <span class="legend-color maintenance"></span>
-                <span class="legend-count" data-owner-indicator-count="maintenance">0</span>
+                <span class="legend-count is-pending" data-owner-indicator-count="maintenance">—</span>
               </span>
             </div>
 
@@ -102,7 +103,7 @@
               <span class="legend-item__label" data-i18n="owner.legend.complaint"></span>
               <span class="legend-item__meta">
                 <span class="legend-color complaint"></span>
-                <span class="legend-count" data-owner-indicator-count="complaint">0</span>
+                <span class="legend-count is-pending" data-owner-indicator-count="complaint">—</span>
               </span>
             </div>
 
@@ -110,7 +111,7 @@
               <span class="legend-item__label" data-i18n="owner.legend.suggestion"></span>
               <span class="legend-item__meta">
                 <span class="legend-color suggestion"></span>
-                <span class="legend-count" data-owner-indicator-count="suggestion">0</span>
+                <span class="legend-count is-pending" data-owner-indicator-count="suggestion">—</span>
               </span>
             </div>
 
@@ -118,7 +119,7 @@
               <span class="legend-item__label" data-i18n="owner.legend.request"></span>
               <span class="legend-item__meta">
                 <span class="legend-color request"></span>
-                <span class="legend-count" data-owner-indicator-count="request">0</span>
+                <span class="legend-count is-pending" data-owner-indicator-count="request">—</span>
               </span>
             </div>
           </div>
@@ -158,9 +159,6 @@
                 </div>
               </div>
               <div id="ownerBuildingsFilterPickActions" class="buildings-filter-actions" hidden>
-                <button type="button" id="ownerResetFiltersBtn" class="buildings-filter-pick-btn">
-                  <span data-i18n="owner.buildingsBackToDefault"></span>
-                </button>
                 <button
                   type="button"
                   id="ownerShowSelectedOnlyBtn"
@@ -173,7 +171,11 @@
           </div>
         </section>
 
-        <section id="buildingsContainer" class="buildings-container">
+        <section id="buildingsContainer" class="buildings-container" aria-busy="true">
+          <div id="ownerHomeLoading" class="owner-home-loading" role="status" aria-live="polite">
+            <div class="owner-home-loading__spinner" aria-hidden="true"></div>
+            <p class="owner-home-loading__text" data-i18n="owner.loadingBuildings"></p>
+          </div>
         </section>
 
         <p id="emptyState" class="empty-state" style="display:none;" data-i18n="owner.emptyBuildings"></p>
@@ -187,21 +189,21 @@
       <section class="walajna-legend-phone__panel">
         <h3 class="walajna-legend-phone__title walajna-legend-phone__title--occupancy">
           <span data-i18n="owner.legend.totalApartments"></span>
-          <span class="legend-count legend-count--total" data-owner-indicator-count="total">0</span>
+          <span class="legend-count legend-count--total is-pending" data-owner-indicator-count="total">—</span>
         </h3>
         <div class="walajna-legend-phone__list walajna-legend-phone__list--occupancy">
           <div class="walajna-legend-phone__item">
             <span data-i18n="owner.legend.rented"></span>
             <span class="walajna-legend-phone__meta">
               <span class="walajna-legend-phone__swatch rented"></span>
-              <span class="legend-count" data-owner-indicator-count="rented">0</span>
+              <span class="legend-count is-pending" data-owner-indicator-count="rented">—</span>
             </span>
           </div>
           <div class="walajna-legend-phone__item">
             <span data-i18n="owner.legend.vacant"></span>
             <span class="walajna-legend-phone__meta">
               <span class="walajna-legend-phone__swatch none"></span>
-              <span class="legend-count" data-owner-indicator-count="vacant">0</span>
+              <span class="legend-count is-pending" data-owner-indicator-count="vacant">—</span>
             </span>
           </div>
         </div>
@@ -211,35 +213,35 @@
             <span data-i18n="owner.legend.overdue"></span>
             <span class="walajna-legend-phone__meta">
               <span class="walajna-legend-phone__swatch rent-overdue"></span>
-              <span class="legend-count" data-owner-indicator-count="rent-overdue">0</span>
+              <span class="legend-count is-pending" data-owner-indicator-count="rent-overdue">—</span>
             </span>
           </div>
           <div class="walajna-legend-phone__item">
             <span data-i18n="owner.legend.maintenance"></span>
             <span class="walajna-legend-phone__meta">
               <span class="walajna-legend-phone__swatch maintenance"></span>
-              <span class="legend-count" data-owner-indicator-count="maintenance">0</span>
+              <span class="legend-count is-pending" data-owner-indicator-count="maintenance">—</span>
             </span>
           </div>
           <div class="walajna-legend-phone__item">
             <span data-i18n="owner.legend.complaint"></span>
             <span class="walajna-legend-phone__meta">
               <span class="walajna-legend-phone__swatch complaint"></span>
-              <span class="legend-count" data-owner-indicator-count="complaint">0</span>
+              <span class="legend-count is-pending" data-owner-indicator-count="complaint">—</span>
             </span>
           </div>
           <div class="walajna-legend-phone__item">
             <span data-i18n="owner.legend.suggestion"></span>
             <span class="walajna-legend-phone__meta">
               <span class="walajna-legend-phone__swatch suggestion"></span>
-              <span class="legend-count" data-owner-indicator-count="suggestion">0</span>
+              <span class="legend-count is-pending" data-owner-indicator-count="suggestion">—</span>
             </span>
           </div>
           <div class="walajna-legend-phone__item">
             <span data-i18n="owner.legend.request"></span>
             <span class="walajna-legend-phone__meta">
               <span class="walajna-legend-phone__swatch request"></span>
-              <span class="legend-count" data-owner-indicator-count="request">0</span>
+              <span class="legend-count is-pending" data-owner-indicator-count="request">—</span>
             </span>
           </div>
         </div>

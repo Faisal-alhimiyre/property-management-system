@@ -1,8 +1,22 @@
 /**
  * Build CPIS AR spec from Walajna apartment + building data; open 3D viewer.
+ * Temporarily unused on apartment pages (scripts not loaded). Keep for later.
  */
 (function () {
   "use strict";
+
+  /** Set true only when re-enabling AR from apartment_info.html scripts. */
+  var WALAJNA_AR_MODULE_ENABLED = false;
+  if (!WALAJNA_AR_MODULE_ENABLED) {
+    window.WalajnaAr = window.WalajnaAr || {
+      ENABLED: false,
+      STORAGE_KEY: "cpis360BuildingSpec",
+      openViewer: function () {
+        return Promise.reject(new Error("AR preview is temporarily disabled"));
+      },
+    };
+    return;
+  }
 
   var STORAGE_KEY = "cpis360BuildingSpec";
   var DEFAULT_WIDTH = 20;

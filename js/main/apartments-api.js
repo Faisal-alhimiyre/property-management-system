@@ -207,7 +207,7 @@
   }
 
   /** Owner-only: clear tenant on server; keeps contract row for history. Updates session mirror. */
-  async function vacateTenant(apartmentId) {
+  async function vacateTenant(apartmentId, options = {}) {
     if (typeof WalajnaAuth === "undefined" || !WalajnaAuth.fetchWithAuth) {
       throw new Error("Auth not available");
     }
@@ -215,9 +215,15 @@
     if (!Number.isFinite(id)) {
       throw new Error("Invalid apartment id");
     }
+    const refundAmount = Number(options.refundAmount || 0);
     const res = await WalajnaAuth.fetchWithAuth(
       `${apiBase()}/api/apartments/${id}/vacate-tenant`,
-      { method: "PATCH" }
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          refund_amount: Number.isFinite(refundAmount) && refundAmount > 0 ? refundAmount : 0,
+        }),
+      }
     );
     if (!res.ok) {
       let msg = `HTTP ${res.status}`;

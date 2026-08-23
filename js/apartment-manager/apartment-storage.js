@@ -280,20 +280,8 @@ function getDocumentsByContractId(contractId) {
 }
 
 function getDocumentsForApartmentContext(aptId) {
-  const contractId = getApartmentCurrentContractId(aptId);
   const documents = getDocuments();
-
-  if (contractId) {
-    return documents.filter((document) => {
-      if (document.contractId) {
-        return document.contractId === contractId;
-      }
-
-      return document.apartmentId === aptId;
-    });
-  }
-
-  return documents.filter((document) => document.apartmentId === aptId);
+  return documents.filter((document) => String(document.apartmentId) === String(aptId));
 }
 
 function deleteApartmentDocuments(aptId) {

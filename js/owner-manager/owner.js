@@ -5,8 +5,10 @@ function wlT(key, params) {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
+  // Avoid double /users/me when hydrateSession already refreshed a cold cookie session.
+  const hadCachedUser = !!WalajnaAuth.getCurrentUser();
   await WalajnaAuth.hydrateSession();
-  if (WalajnaAuth.ensureSessionValid) {
+  if (hadCachedUser && WalajnaAuth.ensureSessionValid) {
     await WalajnaAuth.ensureSessionValid();
   }
   requireAuth();
@@ -25,6 +27,35 @@ document.addEventListener("DOMContentLoaded", async () => {
   const globalRequestsAlert = document.getElementById("globalRequestsAlert");
   const portfolioFinanceHomeBtn = document.getElementById("portfolioFinanceHomeBtn");
   const buildingsArchiveBtn = document.getElementById("buildingsArchiveBtn");
+
+  function setOwnerHomeLoading(isLoading) {
+    document.body.classList.toggle("owner-home--loading", !!isLoading);
+    const loadingEl = document.getElementById("ownerHomeLoading");
+    if (loadingEl) {
+      loadingEl.hidden = !isLoading;
+      if (!isLoading) loadingEl.remove();
+    }
+    if (container) {
+      container.setAttribute("aria-busy", isLoading ? "true" : "false");
+    }
+    document.querySelectorAll("[data-owner-indicator-count]").forEach((el) => {
+      if (isLoading) {
+        el.classList.add("is-pending");
+        el.textContent = "—";
+      } else {
+        el.classList.remove("is-pending");
+      }
+    });
+  }
+
+  function setIndicatorCountsZero() {
+    document.querySelectorAll("[data-owner-indicator-count]").forEach((el) => {
+      el.classList.remove("is-pending");
+      el.textContent = "0";
+    });
+  }
+
+  setOwnerHomeLoading(true);
 
   if (portfolioFinanceHomeBtn) {
     portfolioFinanceHomeBtn.addEventListener("click", () => {
@@ -279,34 +310,63 @@ document.addEventListener("DOMContentLoaded", async () => {
     writeBuildingArchive(archive.slice(0, ARCHIVE_LIMIT));
   }
 
+  function mapServerBuilding(building) {
+    return {
+      ...building,
+      ownerId: building.ownerId ?? building.owner_id ?? null,
+      createdAt: building.createdAt ?? building.created_at ?? null,
+      apartmentCount:
+        building.apartmentCount ?? building.apartments_count ?? 0,
+      totalFloors: building.totalFloors ?? building.total_floors ?? null,
+      id: building.id,
+      name: building.name,
+      city: building.city,
+      neighborhood: building.neighborhood ?? "",
+      code: building.code ?? null,
+      isPinned: !!(building.is_pinned ?? building.isPinned),
+      pinnedAt: building.pinned_at ?? building.pinnedAt ?? null,
+    };
+  }
+
+  /** @returns {Promise<{ ok: boolean, buildings: Array }>} */
   async function getServerBuildings() {
-    try {
-      const response = await WalajnaAuth.fetchWithAuth(
-        `${WalajnaAuth.API_BASE}/api/buildings`,
-        { method: "GET" }
+    const url = `${WalajnaAuth.API_BASE}/api/buildings`;
+    if (WalajnaAuth.fetchJsonWithAuthRetry) {
+      const result = await WalajnaAuth.fetchJsonWithAuthRetry(
+        url,
+        { method: "GET" },
+        { retries: 4, delayMs: 400 }
       );
+      if (!result.ok || !Array.isArray(result.data)) {
+        return { ok: false, buildings: [] };
+      }
+      return { ok: true, buildings: result.data.map(mapServerBuilding) };
+    }
+    try {
+      const response = await WalajnaAuth.fetchWithAuth(url, { method: "GET" });
       if (response.ok) {
         const serverBuildings = await response.json();
-        return serverBuildings.map((building) => ({
-          ...building,
-          ownerId: building.ownerId ?? building.owner_id ?? null,
-          createdAt: building.createdAt ?? building.created_at ?? null,
-          apartmentCount:
-            building.apartmentCount ?? building.apartments_count ?? 0,
-          totalFloors: building.totalFloors ?? building.total_floors ?? null,
-          id: building.id,
-          name: building.name,
-          city: building.city,
-          neighborhood: building.neighborhood ?? "",
-          code: building.code ?? null,
-          isPinned: !!(building.is_pinned ?? building.isPinned),
-          pinnedAt: building.pinned_at ?? building.pinnedAt ?? null,
-        }));
+        return {
+          ok: true,
+          buildings: (Array.isArray(serverBuildings) ? serverBuildings : []).map(
+            mapServerBuilding
+          ),
+        };
       }
+      return { ok: false, buildings: [] };
     } catch (e) {
       console.warn("Could not fetch server buildings", e);
+      return { ok: false, buildings: [] };
     }
-    return [];
+  }
+
+  async function getServerBuildingsWithRetry() {
+    let result = await getServerBuildings();
+    if (result.ok && result.buildings.length) return result;
+    // Transient empty/fail after login (Supabase / cold cookie) — one soft retry.
+    await new Promise((r) => setTimeout(r, result.ok ? 450 : 700));
+    result = await getServerBuildings();
+    return result;
   }
 
   async function fetchOwnerMaintenance() {
@@ -657,27 +717,36 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function isApartmentRentOverdue(apartment, allPayments) {
+    const currentContractId = getApartmentCurrentContractId(apartment);
+    if (!currentContractId) return false;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (Array.isArray(allPayments) && allPayments.length) {
+      return allPayments.some((payment) => {
+        const pc =
+          payment.contractId != null && String(payment.contractId) !== ""
+            ? String(payment.contractId)
+            : payment.contract_id != null
+              ? String(payment.contract_id)
+              : "";
+        if (pc && pc !== String(currentContractId)) return false;
+        const status = String(payment.status || "").toLowerCase();
+        if (status === "paid" || status === "cancelled") return false;
+        const dueRaw = payment.dueDate || payment.due_date;
+        if (!dueRaw) return false;
+        const dueDate = new Date(dueRaw);
+        if (Number.isNaN(dueDate.getTime())) return false;
+        dueDate.setHours(0, 0, 0, 0);
+        return dueDate.getTime() <= today.getTime();
+      });
+    }
+
     const ls = String(
       apartment.leaseStatus ?? apartment.lease_status ?? ""
     ).toLowerCase();
-    if (ls === "overdue") {
-      return true;
-    }
-    const currentContractId = getApartmentCurrentContractId(apartment);
-    if (!currentContractId || !allPayments || !allPayments.length) {
-      return false;
-    }
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return allPayments.some((payment) => {
-      if (payment.contractId !== currentContractId) return false;
-      if (payment.status === "paid" || payment.status === "cancelled") return false;
-      if (!payment.dueDate) return false;
-      const dueDate = new Date(payment.dueDate);
-      if (Number.isNaN(dueDate.getTime())) return false;
-      dueDate.setHours(0, 0, 0, 0);
-      return dueDate < today;
-    });
+    return ls === "overdue";
   }
 
   function getApartmentStatusClass(apartment, maintenanceRows, allPayments) {
@@ -709,7 +778,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   async function deleteBuilding(buildingId) {
-    const confirmed = confirm(wlT("owner.confirmDeleteBuilding"));
+    const confirmed = await WalajnaDialog.confirm(wlT("owner.confirmDeleteBuilding"), {
+      danger: true,
+    });
     if (!confirmed) return;
 
     await archiveBuildingBeforeDelete(buildingId);
@@ -920,6 +991,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   const payments = [];
 
   if (!currentUser) {
+    setOwnerHomeLoading(false);
+    setIndicatorCountsZero();
     if (emptyState) {
       emptyState.style.display = "block";
       emptyState.textContent = wlT("owner.userNotFound");
@@ -931,12 +1004,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     WalajnaBuildingsApi.clearLegacyMirror();
   }
 
-  const [allBuildingsRaw, fetchedApartments] = await Promise.all([
-    getServerBuildings(),
+  const [buildingsFetch, fetchedApartments, maintenanceFromApiFirst] = await Promise.all([
+    getServerBuildingsWithRetry(),
     fetchOwnerApartments(),
+    fetchOwnerMaintenance(),
   ]);
+  let allBuildingsRaw = buildingsFetch.buildings;
+  let buildingsFetchOk = buildingsFetch.ok;
   let maintenanceRows = maintenanceRowsFromApartmentOpenRequests(fetchedApartments);
-  const maintenanceFromApi = await fetchOwnerMaintenance();
+  let maintenanceFromApi = maintenanceFromApiFirst;
   maintenanceRows = mergeMaintenanceRows(maintenanceFromApi, maintenanceRows);
   if (!maintenanceFromApi.length && apartmentsHintOpenRequests(fetchedApartments)) {
     await new Promise((r) => setTimeout(r, 600));
@@ -948,10 +1024,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   const allBuildings = allBuildingsRaw;
   let apartments = fetchedApartments;
 
-  const ownerBuildingsList = allBuildings.filter(
-    (building) =>
-      String(building.ownerId ?? building.owner_id ?? "") === String(currentUser.id)
-  );
+  // API already scopes by owner; keep rows even if owner_id is missing on a payload.
+  const ownerBuildingsList = allBuildings.filter((building) => {
+    const oid = building.ownerId ?? building.owner_id;
+    if (oid == null || oid === "") return true;
+    return String(oid) === String(currentUser.id);
+  });
 
   const didSeed = await seedBuildingsMissingApartments(
     ownerBuildingsList,
@@ -1005,12 +1083,19 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   if (!buildings.length) {
+    setOwnerHomeLoading(false);
+    setIndicatorCountsZero();
+    if (container) container.innerHTML = "";
     if (emptyState) {
       emptyState.style.display = "block";
-      emptyState.textContent = wlT("owner.noBuildingsForOwner");
+      emptyState.textContent = buildingsFetchOk
+        ? wlT("owner.noBuildingsForOwner")
+        : wlT("owner.loadBuildingsFailed");
     }
     return;
   }
+
+  if (emptyState) emptyState.style.display = "none";
 
   const totalNewRequests = buildings.reduce((sum, building) => {
     return (
@@ -1205,6 +1290,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.querySelectorAll("[data-owner-indicator-count]").forEach((el) => {
       const key = el.getAttribute("data-owner-indicator-count");
       if (!key || counts[key] == null) return;
+      el.classList.remove("is-pending");
       el.textContent = String(counts[key]);
     });
   }
@@ -1268,19 +1354,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       showBtn.hidden = false;
       showBtn.disabled = selectedBuildingIds.size === 0;
     }
-  }
-
-  function resetOwnerBuildingsFiltersToDefault() {
-    showOnlySelectedMode = false;
-    selectedBuildingIds.clear();
-    persistOwnerBuildingPick();
-    const neighborhoodFilterSelect = document.getElementById(
-      "ownerBuildingsNeighborhoodFilter"
-    );
-    const requestFilterSelect = document.getElementById("ownerBuildingsRequestFilter");
-    if (neighborhoodFilterSelect) neighborhoodFilterSelect.value = "";
-    if (requestFilterSelect) requestFilterSelect.value = "all";
-    refreshOwnerBuildingsView();
   }
 
   function refreshOwnerBuildingsView() {
@@ -1553,6 +1626,21 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         /* In edit mode only the checkbox toggles selection; the card opens the building. */
         await markBuildingRequestsAsSeen(buildingId);
+        const building = buildings.find((b) => String(b.id) === String(buildingId));
+        const buildingApts = building
+          ? getApartmentsForBuilding(building.id, apartments)
+          : [];
+        const layoutComplete =
+          typeof WalajnaApartmentsApi !== "undefined" &&
+          WalajnaApartmentsApi.isBuildingUnitLayoutComplete
+            ? WalajnaApartmentsApi.isBuildingUnitLayoutComplete(building, buildingApts)
+            : true;
+        if (!layoutComplete) {
+          window.location.href = `owner_building_layout.html?buildingId=${encodeURIComponent(
+            buildingId
+          )}&from=home`;
+          return;
+        }
         window.location.href = `owner_building.html?buildingId=${encodeURIComponent(
           buildingId
         )}`;
@@ -1608,6 +1696,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const neighborhoodFilterSelect = document.getElementById("ownerBuildingsNeighborhoodFilter");
   populateOwnerNeighborhoodSelect(neighborhoodFilterSelect, buildings);
+  setOwnerHomeLoading(false);
   refreshOwnerBuildingsView();
 
   document.addEventListener("walajna:i18n-applied", () => {
@@ -1629,9 +1718,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     showOnlySelectedMode = true;
     refreshOwnerBuildingsView();
-  });
-  document.getElementById("ownerResetFiltersBtn")?.addEventListener("click", () => {
-    resetOwnerBuildingsFiltersToDefault();
   });
 
   ownerBuildingsEditBtn?.addEventListener("click", () => {

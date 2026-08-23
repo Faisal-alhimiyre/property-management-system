@@ -25,7 +25,7 @@ body.auth-page{
   z-index: -1;
 }
 
-/* Logo centered above the card */
+/* Logo centered above the card (legacy / other auth pages) */
 .auth-stack{
   display: flex;
   flex-direction: column;
@@ -49,6 +49,25 @@ body.auth-page{
   object-fit: contain;
   margin-inline: auto;
   filter: drop-shadow(0 10px 28px rgba(26, 47, 74, 0.16));
+}
+
+/* Logo inside the white auth card */
+.auth-card__brand{
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0 0 12px;
+  text-decoration: none;
+  line-height: 0;
+}
+
+.auth-card__logo{
+  display: block;
+  width: auto;
+  height: clamp(72px, 18vw, 108px);
+  max-width: min(280px, 70%);
+  object-fit: contain;
+  filter: drop-shadow(0 6px 16px rgba(26, 47, 74, 0.12));
 }
 
 /* Shell + card */
@@ -229,7 +248,8 @@ body.dark-mode .login-bg{
     linear-gradient(180deg, #0f172a 0%, #020617 100%);
 }
 
-body.dark-mode .auth-hero-logo{
+body.dark-mode .auth-hero-logo,
+body.dark-mode .auth-card__logo{
   filter: drop-shadow(0 12px 36px rgba(0, 0, 0, 0.45));
 }
 

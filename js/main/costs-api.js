@@ -83,6 +83,8 @@
       expenseDate: expenseDate || "—",
       createdAt: createdAt || "—",
       notes: row.notes || "",
+      fundingSource: row.funding_source || "owner",
+      depositCoveredAmount: Number(row.deposit_covered_amount || 0),
     };
   }
 
@@ -98,9 +100,14 @@
       contract_id: contractId,
       cost_type: payload.type,
       amount: Number(payload.amount),
-      status: payload.status,
+      status: payload.status || "approved",
       expense_date: payload.expenseDate,
       notes: payload.notes || null,
+      funding_source: payload.fundingSource || "owner",
+      deposit_covered_amount:
+        payload.depositCoveredAmount != null
+          ? Number(payload.depositCoveredAmount)
+          : null,
     };
     const res = await WalajnaAuth.fetchWithAuth(`${apiBase()}/api/costs`, {
       method: "POST",

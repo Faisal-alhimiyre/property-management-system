@@ -63,6 +63,12 @@ function fillApartmentInfoUI(data, buildingData) {
 
   const tenantInfo = data.tenantInfo || {};
   const contract = data.contract || {};
+  const vacant =
+    String(data.leaseStatus || "").toLowerCase() === "vacant" ||
+    (!data.tenantUserId &&
+      !data.tenantNationalId &&
+      !tenantInfo.fullName &&
+      !data.currentContractId);
 
 
   if (title) {
@@ -102,35 +108,29 @@ function fillApartmentInfoUI(data, buildingData) {
 
 
   if (startDate)
-    startDate.textContent =
-      contract.startDate ?? "—";
+    startDate.textContent = vacant ? "—" : (contract.startDate ?? "—");
 
   if (endDate)
-    endDate.textContent =
-      contract.endDate ?? "—";
+    endDate.textContent = vacant ? "—" : (contract.endDate ?? "—");
 
   if (meterNumber)
-    meterNumber.textContent =
-      contract.meterNumber ?? "—";
+    meterNumber.textContent = vacant ? "—" : (contract.meterNumber ?? "—");
 
   if (notes)
-    notes.textContent =
-      contract.notes ?? "—";
+    notes.textContent = vacant ? "—" : (contract.notes ?? "—");
 
 
   if (tenantNationality)
-    tenantNationality.textContent =
-      tenantInfo.nationality ?? "—";
+    tenantNationality.textContent = vacant ? "—" : (tenantInfo.nationality ?? "—");
 
   if (tenantType)
-    tenantType.textContent =
-      tenantInfo.tenantType ?? "—";
+    tenantType.textContent = vacant ? "—" : (tenantInfo.tenantType ?? "—");
 
   if (insurancePaid)
     insurancePaid.textContent =
-      contract.insurancePaid
-        ? `${contract.insurancePaid} ${T("common.sar")}`
-        : T("common.dash");
+      vacant || !contract.insurancePaid
+        ? T("common.dash")
+        : `${contract.insurancePaid} ${T("common.sar")}`;
 
   if (phoneNumber)
     phoneNumber.textContent =

@@ -49,7 +49,8 @@ body.auth-page{
 }
 
 .auth-stack--wide{
-  max-width: min(520px, 100%);
+  max-width: min(560px, 100%);
+  min-width: 0;
 }
 
 .auth-logo-top{
@@ -69,6 +70,25 @@ body.auth-page{
   filter: drop-shadow(0 10px 28px rgba(26, 47, 74, 0.16));
 }
 
+/* Logo inside the white auth card (login / register / forget) */
+.auth-card__brand{
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0 0 12px;
+  text-decoration: none;
+  line-height: 0;
+}
+
+.auth-card__logo{
+  display: block;
+  width: auto;
+  height: clamp(72px, 18vw, 108px);
+  max-width: min(280px, 70%);
+  object-fit: contain;
+  filter: drop-shadow(0 6px 16px rgba(26, 47, 74, 0.12));
+}
+
 /* Layout shell */
 .register-wrap,
 .auth-shell{
@@ -81,13 +101,10 @@ body.auth-page{
   padding-top: clamp(28px, 6vh, 56px);
 }
 
-/* Forgot / verify / reset: room for fixed corner logo */
-.register-wrap:not(.auth-shell){
-  padding-top: clamp(88px, 14vh, 120px);
-}
-
 .auth-card{
   width: min(480px, 100%);
+  max-width: 100%;
+  min-width: 0;
   padding: clamp(24px, 4vw, 32px);
   border-radius: 20px;
   background: #ffffff;
@@ -98,32 +115,13 @@ body.auth-page{
 }
 
 .auth-card--wide{
-  width: min(520px, 100%);
+  width: min(560px, 100%);
 }
 
-/* Role page: box around the two pill buttons */
+/* Role page option cards */
 .auth-card--role{
   width: min(560px, 100%);
   padding: clamp(22px, 4vw, 32px) clamp(20px, 4vw, 36px);
-}
-
-.auth-card--role .role-card__lead{
-  margin: 0 0 8px;
-  text-align: center;
-  font-size: clamp(1.05rem, 2.8vw, 1.22rem);
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--wl-palette-navy, #1a2f4a);
-  line-height: 1.35;
-}
-
-.auth-card--role .role-card__sub{
-  margin: 0 0 clamp(18px, 3vh, 24px);
-  text-align: center;
-  font-size: 0.92rem;
-  font-weight: 500;
-  color: rgba(26, 47, 74, 0.62);
-  line-height: 1.45;
 }
 
 .auth-card__head{
@@ -157,6 +155,56 @@ body.auth-page{
   display: grid;
   gap: 14px;
   justify-items: stretch;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.register-grid{
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+@media (min-width: 560px){
+  .register-grid{
+    grid-template-columns: 1fr 1fr;
+  }
+  .register-grid__full{
+    grid-column: 1 / -1;
+  }
+}
+
+.register-name-row{
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+@media (min-width: 560px){
+  .register-name-row{
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.register-name-row > .row{
+  min-width: 0;
+  max-width: 100%;
+}
+
+.register-name-row .row input{
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  padding-inline: 10px;
 }
 
 /* Stacked label above field */
@@ -213,6 +261,50 @@ body.auth-page{
   line-height: 1.35;
 }
 
+/* Live password requirements checklist */
+.password-reqs{
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  width: 100%;
+}
+
+.password-reqs[hidden]{
+  display: none !important;
+}
+
+.password-reqs__item{
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.password-reqs__icon{
+  flex: 0 0 auto;
+  width: 1.15em;
+  font-weight: 900;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.password-reqs__item.is-unmet,
+.password-reqs__item.is-unmet .password-reqs__icon,
+.password-reqs__item.is-unmet .password-reqs__label{
+  color: #dc2626 !important;
+}
+
+.password-reqs__item.is-met,
+.password-reqs__item.is-met .password-reqs__icon,
+.password-reqs__item.is-met .password-reqs__label{
+  color: #16a34a !important;
+}
+
 /* Legacy page title (forget / verify / reset) */
 .title{
   margin: 0 0 12px;
@@ -231,6 +323,17 @@ body.auth-page{
   font-weight: 700;
   font-size: 0.9rem;
   color: #b91c1c;
+}
+
+.error.is-success{
+  color: #047857;
+}
+
+.auth-code-input{
+  text-align: center;
+  letter-spacing: 0.35em;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .register-btn{
@@ -272,22 +375,70 @@ body.auth-page{
   text-decoration: underline;
 }
 
-/* Role selection — two pills in one row (under hero logo) */
+/* Role selection — two option cards */
 .choose-wrap{
   min-height: 100vh;
   min-height: 100dvh;
 }
 
 .choose-actions{
-  display: flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  justify-content: center;
-  align-items: center;
-  gap: clamp(20px, 5vw, 56px);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(12px, 3vw, 18px);
   width: 100%;
 }
 
+.choose-option{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 88px;
+  border: 1px solid rgba(26, 47, 74, 0.12);
+  cursor: pointer;
+  padding: 18px 14px;
+  border-radius: 16px;
+  background: #f8fafc;
+  box-shadow: none;
+  transition:
+    transform .14s ease,
+    border-color .14s ease,
+    background-color .14s ease,
+    box-shadow .14s ease;
+}
+
+.choose-option:hover{
+  transform: translateY(-2px);
+  border-color: rgba(54, 215, 232, 0.55);
+  background: #ffffff;
+  box-shadow: 0 12px 28px rgba(26, 47, 74, 0.1);
+}
+
+.choose-option:focus-visible{
+  outline: none;
+  border-color: var(--wl-palette-logo, #36d7e8);
+  box-shadow: 0 0 0 3px rgba(54, 215, 232, 0.28);
+}
+
+.choose-option__title{
+  font-weight: 900;
+  font-size: clamp(1.05rem, 2.8vw, 1.2rem);
+  color: var(--wl-palette-navy, #1a2f4a);
+  line-height: 1.2;
+}
+
+.choose-option__hint{
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: center;
+  color: rgba(26, 47, 74, 0.58);
+  max-width: 18ch;
+}
+
+/* Legacy pill buttons (if any remain) */
 .choose-btn{
   border: 0;
   cursor: pointer;
@@ -319,32 +470,36 @@ body.auth-page{
 .recover-switch{
   width: 100%;
   display: flex;
-  justify-content: center;
-  gap: 12px;
-  margin-bottom: 8px;
-  flex-wrap: wrap;
+  justify-content: stretch;
+  gap: 8px;
+  margin: 0 0 4px;
+  padding: 4px;
+  border-radius: 14px;
+  background: rgba(26, 47, 74, 0.05);
+  flex-wrap: nowrap;
 }
 
 .recover-tab{
-  border: 1px solid rgba(26, 47, 74, 0.18);
-  background: #f8fafc;
-  color: var(--wl-text-on-light, #1a2f4a);
-  border-radius: 999px;
-  padding: 10px 20px;
+  flex: 1 1 0;
+  border: 0;
+  background: transparent;
+  color: rgba(26, 47, 74, 0.7);
+  border-radius: 10px;
+  padding: 11px 14px;
   font-size: 0.9rem;
   font-weight: 700;
   cursor: pointer;
-  transition: background .15s ease, border-color .15s ease, box-shadow .15s ease;
+  transition: background .15s ease, color .15s ease, box-shadow .15s ease;
 }
 
 .recover-tab.active{
-  background: var(--wl-palette-logo, #36d7e8);
-  border-color: transparent;
-  box-shadow: 0 6px 16px rgba(54, 215, 232, 0.35);
+  background: #ffffff;
+  color: var(--wl-palette-navy, #1a2f4a);
+  box-shadow: 0 2px 8px rgba(26, 47, 74, 0.1);
 }
 
-.recover-tab:hover{
-  border-color: rgba(54, 215, 232, 0.45);
+.recover-tab:hover:not(.active){
+  color: var(--wl-palette-navy, #1a2f4a);
 }
 
 /* ===== Dark mode: register, role, forget / reset / verify ===== */
@@ -364,7 +519,8 @@ body.dark-mode .register-bg{
 }
 
 body.dark-mode .logo.logo--corner .brand-logo,
-body.dark-mode .auth-hero-logo{
+body.dark-mode .auth-hero-logo,
+body.dark-mode .auth-card__logo{
   filter: drop-shadow(0 12px 36px rgba(0, 0, 0, 0.45));
 }
 
@@ -383,14 +539,6 @@ body.dark-mode .auth-card__title{
 }
 
 body.dark-mode .auth-card__sub{
-  color: #9ca3af;
-}
-
-body.dark-mode .auth-card--role .role-card__lead{
-  color: #f8fafc;
-}
-
-body.dark-mode .auth-card--role .role-card__sub{
   color: #9ca3af;
 }
 
@@ -451,8 +599,24 @@ body.dark-mode .hint{
   color: #9ca3af !important;
 }
 
+body.dark-mode .password-reqs__item.is-unmet,
+body.dark-mode .password-reqs__item.is-unmet .password-reqs__icon,
+body.dark-mode .password-reqs__item.is-unmet .password-reqs__label{
+  color: #f87171 !important;
+}
+
+body.dark-mode .password-reqs__item.is-met,
+body.dark-mode .password-reqs__item.is-met .password-reqs__icon,
+body.dark-mode .password-reqs__item.is-met .password-reqs__label{
+  color: #34d399 !important;
+}
+
 body.dark-mode .error{
   color: #f97373 !important;
+}
+
+body.dark-mode .error.is-success{
+  color: #34d399 !important;
 }
 
 body.dark-mode .register-btn{
@@ -474,6 +638,25 @@ body.dark-mode .footer a{
   color: #22d3ee !important;
 }
 
+body.dark-mode .choose-option{
+  background: #020617;
+  border-color: rgba(148, 163, 184, 0.28);
+}
+
+body.dark-mode .choose-option:hover{
+  background: rgba(15, 23, 42, 0.95);
+  border-color: rgba(34, 211, 238, 0.45);
+  box-shadow: 0 16px 40px rgba(8, 47, 73, 0.55);
+}
+
+body.dark-mode .choose-option__title{
+  color: #f8fafc;
+}
+
+body.dark-mode .choose-option__hint{
+  color: #9ca3af;
+}
+
 body.dark-mode .choose-btn{
   color: #053433;
   background: linear-gradient(135deg, #22d3ee, #0ea5a2);
@@ -488,17 +671,21 @@ body.dark-mode .choose-btn:focus-visible{
   box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.5), 0 16px 40px rgba(8, 47, 73, 0.75);
 }
 
+body.dark-mode .recover-switch{
+  background: rgba(2, 6, 23, 0.65);
+}
+
 body.dark-mode .recover-tab{
-  background: #020617 !important;
-  border: 1px solid rgba(148, 163, 184, 0.35) !important;
-  color: #e5edf7 !important;
-  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.9) !important;
+  background: transparent !important;
+  border: 0 !important;
+  color: #9ca3af !important;
+  box-shadow: none !important;
 }
 
 body.dark-mode .recover-tab.active{
   background: linear-gradient(135deg, #22d3ee, #0e7490) !important;
   color: #f9fafb !important;
-  border-color: transparent !important;
+  box-shadow: 0 6px 16px rgba(8, 47, 73, 0.45) !important;
 }
 
 @media (max-width: 650px){
@@ -510,7 +697,14 @@ body.dark-mode .recover-tab.active{
     max-height: min(260px, 38vh);
   }
   .choose-actions{
-    gap: clamp(12px, 3vw, 20px);
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .choose-option{
+    min-height: 96px;
+  }
+  .choose-option__hint{
+    max-width: none;
   }
   .choose-btn{
     padding: 12px clamp(16px, 5vw, 28px);

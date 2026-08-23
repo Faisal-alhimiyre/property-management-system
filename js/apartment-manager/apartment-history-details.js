@@ -58,17 +58,39 @@ document.addEventListener("DOMContentLoaded", async () => {
   const endDate = document.getElementById("endDate");
   const meterNumber = document.getElementById("meterNumber");
   const insurancePaid = document.getElementById("insurancePaid");
+  const insuranceDeducted = document.getElementById("insuranceDeducted");
+  const insuranceReturned = document.getElementById("insuranceReturned");
+  const insuranceUnsettled = document.getElementById("insuranceUnsettled");
+  const settleInsuranceBtn = document.getElementById("settleInsuranceBtn");
+  const insuranceSettledStatus = document.getElementById("insuranceSettledStatus");
   const notes = document.getElementById("notes");
 
   const openContractBtn = document.getElementById("openContractBtn");
   const viewPaymentsBtn = document.getElementById("viewPaymentsBtn");
   const viewCostsBtn = document.getElementById("viewCostsBtn");
   const viewRequestsBtn = document.getElementById("viewRequestsBtn");
-  const contractHint = document.getElementById("contractHint");
-
   const requestsModal = document.getElementById("requestsModal");
   const requestsModalBody = document.getElementById("requestsModalBody");
   const closeRequestsModalBtn = document.getElementById("closeRequestsModalBtn");
+
+  const contractModal = document.getElementById("contractModal");
+  const contractModalBody = document.getElementById("contractModalBody");
+  const closeContractModalBtn = document.getElementById("closeContractModalBtn");
+
+  const paymentsModal = document.getElementById("paymentsModal");
+  const paymentsModalBody = document.getElementById("paymentsModalBody");
+  const closePaymentsModalBtn = document.getElementById("closePaymentsModalBtn");
+
+  const costsModal = document.getElementById("costsModal");
+  const costsModalBody = document.getElementById("costsModalBody");
+  const closeCostsModalBtn = document.getElementById("closeCostsModalBtn");
+
+  const moduleButtons = [
+    viewRequestsBtn,
+    openContractBtn,
+    viewPaymentsBtn,
+    viewCostsBtn,
+  ].filter(Boolean);
 
   function getLocalArray(key) {
     try {
@@ -92,8 +114,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function formatMoney(value) {
-    const number = Number(value || 0);
-    if (!number) return T("common.dash");
+    const number = Number(value);
+    if (!Number.isFinite(number)) return T("common.dash");
     const loc =
       window.walajna_language && typeof window.walajna_language.localeForNumbers === "function"
         ? window.walajna_language.localeForNumbers()
@@ -145,11 +167,28 @@ document.addEventListener("DOMContentLoaded", async () => {
     return T("historyDet.req.new");
   }
 
-  function openModal(modal) {
+  function getPaymentStatusLabel(status) {
+    const s = String(status || "").toLowerCase();
+    if (s === "paid") return T("payments.paid");
+    if (s === "pending") return T("payments.due");
+    if (s === "overdue") return T("payments.overdue");
+    if (s === "cancelled") return T("payments.cancelled");
+    return status || T("common.dash");
+  }
+
+  function setActiveModule(moduleName) {
+    moduleButtons.forEach((btn) => {
+      const isActive = moduleName && btn.dataset.historyModule === moduleName;
+      btn.classList.toggle("is-active", !!isActive);
+    });
+  }
+
+  function openModal(modal, moduleName) {
     if (!modal) return;
     modal.classList.add("is-open");
     modal.setAttribute("aria-hidden", "false");
     document.body.style.overflow = "hidden";
+    if (moduleName) setActiveModule(moduleName);
   }
 
   function closeModal(modal) {
@@ -157,6 +196,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     modal.classList.remove("is-open");
     modal.setAttribute("aria-hidden", "true");
     document.body.style.overflow = "";
+    setActiveModule(null);
+  }
+
+  function closeAllModals() {
+    closeModal(requestsModal);
+    closeModal(contractModal);
+    closeModal(paymentsModal);
+    closeModal(costsModal);
   }
 
   function renderRequestsModal(requests) {
@@ -248,12 +295,113 @@ document.addEventListener("DOMContentLoaded", async () => {
     `;
   }
 
+  function renderPaymentsRows(rows) {
+    if (!paymentsModalBody) return;
+    if (!Array.isArray(rows) || !rows.length) {
+      paymentsModalBody.innerHTML = `
+        <div class="history-request-empty">${escapeHtml(T("historyDet.paymentsEmpty"))}</div>
+      `;
+      return;
+    }
+
+    paymentsModalBody.innerHTML = `
+      <div class="history-module-table-wrap">
+        <table class="history-module-table">
+          <thead>
+            <tr>
+              <th>${escapeHtml(T("historyDet.th.due"))}</th>
+              <th>${escapeHtml(T("historyDet.th.amount"))}</th>
+              <th>${escapeHtml(T("historyDet.th.status"))}</th>
+              <th>${escapeHtml(T("historyDet.th.paidAt"))}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows
+              .map((row) => {
+                const due = formatDate(row.due_date || row.dueDate);
+                const amount = formatMoney(row.amount);
+                const status = getPaymentStatusLabel(row.status);
+                const paidAt = row.paid_at || row.paidAt
+                  ? formatDate(row.paid_at || row.paidAt)
+                  : T("common.dash");
+                return `
+                  <tr>
+                    <td>${escapeHtml(due)}</td>
+                    <td>${escapeHtml(amount)}</td>
+                    <td>${escapeHtml(status)}</td>
+                    <td>${escapeHtml(paidAt)}</td>
+                  </tr>
+                `;
+              })
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function renderCostsRows(rows) {
+    if (!costsModalBody) return;
+    if (!Array.isArray(rows) || !rows.length) {
+      costsModalBody.innerHTML = `
+        <div class="history-request-empty">${escapeHtml(T("historyDet.costsEmpty"))}</div>
+      `;
+      return;
+    }
+
+    costsModalBody.innerHTML = `
+      <div class="history-module-table-wrap">
+        <table class="history-module-table">
+          <thead>
+            <tr>
+              <th>${escapeHtml(T("historyDet.th.date"))}</th>
+              <th>${escapeHtml(T("historyDet.th.amount"))}</th>
+              <th>${escapeHtml(T("historyDet.th.type"))}</th>
+              <th>${escapeHtml(T("historyDet.th.funding"))}</th>
+              <th>${escapeHtml(T("historyDet.th.notes"))}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows
+              .map((row) => {
+                const date = formatDate(
+                  row.expenseDate || row.expense_date || row.date
+                );
+                const amount = formatMoney(row.amount);
+                const type =
+                  row.typeLabel ||
+                  row.type ||
+                  row.cost_type ||
+                  T("common.dash");
+                const fundingRaw = String(
+                  row.fundingSource || row.funding_source || "owner"
+                );
+                const funding =
+                  fundingRaw === "security_deposit"
+                    ? T("costs.funding.deposit")
+                    : T("costs.funding.owner");
+                const note = row.notes || T("common.dash");
+                return `
+                  <tr>
+                    <td>${escapeHtml(date)}</td>
+                    <td>${escapeHtml(amount)}</td>
+                    <td>${escapeHtml(type)}</td>
+                    <td>${escapeHtml(funding)}</td>
+                    <td>${escapeHtml(note)}</td>
+                  </tr>
+                `;
+              })
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
   function disableActions(message) {
-    if (openContractBtn) openContractBtn.disabled = true;
-    if (viewPaymentsBtn) viewPaymentsBtn.disabled = true;
-    if (viewCostsBtn) viewCostsBtn.disabled = true;
-    if (viewRequestsBtn) viewRequestsBtn.disabled = true;
-    if (contractHint && message) contractHint.textContent = message;
+    moduleButtons.forEach((btn) => {
+      btn.disabled = true;
+    });
   }
 
   const apartments =
@@ -284,100 +432,332 @@ document.addEventListener("DOMContentLoaded", async () => {
   let apartmentNumberValue = "";
   let matchingRequests = [];
   let matchingContractDoc = null;
+  let historyCosts = [];
 
   function contractFileNameNeedle() {
     return T("lease.fileName", { n: apartmentNumberValue }).replace(/\.html$/i, "");
   }
 
-  function bindContractOpen() {
-    if (!openContractBtn) return;
-    openContractBtn.replaceWith(openContractBtn.cloneNode(true));
-    const btn = document.getElementById("openContractBtn");
-    if (!btn) return;
-    btn.addEventListener("click", () => {
-      if (!matchingContractDoc) return;
+  function computeContractDoc() {
+    const aptIds = new Set(
+      [apartmentId, apartment?.id, apartment?.apiId]
+        .filter((v) => v != null && String(v).trim() !== "")
+        .map((v) => String(v))
+    );
 
-      const fileData = matchingContractDoc.fileData || matchingContractDoc.url;
-      if (!fileData) {
-        alert(T("historyDet.contractNoPreview"));
+    const candidates = (documents || []).filter((doc) =>
+      aptIds.has(String(doc.apartmentId ?? ""))
+    );
+
+    // Prefer exact contract id match when available.
+    if (historicalContractId) {
+      const byContract = candidates.find(
+        (doc) =>
+          doc.contractId != null &&
+          String(doc.contractId) === String(historicalContractId)
+      );
+      if (byContract) {
+        matchingContractDoc = byContract;
         return;
       }
+    }
 
-      const win = window.open();
-      if (!win) return;
-
-      const lang = document.documentElement.getAttribute("lang") || "ar";
-      const dir = document.documentElement.getAttribute("dir") || "rtl";
-
-      win.document.write(`
-        <html lang="${escapeHtml(lang)}" dir="${escapeHtml(dir)}">
-          <head>
-            <meta charset="UTF-8" />
-            <title>${escapeHtml(matchingContractDoc.fileName || T("historyDet.docTitleFallback"))}</title>
-            <style>
-              html, body {
-                margin: 0;
-                padding: 0;
-                width: 100%;
-                min-height: 100%;
-                background: #f8fafc;
-              }
-              iframe {
-                border: none;
-                width: 100%;
-                min-height: 100vh;
-                background: #fff;
-              }
-            </style>
-          </head>
-          <body>
-            <iframe src="${fileData}"></iframe>
-          </body>
-        </html>
-      `);
+    // Lease contract documents (legacy schemas store type in `type` / docType).
+    const leaseDocs = candidates.filter((doc) => {
+      const t = String(doc.docType || doc.type || "").toLowerCase();
+      const name = String(doc.fileName || doc.name || "").toLowerCase();
+      return (
+        t === "auto_lease_contract" ||
+        t.includes("lease") ||
+        t.includes("contract") ||
+        name.includes("عقد") ||
+        name.includes("contract") ||
+        name.includes("lease")
+      );
     });
-  }
 
-  function computeContractDoc() {
-    matchingContractDoc = documents.find((doc) => {
-      if (String(doc.apartmentId) !== String(apartmentId)) return false;
+    if (leaseDocs.length === 1) {
+      matchingContractDoc = leaseDocs[0];
+      return;
+    }
 
-      if (historicalContractId && doc.contractId) {
-        return String(doc.contractId) === String(historicalContractId);
-      }
+    if (leaseDocs.length > 1) {
+      const needle = contractFileNameNeedle().toLowerCase();
+      matchingContractDoc =
+        leaseDocs.find((doc) =>
+          String(doc.fileName || "").toLowerCase().includes(needle)
+        ) || leaseDocs[0];
+      return;
+    }
 
-      if (doc.docType !== "auto_lease_contract") return false;
-
-      const fileName = doc.fileName || "";
-      return fileName.includes(contractFileNameNeedle());
-    });
+    matchingContractDoc = null;
   }
 
   function updateContractHint() {
-    if (!matchingContractDoc) {
-      if (contractHint) {
-        contractHint.textContent = T("historyDet.noContractFile");
-      }
-      const ob = document.getElementById("openContractBtn");
-      if (ob) ob.disabled = true;
-      return;
-    }
-    if (contractHint) {
-      contractHint.textContent = historicalContractId
-        ? T("historyDet.contractFoundWithId", { id: historicalContractId })
-        : T("historyDet.contractFound");
-    }
-    const ob = document.getElementById("openContractBtn");
-    if (ob) ob.disabled = false;
+    if (openContractBtn) openContractBtn.disabled = false;
   }
 
-  function fillPage() {
+  async function enrichContractFromApi(contractId, contractObj) {
+    const base = contractObj && typeof contractObj === "object" ? { ...contractObj } : {};
+    if (
+      !contractId ||
+      typeof WalajnaAuth === "undefined" ||
+      !WalajnaAuth.fetchWithAuth
+    ) {
+      return base;
+    }
+    try {
+      const res = await WalajnaAuth.fetchWithAuth(
+        `${WalajnaAuth.API_BASE}/api/contracts/${encodeURIComponent(String(contractId))}`,
+        { method: "GET" }
+      );
+      if (!res.ok) return base;
+      const row = await res.json();
+      if (!row || typeof row !== "object") return base;
+      return {
+        ...base,
+        id: row.id ?? base.id ?? contractId,
+        startDate: base.startDate || row.start_date || row.startDate,
+        endDate: base.endDate || row.end_date || row.endDate,
+        yearlyRent: base.yearlyRent ?? row.yearly_rent ?? row.yearlyRent,
+        paymentCycle: base.paymentCycle || row.payment_cycle || row.paymentCycle,
+        insurancePaid:
+          base.insurancePaid ??
+          base.insurance_paid ??
+          row.insurance_paid ??
+          row.insurancePaid,
+        meterNumber:
+          base.meterNumber ||
+          base.meter_number ||
+          row.meter_number ||
+          row.meterNumber ||
+          "",
+        notes: base.notes || row.lease_notes || row.notes || "",
+      };
+    } catch (e) {
+      console.warn("[history-details] contract enrich failed", e);
+      return base;
+    }
+  }
+
+  function openContractModule() {
+    if (!matchingContractDoc) {
+      if (contractModalBody) {
+        contractModalBody.innerHTML = `
+          <div class="history-request-empty">${escapeHtml(T("historyDet.noContractFile"))}</div>
+        `;
+      }
+      openModal(contractModal, "contract");
+      return;
+    }
+
+    const fileData = matchingContractDoc.fileData || matchingContractDoc.url;
+    if (!fileData) {
+      if (contractModalBody) {
+        contractModalBody.innerHTML = `
+          <div class="history-request-empty">${escapeHtml(T("historyDet.contractNoPreview"))}</div>
+        `;
+      }
+      openModal(contractModal, "contract");
+      return;
+    }
+
+    if (contractModalBody) {
+      contractModalBody.innerHTML = `<iframe title="${escapeHtml(
+        matchingContractDoc.fileName || T("historyDet.docTitleFallback")
+      )}" src="${fileData}"></iframe>`;
+    }
+    openModal(contractModal, "contract");
+  }
+
+  async function loadDepositLedgerFields(contractId) {
+    if (insuranceDeducted) insuranceDeducted.textContent = T("common.dash");
+    if (insuranceReturned) insuranceReturned.textContent = T("common.dash");
+    if (insuranceUnsettled) insuranceUnsettled.textContent = T("common.dash");
+    const unsettledRowReset = document.getElementById("historyInsuranceUnsettledRow");
+    if (unsettledRowReset) unsettledRowReset.classList.remove("is-unsettled");
+    if (settleInsuranceBtn) settleInsuranceBtn.hidden = true;
+    if (insuranceSettledStatus) insuranceSettledStatus.hidden = true;
+    if (
+      !contractId ||
+      typeof WalajnaAuth === "undefined" ||
+      !WalajnaAuth.fetchWithAuth
+    ) {
+      return;
+    }
+    try {
+      const res = await WalajnaAuth.fetchWithAuth(
+        `${WalajnaAuth.API_BASE}/api/deposits/balance?contract_id=${encodeURIComponent(
+          String(contractId)
+        )}`,
+        { method: "GET" }
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      if (insuranceDeducted) {
+        insuranceDeducted.textContent = formatMoney(data.used);
+      }
+      if (insuranceReturned) {
+        insuranceReturned.textContent = formatMoney(data.refunded);
+      }
+      const remaining = Number(data.remaining || 0);
+      if (insuranceUnsettled) {
+        insuranceUnsettled.textContent = formatMoney(remaining);
+      }
+      const unsettledRow = document.getElementById("historyInsuranceUnsettledRow");
+      if (unsettledRow) {
+        unsettledRow.classList.toggle("is-unsettled", remaining > 0.009);
+      }
+      const settled = remaining <= 0.009;
+      if (settleInsuranceBtn) settleInsuranceBtn.hidden = settled;
+      if (insuranceSettledStatus) insuranceSettledStatus.hidden = !settled;
+    } catch (e) {
+      console.warn("[history-details] deposit balance failed", e);
+    }
+  }
+
+  if (settleInsuranceBtn) {
+    settleInsuranceBtn.addEventListener("click", async () => {
+      if (
+        !historicalContractId ||
+        !window.WalajnaInsuranceSettle ||
+        typeof WalajnaInsuranceSettle.settleEndedContract !== "function"
+      ) {
+        return;
+      }
+      const aptId = apartment?.apiId ?? apartment?.id ?? apartmentId;
+      try {
+        settleInsuranceBtn.disabled = true;
+        const updated = await WalajnaInsuranceSettle.settleEndedContract({
+          contractId: historicalContractId,
+          apartmentId: aptId,
+        });
+        if (updated) {
+          await loadDepositLedgerFields(historicalContractId);
+        }
+      } catch (e) {
+        alert(e?.message || T("insSettle.settleFailed"));
+      } finally {
+        settleInsuranceBtn.disabled = false;
+      }
+    });
+  }
+
+  async function openPaymentsModule() {
+    if (paymentsModalBody) {
+      paymentsModalBody.innerHTML = `
+        <div class="history-request-empty">${escapeHtml(T("historyDet.paymentsLoading"))}</div>
+      `;
+    }
+    openModal(paymentsModal, "payments");
+
+    if (!historicalContractId) {
+      if (paymentsModalBody) {
+        paymentsModalBody.innerHTML = `
+          <div class="history-request-empty">${escapeHtml(T("historyDet.paymentsNoContract"))}</div>
+        `;
+      }
+      return;
+    }
+
+    if (
+      typeof WalajnaAuth === "undefined" ||
+      !WalajnaAuth.fetchWithAuth
+    ) {
+      renderPaymentsRows([]);
+      return;
+    }
+
+    try {
+      const res = await WalajnaAuth.fetchWithAuth(
+        `${WalajnaAuth.API_BASE}/api/contracts/${encodeURIComponent(
+          String(historicalContractId)
+        )}/installments`,
+        { method: "GET" }
+      );
+      if (!res.ok) {
+        renderPaymentsRows([]);
+        return;
+      }
+      const rows = await res.json();
+      const list = Array.isArray(rows) ? rows : [];
+      list.sort((a, b) => {
+        const da = String(a.due_date || "");
+        const db = String(b.due_date || "");
+        if (da !== db) return da.localeCompare(db);
+        return Number(a.installment_index || 0) - Number(b.installment_index || 0);
+      });
+      renderPaymentsRows(list);
+    } catch (e) {
+      console.warn("[history-details] installments fetch failed", e);
+      renderPaymentsRows([]);
+    }
+  }
+
+  async function openCostsModule() {
+    if (costsModalBody) {
+      costsModalBody.innerHTML = `
+        <div class="history-request-empty">${escapeHtml(T("historyDet.costsLoading"))}</div>
+      `;
+    }
+    openModal(costsModal, "costs");
+
+    if (Array.isArray(historyCosts) && historyCosts.length) {
+      renderCostsRows(historyCosts);
+      return;
+    }
+
+    // Fallback: live costs still linked to this historical contract (if any remain).
+    if (
+      historicalContractId &&
+      typeof WalajnaAuth !== "undefined" &&
+      WalajnaAuth.fetchWithAuth &&
+      apartment
+    ) {
+      try {
+        const aid = apartment.apiId ?? apartment.id;
+        const res = await WalajnaAuth.fetchWithAuth(
+          `${WalajnaAuth.API_BASE}/api/apartments/${encodeURIComponent(
+            String(aid)
+          )}/costs`,
+          { method: "GET" }
+        );
+        if (res.ok) {
+          const rows = await res.json();
+          const filtered = (Array.isArray(rows) ? rows : []).filter(
+            (row) =>
+              row &&
+              String(row.contract_id ?? "") === String(historicalContractId)
+          );
+          renderCostsRows(
+            filtered.map((row) => ({
+              expenseDate: row.expense_date,
+              amount: row.amount,
+              type: row.cost_type,
+              fundingSource: row.funding_source,
+              notes: row.notes,
+            }))
+          );
+          return;
+        }
+      } catch (e) {
+        console.warn("[history-details] costs fetch failed", e);
+      }
+    }
+
+    renderCostsRows([]);
+  }
+
+  async function fillPage() {
     if (!apartment || !historyEntry) return;
 
     const tenantInfo = historyEntry.tenantInfo || {};
-    const contract = historyEntry.contract || {};
     historicalContractId = getHistoricalContractId(historyEntry);
+    let contract = historyEntry.contract || {};
+    contract = await enrichContractFromApi(historicalContractId, contract);
+    historyEntry.contract = contract;
     apartmentNumberValue = getApartmentNumber(apartment, historyEntry);
+    historyCosts = Array.isArray(historyEntry.costs) ? historyEntry.costs : [];
 
     if (pageTitle) pageTitle.textContent = getTenantName(historyEntry);
 
@@ -417,17 +797,33 @@ document.addEventListener("DOMContentLoaded", async () => {
       identityNumber.textContent = historyEntry.tenantNationalId || T("common.dash");
     }
     if (tenantType) tenantType.textContent = tenantInfo.tenantType || T("common.dash");
-    if (archivedAt) archivedAt.textContent = formatDate(historyEntry.archivedAt);
+    if (archivedAt) {
+      archivedAt.textContent = formatDate(
+        historyEntry.archivedAt || historyEntry.vacatedAt || historyEntry.changed_at
+      );
+    }
 
     if (startDate) startDate.textContent = formatDate(contract.startDate);
     if (endDate) endDate.textContent = formatDate(contract.endDate);
-    if (meterNumber) meterNumber.textContent = contract.meterNumber || T("common.dash");
-    if (insurancePaid) insurancePaid.textContent = formatMoney(contract.insurancePaid);
+    if (meterNumber) {
+      meterNumber.textContent =
+        contract.meterNumber || contract.meter_number || T("common.dash");
+    }
+    if (insurancePaid) {
+      const paid = contract.insurancePaid ?? contract.insurance_paid;
+      insurancePaid.textContent =
+        paid != null && String(paid).trim() !== ""
+          ? formatMoney(paid)
+          : T("common.dash");
+    }
     if (notes) notes.textContent = contract.notes || T("common.dash");
 
     matchingRequests = (dbRequestsRaw || [])
       .filter((row) => {
-        if (String(row.apartment_id) !== String(apartmentId)) return false;
+        if (String(row.apartment_id) !== String(apartment.apiId ?? apartmentId)) {
+          // Also accept client apartmentId string matches for local/dev shapes.
+          if (String(row.apartment_id) !== String(apartmentId)) return false;
+        }
 
         if (
           historicalContractId &&
@@ -465,7 +861,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderRequestsModal(matchingRequests);
     computeContractDoc();
     updateContractHint();
-    bindContractOpen();
+    await loadDepositLedgerFields(historicalContractId);
   }
 
   if (!apartment) {
@@ -507,14 +903,21 @@ document.addEventListener("DOMContentLoaded", async () => {
         id: cid,
         startDate: c.startDate || c.start_date,
         endDate: c.endDate || c.end_date,
+        yearlyRent: c.yearlyRent ?? c.yearly_rent,
+        paymentCycle: c.paymentCycle || c.payment_cycle,
+        insurancePaid: c.insurancePaid ?? c.insurance_paid,
+        meterNumber: c.meterNumber || c.meter_number,
+        notes: c.notes || c.lease_notes || "",
         rentAmount:
           old.rent != null && old.rent !== ""
             ? Number(old.rent) * 12
             : undefined,
       },
+      costs: Array.isArray(old.costs) ? old.costs : [],
       contractId: cid,
       currentContractId: cid,
-      archivedAt: row.changed_at,
+      vacatedAt: old.vacatedAt || old.vacated_at || null,
+      archivedAt: row.changed_at || old.vacatedAt || old.vacated_at || null,
       archiveReason: row.change_type || "tenant_vacated",
     };
   }
@@ -562,68 +965,51 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  fillPage();
+  await fillPage();
 
   document.addEventListener("walajna:i18n-applied", () => {
-    fillPage();
-    if (window.walajna_language && window.walajna_language.apply) {
-      window.walajna_language.apply(document.body);
-    }
+    void fillPage().then(() => {
+      if (window.walajna_language && window.walajna_language.apply) {
+        window.walajna_language.apply(document.body);
+      }
+    });
   });
 
-  if (viewRequestsBtn) {
-    viewRequestsBtn.addEventListener("click", () => {
-      renderRequestsModal(matchingRequests);
-      openModal(requestsModal);
-    });
-  }
+  viewRequestsBtn?.addEventListener("click", () => {
+    renderRequestsModal(matchingRequests);
+    openModal(requestsModal, "requests");
+  });
 
-  if (closeRequestsModalBtn) {
-    closeRequestsModalBtn.addEventListener("click", () => {
-      closeModal(requestsModal);
-    });
-  }
+  openContractBtn?.addEventListener("click", () => {
+    openContractModule();
+  });
 
-  if (requestsModal) {
-    const backdrop = requestsModal.querySelector(".history-modal__backdrop");
-    backdrop?.addEventListener("click", () => closeModal(requestsModal));
-  }
+  viewPaymentsBtn?.addEventListener("click", () => {
+    void openPaymentsModule();
+  });
+
+  viewCostsBtn?.addEventListener("click", () => {
+    void openCostsModule();
+  });
+
+  closeRequestsModalBtn?.addEventListener("click", () => closeModal(requestsModal));
+  closeContractModalBtn?.addEventListener("click", () => closeModal(contractModal));
+  closePaymentsModalBtn?.addEventListener("click", () => closeModal(paymentsModal));
+  closeCostsModalBtn?.addEventListener("click", () => closeModal(costsModal));
+
+  document.querySelectorAll("[data-history-close]").forEach((el) => {
+    el.addEventListener("click", () => {
+      const which = el.getAttribute("data-history-close");
+      if (which === "requests") closeModal(requestsModal);
+      if (which === "contract") closeModal(contractModal);
+      if (which === "payments") closeModal(paymentsModal);
+      if (which === "costs") closeModal(costsModal);
+    });
+  });
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
-      closeModal(requestsModal);
+      closeAllModals();
     }
   });
-
-  if (viewPaymentsBtn) {
-    viewPaymentsBtn.addEventListener("click", () => {
-      let url =
-        `../main/payments.html?id=${encodeURIComponent(apartmentId)}` +
-        `&apartmentId=${encodeURIComponent(apartmentId)}` +
-        `&historyId=${encodeURIComponent(historyId)}` +
-        `&mode=history`;
-
-      if (historicalContractId) {
-        url += `&contractId=${encodeURIComponent(historicalContractId)}`;
-      }
-
-      window.location.href = url;
-    });
-  }
-
-  if (viewCostsBtn) {
-    viewCostsBtn.addEventListener("click", () => {
-      let url =
-        `../main/costs.html?id=${encodeURIComponent(apartmentId)}` +
-        `&apartmentId=${encodeURIComponent(apartmentId)}` +
-        `&historyId=${encodeURIComponent(historyId)}` +
-        `&mode=history`;
-
-      if (historicalContractId) {
-        url += `&contractId=${encodeURIComponent(historicalContractId)}`;
-      }
-
-      window.location.href = url;
-    });
-  }
 });

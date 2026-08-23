@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
   <script>(function(){try{var l=localStorage.getItem("walajna_language")||"ar";if(l!=="en"&&l!=="ar"&&l!=="ur")l="ar";document.documentElement.setAttribute("lang",l==="en"?"en":(l==="ur"?"ur":"ar"));document.documentElement.setAttribute("dir",l==="en"?"ltr":"rtl");}catch(e){}})();</script>
@@ -9,48 +9,52 @@
   <link rel="stylesheet" href="../css/register.css" />
   <script src="../js/main/walajna-i18n-ur.js"></script>
   <script src="../js/main/walajna-i18n.js"></script>
+  <script src="../js/main/walajna-dialog.js"></script>
 </head>
-<body>
+<body class="auth-page" data-global-back="false">
   <script src="../js/main/theme.js"></script>
-  <div class="register-bg"></div>
+  <div class="register-bg" aria-hidden="true"></div>
 
-  <a href="../auth/login.html" class="logo logo--corner" data-i18n-aria-label="common.logo" aria-label="">
-    <img src="../pics/logo.png" class="brand-logo" data-i18n-alt="common.logo" alt="" />
-  </a>
+  <main class="register-wrap auth-shell">
+    <div class="auth-stack">
+      <div class="auth-card">
+        <a href="../auth/login.html" class="auth-card__brand" data-i18n-aria-label="common.logo" aria-label="">
+          <img src="../pics/logo.png" class="auth-card__logo" data-i18n-alt="common.logo" alt="" />
+        </a>
+        <header class="auth-card__head">
+          <h1 class="auth-card__title" data-i18n="forget.title"></h1>
+          <p class="auth-card__sub" data-i18n="forget.sub"></p>
+        </header>
 
-  <main class="register-wrap">
-    <form class="register-form" id="forgotForm">
-      <h2 class="title" data-i18n="forget.title"></h2>
+        <form class="register-form" id="forgotForm">
+          <div class="recover-switch" role="tablist" aria-label="">
+            <button type="button" class="recover-tab active" data-method="email" data-i18n="forget.tabEmail"></button>
+            <button type="button" class="recover-tab" data-method="phone" data-i18n="forget.tabPhone"></button>
+          </div>
 
-      <div class="recover-switch">
-        <button type="button" class="recover-tab active" data-method="email" data-i18n="forget.tabEmail"></button>
-        <button type="button" class="recover-tab" data-method="phone" data-i18n="forget.tabPhone"></button>
+          <div class="row auth-field">
+            <label for="identifier" id="identifierLabel"></label>
+            <input
+              id="identifier"
+              type="email"
+              autocomplete="email"
+              required
+            />
+          </div>
+
+          <p id="forgotMessage" class="error" aria-live="polite"></p>
+
+          <button class="register-btn" type="submit" data-i18n="forget.continue"></button>
+
+          <p class="footer">
+            <a href="../auth/login.html" data-i18n="auth.backToLogin"></a>
+          </p>
+        </form>
       </div>
-
-      <div class="row">
-        <label for="identifier" id="identifierLabel"></label>
-        <input
-          id="identifier"
-          type="email"
-          data-i18n-placeholder="forget.emailPh"
-          placeholder=""
-          autocomplete="email"
-          required
-        />
-      </div>
-
-      <p id="forgotMessage" class="error"></p>
-
-      <button class="register-btn" type="submit" data-i18n="forget.continue"></button>
-
-      <p class="footer">
-        <a href="../auth/login.html" data-i18n="auth.backToLogin"></a>
-      </p>
-    </form>
+    </div>
   </main>
 
   <script src="../js/main/auth.js"></script>
-  <script src="../js/main/global-back.js"></script>
   <script src="../js/main/forgetpass.js"></script>
 </body>
 </html>

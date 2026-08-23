@@ -77,7 +77,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!item) return;
     const aid = String(item.archiveId || "");
     if (!aid) return;
-    const ok = confirm(wlArchiveT("owner.confirmRestoreArchiveBuilding"));
+    const ok = await WalajnaDialog.confirm(wlArchiveT("owner.confirmRestoreArchiveBuilding"));
     if (!ok) return;
 
     const b = item.building || {};
@@ -257,13 +257,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     grid.querySelectorAll("[data-archive-delete]").forEach((btn) => {
-      btn.addEventListener("click", (event) => {
+      btn.addEventListener("click", async (event) => {
         event.preventDefault();
         event.stopPropagation();
         closeArchiveMenus();
         const archiveId = btn.getAttribute("data-archive-delete");
         if (!archiveId) return;
-        const ok = confirm(wlArchiveT("owner.confirmDeleteArchiveBuilding"));
+        const ok = await WalajnaDialog.confirm(
+          wlArchiveT("owner.confirmDeleteArchiveBuilding"),
+          { danger: true }
+        );
         if (!ok) return;
         const afterDelete = readArchive().filter((row) => String(row.archiveId) !== String(archiveId));
         writeArchive(afterDelete);

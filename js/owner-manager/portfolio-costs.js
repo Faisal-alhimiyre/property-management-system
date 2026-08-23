@@ -8,11 +8,36 @@ document.addEventListener("DOMContentLoaded", async () => {
       ? window.walajna_language.t(k, p)
       : k;
 
+  function setPortfolioCostsLoading(isLoading) {
+    document.body.classList.toggle("portfolio-costs--loading", !!isLoading);
+    const loadingEl = document.getElementById("portfolioCostsLoading");
+    const container = document.getElementById("costsTableContainer");
+    const summary = document.getElementById("costsSummary");
+    if (loadingEl) {
+      loadingEl.hidden = !isLoading;
+      if (!isLoading) loadingEl.remove();
+    }
+    if (container) container.setAttribute("aria-busy", isLoading ? "true" : "false");
+    if (summary) summary.setAttribute("aria-busy", isLoading ? "true" : "false");
+    if (isLoading) {
+      document.querySelectorAll("#costsSummary .sum-value, #costsCount").forEach((el) => {
+        el.classList.add("is-pending");
+        el.textContent = "—";
+      });
+    }
+  }
+
   if (typeof WalajnaAuth !== "undefined" && WalajnaAuth.hydrateSession) {
     await WalajnaAuth.hydrateSession();
   }
-  if (typeof requireAuth === "function" && !requireAuth()) return;
-  if (typeof requireRole === "function" && !requireRole("owner")) return;
+  if (typeof requireAuth === "function" && !requireAuth()) {
+    setPortfolioCostsLoading(false);
+    return;
+  }
+  if (typeof requireRole === "function" && !requireRole("owner")) {
+    setPortfolioCostsLoading(false);
+    return;
+  }
 
   const COSTS_KEY = "walajna_costs";
   const MAIN_COLS = 6;
@@ -25,6 +50,79 @@ document.addEventListener("DOMContentLoaded", async () => {
   let portfolioCostsCacheFull = [];
   let portfolioCostsCache = [];
   let costsFromApi = false;
+  let portfolioCostsLoadOk = true;
+
+  function delay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  async function fetchJsonList(url) {
+    if (typeof WalajnaAuth === "undefined") return { ok: false, data: [] };
+    if (WalajnaAuth.fetchJsonWithAuthRetry) {
+      const result = await WalajnaAuth.fetchJsonWithAuthRetry(
+        url,
+        { method: "GET" },
+        { retries: 4, delayMs: 400 }
+      );
+      if (!result.ok || !Array.isArray(result.data)) {
+        return { ok: false, data: [] };
+      }
+      return { ok: true, data: result.data };
+    }
+    try {
+      const res = await WalajnaAuth.fetchWithAuth(url, { method: "GET" });
+      if (!res.ok) return { ok: false, data: [] };
+      const data = await res.json();
+      return { ok: true, data: Array.isArray(data) ? data : [] };
+    } catch {
+      return { ok: false, data: [] };
+    }
+  }
+
+  function mergeOwnerApartmentsForCosts(ownerBuildings, apartmentRows) {
+    const rows = Array.isArray(apartmentRows) ? apartmentRows : [];
+    const buildings = Array.isArray(ownerBuildings) ? ownerBuildings : [];
+    const nameById = new Map(buildings.map((b) => [String(b.id), b.name || "—"]));
+    const buildingIdSet = new Set(buildings.map((b) => String(b.id)));
+    const merged = [];
+
+    const pushForBuilding = (bid, filteredRows, displayName) => {
+      const mapped = filteredRows
+        .map(mapApiApartmentToRow)
+        .filter(Boolean)
+        .map((apt) => ({
+          ...apt,
+          buildingId: String(bid),
+          buildingName: displayName || nameById.get(String(bid)) || "—",
+        }));
+      merged.push(...dedupeFinanceApartments(mapped, bid));
+    };
+
+    if (buildingIdSet.size) {
+      for (const bid of buildingIdSet) {
+        const code = buildings.find((x) => String(x.id) === bid)?.code;
+        const codeStr = code != null ? String(code).trim() : "";
+        const filtered = rows.filter((a) => {
+          const ab = String(a.building_id ?? "");
+          return ab === bid || (!!codeStr && ab === codeStr);
+        });
+        pushForBuilding(bid, filtered, nameById.get(bid));
+      }
+    } else if (rows.length) {
+      const byBid = new Map();
+      for (const a of rows) {
+        const ab = String(a.building_id ?? "").trim();
+        if (!ab) continue;
+        if (!byBid.has(ab)) byBid.set(ab, []);
+        byBid.get(ab).push(a);
+      }
+      for (const [bid, list] of byBid) {
+        pushForBuilding(bid, list, nameById.get(bid) || "—");
+      }
+    }
+
+    return merged;
+  }
 
   function mapApiApartmentToRow(api) {
     if (!api) return null;
@@ -136,11 +234,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     ) {
       return;
     }
-    try {
-      const res = await WalajnaAuth.fetchWithAuth(
-        `${WalajnaAuth.API_BASE}/api/owner/costs`,
-        { method: "GET" }
+    const url = `${WalajnaAuth.API_BASE}/api/owner/costs`;
+    if (WalajnaAuth.fetchJsonWithAuthRetry) {
+      const result = await WalajnaAuth.fetchJsonWithAuthRetry(
+        url,
+        { method: "GET" },
+        { retries: 4, delayMs: 350 }
       );
+      if (!result.ok || !Array.isArray(result.data)) {
+        console.warn("portfolio-costs: owner costs fetch failed", result.status);
+        return;
+      }
+      portfolioCostsCacheFull = result.data;
+      costsFromApi = true;
+      applyCostsScopeFilter();
+      return;
+    }
+    try {
+      const res = await WalajnaAuth.fetchWithAuth(url, { method: "GET" });
       if (!res.ok) {
         console.warn("portfolio-costs: owner costs fetch failed", res.status);
         return;
@@ -157,65 +268,84 @@ document.addEventListener("DOMContentLoaded", async () => {
   async function loadOwnerApartmentsFromApi() {
     if (typeof WalajnaAuth === "undefined" || !WalajnaAuth.fetchWithAuth) return false;
     try {
-      const [bRes, aRes] = await Promise.all([
-        WalajnaAuth.fetchWithAuth(`${WalajnaAuth.API_BASE}/api/buildings`, { method: "GET" }),
-        WalajnaAuth.fetchWithAuth(`${WalajnaAuth.API_BASE}/api/apartments`, { method: "GET" }),
+      const buildingsUrl = `${WalajnaAuth.API_BASE}/api/buildings`;
+      const apartmentsUrl = `${WalajnaAuth.API_BASE}/api/apartments`;
+
+      let [buildingsResult, apartmentsResult] = await Promise.all([
+        fetchJsonList(buildingsUrl),
+        fetchJsonList(apartmentsUrl),
       ]);
 
-      let ownerBuildings = [];
-      if (bRes.ok) {
-        ownerBuildings = await bRes.json();
-        if (
-          Array.isArray(ownerBuildings) &&
-          ownerBuildings.length &&
-          typeof WalajnaBuildingsApi !== "undefined" &&
-          WalajnaBuildingsApi.persistSessionList
-        ) {
-          WalajnaBuildingsApi.persistSessionList(
-            ownerBuildings.map((b) =>
-              typeof WalajnaBuildingsApi.mapApiRowToClient === "function"
-                ? WalajnaBuildingsApi.mapApiRowToClient(b)
-                : b
-            )
-          );
-        }
+      const needsRetry =
+        !buildingsResult.ok ||
+        !apartmentsResult.ok ||
+        (buildingsResult.ok && !buildingsResult.data.length) ||
+        (apartmentsResult.ok &&
+          buildingsResult.data.length > 0 &&
+          !apartmentsResult.data.length);
+      if (needsRetry) {
+        await delay(buildingsResult.ok && apartmentsResult.ok ? 450 : 700);
+        [buildingsResult, apartmentsResult] = await Promise.all([
+          fetchJsonList(buildingsUrl),
+          fetchJsonList(apartmentsUrl),
+        ]);
       }
 
-      const nameById = new Map((ownerBuildings || []).map((b) => [String(b.id), b.name || "—"]));
-      const buildingIdSet = new Set((ownerBuildings || []).map((b) => String(b.id)));
-      if (!aRes.ok) return false;
+      portfolioCostsLoadOk = buildingsResult.ok || apartmentsResult.ok;
 
-      const all = await aRes.json();
-      const rows = Array.isArray(all) ? all : [];
-      const merged = [];
-
-      for (const bid of buildingIdSet) {
-        const code = (ownerBuildings || []).find((x) => String(x.id) === bid)?.code;
-        const codeStr = code != null ? String(code) : null;
-        const filtered = rows.filter((a) => {
-          const ab = String(a.building_id ?? "");
-          return ab === bid || (codeStr && ab === codeStr);
-        });
-        const mapped = filtered
-          .map(mapApiApartmentToRow)
-          .filter(Boolean)
-          .map((apt) => ({
-            ...apt,
-            buildingName: nameById.get(bid) || "—",
-          }));
-        merged.push(...dedupeFinanceApartments(mapped, bid));
+      let ownerBuildings = buildingsResult.ok ? buildingsResult.data : [];
+      if (
+        Array.isArray(ownerBuildings) &&
+        ownerBuildings.length &&
+        typeof WalajnaBuildingsApi !== "undefined" &&
+        WalajnaBuildingsApi.persistSessionList
+      ) {
+        WalajnaBuildingsApi.persistSessionList(
+          ownerBuildings.map((b) =>
+            typeof WalajnaBuildingsApi.mapApiRowToClient === "function"
+              ? WalajnaBuildingsApi.mapApiRowToClient(b)
+              : b
+          )
+        );
       }
+
+      if (!apartmentsResult.ok && !buildingsResult.ok) {
+        portfolioCostsLoadOk = false;
+        return false;
+      }
+
+      const apartmentRows = apartmentsResult.ok ? apartmentsResult.data : [];
+      const merged = mergeOwnerApartmentsForCosts(ownerBuildings, apartmentRows);
+
       ownerBuildingsCatalog = (ownerBuildings || []).map((b) => ({
         id: String(b.id),
         name: b.name || "—",
       }));
+      if (!ownerBuildingsCatalog.length && merged.length) {
+        const seen = new Map();
+        for (const apt of merged) {
+          const id = String(apt.buildingId || "").trim();
+          if (!id || seen.has(id)) continue;
+          seen.set(id, { id, name: apt.buildingName || "—" });
+        }
+        ownerBuildingsCatalog = Array.from(seen.values());
+      }
+
       allBuildingApartmentsFull = merged;
       allBuildingApartments =
         typeof WalajnaOwnerBuildingPick !== "undefined"
           ? WalajnaOwnerBuildingPick.filterApartments(merged)
           : merged;
+      if (
+        !allBuildingApartments.length &&
+        allBuildingApartmentsFull.length &&
+        typeof WalajnaOwnerBuildingPick !== "undefined"
+      ) {
+        allBuildingApartments = allBuildingApartmentsFull;
+      }
       return true;
     } catch (e) {
+      portfolioCostsLoadOk = false;
       console.warn("portfolio-costs: API load failed", e);
       return false;
     }
@@ -647,11 +777,31 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (pageSub) pageSub.textContent = T("costs.portfolioSubtitle");
 
     if (!allBuildingApartments.length) {
-      if (costsCount) costsCount.textContent = "";
+      if (costsCount) {
+        costsCount.classList.remove("is-pending");
+        costsCount.textContent = "";
+      }
       renderSummary([]);
-      costsTableContainer.innerHTML = `<div class="empty-state">${escapeHtml(
-        T("finance.noAptsPortfolio")
-      )}</div>`;
+      const emptyMsg = portfolioCostsLoadOk
+        ? T("finance.noAptsPortfolio")
+        : T("finance.loadPortfolioFailed");
+      costsTableContainer.innerHTML = `
+        <div class="empty-state">${escapeHtml(emptyMsg)}</div>
+        ${
+          portfolioCostsLoadOk
+            ? ""
+            : `<div style="margin-top:10px;text-align:center;">
+                <button id="portfolioCostsRetryBtn" class="finance-summary-btn finance-summary-btn--primary" type="button">${escapeHtml(
+                  T("common.retry")
+                )}</button>
+              </div>`
+        }
+      `;
+      if (!portfolioCostsLoadOk) {
+        document.getElementById("portfolioCostsRetryBtn")?.addEventListener("click", () => {
+          window.location.reload();
+        });
+      }
       return;
     }
 
@@ -668,6 +818,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       : filteredCosts;
 
     if (costsCount) {
+      costsCount.classList.remove("is-pending");
       const buildingsShown = baseGroups.filter((g) => g.buildingId !== "__orphan__").length;
       const buildingsSelected = isPortfolioTableFilterActive()
         ? baseGroups.filter(
@@ -706,9 +857,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (del && costsTableContainer.contains(del) && del.closest(".portfolio-building-nest")) {
       const id = del.dataset.id;
       if (!id) return;
-      const confirmed = confirm(T("costs.confirmDelete"));
-      if (!confirmed) return;
       void (async () => {
+      const confirmed = await WalajnaDialog.confirm(T("costs.confirmDelete"), {
+        danger: true,
+      });
+      if (!confirmed) return;
         try {
           if (
             costsFromApi &&
@@ -740,7 +893,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       cb.checked,
       ownerBuildingsCatalog
     );
-    renderPage();
+    void refreshPortfolioPickUi().then(renderPage);
   });
 
   async function refreshPortfolioPickUi() {
@@ -767,7 +920,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   searchInput?.addEventListener("input", renderPage);
   document.addEventListener("walajna:i18n-applied", () => renderPage());
 
-  void refreshPortfolioPickUi().then(renderPage);
+  void refreshPortfolioPickUi().then(() => {
+    setPortfolioCostsLoading(false);
+    renderPage();
+  });
 
   if (typeof window.walajnaRefreshBreadcrumb === "function") {
     window.walajnaRefreshBreadcrumb();

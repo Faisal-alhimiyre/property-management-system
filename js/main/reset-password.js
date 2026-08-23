@@ -10,7 +10,7 @@ const resetMessage = document.getElementById("resetMessage");
 
 function showResetMessage(message, isSuccess = false) {
   resetMessage.textContent = message;
-  resetMessage.style.color = isSuccess ? "#d1fae5" : "#ffefef";
+  resetMessage.classList.toggle("is-success", Boolean(isSuccess && message));
 }
 
 function getResetToken() {
@@ -20,8 +20,6 @@ function getResetToken() {
 function apiBase() {
   return (typeof WalajnaAuth !== "undefined" && WalajnaAuth.API_BASE) || "http://127.0.0.1:8002";
 }
-
-console.log("reset-password.js loaded");
 
 (function validateResetAccess() {
   const resetToken = getResetToken();
@@ -34,15 +32,10 @@ console.log("reset-password.js loaded");
 resetForm.addEventListener("submit", async function (e) {
   e.preventDefault();
 
-  const newPassword = newPasswordInput.value.trim();
-  const confirmPassword = confirmPasswordInput.value.trim();
+  const newPassword = newPasswordInput.value;
+  const confirmPassword = confirmPasswordInput.value;
   const resetToken = getResetToken();
   const submitBtn = resetForm.querySelector('button[type="submit"]');
-
-  console.log("submit fired");
-  console.log("newPassword:", newPassword);
-  console.log("confirmPassword:", confirmPassword);
-  console.log("resetUserId:", resetUserId);
 
   showResetMessage("");
 
@@ -51,8 +44,13 @@ resetForm.addEventListener("submit", async function (e) {
     return;
   }
 
-  if (newPassword.length < 6) {
-    showResetMessage(T("reset.min6"));
+  const pwdCheck =
+    (window.WalajnaPasswordPolicy && window.WalajnaPasswordPolicy.validate(newPassword)) || {
+      ok: false,
+      key: "auth.passwordWeak",
+    };
+  if (!pwdCheck.ok) {
+    showResetMessage(T(pwdCheck.key || "auth.passwordWeak"));
     return;
   }
 
@@ -96,17 +94,7 @@ resetForm.addEventListener("submit", async function (e) {
       window.location.href = "../auth/login.html";
     }, 1200);
   } catch (err) {
-    console.error("reset-password failed", err);
     showResetMessage(String(err?.message || err || T("common.tryAgain")));
     if (submitBtn) submitBtn.disabled = false;
-  }
-});
-
-document.addEventListener("walajna:i18n-applied", () => {
-  if (newPasswordInput && !newPasswordInput.value) {
-    newPasswordInput.placeholder = T("reset.newPwdPh");
-  }
-  if (confirmPasswordInput && !confirmPasswordInput.value) {
-    confirmPasswordInput.placeholder = T("reset.confirmPh");
   }
 });

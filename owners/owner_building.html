@@ -11,9 +11,10 @@
   <link rel="stylesheet" href="../css/owner-building.css">
   <script src="../js/main/walajna-i18n-ur.js"></script>
   <script src="../js/main/walajna-i18n.js"></script>
+  <script src="../js/main/walajna-dialog.js"></script>
 </head>
 
-<body data-nav="user" data-wl-bc="owner-building">
+<body class="owner-building--loading" data-nav="user" data-wl-bc="owner-building">
 
   <div id="navbar-container"></div>
 
@@ -23,20 +24,25 @@
         <h2 id="buildingTitle">—</h2>
       </div>
 
-      <section class="building-finance-summary">
+      <section class="building-finance-summary" aria-busy="true">
         <div class="finance-card">
-          <span class="finance-label" data-i18n="finance.monthlyIncome">الدخل الشهري</span>
-          <strong id="buildingIncome">0</strong>
+          <span class="finance-label" data-i18n="finance.cardIncome">الدخل المحقق</span>
+          <strong id="buildingIncome" class="is-pending">—</strong>
         </div>
 
         <div class="finance-card">
-          <span class="finance-label" data-i18n="finance.expenses">المصروفات</span>
-          <strong id="buildingCosts">0</strong>
+          <span class="finance-label" data-i18n="finance.cardOwnerBorne">تكاليف المالك</span>
+          <strong id="buildingCosts" class="is-pending">—</strong>
         </div>
 
         <div class="finance-card">
-          <span class="finance-label" data-i18n="finance.monthlyProfit">الربح الشهري</span>
-          <strong id="buildingProfit">0</strong>
+          <span class="finance-label" data-i18n="finance.cardProfit">صافي الربح</span>
+          <strong id="buildingProfit" class="is-pending">—</strong>
+        </div>
+
+        <div class="finance-card">
+          <span class="finance-label" data-i18n="finance.cardLate">المتأخرات</span>
+          <strong id="buildingReceivables" class="is-pending">—</strong>
         </div>
       </section>
 
@@ -54,16 +60,21 @@
       <div class="building-stats">
         <div class="building-stat-item">
           <span class="building-stat-label" data-i18n="finance.rentedUnits">الوحدات المؤجرة</span>
-          <strong id="buildingOccupiedUnits">0 / 0</strong>
+          <strong id="buildingOccupiedUnits" class="is-pending">—</strong>
         </div>
 
         <div class="building-stat-item">
           <span class="building-stat-label" data-i18n="finance.lateUnits">الشقق المتأخرة</span>
-          <strong id="buildingLateUnits">0</strong>
+          <strong id="buildingLateUnits" class="is-pending">—</strong>
         </div>
       </div>
 
-      <section id="apartmentsGrid" class="apartments-grid"></section>
+      <section id="apartmentsGrid" class="apartments-grid" aria-busy="true">
+        <div id="ownerBuildingLoading" class="owner-building-loading" role="status" aria-live="polite">
+          <div class="owner-building-loading__spinner" aria-hidden="true"></div>
+          <p class="owner-building-loading__text" data-i18n="building.loadingData"></p>
+        </div>
+      </section>
     </section>
 
   </main>
@@ -189,90 +200,6 @@
     </div>
   </div>
 
-  <div id="buildingDetailsModal" class="apartment-edit-modal" aria-hidden="true">
-    <div class="apartment-edit-modal__backdrop" data-close-building-details="true"></div>
-    <div class="apartment-edit-modal__panel building-details-modal-panel" role="dialog" aria-modal="true" aria-labelledby="buildingDetailsModalTitle">
-      <div class="apartment-edit-modal__header">
-        <div>
-          <h3 id="buildingDetailsModalTitle" class="apartment-edit-modal__title" data-i18n="building.detailsWizardTitle">تفاصيل العمارة</h3>
-          <p id="buildingDetailsModalSubtitle" class="apartment-edit-modal__subtitle" data-i18n="building.detailsWizardStep1Short">وزّع الشقق على الأدوار</p>
-        </div>
-        <button id="closeBuildingDetailsModal" class="apartment-edit-modal__close" type="button" data-i18n-aria-label="common.close">✕</button>
-      </div>
-
-      <div class="apartment-edit-modal__body building-details-modal-body">
-        <div id="buildingDetailsStep1Wrap" class="building-details-step1">
-          <div class="building-details-step1-toolbar">
-            <div class="building-details-floors-total item">
-              <label class="label" for="wizardTotalFloorsInput" data-i18n="building.totalFloorsPrompt">عدد الطوابق</label>
-              <input id="wizardTotalFloorsInput" type="number" min="1" max="200" step="1" readonly aria-readonly="true" data-i18n-title="building.totalFloorsReadonlyHint" />
-            </div>
-            <div
-              id="buildingLayoutRemainingBar"
-              class="building-layout-remaining"
-              hidden
-              aria-live="polite"
-              aria-atomic="true"
-            >
-              <span class="building-layout-remaining__label" data-i18n="building.layoutRemainingLabel">شقق متبقية</span>
-              <strong id="buildingLayoutRemainingCount" class="building-layout-remaining__count">0</strong>
-            </div>
-          </div>
-          <div id="buildingDetailsPerFloorFields" class="building-details-per-floor"></div>
-        </div>
-        <div id="buildingDetailsStep2Wrap" class="building-details-step2" hidden>
-          <div id="buildingDetailsBulkBar" class="building-details-bulk-bar">
-            <div class="building-details-bulk-card building-details-bulk-card--compact">
-              <div class="building-details-bulk-card-head">
-                <span id="wizardBulkChecklistLegend" class="building-details-bulk-card-kicker" data-i18n="building.bulkPickApts">شقق لم تُضبط</span>
-                <div class="building-details-bulk-pills" role="group">
-                  <button type="button" id="wizardBulkSelectAllBtn" class="building-details-bulk-pill" data-i18n="building.bulkSelectRemaining">تحديد الباقي</button>
-                  <button type="button" id="wizardBulkClearChecksBtn" class="building-details-bulk-pill building-details-bulk-pill--muted" data-i18n="building.bulkClearChecks">إلغاء التحديد</button>
-                </div>
-              </div>
-              <p id="wizardBulkAllDone" class="building-details-bulk-done" hidden data-i18n="building.bulkAllConfigured">تم ضبط كل الشقق — عدّل أي شقة في القائمة أدناه.</p>
-              <div id="wizardBulkChecklist" class="building-details-bulk-checklist" role="group" aria-labelledby="wizardBulkChecklistLegend"></div>
-              <div class="building-details-bulk-apply-row">
-              <div class="building-details-bulk-rooms">
-                <div class="building-details-bulk-field">
-                  <label class="building-details-bulk-label" for="wizardBulkBedrooms" data-i18n="lease.rooms">غرف</label>
-                  <input id="wizardBulkBedrooms" class="building-details-bulk-input" type="number" min="0" step="1" value="0" />
-                </div>
-                <div class="building-details-bulk-field">
-                  <label class="building-details-bulk-label" for="wizardBulkBathrooms" data-i18n="lease.bathrooms">حمامات</label>
-                  <input id="wizardBulkBathrooms" class="building-details-bulk-input" type="number" min="0" step="1" value="0" />
-                </div>
-                <div class="building-details-bulk-field">
-                  <label class="building-details-bulk-label" for="wizardBulkLiving" data-i18n="lease.living">صالات</label>
-                  <input id="wizardBulkLiving" class="building-details-bulk-input" type="number" min="0" step="1" value="0" />
-                </div>
-              </div>
-              <button id="wizardBulkApplyBtn" class="building-details-bulk-apply apartment-edit-btn primary" type="button" data-i18n="building.bulkApplyBtn">تطبيق</button>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div id="buildingDetailsStep3Wrap" class="building-details-step3" hidden>
-          <p id="wizardConfirmProgress" class="building-details-confirm-progress" aria-live="polite"></p>
-          <div id="buildingDetailsConfirmFields" class="building-details-confirm-list"></div>
-        </div>
-        <p id="buildingDetailsError" class="error" role="alert"></p>
-      </div>
-
-      <div class="apartment-edit-modal__footer building-details-footer">
-        <div class="building-details-footer__cluster">
-          <button id="buildingDetailsBackBtn" class="apartment-edit-btn ghost" type="button" hidden data-i18n="building.backStep">رجوع</button>
-          <button id="cancelBuildingDetailsModal" class="apartment-edit-btn ghost" type="button" data-i18n="common.cancel">إلغاء</button>
-        </div>
-        <div class="building-details-footer__cluster building-details-footer__cluster--end">
-          <button id="buildingDetailsNextBtn" class="apartment-edit-btn primary" type="button" disabled data-i18n="building.nextStepRooms">التالي</button>
-          <button id="buildingDetailsSaveBtn" class="apartment-edit-btn primary" type="button" hidden data-i18n="building.saveLayout">حفظ التخطيط</button>
-          <button id="buildingDetailsConfirmSaveBtn" class="apartment-edit-btn primary" type="button" hidden data-i18n="building.confirmSave">تأكيد وحفظ</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <script src="../js/main/breadcrumbs.js"></script>
   <script src="../js/main/auth.js"></script>
   <script src="../js/main/buildings-api.js"></script>
@@ -284,6 +211,7 @@
   <script src="../js/main/apartments-api.js"></script>
   <script src="../js/main/documents-api.js"></script>
   <script src="../js/main/saudi-national-id.js"></script>
+  <script src="../js/apartment-manager/insurance-settle.js"></script>
   <script src="../js/owner-manager/owner-building.js"></script>
 </body>
 </html>

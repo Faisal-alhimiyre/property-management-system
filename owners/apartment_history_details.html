@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
   <script>(function(){try{var l=localStorage.getItem("walajna_language")||"ar";if(l!=="en"&&l!=="ar"&&l!=="ur")l="ar";document.documentElement.setAttribute("lang",l==="en"?"en":(l==="ur"?"ur":"ar"));document.documentElement.setAttribute("dir",l==="en"?"ltr":"rtl");}catch(e){}})();</script>
@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="../css/apartment-history-details.css" />
   <script src="../js/main/walajna-i18n-ur.js"></script>
   <script src="../js/main/walajna-i18n.js"></script>
+  <script src="../js/main/walajna-dialog.js"></script>
 </head>
 <body data-nav="user" data-wl-bc="apartment-history-details">
   <div id="navbar-container"></div>
@@ -85,7 +86,7 @@
             <strong id="tenantType">—</strong>
           </div>
           <div class="info-item">
-            <span class="label" data-i18n="historyDet.archiveDate"></span>
+            <span class="label" data-i18n="historyDet.vacateDate"></span>
             <strong id="archivedAt">—</strong>
           </div>
         </div>
@@ -93,7 +94,7 @@
 
       <article class="info-card">
         <h2 class="section-title" data-i18n="historyDet.sectionExtra"></h2>
-        <div class="info-grid">
+        <div class="info-grid info-grid--extra">
           <div class="info-item">
             <span class="label" data-i18n="history.label.start"></span>
             <strong id="startDate">—</strong>
@@ -106,9 +107,32 @@
             <span class="label" data-i18n="lease.meter"></span>
             <strong id="meterNumber">—</strong>
           </div>
-          <div class="info-item">
-            <span class="label" data-i18n="lease.insurance"></span>
-            <strong id="insurancePaid">—</strong>
+          <div class="info-item full history-insurance-block">
+            <div class="history-insurance-head">
+              <span class="label" data-i18n="lease.insurance">التأمين</span>
+              <span id="insuranceSettledStatus" class="history-insurance-settled" hidden data-i18n="insSettle.settled">تمت التسوية</span>
+            </div>
+            <div class="history-insurance-table" role="table">
+              <div class="history-insurance-row" role="row">
+                <span data-i18n="insSettle.original">التأمين الأصلي</span>
+                <strong id="insurancePaid">—</strong>
+              </div>
+              <div class="history-insurance-row" role="row">
+                <span data-i18n="historyDet.insuranceDeducted">المخصوم من التأمين</span>
+                <strong id="insuranceDeducted">—</strong>
+              </div>
+              <div class="history-insurance-row" role="row">
+                <span data-i18n="historyDet.insuranceReturned">المعاد للمستأجر</span>
+                <strong id="insuranceReturned">—</strong>
+              </div>
+              <div class="history-insurance-row" id="historyInsuranceUnsettledRow" role="row">
+                <span data-i18n="historyDet.insuranceUnsettled">غير المسوّى</span>
+                <strong id="insuranceUnsettled">—</strong>
+              </div>
+            </div>
+            <div class="history-insurance-actions">
+              <button type="button" id="settleInsuranceBtn" class="action-btn secondary" hidden data-i18n="insSettle.settleBtn">تسوية التأمين</button>
+            </div>
           </div>
           <div class="info-item full">
             <span class="label" data-i18n="common.note"></span>
@@ -117,21 +141,20 @@
         </div>
       </article>
 
-      <article class="info-card">
+      <article class="info-card info-card--compact">
         <h2 class="section-title" data-i18n="historyDet.sectionDocs"></h2>
-        <div class="actions-grid">
-          <button id="viewRequestsBtn" type="button" class="action-btn secondary" data-i18n="historyDet.tenantRequestsBtn"></button>
-          <button id="openContractBtn" type="button" class="action-btn" data-i18n="historyDet.viewContract"></button>
-          <button id="viewPaymentsBtn" type="button" class="action-btn secondary" data-i18n="historyDet.payments"></button>
-          <button id="viewCostsBtn" type="button" class="action-btn secondary" data-i18n="historyDet.costs"></button>
+        <div class="actions-grid" role="tablist">
+          <button id="viewRequestsBtn" type="button" class="action-btn secondary" data-history-module="requests" data-i18n="historyDet.tenantRequestsBtn"></button>
+          <button id="openContractBtn" type="button" class="action-btn secondary" data-history-module="contract" data-i18n="historyDet.viewContract"></button>
+          <button id="viewPaymentsBtn" type="button" class="action-btn secondary" data-history-module="payments" data-i18n="historyDet.payments"></button>
+          <button id="viewCostsBtn" type="button" class="action-btn secondary" data-history-module="costs" data-i18n="historyDet.costs"></button>
         </div>
-        <div id="contractHint" class="helper-text" data-i18n="historyDet.contractHelper"></div>
       </article>
     </section>
   </main>
 
   <div id="requestsModal" class="history-modal" aria-hidden="true">
-    <div class="history-modal__backdrop"></div>
+    <div class="history-modal__backdrop" data-history-close="requests"></div>
     <div class="history-modal__panel">
       <div class="history-modal__header">
         <div>
@@ -146,6 +169,54 @@
     </div>
   </div>
 
+  <div id="contractModal" class="history-modal" aria-hidden="true">
+    <div class="history-modal__backdrop" data-history-close="contract"></div>
+    <div class="history-modal__panel history-modal__panel--wide">
+      <div class="history-modal__header">
+        <div>
+          <h3 class="history-modal__title" data-i18n="historyDet.viewContract"></h3>
+          <p class="history-modal__subtitle" data-i18n="historyDet.contractModalSub"></p>
+        </div>
+        <button type="button" id="closeContractModalBtn" class="history-modal__close" data-i18n-aria-label="common.close" aria-label="">×</button>
+      </div>
+      <div id="contractModalBody" class="history-modal__body history-modal__body--iframe">
+        <div class="history-request-empty" data-i18n="historyDet.noContractFile"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="paymentsModal" class="history-modal" aria-hidden="true">
+    <div class="history-modal__backdrop" data-history-close="payments"></div>
+    <div class="history-modal__panel history-modal__panel--wide">
+      <div class="history-modal__header">
+        <div>
+          <h3 class="history-modal__title" data-i18n="historyDet.paymentsModalTitle"></h3>
+          <p class="history-modal__subtitle" data-i18n="historyDet.paymentsModalSub"></p>
+        </div>
+        <button type="button" id="closePaymentsModalBtn" class="history-modal__close" data-i18n-aria-label="common.close" aria-label="">×</button>
+      </div>
+      <div id="paymentsModalBody" class="history-modal__body">
+        <div class="history-request-empty" data-i18n="historyDet.paymentsLoading"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="costsModal" class="history-modal" aria-hidden="true">
+    <div class="history-modal__backdrop" data-history-close="costs"></div>
+    <div class="history-modal__panel history-modal__panel--wide">
+      <div class="history-modal__header">
+        <div>
+          <h3 class="history-modal__title" data-i18n="historyDet.costsModalTitle"></h3>
+          <p class="history-modal__subtitle" data-i18n="historyDet.costsModalSub"></p>
+        </div>
+        <button type="button" id="closeCostsModalBtn" class="history-modal__close" data-i18n-aria-label="common.close" aria-label="">×</button>
+      </div>
+      <div id="costsModalBody" class="history-modal__body">
+        <div class="history-request-empty" data-i18n="historyDet.costsLoading"></div>
+      </div>
+    </div>
+  </div>
+
   <script src="../js/main/theme.js"></script>
   <script src="../js/main/auth.js"></script>
   <script src="../js/main/apartments-api.js"></script>
@@ -154,6 +225,7 @@
   <script src="../js/main/tenant-requests-api.js"></script>
   <script src="../js/main/breadcrumbs.js"></script>
   <script src="../js/main/nav.js"></script>
+  <script src="../js/apartment-manager/insurance-settle.js"></script>
   <script src="../js/apartment-manager/apartment-history-details.js"></script>
 </body>
 </html>

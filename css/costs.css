@@ -148,6 +148,25 @@ body[data-wl-bc="portfolio-costs"] .pay-wrap--portfolio{
   padding:10px 12px 24px;
 }
 
+body.portfolio-costs--loading .pay-summary,
+body.portfolio-costs--loading .pay-search{
+  opacity:0.55;
+  pointer-events:none;
+}
+
+body.portfolio-costs--loading .costs-portfolio-table-wrap{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  min-height:min(42vh, 320px);
+}
+
+body.portfolio-costs--loading .sum-value.is-pending,
+body.portfolio-costs--loading .finance-table-meta.is-pending,
+.sum-value.is-pending{
+  color:#94a3b8;
+}
+
 body[data-wl-bc="portfolio-costs"] .pay-header--portfolio{
   margin-bottom:8px;
   padding:12px 14px;
@@ -499,6 +518,102 @@ body.dark-mode .costs-portfolio-nested .delete-btn:hover{
   color:var(--muted);
   font-weight:800;
   text-align:center;
+}
+
+.wl-page-loading{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:14px;
+  width:100%;
+  min-height:min(42vh, 320px);
+  padding:32px 16px;
+  text-align:center;
+}
+
+.wl-page-loading__spinner{
+  width:36px;
+  height:36px;
+  border-radius:50%;
+  border:3px solid rgba(15, 118, 110, 0.2);
+  border-top-color:#0f766e;
+  animation:wl-page-spin 0.75s linear infinite;
+}
+
+.wl-page-loading__text{
+  margin:0;
+  color:#0f172a;
+  font-size:15px;
+  font-weight:700;
+}
+
+@keyframes wl-page-spin{
+  to{ transform:rotate(360deg); }
+}
+
+body.apartment-costs--loading .pay-header,
+body.apartment-costs--loading .costs-topbar,
+body.apartment-costs--loading .pay-summary{
+  opacity:0.55;
+  pointer-events:none;
+}
+
+body.apartment-costs--loading .costs-table-wrap{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  min-height:min(42vh, 320px);
+}
+
+/* form heading (not an input) */
+
+.costs-form-heading{
+  margin:0 0 14px;
+  padding:0;
+  border:none;
+  background:transparent;
+  color:var(--text, #102b4c);
+  font-size:1.05rem;
+  font-weight:800;
+  line-height:1.4;
+}
+
+.costs-insurance-section{
+  grid-column:1 / -1;
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:12px;
+}
+
+.costs-insurance-section[hidden]{
+  display:none !important;
+}
+
+@media (max-width: 640px){
+  .costs-insurance-section{
+    grid-template-columns:1fr;
+  }
+}
+
+.costs-readonly-value{
+  width:100%;
+  padding:12px;
+  border:1px dashed var(--border);
+  border-radius:14px;
+  background:rgba(16,43,76,0.03);
+  color:var(--text, #102b4c);
+  font-weight:800;
+  font-family:inherit;
+}
+
+body.dark-mode .costs-form-heading{
+  color:var(--text);
+}
+
+body.dark-mode .costs-readonly-value{
+  background:rgba(255,255,255,0.04);
+  color:var(--text);
 }
 
 /* inline notes */

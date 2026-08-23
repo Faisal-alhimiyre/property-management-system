@@ -30,6 +30,11 @@ if (codeInput) {
       codeInput.value = normalized;
     }
   });
+  const cached = localStorage.getItem("walajna_reset_dev_code");
+  if (cached) {
+    codeInput.value = normalizeDigits(cached);
+    localStorage.removeItem("walajna_reset_dev_code");
+  }
 }
 
 codeForm.addEventListener("submit", async function (e) {

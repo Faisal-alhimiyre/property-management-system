@@ -2,6 +2,8 @@
    IMPORTANT: these tokens should NOT force dark mode by default.
 */
 
+@import url("walajna-dialog.css");
+
 :root {
   /* Light mode — 60% light blue · 30% navy · 10% logo cyan accent (single flat page bg) */
   --wl-palette-bg: #e4edf7;
@@ -166,6 +168,64 @@ body:not(.dark-mode) input[type="number"]::-webkit-outer-spin-button{
   opacity:.8;
   filter:none;
   background:transparent;
+}
+
+/* Password show/hide eye toggle */
+.password-field{
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+.password-field > input{
+  width: 100%;
+  padding-inline-end: 46px !important;
+}
+
+.password-field__toggle{
+  position: absolute;
+  inset-inline-end: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: rgba(26, 47, 74, 0.55);
+  cursor: pointer;
+  line-height: 0;
+  transition: color .15s ease, background-color .15s ease;
+}
+
+.password-field__toggle:hover,
+.password-field__toggle:focus-visible{
+  color: var(--wl-palette-navy, #1a2f4a);
+  background: rgba(26, 47, 74, 0.06);
+  outline: none;
+}
+
+.password-field__toggle.is-visible{
+  color: var(--wl-palette-logo-deep, #1fb8d4);
+}
+
+body.dark-mode .password-field__toggle{
+  color: #94a3b8;
+}
+
+body.dark-mode .password-field__toggle:hover,
+body.dark-mode .password-field__toggle:focus-visible{
+  color: #e2e8f0;
+  background: rgba(148, 163, 184, 0.12);
+}
+
+body.dark-mode .password-field__toggle.is-visible{
+  color: #22d3ee;
 }
 
 /* Floating Back — same cyan pill as .back-btn on history pages (strip UA styles so it never looks gray) */

@@ -214,11 +214,12 @@
 }
 
 .apartment-details-wrap--compact .action-btn{
-  min-height:40px;
-  padding:8px 14px;
-  font-size:0.82rem;
-  border-radius:10px;
-  box-shadow:0 4px 12px rgba(24,199,195,0.16);
+  min-height:48px;
+  padding:12px 18px;
+  font-size:0.95rem;
+  font-weight:900;
+  border-radius:12px;
+  box-shadow:0 6px 16px rgba(24,199,195,0.18);
 }
 
 .apartment-details-wrap--compact .action-btn:hover{
@@ -1014,15 +1015,18 @@ body{
 
 #linkTenantModal input,
 #linkTenantModal textarea,
-#linkTenantModal select{
+#linkTenantModal select,
+#renewLeaseModal input,
+#renewLeaseModal select{
   width:100%;
   box-sizing:border-box;
   border:1px solid #dbe3ec;
   border-radius:14px;
   padding:12px 13px;
+  min-height:48px;
   background:#fff;
   font-family:inherit;
-  font-size:14px;
+  font-size:15px;
   font-weight:700;
   color:var(--text);
   text-align:start;
@@ -1030,7 +1034,9 @@ body{
 
 #linkTenantModal input:focus,
 #linkTenantModal textarea:focus,
-#linkTenantModal select:focus{
+#linkTenantModal select:focus,
+#renewLeaseModal input:focus,
+#renewLeaseModal select:focus{
   outline:none;
   border-color:rgba(24,199,195,0.60);
   box-shadow:0 0 0 4px rgba(24,199,195,0.14);
@@ -1297,6 +1303,30 @@ html[dir="ltr"] #linkTenantModal .link-tenant-modal__box{
   cursor:pointer;
 }
 
+#renewLeaseModal input[type="date"]{
+  cursor:pointer;
+}
+
+#renewLeaseModal .wl-modal__panel{
+  width:min(560px, 94vw);
+}
+
+#renewLeaseModal .wl-btn{
+  min-height:46px;
+  padding:12px 18px;
+  font-size:15px;
+}
+
+#renewLeaseModal #renewLeaseError:empty{
+  display:none;
+}
+
+#renewLeaseModal #renewLeaseError:not(:empty){
+  margin-top:12px;
+  font-weight:700;
+  color:#b91c1c;
+}
+
 #linkTenantModal input[type="date"]::-webkit-calendar-picker-indicator{
   opacity:1;
   cursor:pointer;
@@ -1423,7 +1453,9 @@ body.dark-mode .details-grid textarea.value,
 body.dark-mode .details-grid select.value,
 body.dark-mode #linkTenantModal input,
 body.dark-mode #linkTenantModal textarea,
-body.dark-mode #linkTenantModal select{
+body.dark-mode #linkTenantModal select,
+body.dark-mode #renewLeaseModal input,
+body.dark-mode #renewLeaseModal select{
   background-color:#0f172a !important;
   background-image:none !important;
   border-color:rgba(148,163,184,.35);
@@ -1438,7 +1470,9 @@ body.dark-mode .details-grid textarea.value:focus,
 body.dark-mode .details-grid select.value:focus,
 body.dark-mode #linkTenantModal input:focus,
 body.dark-mode #linkTenantModal textarea:focus,
-body.dark-mode #linkTenantModal select:focus{
+body.dark-mode #linkTenantModal select:focus,
+body.dark-mode #renewLeaseModal input:focus,
+body.dark-mode #renewLeaseModal select:focus{
   border-color:#06b6d4;
   box-shadow:0 0 0 1px rgba(34,211,238,.5);
 }
@@ -1867,4 +1901,120 @@ body.dark-mode #linkTenantModal .wl-modal__body::-webkit-scrollbar-thumb{
   #linkTenantModal .wl-modal__footer .wl-btn{
     width:100%;
   }
+}
+/* Loading indicators: apartment page + modal save/renew */
+.apt-page-loading {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-height: min(42vh, 320px);
+  padding: 36px 16px;
+  text-align: center;
+}
+
+.apt-page-loading__spinner,
+.wl-btn-spinner,
+.wl-modal-busy__spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid rgba(14, 116, 144, 0.2);
+  border-top-color: #0e7490;
+  animation: wl-spin 0.75s linear infinite;
+  flex-shrink: 0;
+}
+
+.apt-page-loading__text,
+.wl-modal-busy__text {
+  margin: 0;
+  color: #0f2740;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+@keyframes wl-spin {
+  to { transform: rotate(360deg); }
+}
+
+body.apartment-page--loading .apt-page-loading {
+  display: flex;
+}
+
+body.apartment-page--loading .apartment-details-wrap > .header,
+body.apartment-page--loading .apartment-details-wrap > .details-card,
+body.apartment-page--loading .apartment-details-wrap > .details-layout,
+body.apartment-page--loading .apartment-details-wrap > .apartment-payment-reminder-box,
+body.apartment-page--loading .apartment-details-wrap > .actions {
+  display: none !important;
+}
+
+.wl-btn.is-busy {
+  cursor: wait;
+  opacity: 0.85;
+  transform: none !important;
+  pointer-events: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.wl-btn:disabled {
+  cursor: wait;
+  opacity: 0.85;
+  transform: none !important;
+}
+
+.wl-btn-spinner {
+  width: 18px;
+  height: 18px;
+  border-width: 2px;
+  border-color: rgba(5, 52, 51, 0.25);
+  border-top-color: #053433;
+}
+
+.wl-modal.is-busy .wl-modal__panel {
+  position: relative;
+}
+
+.wl-modal-busy {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  border-radius: inherit;
+  background: rgba(248, 250, 252, 0.82);
+  backdrop-filter: blur(2px);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+}
+
+.wl-modal.is-busy .wl-modal-busy {
+  display: flex;
+}
+
+.wl-modal.is-busy .wl-modal__body,
+.wl-modal.is-busy .wl-modal__footer {
+  pointer-events: none;
+}
+
+body.dark-mode .apt-page-loading__text,
+body.dark-mode .wl-modal-busy__text {
+  color: var(--wl-text-primary, #e5edf7);
+}
+
+body.dark-mode .wl-modal-busy {
+  background: rgba(15, 23, 42, 0.78);
+}
+
+body.dark-mode .apt-page-loading__spinner,
+body.dark-mode .wl-modal-busy__spinner {
+  border-color: rgba(148, 163, 184, 0.25);
+  border-top-color: #2dd4bf;
 }

@@ -1,0 +1,143 @@
+/* Walajna themed alert / confirm dialogs */
+.wl-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  display: none;
+}
+
+.wl-dialog.is-open {
+  display: block;
+}
+
+.wl-dialog__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.56);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.wl-dialog__panel {
+  position: absolute;
+  top: 50%;
+  right: 50%;
+  transform: translate(50%, -50%);
+  width: min(440px, calc(100% - 24px));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 251, 253, 0.97) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 24px;
+  box-shadow: 0 28px 70px rgba(15, 23, 42, 0.24);
+  overflow: hidden;
+}
+
+.wl-dialog__header {
+  padding: 18px 20px 12px;
+  border-bottom: 1px solid #e7edf4;
+  background: linear-gradient(135deg, rgba(24, 199, 195, 0.14), rgba(24, 199, 195, 0.04));
+}
+
+.wl-dialog__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 900;
+  color: #0f2740;
+}
+
+.wl-dialog__body {
+  padding: 16px 20px 20px;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.75;
+  color: #334155;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.wl-dialog__footer {
+  padding: 14px 20px 18px;
+  border-top: 1px solid #e8edf3;
+  display: flex;
+  justify-content: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.wl-dialog__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 18px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.wl-dialog__btn:hover {
+  transform: translateY(-1px);
+}
+
+.wl-dialog__btn--ghost {
+  background: #fff;
+  border-color: #dbe3ec;
+  color: #0f2740;
+}
+
+.wl-dialog__btn--ghost:hover {
+  background: #f8fafc;
+}
+
+.wl-dialog__btn--primary {
+  background: linear-gradient(135deg, #18c7c3, #0ea5a2);
+  color: #053433;
+  box-shadow: 0 10px 22px rgba(24, 199, 195, 0.18);
+}
+
+.wl-dialog__btn--primary:hover {
+  box-shadow: 0 14px 24px rgba(24, 199, 195, 0.24);
+}
+
+.wl-dialog__btn--danger {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff;
+  box-shadow: 0 10px 22px rgba(220, 38, 38, 0.18);
+}
+
+.wl-dialog__btn--danger:hover {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  box-shadow: 0 14px 24px rgba(220, 38, 38, 0.28);
+}
+
+body.dark-mode .wl-dialog__panel {
+  background: linear-gradient(180deg, #101825 0%, #0b1220 100%);
+  border-color: rgba(148, 163, 184, 0.28);
+}
+
+body.dark-mode .wl-dialog__header {
+  border-bottom-color: rgba(148, 163, 184, 0.2);
+  background: linear-gradient(135deg, rgba(24, 199, 195, 0.12), rgba(15, 23, 42, 0.4));
+}
+
+body.dark-mode .wl-dialog__title {
+  color: #e5edf7;
+}
+
+body.dark-mode .wl-dialog__body {
+  color: #cbd5e1;
+}
+
+body.dark-mode .wl-dialog__footer {
+  border-top-color: rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.72);
+}
+
+body.dark-mode .wl-dialog__btn--ghost {
+  background: #0b1220;
+  border-color: rgba(148, 163, 184, 0.35);
+  color: #e5edf7;
+}

@@ -642,11 +642,23 @@
     summary,
     utils,
     contractInfo = null,
-    periodFilter = null
+    periodFilter = null,
+    insuranceInfo = null
   ) {
     if (!container) return;
 
     const lateTotal = Number(summary.overdue || 0);
+    let insuranceRemaining = null;
+    if (insuranceInfo != null && typeof insuranceInfo === "object") {
+      insuranceRemaining = insuranceInfo.remaining;
+    } else if (insuranceInfo != null) {
+      // Backward-compatible: older callers passed remaining as a number.
+      insuranceRemaining = insuranceInfo;
+    }
+    const insuranceValueText =
+      insuranceRemaining == null || !Number.isFinite(Number(insuranceRemaining))
+        ? "—"
+        : utils.formatCurrency(Number(insuranceRemaining));
     const instCount =
       contractInfo && contractInfo.installmentCount != null
         ? contractInfo.installmentCount
@@ -737,6 +749,10 @@
           <span class="label">${wt("paymentsUi.paid")}</span>
           <span class="value">${utils.formatCurrency(summary.paid)}</span>
           <span class="sub">${wt("paymentsUi.ofTotal", { a: utils.formatCurrency(summary.annualOriginalTotal) })}</span>
+        </div>
+        <div class="payments-dash__stat payments-dash__stat--insurance">
+          <span class="label">${wt("paymentsUi.insurance")}</span>
+          <span class="value">${insuranceValueText}</span>
         </div>
       </div>
     `;

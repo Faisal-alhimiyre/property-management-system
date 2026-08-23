@@ -1,8 +1,29 @@
 
 import json
+import re
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from typing import Any, Optional, List
 from datetime import datetime, date
+
+from password_policy import validate_password_strength
+
+# Exactly 3 Arabic name parts: first + father + family (single spaces).
+_ARABIC_NAME_PART = re.compile(
+    r"^[\u0621-\u064A\u0671\u067E\u0686\u0698\u06A9\u06AF\u06BE\u06C1\u06CC\u06D5آأؤإئءةى]{2,}$"
+)
+
+
+def normalize_government_full_name(value: str) -> str:
+    return re.sub(r"\s+", " ", str(value or "").strip())
+
+
+def is_valid_government_full_name(value: str) -> bool:
+    normalized = normalize_government_full_name(value)
+    parts = normalized.split(" ")
+    if len(parts) != 3:
+        return False
+    return all(_ARABIC_NAME_PART.match(part) for part in parts)
+
 
 class User(BaseModel):
     id: Optional[int] = None
@@ -14,6 +35,22 @@ class User(BaseModel):
     phone: Optional[str] = None
     national_id: str
     created_at: Optional[datetime] = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_government_full_name(cls, value: str) -> str:
+        normalized = normalize_government_full_name(value)
+        if not is_valid_government_full_name(normalized):
+            raise ValueError(
+                "Full name must be exactly 3 Arabic names "
+                "(first father family), e.g. محمد عبدالله الأحمد"
+            )
+        return normalized
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, value: str) -> str:
+        return validate_password_strength(value)
 
 class Apartment(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -107,9 +144,11 @@ class CostCreate(BaseModel):
     contract_id: Optional[int] = None
     cost_type: str
     amount: float
-    status: str = "pending"
+    status: str = "approved"
     expense_date: date
     notes: Optional[str] = None
+    funding_source: str = "owner"  # owner | security_deposit
+    deposit_covered_amount: Optional[float] = None
 
 
 class CostResponse(BaseModel):
@@ -124,6 +163,46 @@ class CostResponse(BaseModel):
     expense_date: date
     notes: Optional[str] = None
     created_at: Optional[datetime] = None
+    funding_source: Optional[str] = "owner"
+    deposit_covered_amount: Optional[float] = 0.0
+
+
+class DepositTransactionCreate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    contract_id: int
+    apartment_id: int
+    type: str
+    amount: float
+    cost_id: Optional[int] = None
+    notes: Optional[str] = None
+
+
+class DepositTransactionResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    id: int
+    contract_id: int
+    apartment_id: int
+    type: str
+    amount: float
+    cost_id: Optional[int] = None
+    notes: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
+class DepositBalanceResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    contract_id: int
+    apartment_id: Optional[int] = None
+    original: float = 0.0
+    received: float = 0.0
+    used: float = 0.0
+    replenished: float = 0.0
+    refunded: float = 0.0
+    remaining: float = 0.0
+    is_settled: bool = True
 
 
 class ContractPdfRenderCreate(BaseModel):

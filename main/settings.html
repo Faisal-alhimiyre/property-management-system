@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
   <script>(function(){try{var l=localStorage.getItem("walajna_language")||"ar";if(l!=="en"&&l!=="ar"&&l!=="ur")l="ar";document.documentElement.setAttribute("lang",l==="en"?"en":(l==="ur"?"ur":"ar"));document.documentElement.setAttribute("dir",l==="en"?"ltr":"rtl");}catch(e){}})();</script>
@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="../css/settings.css" />
   <script src="../js/main/walajna-i18n-ur.js"></script>
   <script src="../js/main/walajna-i18n.js"></script>
+  <script src="../js/main/walajna-dialog.js"></script>
 </head>
 <body data-nav-adaptive="true" data-wl-bc="settings">
   <script>
@@ -46,8 +47,6 @@
         </div>
 
         <div class="profile-card">
-          <div class="avatar" id="avatarLetter">W</div>
-
           <div class="profile-details">
             <div class="detail-row">
               <span class="label" data-i18n="settings.label.fullName"></span>
@@ -98,7 +97,8 @@
 
           <div class="form-row">
             <label for="newPassword" data-i18n="settings.newPassword"></label>
-            <input type="password" id="newPassword" data-i18n-placeholder="settings.ph.newPassword" placeholder="" />
+            <input type="password" id="newPassword" data-i18n-placeholder="settings.ph.newPassword" placeholder="" minlength="8" />
+            <ul class="password-reqs" id="passwordReqs" data-password-reqs="newPassword" hidden></ul>
           </div>
 
           <div class="form-row">
@@ -229,6 +229,8 @@
 
   <script src="../js/main/theme.js"></script>
   <script src="../js/main/auth.js"></script>
+  <script src="../js/main/password-policy.js"></script>
+  <script src="../js/main/password-toggle.js"></script>
   <script src="../js/main/settings.js"></script>
   <script src="../js/main/breadcrumbs.js"></script>
   <script src="../js/main/nav.js"></script>

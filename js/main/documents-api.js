@@ -20,7 +20,7 @@
       fileName: row.name,
       fileData: row.url,
       mimeType: row.mime_type || "",
-      docType: row.doc_type || "",
+      docType: row.doc_type || row.type || "",
       uploadedAt: row.uploaded_at ? String(row.uploaded_at) : new Date().toISOString(),
       generatedAutomatically: !!row.generated_automatically,
     };

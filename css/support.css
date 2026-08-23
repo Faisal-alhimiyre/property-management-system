@@ -70,20 +70,26 @@ body{
   height: calc(100vh - 72px);
   display:flex;
   flex-direction:column;
-  padding:16px 8% 22px;
+  padding:16px clamp(16px, 4vw, 48px) 22px;
   gap:12px;
+  max-width:920px;
+  margin-inline:auto;
+  width:100%;
 }
 
 /* Chat area */
 .chat{
   flex:1;
   overflow:auto;
-  padding:18px;
+  padding:16px;
   border-radius:18px;
   background:#ffffff;
   border:1px solid rgba(26,47,74,0.1);
   box-shadow:0 12px 32px rgba(26,47,74,0.06);
   backdrop-filter: blur(10px);
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
   scrollbar-width:thin;
   scrollbar-color:var(--support-chat-scroll-thumb) var(--support-chat-scroll-track);
 }
@@ -119,45 +125,66 @@ html[dir="ltr"] .chat::-webkit-scrollbar-track{
   background:var(--support-chat-scroll-track);
 }
 
-/* Messages */
+/* Messages — bot on inline-start, user on inline-end (RTL/LTR safe) */
 .msg{
   display:flex;
   flex-direction:column;
   gap:6px;
-  margin-bottom:14px;
-  max-width:80%;
+  margin:0 0 14px;
+  width:fit-content;
+  max-width:min(320px, 88%);
 }
 
-.msg.user{ margin-right:auto; align-items:flex-start; }
-.msg.bot{ margin-left:auto; align-items:flex-end; }
+.msg.bot{
+  align-self:flex-start;
+  align-items:flex-start;
+}
+
+.msg.user{
+  align-self:flex-end;
+  align-items:flex-end;
+}
+
+.msg.welcome{
+  max-width:min(280px, 88%);
+}
 
 .bubble{
   padding:12px 14px;
   border-radius:16px;
-  line-height:1.85;
+  line-height:1.7;
   font-size:14px;
-  box-shadow:0 14px 30px rgba(0,0,0,0.15);
+  box-shadow:0 8px 20px rgba(0,0,0,0.08);
   white-space:pre-wrap;
   word-break:break-word;
+  width:fit-content;
+  max-width:100%;
+}
+
+.msg.welcome .bubble{
+  width:100%;
+  padding:12px;
 }
 
 .msg.user .bubble{
   background: rgba(255,255,255,0.92);
   color:var(--ink);
-  border-bottom-right-radius:6px;
+  border:1px solid rgba(26,47,74,0.1);
+  border-start-end-radius:6px;
 }
 
 .msg.bot .bubble{
   background:rgba(54,215,232,0.35);
   border:1px solid rgba(26,47,74,0.1);
   color:var(--ink);
-  border-bottom-left-radius:6px;
+  border-start-start-radius:6px;
 }
 
 .meta{
   font-size:11px;
   opacity:.75;
   color:rgba(26,47,74,0.5);
+  padding-inline:2px;
 }
 
 /* Composer */
@@ -208,26 +235,30 @@ html[dir="ltr"] .chat::-webkit-scrollbar-track{
   cursor:not-allowed;
 }
 
-/* Chips */
+/* Chips — one neat column */
 .chips{
   display:flex;
-  flex-wrap:wrap;
+  flex-direction:column;
   gap:8px;
   margin-top:10px;
+  width:100%;
 }
 
 .chip{
   border:none;
   cursor:pointer;
-  padding:8px 10px;
-  border-radius:999px;
-  background:rgba(54,215,232,0.25);
+  width:100%;
+  padding:10px 12px;
+  border-radius:12px;
+  background:rgba(255,255,255,0.78);
   color:var(--ink);
-  font-weight:900;
+  font-weight:800;
   font-size:12px;
   border:1px solid rgba(26,47,74,0.12);
+  text-align:center;
+  line-height:1.35;
 }
-.chip:hover{ background:rgba(54,215,232,0.4); }
+.chip:hover{ background:#ffffff; }
 
 /* Typing bubble */
 .typing .bubble{

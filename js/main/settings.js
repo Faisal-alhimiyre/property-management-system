@@ -152,9 +152,6 @@ function loadProfile() {
     setText("p_phone", wlT("common.notAvailable"));
     setText("p_nationalId", "—");
     setText("p_role", "—");
-
-    const avatar = document.getElementById("avatarLetter");
-    if (avatar) avatar.textContent = "W";
     return;
   }
 
@@ -163,12 +160,6 @@ function loadProfile() {
   setText("p_phone", user.phone || wlT("common.notAvailable"));
   setText("p_nationalId", user.nationalId);
   setText("p_role", current?.roles ? roleLabel(current.roles) : roleLabel(user.role));
-
-  const avatar = document.getElementById("avatarLetter");
-  if (avatar) {
-    const ch = (user.fullName || "W").trim().charAt(0) || "W";
-    avatar.textContent = ch;
-  }
 }
 
 function refreshSettingsProfile() {
@@ -202,8 +193,13 @@ if (savePasswordBtn) {
       return;
     }
 
-    if (newPassword.length < 4) {
-      passwordMessage.textContent = wlT("settings.pwd.short");
+    if (
+      !(
+        window.WalajnaPasswordPolicy &&
+        window.WalajnaPasswordPolicy.validate(newPassword).ok
+      )
+    ) {
+      passwordMessage.textContent = wlT("auth.passwordWeak");
       passwordMessage.style.color = "#df2f45";
       return;
     }
@@ -292,8 +288,10 @@ if (logoutBtn) {
 const deleteAccountBtn = document.getElementById("deleteAccountBtn");
 
 if (deleteAccountBtn) {
-  deleteAccountBtn.addEventListener("click", () => {
-    const confirmed = confirm(wlT("settings.deleteConfirm"));
+  deleteAccountBtn.addEventListener("click", async () => {
+    const confirmed = await WalajnaDialog.confirm(wlT("settings.deleteConfirm"), {
+      danger: true,
+    });
     if (!confirmed) return;
 
     const users = getUsers();

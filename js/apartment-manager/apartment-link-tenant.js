@@ -202,7 +202,7 @@ function initLinkTenantSystem(aptId, currentUser, options) {
  function calculateAutoEndDate(startDateStr) {
   if (!startDateStr) return "";
 
-  const startDate = new Date(startDateStr);
+  const startDate = new Date(startDateStr + "T12:00:00");
   if (Number.isNaN(startDate.getTime())) return "";
 
   const endDate = new Date(startDate);
@@ -210,16 +210,70 @@ function initLinkTenantSystem(aptId, currentUser, options) {
 
   return toInputDate(endDate);
 }
+
+  function todayInputDate() {
+    return toInputDate(new Date());
+  }
+
+  function addDaysToInputDate(dateStr, days) {
+    if (!dateStr) return "";
+    const d = new Date(String(dateStr).slice(0, 10) + "T12:00:00");
+    if (Number.isNaN(d.getTime())) return "";
+    d.setDate(d.getDate() + Number(days || 0));
+    return toInputDate(d);
+  }
+
+  function maxInputDate(a, b) {
+    const left = String(a || "").slice(0, 10);
+    const right = String(b || "").slice(0, 10);
+    if (!left) return right;
+    if (!right) return left;
+    return left >= right ? left : right;
+  }
+
+  /** End date must be after start and not before today (blocks picker + auto-fixes invalid values). */
+  function syncLeaseDateConstraints() {
+    if (!elements.endDate) return;
+
+    const today = todayInputDate();
+    const start = elements.startDate?.value
+      ? String(elements.startDate.value).slice(0, 10)
+      : "";
+    const minEnd = start
+      ? maxInputDate(addDaysToInputDate(start, 1), today)
+      : today;
+
+    if (minEnd) {
+      elements.endDate.min = minEnd;
+    } else {
+      elements.endDate.removeAttribute("min");
+    }
+
+    const endVal = elements.endDate.value
+      ? String(elements.endDate.value).slice(0, 10)
+      : "";
+    if (endVal && minEnd && endVal < minEnd) {
+      let fixed = start ? calculateAutoEndDate(start) : minEnd;
+      if (!fixed || fixed < minEnd) fixed = minEnd;
+      elements.endDate.value = fixed;
+    }
+  }
+
 function syncEndDateWithStartDate(force = false) {
   if (!elements.startDate || !elements.endDate) return;
-  if (!elements.startDate.value) return;
-
-  if (!force && currentMode !== "create") return;
-
-  const nextEndDate = calculateAutoEndDate(elements.startDate.value);
-  if (nextEndDate) {
-    elements.endDate.value = nextEndDate;
+  if (!elements.startDate.value) {
+    syncLeaseDateConstraints();
+    return;
   }
+
+  if (force || currentMode === "create") {
+    const nextEndDate = calculateAutoEndDate(elements.startDate.value);
+    if (nextEndDate) {
+      elements.endDate.value = nextEndDate;
+    }
+  }
+
+  syncLeaseDateConstraints();
 }
 
   /** Align with backend `installment_service.cycle_months` / API variants so we don't fall through to monthly (1). */
@@ -1070,27 +1124,6 @@ function syncEndDateWithStartDate(force = false) {
       typeof WalajnaDocumentsApi.renderContractPdfOnServer === "function"
     ) {
       try {
-        const existingAuto = getDocuments().filter((d) => {
-          if (String(d.apartmentId) !== String(apartment.id)) return false;
-          const isAuto =
-            d.docType === "auto_lease_contract" ||
-            (!!d.generatedAutomatically && !d.docType);
-          if (!isAuto) return false;
-          const dc = String(d.contractId || "");
-          const sameContract = dc === String(contractKey || "");
-          if (sameContract) return true;
-          // Legacy rows may not have contract_id in documents schema — still treat as replaceable.
-          return !dc;
-        });
-        for (const d of existingAuto) {
-          if (d.serverId != null && typeof WalajnaDocumentsApi.deleteOnServer === "function") {
-            try {
-              await WalajnaDocumentsApi.deleteOnServer(d.serverId);
-            } catch (e) {
-              console.warn("[link-tenant] remove old contract doc failed", e);
-            }
-          }
-        }
         const serverApartmentIdForDocs =
           apartment.apiId != null ? apartment.apiId : apartment.id;
         const uploaded = await WalajnaDocumentsApi.renderContractPdfOnServer(
@@ -1104,26 +1137,69 @@ function syncEndDateWithStartDate(force = false) {
           html
         );
         uploaded.apartmentId = String(apartment.id);
-        const docs = getDocuments().slice().filter((d) => {
-          if (String(d.apartmentId) !== String(apartment.id)) return true;
-          if (String(d.contractId || "") !== String(contractKey || "")) return true;
-          if (d.docType === "auto_lease_contract") return false;
-          if (!!d.generatedAutomatically && !d.docType) return false;
-          return true;
+
+        function isDocForThisContract(d) {
+          if (String(d.apartmentId) !== String(apartment.id)) return false;
+          const dc = String(d.contractId || "");
+          if (contractKey && dc === String(contractKey)) return true;
+          const name = String(d.fileName || "");
+          if (!contractKey) return false;
+          return (
+            name.includes(`رقم ${contractKey}`) ||
+            name.includes(`رقم-${contractKey}`) ||
+            name.includes(`- ${contractKey} -`) ||
+            name.includes(`_${contractKey}_`) ||
+            (pdfFileName && name === pdfFileName) ||
+            (htmlFileName && name === htmlFileName) ||
+            (uploaded.fileName && name === uploaded.fileName)
+          );
+        }
+
+        // Replace only docs for this contract (keep older leases).
+        const existingAuto = getDocuments().filter((d) => {
+          if (!isDocForThisContract(d)) return false;
+          return (
+            d.docType === "auto_lease_contract" ||
+            (!!d.generatedAutomatically && !d.docType) ||
+            /عقد|lease|contract/i.test(String(d.fileName || ""))
+          );
         });
-        docs.push(uploaded);
-        saveDocuments(docs);
+        for (const d of existingAuto) {
+          if (d.serverId != null && typeof WalajnaDocumentsApi.deleteOnServer === "function") {
+            try {
+              await WalajnaDocumentsApi.deleteOnServer(d.serverId);
+            } catch (e) {
+              console.warn("[link-tenant] remove old contract doc failed", e);
+            }
+          }
+        }
+
+        const docs = getDocuments()
+          .slice()
+          .filter((d) => !isDocForThisContract(d) || String(d.id) === String(uploaded.id));
+        // Drop any leftover duplicates for this contract after server deletes.
+        const withoutDupes = docs.filter((d) => !isDocForThisContract(d));
+        withoutDupes.push(uploaded);
+        saveDocuments(withoutDupes);
         return;
       } catch (e) {
-        console.warn("[link-tenant] storage PDF upload failed", e);
-        throw new Error(
-          `${T("linkModal.errPdfUpload")} ${e?.message || ""}`.trim()
-        );
+        console.warn("[link-tenant] storage PDF upload failed; falling back to HTML document", e);
+        try {
+          await upsertHtmlDocumentForApartment(html, apartment.id, htmlFileName, matcher);
+          return;
+        } catch (htmlErr) {
+          console.warn("[link-tenant] HTML fallback failed", htmlErr);
+          throw new Error(
+            `${T("linkModal.errPdfUpload")} ${e?.message || ""}`.trim()
+          );
+        }
       }
     }
 
     if (typeof useServerDocuments === "function" && useServerDocuments()) {
-      throw new Error(T("linkModal.errPdfUpload"));
+      // Still try HTML row in documents table (no Storage required).
+      await upsertHtmlDocumentForApartment(html, apartment.id, htmlFileName, matcher);
+      return;
     }
 
     await upsertHtmlDocumentForApartment(html, apartment.id, htmlFileName, matcher);
@@ -1249,10 +1325,19 @@ function syncEndDateWithStartDate(force = false) {
         if (String(d.apartmentId) !== String(apartment.id)) return false;
         const isAuto =
           d.docType === "auto_lease_contract" ||
-          (!!d.generatedAutomatically && !d.docType);
+          (!!d.generatedAutomatically && !d.docType) ||
+          /عقد|lease|contract/i.test(String(d.fileName || ""));
         if (!isAuto) return false;
         const dc = String(d.contractId || "");
-        return dc === contractKey || !dc;
+        if (dc && dc === contractKey) return true;
+        // documents.contract_id may be missing in DB — match by filename "رقم {id}"
+        const name = String(d.fileName || "");
+        return (
+          name.includes(`رقم ${contractKey}`) ||
+          name.includes(`رقم-${contractKey}`) ||
+          name.includes(`- ${contractKey} -`) ||
+          name.includes(`_${contractKey}_`)
+        );
       });
     if (hasAutoForCurrentContract) return;
 
@@ -1473,25 +1558,60 @@ function resetForm() {
     if (apartmentData) {
       setModalMode("edit");
       fillFormFromApartment(apartmentData);
+      syncLeaseDateConstraints();
     } else {
       setModalMode("create");
     }
 
     if (currentMode === "create") {
       syncEndDateWithStartDate(true);
+    } else {
+      syncLeaseDateConstraints();
     }
 
     elements.modal.classList.add("is-open");
     elements.modal.setAttribute("aria-hidden", "false");
   }
 
-  function closeModal() {
+  function closeModal(force = false) {
     if (!elements.modal) return;
+    if (linkTenantSaveInFlight && !force) return;
 
     elements.modal.classList.remove("is-open");
+    elements.modal.classList.remove("is-busy");
     elements.modal.setAttribute("aria-hidden", "true");
     resetForm();
     setModalMode("create");
+  }
+
+  function setLinkSaveBusy(isBusy, label) {
+    if (elements.modal) {
+      elements.modal.classList.toggle("is-busy", !!isBusy);
+      const busyLayer = elements.modal.querySelector(".wl-modal-busy");
+      if (busyLayer) busyLayer.setAttribute("aria-hidden", isBusy ? "false" : "true");
+    }
+    if (elements.saveBtn) {
+      if (isBusy) {
+        if (!elements.saveBtn.dataset.idleLabel) {
+          elements.saveBtn.dataset.idleLabel = elements.saveBtn.textContent || "";
+        }
+        elements.saveBtn.disabled = true;
+        elements.saveBtn.classList.add("is-busy");
+        elements.saveBtn.setAttribute("aria-busy", "true");
+        elements.saveBtn.innerHTML = `<span class="wl-btn-spinner" aria-hidden="true"></span><span>${label || T("linkModal.saving")}</span>`;
+      } else {
+        elements.saveBtn.disabled = false;
+        elements.saveBtn.classList.remove("is-busy");
+        elements.saveBtn.removeAttribute("aria-busy");
+        const idle =
+          elements.saveBtn.dataset.idleLabel ||
+          (currentMode === "edit" ? T("linkModal.saveEdit") : T("linkModal.saveCreate"));
+        elements.saveBtn.textContent = idle;
+        delete elements.saveBtn.dataset.idleLabel;
+      }
+    }
+    if (elements.cancelBtn) elements.cancelBtn.disabled = !!isBusy;
+    if (elements.closeBtn) elements.closeBtn.disabled = !!isBusy;
   }
 
   function readFormData() {
@@ -1585,8 +1705,15 @@ function resetForm() {
       return T("linkModal.val.phoneFormat");
     }
 
-    if (data.endDate < data.startDate) {
+    const start = String(data.startDate).slice(0, 10);
+    const end = String(data.endDate).slice(0, 10);
+    const today = todayInputDate();
+
+    if (end <= start) {
       return T("linkModal.val.endAfterStart");
+    }
+    if (end < today) {
+      return T("linkModal.val.endNotPast");
     }
 
     return "";
@@ -2120,30 +2247,23 @@ function resetForm() {
     }
 
     linkTenantSaveInFlight = true;
-    if (elements.saveBtn) {
-      elements.saveBtn.disabled = true;
-      elements.saveBtn.setAttribute("aria-busy", "true");
-    }
+    setLinkSaveBusy(true, T("linkModal.saving"));
+
+    const wasEdit = currentMode === "edit";
 
     try {
       await saveTenantLink(formData);
 
-      closeModal();
-      alert(
-        currentMode === "edit"
-          ? T("linkModal.successEdit")
-          : T("linkModal.successCreate")
-      );
+      // Keep page loading through reload so the user does not click again.
+      document.body.classList.add("apartment-page--loading");
+      closeModal(true);
+      alert(wasEdit ? T("linkModal.successEdit") : T("linkModal.successCreate"));
       window.location.reload();
     } catch (error) {
       console.error("[assign-tenant] handleSaveTenant failed:", error);
       showError(error?.message || T("linkModal.failGeneric"));
-    } finally {
       linkTenantSaveInFlight = false;
-      if (elements.saveBtn) {
-        elements.saveBtn.disabled = false;
-        elements.saveBtn.removeAttribute("aria-busy");
-      }
+      setLinkSaveBusy(false);
     }
   }
 
@@ -2230,6 +2350,12 @@ function resetForm() {
       elements.startDate.addEventListener("change", function () {
         syncEndDateWithStartDate();
       });
+      elements.startDate.addEventListener("input", syncLeaseDateConstraints);
+    }
+
+    if (elements.endDate) {
+      elements.endDate.addEventListener("change", syncLeaseDateConstraints);
+      elements.endDate.addEventListener("input", syncLeaseDateConstraints);
     }
   }
 
@@ -2244,6 +2370,14 @@ function resetForm() {
       openModal(apartment);
     },
     closeLinkTenantModalFn: closeModal,
+    /** Generate/refresh the auto lease document for the current (or provided) apartment. */
+    generateLeaseContractDocument: async function (apartmentOverride, dataOverride) {
+      const apartment = apartmentOverride || getCurrentApartment();
+      if (!apartment) return null;
+      const data = dataOverride || buildContractDocDataFromApartment(apartment);
+      await saveAutoLeaseContractDocument(apartment, data);
+      return true;
+    },
   };
 }
 

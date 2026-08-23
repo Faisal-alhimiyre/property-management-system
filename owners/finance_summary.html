@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
   <script>(function(){try{var l=localStorage.getItem('walajna_language')||'ar';if(l!=='en'&&l!=='ar'&&l!=='ur')l='ar';document.documentElement.setAttribute('lang',l==='en'?'en':(l==='ur'?'ur':'ar'));document.documentElement.setAttribute('dir',l==='en'?'ltr':'rtl');}catch(e){}})();</script>
@@ -11,8 +11,9 @@
   <link rel="stylesheet" href="../css/finance-summary.css" />
   <script src="../js/main/walajna-i18n-ur.js"></script>
   <script src="../js/main/walajna-i18n.js"></script>
+  <script src="../js/main/walajna-dialog.js"></script>
 </head>
-<body data-nav="user" data-wl-bc="finance-summary">
+<body class="finance-page--loading" data-nav="user" data-wl-bc="finance-summary">
   <div id="navbar-container"></div>
 
   <main class="finance-page finance-page--compact">
@@ -45,45 +46,87 @@
 
     <p id="periodCaption" class="finance-period-caption"></p>
 
-    <section class="finance-cards">
+    <section class="finance-cards finance-cards--with-insurance" aria-busy="true">
       <article class="finance-card">
-        <span class="finance-card__label" data-i18n="finance.cardIncome">الدخل</span>
-        <strong id="incomeValue" class="finance-card__value">0</strong>
+        <span class="finance-card__label" data-i18n="finance.cardIncome">الدخل المحقق</span>
+        <strong id="incomeValue" class="finance-card__value is-pending">—</strong>
       </article>
 
       <article class="finance-card">
-        <span class="finance-card__label" data-i18n="finance.cardCosts">التكاليف</span>
-        <strong id="costValue" class="finance-card__value">0</strong>
+        <span class="finance-card__label" data-i18n="finance.cardOwnerBorne">تكاليف المالك</span>
+        <strong id="costValue" class="finance-card__value is-pending">—</strong>
       </article>
 
       <article class="finance-card">
-        <span class="finance-card__label" data-i18n="finance.cardProfit">الربح</span>
-        <strong id="profitValue" class="finance-card__value">0</strong>
+        <span class="finance-card__label" data-i18n="finance.cardProfit">صافي الربح</span>
+        <strong id="profitValue" class="finance-card__value is-pending">—</strong>
       </article>
 
       <article class="finance-card">
         <span class="finance-card__label" data-i18n="finance.cardLate">المتأخرات</span>
-        <strong id="lateValue" class="finance-card__value">0</strong>
+        <strong id="lateValue" class="finance-card__value is-pending">—</strong>
       </article>
+
+      <button
+        type="button"
+        id="insuranceCardBtn"
+        class="finance-card finance-card--insurance finance-card--button"
+        aria-expanded="false"
+        aria-controls="insuranceDetailsPopover"
+      >
+        <span class="finance-card__label" data-i18n="finance.detailRemainingDeposits">التأمين المتبقي</span>
+        <strong id="depositHeldValue" class="finance-card__value is-pending">—</strong>
+      </button>
     </section>
+
+    <div id="insuranceDetailsPopover" class="finance-insurance-popover finance-insurance-popover--compact" hidden>
+      <div class="finance-insurance-popover__item">
+        <span data-i18n="finance.insuranceOriginalTotal">إجمالي التأمين الأصلي</span>
+        <strong id="detailDepositOriginal" class="is-pending">—</strong>
+      </div>
+      <div class="finance-insurance-popover__item">
+        <span data-i18n="finance.insuranceDeducted">المخصوم من التأمين</span>
+        <strong id="detailDepositUsed" class="is-pending">—</strong>
+      </div>
+      <div class="finance-insurance-popover__item">
+        <span data-i18n="finance.insuranceRefunded">التأمين المعاد</span>
+        <strong id="detailDepositRefunded" class="is-pending">—</strong>
+      </div>
+      <div class="finance-insurance-popover__item">
+        <span data-i18n="finance.insuranceUnsettled">التأمين غير المسوّى</span>
+        <strong class="finance-unsettled-value">
+          <span id="detailDepositUnsettled" class="is-pending">—</span>
+          <button type="button" id="viewUnsettledInsuranceBtn" class="finance-unsettled-view" hidden data-i18n="finance.insuranceViewUnsettled">عرض</button>
+        </strong>
+      </div>
+      <div class="finance-insurance-popover__item">
+        <span data-i18n="finance.detailRemainingDeposits">التأمين المتبقي</span>
+        <strong id="detailDepositRemaining" class="is-pending">—</strong>
+      </div>
+      <div id="unsettledInsuranceList" class="finance-unsettled-list" hidden></div>
+    </div>
 
     <section class="finance-table-section">
       <div class="finance-table-header">
         <h2 data-i18n="finance.aptDetails">تفاصيل الشقق</h2>
-        <span id="tableMeta" class="finance-table-meta">0</span>
+        <span id="tableMeta" class="finance-table-meta is-pending">—</span>
       </div>
 
-      <div class="finance-table-wrap">
-        <table class="finance-table">
+      <div class="finance-table-wrap" id="financeSummaryTableWrap" aria-busy="true">
+        <div id="financeSummaryLoading" class="wl-page-loading" role="status" aria-live="polite">
+          <div class="wl-page-loading__spinner" aria-hidden="true"></div>
+          <p class="wl-page-loading__text" data-i18n="finance.loadingBuilding"></p>
+        </div>
+        <table class="finance-table" hidden>
           <thead>
             <tr>
               <th data-i18n="finance.th.apt">الشقة</th>
               <th data-i18n="finance.th.tenant">المستأجر</th>
               <th data-i18n="finance.th.status">الحالة</th>
               <th data-i18n="finance.th.income">الدخل</th>
-              <th data-i18n="finance.th.costs">التكاليف</th>
+              <th data-i18n="finance.th.costs">تكاليف المالك</th>
               <th data-i18n="finance.th.late">المتأخرات</th>
-              <th data-i18n="finance.th.notes">ملاحظات</th>
+              <th data-i18n="finance.th.insurance">التأمين</th>
               <th data-i18n="finance.th.profit">الربح</th>
             </tr>
           </thead>
@@ -91,11 +134,11 @@
           <tfoot>
             <tr>
               <td colspan="3" data-i18n="finance.totalRow">الإجمالي</td>
-              <td id="totalIncome">0</td>
-              <td id="totalCosts">0</td>
-              <td id="totalLate">0</td>
-              <td data-i18n="common.dash">—</td>
-              <td id="totalProfit">0</td>
+              <td id="totalIncome" class="is-pending">—</td>
+              <td id="totalCosts" class="is-pending">—</td>
+              <td id="totalLate" class="is-pending">—</td>
+              <td id="totalInsurance" class="is-pending">—</td>
+              <td id="totalProfit" class="is-pending">—</td>
             </tr>
           </tfoot>
         </table>

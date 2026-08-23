@@ -17,6 +17,34 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (!grid) return;
 
+  function setOwnerBuildingLoading(isLoading) {
+    document.body.classList.toggle("owner-building--loading", !!isLoading);
+    const loadingEl = document.getElementById("ownerBuildingLoading");
+    if (loadingEl) {
+      loadingEl.hidden = !isLoading;
+      if (!isLoading) loadingEl.remove();
+    }
+    grid.setAttribute("aria-busy", isLoading ? "true" : "false");
+    const financeSummary = document.querySelector(".building-finance-summary");
+    if (financeSummary) {
+      financeSummary.setAttribute("aria-busy", isLoading ? "true" : "false");
+    }
+    document
+      .querySelectorAll(
+        "#buildingIncome, #buildingCosts, #buildingProfit, #buildingOccupiedUnits, #buildingLateUnits"
+      )
+      .forEach((el) => {
+        if (isLoading) {
+          el.classList.add("is-pending");
+          el.textContent = "—";
+        } else {
+          el.classList.remove("is-pending");
+        }
+      });
+  }
+
+  setOwnerBuildingLoading(true);
+
   function escapeHtml(value) {
     return String(value ?? "")
       .replace(/&/g, "&amp;")
@@ -54,6 +82,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const buildingId = params.get("buildingId");
 
   if (!buildingId) {
+    setOwnerBuildingLoading(false);
     if (title) title.textContent = T("building.notFound");
     return;
   }
@@ -205,10 +234,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     );
   }
 
+  const hadCachedUser =
+    typeof WalajnaAuth !== "undefined" && !!WalajnaAuth.getCurrentUser?.();
   if (typeof WalajnaAuth !== "undefined" && WalajnaAuth.hydrateSession) {
     await WalajnaAuth.hydrateSession();
   }
-  if (typeof WalajnaAuth !== "undefined" && WalajnaAuth.ensureSessionValid) {
+  if (hadCachedUser && typeof WalajnaAuth !== "undefined" && WalajnaAuth.ensureSessionValid) {
     await WalajnaAuth.ensureSessionValid();
   }
   if (typeof requireAuth === "function") requireAuth();
@@ -344,619 +375,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   /** Building details+ wizard: per-floor apartment counts → room mix per unit (POST /api/buildings/:id/unit-layout). */
-  const buildingDetailsModal = document.getElementById("buildingDetailsModal");
-  let wizardUnitsDraft = [];
-  let wizardBulkPendingKey = "";
 
-  function setWizardFooterMode(mode) {
-    const nextBtn = document.getElementById("buildingDetailsNextBtn");
-    const backBtn = document.getElementById("buildingDetailsBackBtn");
-    const saveBtn = document.getElementById("buildingDetailsSaveBtn");
-    const confirmSaveBtn = document.getElementById("buildingDetailsConfirmSaveBtn");
-    if (nextBtn) nextBtn.hidden = mode !== "step1";
-    if (saveBtn) saveBtn.hidden = mode !== "step2";
-    if (confirmSaveBtn) confirmSaveBtn.hidden = mode !== "step3";
-    if (backBtn) backBtn.hidden = mode === "step1";
-  }
-
-  function resetBuildingDetailsWizard() {
-    wizardUnitsDraft = [];
-    wizardBulkPendingKey = "";
-    const err = document.getElementById("buildingDetailsError");
-    if (err) err.textContent = "";
-    const step1 = document.getElementById("buildingDetailsStep1Wrap");
-    const step2 = document.getElementById("buildingDetailsStep2Wrap");
-    const step3 = document.getElementById("buildingDetailsStep3Wrap");
-    if (step3) step3.hidden = true;
-    if (step2) step2.hidden = true;
-    if (step1) step1.hidden = false;
-    const nextBtn = document.getElementById("buildingDetailsNextBtn");
-    if (nextBtn) nextBtn.disabled = true;
-    setWizardFooterMode("step1");
-    const titleEl = document.getElementById("buildingDetailsModalTitle");
-    const sub = document.getElementById("buildingDetailsModalSubtitle");
-    if (titleEl) titleEl.textContent = T("building.detailsWizardTitle");
-    if (sub) sub.textContent = T("building.detailsWizardStep1Short");
-  }
-
-  function closeBuildingDetailsModal() {
-    if (!buildingDetailsModal) return;
-    buildingDetailsModal.classList.remove("is-open");
-    buildingDetailsModal.setAttribute("aria-hidden", "true");
-    resetBuildingDetailsWizard();
-  }
-
-  function resolveWizardTotalFloors() {
-    const fromBuilding = Number(building?.totalFloors ?? building?.total_floors ?? 0);
-    if (fromBuilding >= 1) return Math.min(200, fromBuilding);
-    let maxF = 0;
-    for (const a of apartments) {
-      if (!apartmentRowMatchesBuildingRef(a, buildingId, building)) continue;
-      const f = Number(a.floorNumber ?? a.floor_number ?? 0);
-      if (Number.isFinite(f) && f > maxF) maxF = f;
-    }
-    if (maxF >= 1) return Math.min(200, maxF);
-    return 1;
-  }
-
-  function getWizardFloorCount() {
-    const el = document.getElementById("wizardTotalFloorsInput");
-    const n = el ? Number(el.value) : 0;
-    return Math.min(200, Math.max(1, n || 1));
-  }
-
-  /** Registered apartment capacity from add-building / building record (0 = not set, no cap in UI). */
-  function getWizardApartmentsCapacity() {
-    const c = Number(building?.apartmentCount ?? building?.apartments_count ?? 0);
-    return Number.isFinite(c) && c >= 1 ? Math.floor(c) : 0;
-  }
-
-  function bindPerFloorInputs() {
-    const wrap = document.getElementById("buildingDetailsPerFloorFields");
-    if (!wrap) return;
-    wrap.querySelectorAll("input").forEach((inp) => {
-      inp.addEventListener("input", validateFloorCountsStep);
-    });
-  }
-
-  function renderPerFloorCountFields() {
-    const wrap = document.getElementById("buildingDetailsPerFloorFields");
-    if (!wrap) return;
-    const floors = getWizardFloorCount();
-    wrap.innerHTML = "";
-    for (let f = 1; f <= floors; f++) {
-      const row = document.createElement("div");
-      row.className = "building-details-floor-row";
-      const label = document.createElement("label");
-      label.className = "label";
-      label.htmlFor = `floorCount${f}`;
-      label.textContent = T("building.floorAptsShort", { n: f });
-      label.title = T("building.apartmentsOnFloor", { n: f });
-      const input = document.createElement("input");
-      input.type = "number";
-      input.id = `floorCount${f}`;
-      input.min = "0";
-      input.step = "1";
-      input.value = "0";
-      input.inputMode = "numeric";
-      row.appendChild(label);
-      row.appendChild(input);
-      wrap.appendChild(row);
-    }
-    bindPerFloorInputs();
-    updateLayoutRemainingCounter();
-    validateFloorCountsStep();
-  }
-
-  function readFloorCountsSum() {
-    const floors = getWizardFloorCount();
-    let sum = 0;
-    let ok = true;
-    for (let f = 1; f <= floors; f++) {
-      const inp = document.getElementById(`floorCount${f}`);
-      if (!inp) {
-        ok = false;
-        break;
-      }
-      const v = String(inp.value ?? "").trim();
-      if (v === "" || !/^\d+$/.test(v)) {
-        ok = false;
-        break;
-      }
-      const n = Number(v);
-      if (n < 0 || !Number.isFinite(n)) {
-        ok = false;
-        break;
-      }
-      sum += n;
-    }
-    return { sum, ok };
-  }
-
-  function updateLayoutRemainingCounter() {
-    const bar = document.getElementById("buildingLayoutRemainingBar");
-    const countEl = document.getElementById("buildingLayoutRemainingCount");
-    const cap = getWizardApartmentsCapacity();
-    if (!bar || !countEl) return;
-    if (cap < 1) {
-      bar.hidden = true;
-      return;
-    }
-    bar.hidden = false;
-    const { sum, ok } = readFloorCountsSum();
-    const remaining = cap - (ok ? sum : 0);
-    countEl.textContent = String(remaining);
-    bar.classList.toggle("is-complete", ok && remaining === 0);
-    bar.classList.toggle("is-over", ok && remaining < 0);
-  }
-
-  function validateFloorCountsStep() {
-    const nextBtn = document.getElementById("buildingDetailsNextBtn");
-    const errEl = document.getElementById("buildingDetailsError");
-    if (!nextBtn) return false;
-    const { sum, ok } = readFloorCountsSum();
-    const cap = getWizardApartmentsCapacity();
-    let valid = false;
-    if (ok) {
-      if (cap >= 1) valid = sum === cap;
-      else valid = sum >= 1;
-    }
-
-    updateLayoutRemainingCounter();
-    nextBtn.disabled = !valid;
-
-    if (errEl) {
-      if (!ok) {
-        errEl.textContent = T("building.layoutNeedCountsShort");
-      } else if (cap < 1 && sum < 1) {
-        errEl.textContent = T("building.layoutNeedCountsShort");
-      } else {
-        errEl.textContent = "";
-      }
-    }
-    return valid;
-  }
-
-  function openBuildingDetailsWizard() {
-    if (apiLoadError) {
-      alert(T("building.wizardNeedsServer"));
-      return;
-    }
-    if (!building) {
-      alert(T("building.noBuildingWizard"));
-      return;
-    }
-    if (!buildingDetailsModal) return;
-    const tfInput = document.getElementById("wizardTotalFloorsInput");
-    if (tfInput) tfInput.value = String(resolveWizardTotalFloors());
-    buildingDetailsModal.classList.add("is-open");
-    buildingDetailsModal.setAttribute("aria-hidden", "false");
-    resetBuildingDetailsWizard();
-    renderPerFloorCountFields();
-  }
-
-  function buildUnitsFromFloorCounts() {
-    const floors = getWizardFloorCount();
-    const units = [];
-    let aptNum = 1;
-    for (let f = 1; f <= floors; f++) {
-      const inp = document.getElementById(`floorCount${f}`);
-      const count = inp ? Math.max(0, Number(inp.value || 0)) : 0;
-      for (let i = 0; i < count; i++) {
-        units.push({
-          floor_number: f,
-          apartment_number: String(aptNum++),
-          bedrooms: 0,
-          bathrooms: 0,
-          living_rooms: 0,
-        });
-      }
-    }
-    return units;
-  }
-
-  function wizardStep2ParseRoomInput(el) {
-    if (!el) return { ok: false, value: 0 };
-    const raw = String(el.value ?? "").trim();
-    if (raw === "" || !/^\d+$/.test(raw)) return { ok: false, value: 0 };
-    const n = Number(raw);
-    if (!Number.isFinite(n) || n < 0) return { ok: false, value: 0 };
-    return { ok: true, value: n };
-  }
-
-  function isWizardUnitRoomConfigured(idx) {
-    const u = wizardUnitsDraft[idx];
-    if (!u) return false;
-    const fromDraft =
-      Math.max(0, Number(u.bedrooms ?? 0)) +
-        Math.max(0, Number(u.bathrooms ?? 0)) +
-        Math.max(0, Number(u.living_rooms ?? 0)) >=
-      1;
-    if (fromDraft) return true;
-    const b = document.getElementById(`unit-${idx}-bedrooms`);
-    const ba = document.getElementById(`unit-${idx}-bathrooms`);
-    const lv = document.getElementById(`unit-${idx}-living_rooms`);
-    const pb = wizardStep2ParseRoomInput(b);
-    const pba = wizardStep2ParseRoomInput(ba);
-    const plv = wizardStep2ParseRoomInput(lv);
-    if (!pb.ok || !pba.ok || !plv.ok) return false;
-    return pb.value + pba.value + plv.value >= 1;
-  }
-
-  function getWizardUnitRoomValidation(idx) {
-    const b = document.getElementById(`unit-${idx}-bedrooms`);
-    const ba = document.getElementById(`unit-${idx}-bathrooms`);
-    const lv = document.getElementById(`unit-${idx}-living_rooms`);
-    const pb = wizardStep2ParseRoomInput(b);
-    const pba = wizardStep2ParseRoomInput(ba);
-    const plv = wizardStep2ParseRoomInput(lv);
-    if (!pb.ok || !pba.ok || !plv.ok) {
-      return { ok: false, errorKey: "building.layoutRoomsInvalid" };
-    }
-    if (pb.value + pba.value + plv.value < 1) {
-      return { ok: false, errorKey: "building.layoutRoomsIncomplete" };
-    }
-    return { ok: true, errorKey: null };
-  }
-
-  function getWizardPendingUnitIndices() {
-    const pending = [];
-    for (let idx = 0; idx < wizardUnitsDraft.length; idx++) {
-      if (!isWizardUnitRoomConfigured(idx)) pending.push(idx);
-    }
-    return pending;
-  }
-
-  function wizardAllUnitsRoomValidation() {
-    if (!wizardUnitsDraft.length) return { ok: false, errorKey: "building.layoutRoomsIncomplete" };
-    for (let idx = 0; idx < wizardUnitsDraft.length; idx++) {
-      if (!isWizardUnitRoomConfigured(idx)) {
-        return { ok: false, errorKey: "building.layoutRoomsIncomplete" };
-      }
-    }
-    return { ok: true, errorKey: null };
-  }
-
-  function syncWizardStep2SaveState() {
-    const step2 = document.getElementById("buildingDetailsStep2Wrap");
-    const saveBtn = document.getElementById("buildingDetailsSaveBtn");
-    if (!step2 || step2.hidden || !saveBtn || saveBtn.hidden) return;
-    saveBtn.disabled = !wizardUnitsDraft.length;
-  }
-
-  function collectAllConfirmIntoDraft() {
-    wizardUnitsDraft.forEach((u, idx) => {
-      const b = document.getElementById(`unit-${idx}-bedrooms`);
-      const ba = document.getElementById(`unit-${idx}-bathrooms`);
-      const lv = document.getElementById(`unit-${idx}-living_rooms`);
-      if (!b && !ba && !lv) return;
-      u.bedrooms = Math.max(0, Number(b?.value ?? 0));
-      u.bathrooms = Math.max(0, Number(ba?.value ?? 0));
-      u.living_rooms = Math.max(0, Number(lv?.value ?? 0));
-    });
-  }
-
-  function syncWizardConfirmSaveState() {
-    const step3 = document.getElementById("buildingDetailsStep3Wrap");
-    const confirmSaveBtn = document.getElementById("buildingDetailsConfirmSaveBtn");
-    const errEl = document.getElementById("buildingDetailsError");
-    if (!step3 || step3.hidden) return;
-    collectAllConfirmIntoDraft();
-    const v = wizardAllUnitsRoomValidation();
-    if (confirmSaveBtn) confirmSaveBtn.disabled = !v.ok;
-    if (errEl && !v.ok) errEl.textContent = T(v.errorKey);
-    else if (errEl) errEl.textContent = "";
-  }
-
-  function renderWizardConfirmAll() {
-    const wrap = document.getElementById("buildingDetailsConfirmFields");
-    const progress = document.getElementById("wizardConfirmProgress");
-    if (!wrap) return;
-    wrap.innerHTML = "";
-    const total = wizardUnitsDraft.length;
-    if (progress) {
-      progress.textContent = T("building.confirmAllApts", { total });
-    }
-
-    wizardUnitsDraft.forEach((u, idx) => {
-      const row = document.createElement("div");
-      row.className = "building-details-confirm-row";
-      row.dataset.unitIdx = String(idx);
-
-      const label = document.createElement("div");
-      label.className = "building-details-confirm-row__label";
-      label.textContent = `${T("building.aptLabel", { n: u.apartment_number })} · ${T("building.floorTitle", { n: u.floor_number })}`;
-
-      function field(suffix, labelKey, value) {
-        const d = document.createElement("div");
-        d.className = "building-details-confirm-field";
-        const l = document.createElement("label");
-        l.className = "building-details-confirm-label";
-        l.htmlFor = `unit-${idx}-${suffix}`;
-        l.textContent = T(labelKey);
-        const inp = document.createElement("input");
-        inp.type = "number";
-        inp.className = "building-details-confirm-input";
-        inp.id = `unit-${idx}-${suffix}`;
-        inp.min = "0";
-        inp.step = "1";
-        inp.inputMode = "numeric";
-        inp.value = String(value ?? 0);
-        d.appendChild(l);
-        d.appendChild(inp);
-        return d;
-      }
-
-      row.appendChild(label);
-      row.appendChild(field("bedrooms", "lease.rooms", u.bedrooms));
-      row.appendChild(field("bathrooms", "lease.bathrooms", u.bathrooms));
-      row.appendChild(field("living_rooms", "lease.living", u.living_rooms));
-      wrap.appendChild(row);
-    });
-
-    if (window.walajna_language && typeof window.walajna_language.apply === "function") {
-      window.walajna_language.apply(wrap);
-    }
-    syncWizardConfirmSaveState();
-  }
-
-  function showWizardStep2() {
-    if (!validateFloorCountsStep()) return;
-    const errClear = document.getElementById("buildingDetailsError");
-    if (errClear) errClear.textContent = "";
-    wizardUnitsDraft = buildUnitsFromFloorCounts();
-    const step1 = document.getElementById("buildingDetailsStep1Wrap");
-    const step2 = document.getElementById("buildingDetailsStep2Wrap");
-    const step3 = document.getElementById("buildingDetailsStep3Wrap");
-    const titleEl = document.getElementById("buildingDetailsModalTitle");
-    const sub = document.getElementById("buildingDetailsModalSubtitle");
-    if (step1) step1.hidden = true;
-    if (step3) step3.hidden = true;
-    if (step2) step2.hidden = false;
-    if (titleEl) titleEl.textContent = T("building.detailsWizardTitle");
-    if (sub) sub.textContent = T("building.detailsWizardStep2");
-    setWizardFooterMode("step2");
-
-    refreshWizardBulkChecklist({ resetBulkInputs: true });
-    if (window.walajna_language && typeof window.walajna_language.apply === "function") {
-      const step2 = document.getElementById("buildingDetailsStep2Wrap");
-      if (step2) window.walajna_language.apply(step2);
-    }
-
-    syncWizardStep2SaveState();
-  }
-
-  function showWizardStep3() {
-    const errClear = document.getElementById("buildingDetailsError");
-    if (errClear) errClear.textContent = "";
-    const step2 = document.getElementById("buildingDetailsStep2Wrap");
-    const step3 = document.getElementById("buildingDetailsStep3Wrap");
-    const titleEl = document.getElementById("buildingDetailsModalTitle");
-    const sub = document.getElementById("buildingDetailsModalSubtitle");
-    if (step2) step2.hidden = true;
-    if (step3) step3.hidden = false;
-    if (titleEl) titleEl.textContent = T("building.confirmLayoutTitle");
-    if (sub) sub.textContent = T("building.confirmLayoutSubtitle");
-    setWizardFooterMode("step3");
-    renderWizardConfirmAll();
-    if (window.walajna_language && typeof window.walajna_language.apply === "function" && step3) {
-      window.walajna_language.apply(step3);
-    }
-  }
-
-  function proceedToWizardConfirm() {
-    if (!wizardUnitsDraft.length) return;
-    showWizardStep3();
-  }
-
-  function refreshWizardBulkChecklist(options = {}) {
-    const { resetBulkInputs = false } = options;
-    const box = document.getElementById("wizardBulkChecklist");
-    const doneEl = document.getElementById("wizardBulkAllDone");
-    const selectAllBtn = document.getElementById("wizardBulkSelectAllBtn");
-    const applyRow = document.querySelector(".building-details-bulk-apply-row");
-    if (!box) return;
-
-    const pending = getWizardPendingUnitIndices();
-    const pendingKey = pending.join(",");
-    if (!resetBulkInputs && pendingKey === wizardBulkPendingKey) {
-      return;
-    }
-    wizardBulkPendingKey = pendingKey;
-
-    const checkedBefore = new Set(
-      [...box.querySelectorAll('input[type="checkbox"].wizard-bulk-cb:checked')].map((cb) =>
-        Number(cb.dataset.idx)
-      )
-    );
-
-    box.innerHTML = "";
-
-    if (pending.length === 0) {
-      if (doneEl) doneEl.hidden = false;
-      if (selectAllBtn) selectAllBtn.disabled = true;
-      if (applyRow) applyRow.hidden = true;
-    } else {
-      if (doneEl) doneEl.hidden = true;
-      if (selectAllBtn) selectAllBtn.disabled = false;
-      if (applyRow) applyRow.hidden = false;
-      pending.forEach((idx) => {
-        const u = wizardUnitsDraft[idx];
-        const lab = document.createElement("label");
-        lab.className = "building-details-bulk-checkitem";
-        const cb = document.createElement("input");
-        cb.type = "checkbox";
-        cb.className = "wizard-bulk-cb";
-        cb.dataset.idx = String(idx);
-        if (checkedBefore.has(idx)) cb.checked = true;
-        const span = document.createElement("span");
-        span.textContent = T("building.aptLabel", { n: u.apartment_number });
-        lab.appendChild(cb);
-        lab.appendChild(span);
-        box.appendChild(lab);
-      });
-    }
-
-    if (resetBulkInputs) {
-      const br = document.getElementById("wizardBulkBedrooms");
-      const ba = document.getElementById("wizardBulkBathrooms");
-      const lv = document.getElementById("wizardBulkLiving");
-      if (br) br.value = "0";
-      if (ba) ba.value = "0";
-      if (lv) lv.value = "0";
-    }
-
-  }
-
-  function applyWizardBulkRoomLayout() {
-    const err = document.getElementById("buildingDetailsError");
-    const box = document.getElementById("wizardBulkChecklist");
-    const brIn = document.getElementById("wizardBulkBedrooms");
-    const baIn = document.getElementById("wizardBulkBathrooms");
-    const lvIn = document.getElementById("wizardBulkLiving");
-    if (!box || !wizardUnitsDraft.length) return;
-    const checked = box.querySelectorAll('input[type="checkbox"].wizard-bulk-cb:checked');
-    if (!checked.length) {
-      if (err) err.textContent = T("building.bulkNoneSelected");
-      return;
-    }
-    const bedrooms = Math.max(0, Number(brIn?.value ?? 0));
-    const bathrooms = Math.max(0, Number(baIn?.value ?? 0));
-    const living = Math.max(0, Number(lvIn?.value ?? 0));
-    checked.forEach((cb) => {
-      const idx = Number(cb.dataset.idx);
-      if (!Number.isFinite(idx) || idx < 0 || idx >= wizardUnitsDraft.length) return;
-      const u = wizardUnitsDraft[idx];
-      u.bedrooms = bedrooms;
-      u.bathrooms = bathrooms;
-      u.living_rooms = living;
-    });
-    if (err) err.textContent = "";
-    refreshWizardBulkChecklist();
-    syncWizardStep2SaveState();
-  }
-
-  function wizardBackToStep1() {
-    const step1 = document.getElementById("buildingDetailsStep1Wrap");
-    const step2 = document.getElementById("buildingDetailsStep2Wrap");
-    const step3 = document.getElementById("buildingDetailsStep3Wrap");
-    const titleEl = document.getElementById("buildingDetailsModalTitle");
-    const sub = document.getElementById("buildingDetailsModalSubtitle");
-    if (step3) step3.hidden = true;
-    if (step1) step1.hidden = false;
-    if (step2) step2.hidden = true;
-    if (titleEl) titleEl.textContent = T("building.detailsWizardTitle");
-    if (sub) sub.textContent = T("building.detailsWizardStep1Short");
-    setWizardFooterMode("step1");
-    validateFloorCountsStep();
-  }
-
-  function wizardBackToStep2() {
-    const err = document.getElementById("buildingDetailsError");
-    if (err) err.textContent = "";
-    collectAllConfirmIntoDraft();
-    const step2 = document.getElementById("buildingDetailsStep2Wrap");
-    const step3 = document.getElementById("buildingDetailsStep3Wrap");
-    const titleEl = document.getElementById("buildingDetailsModalTitle");
-    const sub = document.getElementById("buildingDetailsModalSubtitle");
-    if (step3) step3.hidden = true;
-    if (step2) step2.hidden = false;
-    if (titleEl) titleEl.textContent = T("building.detailsWizardTitle");
-    if (sub) sub.textContent = T("building.detailsWizardStep2");
-    setWizardFooterMode("step2");
-    refreshWizardBulkChecklist();
-    syncWizardStep2SaveState();
-  }
-
-  function wizardConfirmGoBack() {
-    const step3 = document.getElementById("buildingDetailsStep3Wrap");
-    const step2 = document.getElementById("buildingDetailsStep2Wrap");
-    if (step3 && !step3.hidden) {
-      collectAllConfirmIntoDraft();
-      wizardBackToStep2();
-      return;
-    }
-    if (step2 && !step2.hidden) {
-      wizardBackToStep1();
-    }
-  }
-
-  async function saveBuildingUnitLayout() {
-    const confirmSaveBtn = document.getElementById("buildingDetailsConfirmSaveBtn");
-    const err = document.getElementById("buildingDetailsError");
-    collectAllConfirmIntoDraft();
-    const v = wizardAllUnitsRoomValidation();
-    if (!v.ok) {
-      if (err) err.textContent = T(v.errorKey);
-      syncWizardConfirmSaveState();
-      return;
-    }
-    if (confirmSaveBtn) confirmSaveBtn.disabled = true;
-    try {
-      const res = await WalajnaAuth.fetchWithAuth(
-        `${WalajnaAuth.API_BASE}/api/buildings/${encodeURIComponent(String(apiPathBuildingId))}/unit-layout`,
-        { method: "POST", body: JSON.stringify({ units: wizardUnitsDraft }) }
-      );
-      if (!res.ok) {
-        let msg = T("building.layoutError");
-        try {
-          const j = await res.json();
-          if (j?.detail) msg = typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail);
-        } catch {
-          /* ignore */
-        }
-        if (err) err.textContent = msg;
-        if (confirmSaveBtn) confirmSaveBtn.disabled = false;
-        syncWizardConfirmSaveState();
-        return;
-      }
-      alert(T("building.layoutSaved"));
-      window.location.reload();
-    } catch {
-      if (err) err.textContent = T("building.layoutError");
-      if (confirmSaveBtn) confirmSaveBtn.disabled = false;
-      syncWizardConfirmSaveState();
-    }
-  }
-
-  grid.addEventListener("click", (event) => {
-    const btn = event.target.closest("#buildingLayoutCtaBtn");
-    if (btn) {
-      event.preventDefault();
-      openBuildingDetailsWizard();
-    }
-  });
-  document.getElementById("closeBuildingDetailsModal")?.addEventListener("click", closeBuildingDetailsModal);
-  document.getElementById("cancelBuildingDetailsModal")?.addEventListener("click", closeBuildingDetailsModal);
-  document.querySelectorAll("[data-close-building-details]").forEach((el) => {
-    el.addEventListener("click", closeBuildingDetailsModal);
-  });
-  document.getElementById("buildingDetailsNextBtn")?.addEventListener("click", showWizardStep2);
-  document.getElementById("buildingDetailsBackBtn")?.addEventListener("click", wizardConfirmGoBack);
-  document.getElementById("buildingDetailsSaveBtn")?.addEventListener("click", proceedToWizardConfirm);
-  document.getElementById("buildingDetailsConfirmSaveBtn")?.addEventListener("click", () => {
-    void saveBuildingUnitLayout();
-  });
-  document.getElementById("wizardBulkApplyBtn")?.addEventListener("click", applyWizardBulkRoomLayout);
-  document.getElementById("wizardBulkSelectAllBtn")?.addEventListener("click", () => {
-    document.querySelectorAll("#wizardBulkChecklist .wizard-bulk-cb:not(:disabled)").forEach((cb) => {
-      cb.checked = true;
-    });
-  });
-  document.getElementById("wizardBulkClearChecksBtn")?.addEventListener("click", () => {
-    document.querySelectorAll("#wizardBulkChecklist .wizard-bulk-cb").forEach((cb) => {
-      cb.checked = false;
-    });
-  });
-  if (buildingDetailsModal) {
-    buildingDetailsModal.addEventListener("input", (e) => {
-      const confirmWrap = document.getElementById("buildingDetailsConfirmFields");
-      if (confirmWrap && confirmWrap.contains(e.target)) {
-        syncWizardConfirmSaveState();
-        return;
-      }
-    });
-  }
 
   /**
    * Same building can have apartments linked twice: numeric DB id and legacy `code`.
@@ -1254,49 +673,88 @@ document.addEventListener("DOMContentLoaded", async () => {
     )[0];
   }
 
+  function installmentUnpaidRemaining(row) {
+    const status = String(row?.status || "").toLowerCase();
+    if (status === "paid" || status === "cancelled") return 0;
+    const amount = Number(row?.amount || 0);
+    if (!Number.isFinite(amount) || amount <= 0) return 0;
+    const paidRaw =
+      row.amount_paid ?? row.paid_amount ?? row.paidAmount ?? row.amountPaid;
+    if (paidRaw != null && paidRaw !== "") {
+      const paid = Number(paidRaw);
+      if (Number.isFinite(paid)) {
+        const remaining = amount - paid;
+        return remaining > 0.009 ? remaining : 0;
+      }
+    }
+    return amount;
+  }
+
   function isApartmentRentOverdue(apartment) {
-    const ls = String(
-      apartment.leaseStatus ?? apartment.lease_status ?? ""
-    ).toLowerCase();
-    if (ls === "overdue") {
-      return true;
-    }
-
     const currentContractId = getApartmentCurrentContractId(apartment);
-
     if (!currentContractId) return false;
-
-    // API apartments use server-reconciled lease_status + payment_installments; ignore stale localStorage.
-    if (apartmentsFromApi) {
-      return false;
-    }
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const apiAptId = String(apartment.apiId ?? apartment.id ?? "");
+    const localAptId = String(apartment.id ?? "");
 
-    return payments.some((payment) => {
-      if (
-        payment.apartmentId != null &&
-        String(payment.apartmentId) !== "" &&
-        String(payment.apartmentId) !== String(apartment.id)
-      ) {
-        return false;
-      }
-      const pc =
-        payment.contractId != null && String(payment.contractId) !== ""
-          ? String(payment.contractId)
-          : "";
-      const cc = String(currentContractId);
-      if (pc && pc !== cc) return false;
-      if (payment.status === "paid" || payment.status === "cancelled") return false;
-      if (!payment.dueDate) return false;
+    // Source of truth: payment_installments for the current contract.
+    if (Array.isArray(serverInstallmentsForBuilding) && serverInstallmentsForBuilding.length) {
+      return serverInstallmentsForBuilding.some((row) => {
+        const cid =
+          row.contract_id != null && String(row.contract_id) !== ""
+            ? String(row.contract_id)
+            : "";
+        if (cid && cid !== String(currentContractId)) return false;
 
-      const dueDate = new Date(payment.dueDate);
-      if (Number.isNaN(dueDate.getTime())) return false;
+        const rowApt =
+          row.apartment_id != null && String(row.apartment_id) !== ""
+            ? String(row.apartment_id)
+            : "";
+        if (rowApt && rowApt !== apiAptId && rowApt !== localAptId) return false;
 
-      dueDate.setHours(0, 0, 0, 0);
-      return dueDate < today;
-    });
+        if (installmentUnpaidRemaining(row) <= 0) return false;
+
+        const dueRaw = row.due_date || row.dueDate;
+        if (!dueRaw) return false;
+        const dueDate = new Date(dueRaw);
+        if (Number.isNaN(dueDate.getTime())) return false;
+        dueDate.setHours(0, 0, 0, 0);
+        return dueDate.getTime() <= today.getTime();
+      });
+    }
+
+    // Fallback when installments are not loaded yet: local payments list.
+    if (Array.isArray(payments) && payments.length) {
+      return payments.some((payment) => {
+        if (
+          payment.apartmentId != null &&
+          String(payment.apartmentId) !== "" &&
+          String(payment.apartmentId) !== localAptId &&
+          String(payment.apartmentId) !== apiAptId
+        ) {
+          return false;
+        }
+        const pc =
+          payment.contractId != null && String(payment.contractId) !== ""
+            ? String(payment.contractId)
+            : "";
+        if (pc && pc !== String(currentContractId)) return false;
+        if (payment.status === "paid" || payment.status === "cancelled") return false;
+        if (!payment.dueDate) return false;
+        const dueDate = new Date(payment.dueDate);
+        if (Number.isNaN(dueDate.getTime())) return false;
+        dueDate.setHours(0, 0, 0, 0);
+        return dueDate.getTime() <= today.getTime();
+      });
+    }
+
+    // Last resort only (stale until installments load): API lease_status hint.
+    const ls = String(
+      apartment.leaseStatus ?? apartment.lease_status ?? ""
+    ).toLowerCase();
+    return ls === "overdue";
   }
 
   function closeAllApartmentMenus() {
@@ -1499,7 +957,21 @@ document.addEventListener("DOMContentLoaded", async () => {
           : Number(aptForSave.id);
       if (Number.isFinite(apiId)) {
         try {
-          await WalajnaApartmentsApi.vacateTenant(apiId);
+          let refundAmount = 0;
+          if (
+            window.WalajnaInsuranceSettle &&
+            typeof WalajnaInsuranceSettle.confirmEvictionRefund === "function"
+          ) {
+            const cid =
+              aptForSave.currentContractId || aptForSave.contract?.id || null;
+            const result = await WalajnaInsuranceSettle.confirmEvictionRefund(cid, {
+              confirmKey: "building.confirmVacate",
+              skipConfirmIfZero: true,
+            });
+            if (!result.proceed) return;
+            refundAmount = Number(result.refundAmount || 0);
+          }
+          await WalajnaApartmentsApi.vacateTenant(apiId, { refundAmount });
           closeEditModal();
           window.location.reload();
           return;
@@ -1611,8 +1083,23 @@ async function evictApartment(apartmentId) {
     return;
   }
 
-  const confirmed = confirm(T("building.confirmVacate"));
-  if (!confirmed) return;
+  let refundAmount = 0;
+  if (
+    window.WalajnaInsuranceSettle &&
+    typeof WalajnaInsuranceSettle.confirmEvictionRefund === "function"
+  ) {
+    const cid = apartment.currentContractId || apartment.contract?.id || null;
+    const result = await WalajnaInsuranceSettle.confirmEvictionRefund(cid, {
+      confirmKey: "building.confirmVacate",
+    });
+    if (!result.proceed) return;
+    refundAmount = Number(result.refundAmount || 0);
+  } else {
+    const confirmed = await WalajnaDialog.confirm(T("building.confirmVacate"), {
+      danger: true,
+    });
+    if (!confirmed) return;
+  }
 
   const authed =
     typeof WalajnaAuth !== "undefined" && WalajnaAuth.getCurrentUser?.();
@@ -1621,7 +1108,7 @@ async function evictApartment(apartmentId) {
       apartment.apiId != null ? Number(apartment.apiId) : Number(apartment.id);
     if (Number.isFinite(apiId)) {
       try {
-        await WalajnaApartmentsApi.vacateTenant(apiId);
+        await WalajnaApartmentsApi.vacateTenant(apiId, { refundAmount });
         window.location.reload();
         return;
       } catch (e) {
@@ -1882,31 +1369,42 @@ async function evictApartment(apartmentId) {
   }
 
   function getApartmentExpensesForRange(apartment, rangeStart, rangeEnd) {
-    if (!apartment) return 0;
+    if (!apartment) return { total: 0, depositCovered: 0, ownerBorne: 0 };
 
     const apartmentId = apartment.id;
     const currentContractId = getApartmentCurrentContractId(apartment);
+    let total = 0;
+    let depositCovered = 0;
 
-    return costs
-      .filter((cost) => {
-        if (String(cost.apartmentId) !== String(apartmentId)) return false;
+    costs.forEach((cost) => {
+      if (String(cost.apartmentId) !== String(apartmentId)) return;
+      if (String(cost.status || "").toLowerCase() === "cancelled") return;
 
-        // إذا التكلفة مربوطة بعقد، لازم تطابق العقد الحالي
-        if (cost.contractId && currentContractId) {
-          if (String(cost.contractId) !== String(currentContractId)) {
-            return false;
-          }
+      // Contract-linked costs must match current contract when both present.
+      if (cost.contractId && currentContractId) {
+        if (String(cost.contractId) !== String(currentContractId)) {
+          return;
         }
+      }
 
-        const rawDate = cost.date || cost.createdAt;
-        if (!rawDate) return false;
+      const rawDate = cost.date || cost.createdAt || cost.expenseDate;
+      if (!rawDate) return;
 
-        const costDate = new Date(rawDate);
-        if (Number.isNaN(costDate.getTime())) return false;
+      const costDate = new Date(rawDate);
+      if (Number.isNaN(costDate.getTime())) return;
 
-        return costDate >= rangeStart && costDate <= rangeEnd;
-      })
-      .reduce((sum, cost) => sum + Number(cost.amount || 0), 0);
+      if (costDate >= rangeStart && costDate <= rangeEnd) {
+        total += Number(cost.amount || 0);
+        depositCovered += Number(cost.depositCoveredAmount || 0);
+      }
+    });
+
+    depositCovered = Math.min(depositCovered, total);
+    return {
+      total,
+      depositCovered,
+      ownerBorne: Math.max(0, total - depositCovered),
+    };
   }
 
   function getBuildingFinancialSummary() {
@@ -1922,14 +1420,22 @@ async function evictApartment(apartmentId) {
       );
     }, 0);
 
-    const expenses = getBuildingApartments().reduce((sum, apartment) => {
-      return sum + getApartmentExpensesForRange(
-        apartment,
-        currentMonthStart,
-        currentMonthEnd
-      );
-    }, 0);
+    const costTotals = getBuildingApartments().reduce(
+      (acc, apartment) => {
+        const b = getApartmentExpensesForRange(
+          apartment,
+          currentMonthStart,
+          currentMonthEnd
+        );
+        acc.total += b.total;
+        acc.depositCovered += b.depositCovered;
+        acc.ownerBorne += b.ownerBorne;
+        return acc;
+      },
+      { total: 0, depositCovered: 0, ownerBorne: 0 }
+    );
 
+    const expenses = costTotals.ownerBorne;
     const profit = monthlyIncome - expenses;
 
     const occupiedUnits = getBuildingApartments().filter((apartment) => {
@@ -1940,6 +1446,20 @@ async function evictApartment(apartmentId) {
       return isApartmentRentOverdue(apartment);
     }).length;
 
+    const rentReceivables = (serverInstallmentsForBuilding || []).reduce((sum, row) => {
+      const st = String(row.status || "").toLowerCase();
+      if (st === "paid" || st === "cancelled") return sum;
+      const due = row.due_date || row.dueDate;
+      if (!due) return sum;
+      const dueDate = new Date(due);
+      if (Number.isNaN(dueDate.getTime())) return sum;
+      dueDate.setHours(0, 0, 0, 0);
+      const asOf = new Date(currentMonthEnd);
+      asOf.setHours(23, 59, 59, 999);
+      if (dueDate > asOf) return sum;
+      return sum + Number(row.amount || 0);
+    }, 0);
+
     return {
       monthlyIncome,
       expenses,
@@ -1947,6 +1467,7 @@ async function evictApartment(apartmentId) {
       occupiedUnits,
       totalUnits: getBuildingApartments().length,
       lateUnits,
+      rentReceivables,
     };
   }
 
@@ -1954,20 +1475,24 @@ async function evictApartment(apartmentId) {
     const incomeEl = document.getElementById("buildingIncome");
     const costsEl = document.getElementById("buildingCosts");
     const profitEl = document.getElementById("buildingProfit");
+    const receivablesEl = document.getElementById("buildingReceivables");
     const occupiedEl = document.getElementById("buildingOccupiedUnits");
     const lateEl = document.getElementById("buildingLateUnits");
 
     const summary = getBuildingFinancialSummary();
 
     if (incomeEl) {
+      incomeEl.classList.remove("is-pending");
       incomeEl.textContent = formatMoney(summary.monthlyIncome);
     }
 
     if (costsEl) {
+      costsEl.classList.remove("is-pending");
       costsEl.textContent = formatMoney(summary.expenses);
     }
 
     if (profitEl) {
+      profitEl.classList.remove("is-pending");
       profitEl.textContent = formatMoney(summary.profit);
       profitEl.classList.remove("profit-positive", "profit-negative");
 
@@ -1978,11 +1503,18 @@ async function evictApartment(apartmentId) {
       }
     }
 
+    if (receivablesEl) {
+      receivablesEl.classList.remove("is-pending");
+      receivablesEl.textContent = formatMoney(summary.rentReceivables);
+    }
+
     if (occupiedEl) {
+      occupiedEl.classList.remove("is-pending");
       occupiedEl.textContent = `${summary.occupiedUnits} / ${summary.totalUnits}`;
     }
 
     if (lateEl) {
+      lateEl.classList.remove("is-pending");
       lateEl.textContent = String(summary.lateUnits);
     }
   }
@@ -2044,7 +1576,9 @@ async function evictApartment(apartmentId) {
               ? String(row.contract_id)
               : null,
           amount: Number(row.amount || 0),
-          status: String(row.status || "pending"),
+          status: String(row.status || "approved"),
+          depositCoveredAmount: Number(row.deposit_covered_amount || 0),
+          fundingSource: String(row.funding_source || "owner"),
           date: String(row.expense_date || "").slice(0, 10),
           createdAt: String(row.created_at || "").slice(0, 10),
         });
@@ -2056,7 +1590,9 @@ async function evictApartment(apartmentId) {
   }
 
   async function deleteApartment(apartmentId) {
-    const confirmed = confirm(T("building.confirmDeleteApt"));
+    const confirmed = await WalajnaDialog.confirm(T("building.confirmDeleteApt"), {
+      danger: true,
+    });
     if (!confirmed) return;
 
     const updatedApartments = apartments.filter((apartment) => apartment.id !== apartmentId);
@@ -2109,16 +1645,10 @@ async function evictApartment(apartmentId) {
   }
 
   if (building && !isCurrentBuildingUnitLayoutComplete()) {
-    grid.innerHTML = `
-      <div class="building-layout-cta" role="region" aria-labelledby="buildingLayoutCtaTitle">
-        <p id="buildingLayoutCtaTitle" class="building-layout-cta__message">${escapeHtml(
-          T("building.completeLayoutCtaMessage")
-        )}</p>
-        <button type="button" id="buildingLayoutCtaBtn" class="building-layout-cta__btn">
-          ${escapeHtml(T("building.detailsPlusBtn"))}
-        </button>
-      </div>
-    `;
+    const layoutId = encodeURIComponent(String(apiPathBuildingId || buildingId));
+    window.location.replace(
+      `owner_building_layout.html?buildingId=${layoutId}&from=building`
+    );
     return;
   }
 
@@ -2311,13 +1841,12 @@ async function evictApartment(apartmentId) {
   }
 
   populateLinkTenantTypeSelect();
-  refreshAll();
-  void Promise.all([
+  await Promise.all([
     loadInstallmentsForBuildingSummary(),
     loadCostsForBuildingSummary(),
-  ]).then(() => {
-    renderBuildingFinancialSummary();
-  });
+  ]);
+  setOwnerBuildingLoading(false);
+  refreshAll();
   document.addEventListener("walajna:i18n-applied", () => {
     populateLinkTenantTypeSelect();
     refreshAll();

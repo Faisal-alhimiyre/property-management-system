@@ -166,32 +166,16 @@ body{
 }
 
 .profile-card{
-  display:flex;
-  gap:18px;
-  align-items:flex-start;
+  display:block;
   background:#f8fbfd;
   border:1px solid var(--line);
   border-radius:24px;
   padding:20px;
 }
 
-.avatar{
-  width:68px;
-  height:68px;
-  border-radius:20px;
-  background:linear-gradient(135deg, var(--top), #1fb8d4);
-  color:var(--ink);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:28px;
-  font-weight:900;
-  box-shadow:0 14px 30px rgba(0,0,0,0.12);
-  flex:0 0 auto;
-}
-
 .profile-details{
-  flex:1;
+  width:100%;
+  max-width:520px;
   display:flex;
   flex-direction:column;
   gap:12px;
@@ -291,6 +275,49 @@ body{
 .form-row input:focus{
   border-color:var(--top);
   box-shadow:0 0 0 4px rgba(54,215,232,0.45);
+}
+
+.password-reqs{
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  width: 100%;
+}
+
+.password-reqs[hidden]{
+  display: none !important;
+}
+
+.password-reqs__item{
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.password-reqs__icon{
+  flex: 0 0 auto;
+  width: 1.15em;
+  font-weight: 900;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.password-reqs__item.is-unmet,
+.password-reqs__item.is-unmet .password-reqs__icon,
+.password-reqs__item.is-unmet .password-reqs__label{
+  color: #dc2626 !important;
+}
+
+.password-reqs__item.is-met,
+.password-reqs__item.is-met .password-reqs__icon,
+.password-reqs__item.is-met .password-reqs__label{
+  color: #16a34a !important;
 }
 
 .message{
@@ -648,6 +675,18 @@ body.dark-mode .wl-panel input{
   border-color:rgba(255,255,255,0.12);
 }
 
+body.dark-mode .password-reqs__item.is-unmet,
+body.dark-mode .password-reqs__item.is-unmet .password-reqs__icon,
+body.dark-mode .password-reqs__item.is-unmet .password-reqs__label{
+  color:#f87171 !important;
+}
+
+body.dark-mode .password-reqs__item.is-met,
+body.dark-mode .password-reqs__item.is-met .password-reqs__icon,
+body.dark-mode .password-reqs__item.is-met .password-reqs__label{
+  color:#34d399 !important;
+}
+
 body.dark-mode .wl-modal__dialog{
   background:#1c2430;
 }
@@ -696,10 +735,6 @@ body.dark-mode .back-btn{
 
 body.dark-mode .back-btn:hover{
   background:#020617;
-}
-
-body.dark-mode .avatar{
-  background:linear-gradient(135deg, #22d3ee, #0369a1);
 }
 
 body.dark-mode .role-badge{
@@ -811,10 +846,6 @@ body.dark-mode .switch input:checked + .slider{
 }
 
 @media (max-width: 700px){
-  .profile-card{
-    flex-direction:column;
-  }
-
   .detail-row{
     flex-direction:column;
     align-items:flex-start;

@@ -91,7 +91,7 @@ body.dark-mode .building-layout-reminder{
 /* summary */
 .building-finance-summary{
   display:grid;
-  grid-template-columns:repeat(3, 1fr);
+  grid-template-columns:repeat(4, 1fr);
   gap:8px;
   margin:0 auto 8px;
   max-width:980px;
@@ -149,6 +149,58 @@ body.dark-mode .building-layout-reminder{
   line-height:1.15;
   font-weight:800;
   letter-spacing:-0.2px;
+}
+
+.finance-card strong.is-pending,
+.building-stat-item strong.is-pending{
+  color:#94a3b8;
+}
+
+/* Loading — hide zero-flash while apartments / installments resolve */
+body.owner-building--loading .building-finance-summary,
+body.owner-building--loading .building-stats,
+body.owner-building--loading .finance-link-row{
+  opacity:0.55;
+  pointer-events:none;
+}
+
+body.owner-building--loading .apartments-grid{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  min-height:min(42vh, 320px);
+}
+
+.owner-building-loading{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:14px;
+  width:100%;
+  min-height:min(42vh, 320px);
+  padding:32px 16px;
+  text-align:center;
+}
+
+.owner-building-loading__spinner{
+  width:36px;
+  height:36px;
+  border-radius:50%;
+  border:3px solid rgba(15, 118, 110, 0.2);
+  border-top-color:#0f766e;
+  animation:owner-building-spin 0.75s linear infinite;
+}
+
+.owner-building-loading__text{
+  margin:0;
+  color:#0f172a;
+  font-size:15px;
+  font-weight:700;
+}
+
+@keyframes owner-building-spin{
+  to{ transform:rotate(360deg); }
 }
 
 .finance-card:has(#buildingIncome)::before{

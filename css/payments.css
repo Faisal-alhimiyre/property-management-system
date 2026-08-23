@@ -33,6 +33,45 @@ body{
   font-family:Arial,sans-serif;
 }
 
+.wl-page-loading{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:14px;
+  width:100%;
+  min-height:min(42vh, 320px);
+  padding:32px 16px;
+  text-align:center;
+}
+
+.wl-page-loading__spinner{
+  width:36px;
+  height:36px;
+  border-radius:50%;
+  border:3px solid rgba(15, 118, 110, 0.2);
+  border-top-color:#0f766e;
+  animation:wl-page-spin 0.75s linear infinite;
+}
+
+.wl-page-loading__text{
+  margin:0;
+  color:#0f172a;
+  font-size:15px;
+  font-weight:700;
+}
+
+@keyframes wl-page-spin{
+  to{ transform:rotate(360deg); }
+}
+
+body.payments-page--loading #paymentsTableContainer{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  min-height:min(42vh, 320px);
+}
+
 .pay-wrap{
   max-width:1280px;
   margin:22px auto 44px;

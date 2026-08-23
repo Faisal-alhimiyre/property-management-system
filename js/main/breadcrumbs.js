@@ -83,6 +83,11 @@
         const q = id ? "?buildingId=" + encodeURIComponent(id) : "";
         return ownersFile("owner_building.html" + q);
       }
+      case "owner_building_layout": {
+        const id = opts.buildingId || "";
+        const q = id ? "?buildingId=" + encodeURIComponent(id) : "";
+        return ownersFile("owner_building_layout.html" + q);
+      }
       default:
         return "#";
     }
@@ -264,6 +269,16 @@
       segments = [
         { href: resolveHref("owner_home"), labelKey: homeBreadcrumbLabelKey() },
         { label: bname, current: true },
+      ];
+    } else if (bc === "owner-building-layout") {
+      const buildingId = params.get("buildingId");
+      const buildings = readBuildingsForBreadcrumb();
+      const building = buildings.find((b) => String(b.id) === String(buildingId));
+      const bname = (building && building.name) || t("building.notFound");
+      segments = [
+        { href: resolveHref("owner_home"), labelKey: homeBreadcrumbLabelKey() },
+        { href: resolveHref("owner_building", { buildingId }), label: bname },
+        { labelKey: "building.detailsWizardTitle", current: true },
       ];
     } else if (bc === "apartment-details") {
       const aptId = params.get("id");

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
   <script>(function(){try{var l=localStorage.getItem("walajna_language")||"ar";if(l!=="en"&&l!=="ar"&&l!=="ur")l="ar";document.documentElement.setAttribute("lang",l==="en"?"en":(l==="ur"?"ur":"ar"));document.documentElement.setAttribute("dir",l==="en"?"ltr":"rtl");}catch(e){}})();</script>
@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="../css/costs.css" />
   <script src="../js/main/walajna-i18n-ur.js"></script>
   <script src="../js/main/walajna-i18n.js"></script>
+  <script src="../js/main/walajna-dialog.js"></script>
 </head>
 <body data-nav="user" data-wl-bc="costs">
   <div id="navbar-container"></div>
@@ -31,9 +32,14 @@
       <button id="openCostModalBtn" class="record-btn" type="button" data-i18n="costs.recordBtn"></button>
     </div>
 
-    <div id="costsSummary" class="pay-summary"></div>
+    <div id="costsSummary" class="pay-summary" aria-busy="true"></div>
 
-    <div id="costsTableContainer" class="costs-table-wrap"></div>
+    <div id="costsTableContainer" class="costs-table-wrap" aria-busy="true">
+      <div id="apartmentCostsLoading" class="wl-page-loading" role="status" aria-live="polite">
+        <div class="wl-page-loading__spinner" aria-hidden="true"></div>
+        <p class="wl-page-loading__text" data-i18n="costs.loadingPage"></p>
+      </div>
+    </div>
   </main>
 
   <div id="recordCostModal" class="wl-modal" aria-hidden="true">
@@ -50,7 +56,7 @@
       </div>
 
       <div class="wl-modal__body">
-        <div id="selectedCostInfo" class="payments-inline-note">—</div>
+        <h4 id="selectedCostInfo" class="costs-form-heading">—</h4>
 
         <div class="payments-form-grid">
           <div class="payments-field">
@@ -74,13 +80,26 @@
           </div>
 
           <div class="payments-field">
-            <label for="costStatusInput" data-i18n="costs.th.status"></label>
-            <select id="costStatusInput">
-              <option value="approved" data-i18n-label="costs.st.approved"></option>
-              <option value="pending" data-i18n-label="costs.st.pending"></option>
-              <option value="cancelled" data-i18n-label="costs.st.cancelled"></option>
+            <label for="costFundingInput" data-i18n="costs.fundingLabel">مصدر التغطية</label>
+            <select id="costFundingInput">
+              <option value="owner" data-i18n-label="costs.funding.owner">المالك</option>
+              <option value="security_deposit" data-i18n-label="costs.funding.deposit">التأمين</option>
             </select>
           </div>
+
+          <div id="costInsuranceSection" class="costs-insurance-section" hidden>
+            <div class="payments-field">
+              <label data-i18n="costs.depositAvailableLabel">التأمين المتوفر</label>
+              <div id="costDepositAvailableValue" class="costs-readonly-value">—</div>
+            </div>
+
+            <div class="payments-field">
+              <label for="costDepositCoverInput" data-i18n="costs.depositCoverLabel">المخصوم من التأمين</label>
+              <input id="costDepositCoverInput" type="number" min="0" step="50" inputmode="decimal" data-wl-numeric="money-50" />
+            </div>
+          </div>
+
+          <input type="hidden" id="costStatusInput" value="approved" />
 
           <div class="payments-field">
             <label for="costDateInput" data-i18n="costs.dateLabel"></label>

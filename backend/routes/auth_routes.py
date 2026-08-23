@@ -14,6 +14,7 @@ try:
     from models import User, UserResponse
     from auth import get_password_hash, verify_password, create_access_token, verify_token
     from config import supabase
+    from password_policy import validate_password_strength
     from datetime import timedelta, datetime
     print("All auth imports successful")
 except Exception as e:
@@ -209,7 +210,8 @@ def _send_email_smtp(to_email: str, subject: str, body: str) -> bool:
     host = (os.getenv("SMTP_HOST") or "").strip()
     port_raw = (os.getenv("SMTP_PORT") or "587").strip()
     user = (os.getenv("SMTP_USER") or "").strip()
-    password = (os.getenv("SMTP_PASS") or "").strip()
+    # Gmail App Passwords are often copied with spaces — strip them.
+    password = (os.getenv("SMTP_PASS") or "").replace(" ", "").strip()
     sender = (os.getenv("SMTP_FROM_EMAIL") or user).strip()
     use_tls = (os.getenv("SMTP_USE_TLS") or "true").strip().lower() != "false"
     if not host or not sender:
@@ -262,27 +264,56 @@ def _send_email_resend(to_email: str, subject: str, body: str) -> bool:
     return True
 
 
-def _deliver_reset_code_email(to_email: str, code: str) -> bool:
-    subject = "Walajna password reset code"
+def _deliver_reset_code_email(to_email: str, code: str) -> tuple[bool, str]:
+    """Try configured providers. Returns (ok, error_message)."""
+    subject = "رمز استعادة كلمة المرور — ولجنا / Walajna reset code"
     body = (
+        "رمز استعادة كلمة المرور في ولجنا:\n\n"
+        f"{code}\n\n"
+        f"ينتهي هذا الرمز خلال {RESET_CODE_TTL_MINUTES} دقيقة.\n"
+        "إذا لم تطلب ذلك، تجاهل هذه الرسالة.\n\n"
+        "---\n"
         "Your Walajna password reset code is:\n\n"
         f"{code}\n\n"
         f"This code expires in {RESET_CODE_TTL_MINUTES} minutes.\n"
         "If you did not request this, ignore this email."
     )
     provider = (os.getenv("RESET_EMAIL_PROVIDER") or "auto").strip().lower()
-    try:
-        if provider == "resend":
-            return _send_email_resend(to_email, subject, body)
-        if provider == "smtp":
-            return _send_email_smtp(to_email, subject, body)
-        # auto: prefer Resend, then SMTP
-        if _send_email_resend(to_email, subject, body):
-            return True
-        return _send_email_smtp(to_email, subject, body)
-    except Exception as exc:
-        print("reset email send failed:", exc)
-        return False
+    errors: list[str] = []
+
+    def try_resend() -> bool:
+        try:
+            return bool(_send_email_resend(to_email, subject, body))
+        except Exception as exc:
+            errors.append(f"resend: {exc}")
+            print("reset email resend failed:", exc)
+            return False
+
+    def try_smtp() -> bool:
+        try:
+            return bool(_send_email_smtp(to_email, subject, body))
+        except Exception as exc:
+            errors.append(f"smtp: {exc}")
+            print("reset email smtp failed:", exc)
+            return False
+
+    if provider == "resend":
+        if try_resend():
+            return True, ""
+        return False, errors[0] if errors else "Resend is not configured"
+    if provider == "smtp":
+        if try_smtp():
+            return True, ""
+        return False, errors[0] if errors else "SMTP is not configured"
+
+    # auto: try Resend, then SMTP (even if Resend errors)
+    if try_resend():
+        return True, ""
+    if try_smtp():
+        return True, ""
+    if errors:
+        return False, "; ".join(errors)
+    return False, "No email provider configured (set RESEND_* or SMTP_* in backend .env)"
 
 @router.post("/test")
 async def test_endpoint():
@@ -361,8 +392,10 @@ async def register(user: User):
 @router.post("/reset-password")
 async def reset_password(body: dict):
     new_password = str(body.get("new_password", "")).strip()
-    if len(new_password) < 6:
-        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    try:
+        new_password = validate_password_strength(new_password)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     reset_token = str(body.get("reset_token", "")).strip()
     user_row = None
@@ -483,11 +516,50 @@ async def forgot_password(body: dict):
         ).execute()
     except Exception as exc:
         print("password_reset_tokens insert failed:", exc)
-        raise HTTPException(status_code=500, detail="Failed to create reset code")
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Failed to create reset code. "
+                "Ensure the password_reset_tokens table exists in Supabase "
+                "(backend/sql/password_reset_tokens_2026.sql)."
+            ),
+        )
 
-    sent = _deliver_reset_code_email(email, code)
+    sent, send_err = _deliver_reset_code_email(email, code)
     if not sent:
-        print(f"[password-reset][fallback] code for user_id={user_row.get('id')} email={email}: {code}")
+        print(
+            f"[password-reset] email delivery failed for user_id={user_row.get('id')} "
+            f"email={email}: {send_err}"
+        )
+        print(
+            f"[password-reset][fallback] code for user_id={user_row.get('id')} email={email}: {code}"
+        )
+        # Local/dev escape hatch when SMTP/Resend is misconfigured (e.g. Gmail blocks login).
+        # Set RESET_CODE_FALLBACK=false in production once mail works.
+        allow_fallback = (os.getenv("RESET_CODE_FALLBACK") or "true").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+            "on",
+        )
+        if allow_fallback:
+            return {
+                "ok": True,
+                "sent": False,
+                "fallback_code": code,
+                "detail": (
+                    "Email could not be sent (check Gmail App Password / Resend). "
+                    "Use the on-screen code to continue."
+                ),
+            }
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Could not send the reset email. "
+                "For Gmail SMTP use an App Password (not your normal password). "
+                "Or configure RESEND_API_KEY / RESEND_FROM_EMAIL."
+            ),
+        )
     return {"ok": True, "sent": True}
 
 
@@ -573,15 +645,52 @@ def _login_from_json_dict(body: dict) -> dict:
         )
 
     try:
-        if national_id:
-            result = supabase.table("users").select("*").eq("national_id", national_id).execute()
-        else:
-            result = supabase.table("users").select("*").eq("email", email).execute()
+        import time
+
+        last_exc = None
+        result = None
+        for attempt in range(3):
+            try:
+                if national_id:
+                    result = (
+                        supabase.table("users")
+                        .select("*")
+                        .eq("national_id", national_id)
+                        .execute()
+                    )
+                else:
+                    result = (
+                        supabase.table("users").select("*").eq("email", email).execute()
+                    )
+                last_exc = None
+                break
+            except Exception as db_exc:
+                last_exc = db_exc
+                msg = str(db_exc)
+                # After project unpause, PostgREST often returns PGRST002 until schema cache is ready.
+                transient = (
+                    "PGRST002" in msg
+                    or "schema cache" in msg.lower()
+                    or "ConnectError" in type(db_exc).__name__
+                    or "LocalProtocolError" in msg
+                )
+                if transient and attempt < 2:
+                    time.sleep(0.8 * (attempt + 1))
+                    continue
+                break
+        if last_exc is not None:
+            print("login supabase query failed:", type(last_exc).__name__, last_exc)
+            raise HTTPException(
+                status_code=503,
+                detail="Database temporarily unavailable. Please retry in a moment.",
+            ) from last_exc
+    except HTTPException:
+        raise
     except Exception as db_exc:
         print("login supabase query failed:", type(db_exc).__name__, db_exc)
         raise HTTPException(
             status_code=503,
-            detail="Database temporarily unavailable. Please check SUPABASE_URL on the server and retry.",
+            detail="Database temporarily unavailable. Please retry in a moment.",
         ) from db_exc
 
     if not result.data or not verify_password(password, result.data[0]["password"]):

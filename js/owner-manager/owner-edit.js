@@ -866,6 +866,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       ? `${API_BASE}/api/buildings/${buildingApiId}`
       : `${API_BASE}/api/buildings`;
 
+    let createdBuildingId = null;
     try {
       const apiResponse = await WalajnaAuth.fetchWithAuth(endpoint, {
         method: isEditMode ? "PATCH" : "POST",
@@ -876,6 +877,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const serverRecord = await apiResponse.json();
         if (!isEditMode) {
           buildingPayload.id = serverRecord.id;
+          createdBuildingId = serverRecord.id;
         }
         showSuccess(
           (isEditMode ? T("owner.updatedBuilding") : T("owner.savedBuilding")) +
@@ -954,7 +956,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     setTimeout(() => {
-      window.location.href = "owner_home.html";
+      if (!isEditMode && createdBuildingId != null) {
+        window.location.href =
+          "owner_building_layout.html?buildingId=" +
+          encodeURIComponent(String(createdBuildingId));
+      } else {
+        window.location.href = "owner_home.html";
+      }
     }, 900);
   });
 });

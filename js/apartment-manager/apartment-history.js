@@ -204,7 +204,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         "",
       ownerReply: "",
       date: expenseDate || createdAt || null,
-      status: "recorded",
+      status: row.status || "recorded",
       requestType: costType,
       costType,
       priority: "",
@@ -212,6 +212,31 @@ document.addEventListener("DOMContentLoaded", async () => {
       tenantNationalId: null,
       tenantName: "",
       amount: row.amount ?? null,
+    };
+  }
+
+  function mapCostsApiClientRow(c) {
+    const costType = String(c.type || c.costType || c.cost_type || "maintenance").toLowerCase();
+    const expenseDate = c.expenseDate || c.expense_date || null;
+    let createdAt = c.createdAt || c.created_at || "";
+    if (createdAt && typeof createdAt === "string" && createdAt.length > 10) {
+      createdAt = createdAt.slice(0, 10);
+    }
+    return {
+      source: "costs_api",
+      id: c.id ?? c.serverId ?? null,
+      title: maintenanceCardTitle(c.title, costType, true),
+      description: c.notes || c.description || "",
+      ownerReply: "",
+      date: expenseDate || createdAt || null,
+      status: c.status || "recorded",
+      requestType: costType,
+      costType,
+      priority: "",
+      contractId: c.contractId != null ? String(c.contractId) : null,
+      tenantNationalId: null,
+      tenantName: "",
+      amount: c.amount ?? null,
     };
   }
 
@@ -337,18 +362,29 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const items = [];
 
+    // Costs only (not tenant maintenance/complaint/suggestion requests).
     try {
-      const res = await WalajnaAuth.fetchWithAuth(
-        `${WalajnaAuth.API_BASE}/api/maintenance?apartment_id=${encodeURIComponent(apiAid)}`
-      );
-      if (res.ok) {
-        const rows = await res.json();
-        (Array.isArray(rows) ? rows : []).forEach((r) => {
-          items.push(mapMaintenanceApiRow(r));
+      if (
+        typeof WalajnaCostsApi !== "undefined" &&
+        WalajnaCostsApi.refreshForApartment
+      ) {
+        const rows = await WalajnaCostsApi.refreshForApartment(apartmentId, apiAid);
+        (Array.isArray(rows) ? rows : []).forEach((c) => {
+          items.push(mapCostsApiClientRow(c));
         });
+      } else {
+        const res = await WalajnaAuth.fetchWithAuth(
+          `${WalajnaAuth.API_BASE}/api/costs?apartment_id=${encodeURIComponent(apiAid)}`
+        );
+        if (res.ok) {
+          const rows = await res.json();
+          (Array.isArray(rows) ? rows : []).forEach((r) => {
+            items.push(mapCostApiRow(r));
+          });
+        }
       }
     } catch (e) {
-      console.warn("[apartment-history] maintenance API", e);
+      console.warn("[apartment-history] costs API", e);
     }
 
     collectArchivedCostsFromTenantHistory().forEach((c) => items.push(c));
@@ -617,7 +653,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             <div class="card-body card-body--maintenance">
               <div class="info-box">
-                <span class="label">${escapeHtml(T("owner.archiveMaintenanceType"))}</span>
+                <span class="label">${escapeHtml(T("costs.th.type"))}</span>
                 <strong>${escapeHtml(typeLabel)}</strong>
               </div>
               <div class="info-box">
@@ -646,7 +682,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 cost.amount != null && cost.amount !== ""
                   ? `
               <div class="info-box">
-                <span class="label">${escapeHtml(T("owner.archiveMaintenanceAmount"))}</span>
+                <span class="label">${escapeHtml(T("costs.th.amount"))}</span>
                 <strong>${escapeHtml(String(cost.amount))}</strong>
               </div>
               `

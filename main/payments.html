@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
   <script>(function(){try{var l=localStorage.getItem("walajna_language")||"ar";if(l!=="en"&&l!=="ar"&&l!=="ur")l="ar";document.documentElement.setAttribute("lang",l==="en"?"en":(l==="ur"?"ur":"ar"));document.documentElement.setAttribute("dir",l==="en"?"ltr":"rtl");}catch(e){}})();</script>
@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="../css/payments.css" />
   <script src="../js/main/walajna-i18n-ur.js"></script>
   <script src="../js/main/walajna-i18n.js"></script>
+  <script src="../js/main/walajna-dialog.js"></script>
 </head>
 <body data-nav="user" data-wl-bc="payments">
   <div id="navbar-container"></div>
@@ -19,7 +20,12 @@
 
     <div id="paymentsReminder"></div>
 
-    <div id="paymentsTableContainer"></div>
+    <div id="paymentsTableContainer" aria-busy="true">
+      <div id="paymentsPageLoading" class="wl-page-loading" role="status" aria-live="polite">
+        <div class="wl-page-loading__spinner" aria-hidden="true"></div>
+        <p class="wl-page-loading__text" data-i18n="payments.loadingPage"></p>
+      </div>
+    </div>
   </main>
 
   <div id="recordPaymentModal" class="wl-modal" aria-hidden="true">

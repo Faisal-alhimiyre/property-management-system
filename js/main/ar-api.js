@@ -1,5 +1,6 @@
 /**
  * AR layout persistence — GET/PUT /api/apartments/:id/ar-layout
+ * Temporarily unused on apartment pages (script not loaded). Keep for later.
  */
 (function () {
   function apiBase() {

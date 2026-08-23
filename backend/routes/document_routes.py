@@ -2,6 +2,7 @@ import logging
 import os
 import re
 import asyncio
+import base64
 from datetime import datetime, timezone
 from typing import Any
 
@@ -145,12 +146,57 @@ def _upload_bytes_to_storage(
     content: bytes,
     mime_type: str,
 ) -> str:
-    supabase.storage.from_(bucket).upload(
-        object_path,
-        content,
-        {"content-type": mime_type, "upsert": "true"},
-    )
+    options = {"content-type": mime_type, "upsert": "true"}
+    try:
+        supabase.storage.from_(bucket).upload(object_path, content, options)
+    except Exception as upload_exc:
+        # Some Storage setups reject upsert-on-POST; retry as update.
+        try:
+            supabase.storage.from_(bucket).update(object_path, content, options)
+        except Exception:
+            raise upload_exc from None
     return supabase.storage.from_(bucket).get_public_url(object_path)
+
+
+def _bytes_as_data_url(content: bytes, mime_type: str) -> str:
+    mime = (mime_type or "application/octet-stream").strip() or "application/octet-stream"
+    encoded = base64.b64encode(content).decode("ascii")
+    return f"data:{mime};base64,{encoded}"
+
+
+def _store_file_bytes(
+    *,
+    bucket: str,
+    object_path: str,
+    content: bytes,
+    mime_type: str,
+) -> str:
+    """Prefer Storage. Small non-PDF files may fall back to a data URL; PDFs must use Storage or HTML fallback in the caller."""
+    try:
+        return _upload_bytes_to_storage(
+            bucket=bucket,
+            object_path=object_path,
+            content=content,
+            mime_type=mime_type,
+        )
+    except Exception as exc:
+        logger.warning(
+            "storage upload failed bucket=%s path=%s (%s)",
+            bucket,
+            object_path,
+            exc,
+        )
+        mime = (mime_type or "").lower()
+        # Huge PDF data URLs open as blank pages in Chrome/Edge; do not inline them.
+        if "pdf" in mime or len(content) > 120_000:
+            raise
+        return _bytes_as_data_url(content, mime_type)
+
+
+def _html_as_data_url(html: str) -> str:
+    from urllib.parse import quote
+
+    return "data:text/html;charset=utf-8," + quote(str(html or ""), safe="")
 
 
 def _render_pdf_bytes_sync(html: str) -> bytes:
@@ -235,16 +281,18 @@ async def upload_generated_document(
     bucket = (os.getenv("SUPABASE_DOCS_BUCKET") or "documents").strip() or "documents"
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
     safe_name = _safe_file_name(name or file.filename or "document.pdf")
-    object_path = f"user-{uid}/apartment-{int(apartment_id)}/{stamp}_{safe_name}"
+    object_path = f"apartment-{int(apartment_id)}/{stamp}_{safe_name}"
     mime_type = (file.content_type or "application/octet-stream").strip()
 
     try:
-        object_url = _upload_bytes_to_storage(
+        object_url = _store_file_bytes(
             bucket=bucket,
             object_path=object_path,
             content=content,
             mime_type=mime_type,
         )
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.exception("documents upload-generated storage failed bucket=%s path=%s", bucket, object_path)
         raise HTTPException(
@@ -308,8 +356,10 @@ async def render_upload_contract_pdf(
     bucket = (os.getenv("SUPABASE_DOCS_BUCKET") or "documents").strip() or "documents"
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
     safe_name = _safe_file_name(body.name or "contract.pdf")
-    object_path = f"user-{uid}/apartment-{int(body.apartment_id)}/{stamp}_{safe_name}"
+    object_path = f"apartment-{int(body.apartment_id)}/{stamp}_{safe_name}"
     mime_type = "application/pdf"
+    display_name = body.name or safe_name
+    object_url: str | None = None
 
     try:
         object_url = _upload_bytes_to_storage(
@@ -319,16 +369,25 @@ async def render_upload_contract_pdf(
             mime_type=mime_type,
         )
     except Exception as exc:
-        logger.exception("render-upload-contract-pdf storage failed bucket=%s path=%s", bucket, object_path)
-        raise HTTPException(
-            status_code=503,
-            detail=f"Storage upload failed (bucket={bucket}). Ensure bucket exists/public. {str(exc)}",
-        ) from exc
+        # Storage RLS often blocks anon uploads. Inline PDF data URLs open blank in browsers —
+        # store the lease HTML instead so the document remains viewable.
+        logger.warning(
+            "render-upload-contract-pdf storage failed bucket=%s path=%s; falling back to HTML (%s)",
+            bucket,
+            object_path,
+            exc,
+        )
+        object_url = _html_as_data_url(html)
+        mime_type = "text/html"
+        if str(display_name).lower().endswith(".pdf"):
+            display_name = str(display_name)[:-4] + ".html"
+        elif not str(display_name).lower().endswith(".html"):
+            display_name = f"{display_name}.html"
 
     payload: dict[str, Any] = {
         "user_id": uid,
         "apartment_id": int(body.apartment_id),
-        "name": body.name,
+        "name": display_name,
         "url": object_url,
         "type": body.doc_type or mime_type,
         "mime_type": mime_type,

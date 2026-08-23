@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
   <script>(function(){try{var l=localStorage.getItem("walajna_language")||"ar";if(l!=="en"&&l!=="ar"&&l!=="ur")l="ar";document.documentElement.setAttribute("lang",l==="en"?"en":(l==="ur"?"ur":"ar"));document.documentElement.setAttribute("dir",l==="en"?"ltr":"rtl");}catch(e){}})();</script>
@@ -11,8 +11,9 @@
   <link rel="stylesheet" href="../css/costs.css" />
   <script src="../js/main/walajna-i18n-ur.js"></script>
   <script src="../js/main/walajna-i18n.js"></script>
+  <script src="../js/main/walajna-dialog.js"></script>
 </head>
-<body data-nav="user" data-wl-bc="portfolio-costs">
+<body class="portfolio-costs--loading" data-nav="user" data-wl-bc="portfolio-costs">
   <div id="navbar-container"></div>
 
   <main class="pay-wrap pay-wrap--portfolio">
@@ -27,16 +28,38 @@
       </div>
     </header>
 
-    <div id="costsSummary" class="pay-summary finance-kpi-strip" role="region" aria-label="Expense totals"></div>
+    <div id="costsSummary" class="pay-summary finance-kpi-strip" role="region" aria-label="Expense totals" aria-busy="true">
+      <article class="sum-card finance-kpi finance-kpi--costs">
+        <span class="sum-label" data-i18n="costs.sumTotal"></span>
+        <div class="sum-value is-pending">—</div>
+      </article>
+      <article class="sum-card finance-kpi finance-kpi--income">
+        <span class="sum-label" data-i18n="costs.sumApproved"></span>
+        <div class="sum-value is-pending">—</div>
+      </article>
+      <article class="sum-card finance-kpi finance-kpi--late">
+        <span class="sum-label" data-i18n="costs.sumPending"></span>
+        <div class="sum-value is-pending">—</div>
+      </article>
+      <article class="sum-card finance-kpi finance-kpi--profit">
+        <span class="sum-label" data-i18n="costs.sumCancelled"></span>
+        <div class="sum-value is-pending">—</div>
+      </article>
+    </div>
 
     <section class="finance-table-section portfolio-costs-accordion finance-table-section--portfolio">
       <div class="finance-table-header">
         <h2 data-i18n="costs.portfolioTableTitle">المصروفات حسب العمارة</h2>
         <div class="finance-table-header__aside">
-          <span id="costsCount" class="finance-table-meta"></span>
+          <span id="costsCount" class="finance-table-meta is-pending">—</span>
         </div>
       </div>
-      <div id="costsTableContainer" class="finance-table-wrap costs-portfolio-table-wrap"></div>
+      <div id="costsTableContainer" class="finance-table-wrap costs-portfolio-table-wrap" aria-busy="true">
+        <div id="portfolioCostsLoading" class="wl-page-loading" role="status" aria-live="polite">
+          <div class="wl-page-loading__spinner" aria-hidden="true"></div>
+          <p class="wl-page-loading__text" data-i18n="costs.loadingPortfolio"></p>
+        </div>
+      </div>
     </section>
   </main>
 

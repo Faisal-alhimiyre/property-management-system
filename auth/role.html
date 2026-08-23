@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
   <script>(function(){try{var l=localStorage.getItem("walajna_language")||"ar";if(l!=="en"&&l!=="ar"&&l!=="ur")l="ar";document.documentElement.setAttribute("lang",l==="en"?"en":(l==="ur"?"ur":"ar"));document.documentElement.setAttribute("dir",l==="en"?"ltr":"rtl");}catch(e){}})();</script>
@@ -9,22 +9,28 @@
   <link rel="stylesheet" href="../css/register.css" />
   <script src="../js/main/walajna-i18n-ur.js"></script>
   <script src="../js/main/walajna-i18n.js"></script>
+  <script src="../js/main/walajna-dialog.js"></script>
 </head>
 <body class="auth-page" data-global-back="false">
   <script src="../js/main/theme.js"></script>
   <div class="register-bg" aria-hidden="true"></div>
 
   <main class="choose-wrap auth-shell">
-    <div class="auth-stack">
-      <a href="../auth/login.html" class="auth-logo-top" data-i18n-aria-label="common.logo" aria-label="">
-        <img src="../pics/logo.png" data-i18n-alt="meta.app" alt="" class="auth-hero-logo" />
-      </a>
+    <div class="auth-stack auth-stack--wide">
       <div class="auth-card auth-card--role">
-        <p class="role-card__lead" data-i18n="role.choosePrompt"></p>
-        <p class="role-card__sub" data-i18n="role.pageSub"></p>
+        <a href="../auth/login.html" class="auth-card__brand" data-i18n-aria-label="common.logo" aria-label="">
+          <img src="../pics/logo.png" data-i18n-alt="meta.app" alt="" class="auth-card__logo" />
+        </a>
+        <header class="auth-card__head">
+          <h1 class="auth-card__title" data-i18n="role.choosePrompt"></h1>
+        </header>
         <div class="choose-actions">
-          <button type="button" class="choose-btn owner" data-role="owner" data-i18n="role.chooseOwner"></button>
-          <button type="button" class="choose-btn tenant" data-role="tenant" data-i18n="role.chooseTenant"></button>
+          <button type="button" class="choose-option" data-role="owner">
+            <span class="choose-option__title" data-i18n="role.chooseOwner"></span>
+          </button>
+          <button type="button" class="choose-option" data-role="tenant">
+            <span class="choose-option__title" data-i18n="role.chooseTenant"></span>
+          </button>
         </div>
       </div>
     </div>

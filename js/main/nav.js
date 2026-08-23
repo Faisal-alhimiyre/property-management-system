@@ -84,10 +84,10 @@ function syncAdaptiveNavType() {
 function bindLogoutLink(link4) {
   if (!link4 || link4.dataset.walajnaLogoutBound === "1") return;
   link4.dataset.walajnaLogoutBound = "1";
-  link4.addEventListener("click", (e) => {
+  link4.addEventListener("click", async (e) => {
     e.preventDefault();
 
-    const confirmed = window.confirm(wlT("nav.confirmLogout"));
+    const confirmed = await WalajnaDialog.confirm(wlT("nav.confirmLogout"));
     if (!confirmed) return;
 
     if (typeof WalajnaAuth !== "undefined") {

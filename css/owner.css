@@ -993,6 +993,7 @@ body.dark-mode .building-card.is-pinned:hover {
   flex-wrap: nowrap;
   text-align: center;
   flex-shrink: 0;
+  cursor: pointer;
 }
 
 .building-card:not(:has(.apartments-grid)) .building-card__layout-banner {
@@ -1347,6 +1348,60 @@ body.dark-mode .legend-list--occupancy {
   color: #fff;
   font-size: 16px;
   font-weight: 800;
+}
+
+/* Loading state — avoid "0 buildings" flash while Supabase/API resolves */
+body.owner-home--loading .buildings-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: min(52vh, 420px);
+  width: 100%;
+}
+
+.owner-home-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  width: 100%;
+  min-height: min(52vh, 420px);
+  padding: 32px 16px;
+  text-align: center;
+}
+
+.owner-home-loading__spinner {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 3px solid rgba(15, 118, 110, 0.2);
+  border-top-color: #0f766e;
+  animation: owner-home-spin 0.75s linear infinite;
+}
+
+.owner-home-loading__text {
+  margin: 0;
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+@keyframes owner-home-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+body.owner-home--loading .buildings-filters {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+body.owner-home--loading .legend-count.is-pending,
+.legend-count.is-pending {
+  color: #94a3b8;
+  font-variant-numeric: tabular-nums;
 }
 
 /* responsive */

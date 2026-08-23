@@ -70,6 +70,56 @@
     let selectedPaymentId = null;
     let selectedFilterMonth = "";
     let selectedFilterYear = "";
+    let didApplyDefaultYearFilter = false;
+    let insuranceRemainingBalance = null;
+
+    function getCurrentContractIdForInsurance() {
+      if (mode === "history") {
+        const historyEntry = getHistoryEntry();
+        return (
+          historyContractId ||
+          historyEntry?.currentContractId ||
+          historyEntry?.contract?.id ||
+          null
+        );
+      }
+      return (
+        serverContractNumericId ||
+        apartment.currentContractId ||
+        apartment.contract?.id ||
+        apartment.contractId ||
+        null
+      );
+    }
+
+    async function loadInsuranceRemainingBalance() {
+      insuranceRemainingBalance = null;
+      const contractId = getCurrentContractIdForInsurance();
+      if (
+        !contractId ||
+        typeof WalajnaAuth === "undefined" ||
+        !WalajnaAuth.fetchWithAuth
+      ) {
+        return;
+      }
+      try {
+        const res = await WalajnaAuth.fetchWithAuth(
+          `${WalajnaAuth.API_BASE}/api/deposits/balance?contract_id=${encodeURIComponent(
+            String(contractId)
+          )}`,
+          { method: "GET" }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          const remaining = Number(data.remaining);
+          insuranceRemainingBalance = Number.isFinite(remaining)
+            ? remaining
+            : null;
+        }
+      } catch (e) {
+        console.warn("apartment-payments: deposit balance fetch failed", e);
+      }
+    }
 
     function getFilterableDateString(payment) {
       if (!payment) return "";
@@ -82,6 +132,19 @@
       const m = raw.match(/^(\d{4})-(\d{2})-\d{2}$/);
       if (!m) return { month: "", year: "" };
       return { year: m[1], month: m[2] };
+    }
+
+    function pickDefaultFilterYear(payments) {
+      const years = new Set();
+      (payments || []).forEach((payment) => {
+        const { year } = parseMonthYear(getFilterableDateString(payment));
+        if (year) years.add(year);
+      });
+      if (!years.size) return "";
+      // Long leases: default to the current calendar year so the table is not flooded.
+      const currentYear = String(new Date().getFullYear());
+      if (years.has(currentYear)) return currentYear;
+      return Array.from(years).sort((a, b) => Number(b) - Number(a))[0] || "";
     }
 
     function buildPeriodFilterOptions(payments) {
@@ -394,7 +457,8 @@
           options: filterOptions,
           selectedMonth: selectedFilterMonth,
           selectedYear: selectedFilterYear,
-        }
+        },
+        insuranceRemainingBalance
       );
     }
 
@@ -420,6 +484,19 @@
         "";
 
       const payments = getSortedApartmentPayments();
+
+      if (
+        !didApplyDefaultYearFilter &&
+        !selectedFilterYear &&
+        !selectedFilterMonth &&
+        Array.isArray(payments) &&
+        payments.length > 18
+      ) {
+        selectedFilterYear = pickDefaultFilterYear(payments);
+        didApplyDefaultYearFilter = true;
+      } else if (!didApplyDefaultYearFilter) {
+        didApplyDefaultYearFilter = true;
+      }
 
       renderReminder(payments);
       if (config?.installmentsApiError && elements.reminderContainer) {
@@ -654,7 +731,9 @@
       });
     }
 
-    renderPaymentsPage();
+    loadInsuranceRemainingBalance().then(function () {
+      renderPaymentsPage();
+    });
     bindPaymentForm();
 
     document.addEventListener("walajna:i18n-applied", renderPaymentsPage);

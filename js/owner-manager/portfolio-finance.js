@@ -7,11 +7,42 @@ document.addEventListener("DOMContentLoaded", async () => {
       ? window.walajna_language.t(k, p)
       : k;
 
+  function setPortfolioFinanceLoading(isLoading) {
+    document.body.classList.toggle("finance-page--loading", !!isLoading);
+    const loadingEl = document.getElementById("portfolioFinanceLoading");
+    const table = document.querySelector("#portfolioFinanceTableWrap table");
+    const wrap = document.getElementById("portfolioFinanceTableWrap");
+    const cards = document.querySelector(".finance-cards");
+    if (loadingEl) {
+      loadingEl.hidden = !isLoading;
+      if (!isLoading) loadingEl.remove();
+    }
+    if (table) table.hidden = !!isLoading;
+    if (wrap) wrap.setAttribute("aria-busy", isLoading ? "true" : "false");
+    if (cards) cards.setAttribute("aria-busy", isLoading ? "true" : "false");
+    if (isLoading) {
+      document
+        .querySelectorAll(
+          "#incomeValue, #costValue, #lateValue, #profitValue, #depositHeldValue, #tableMeta, #footerTotalUnits, #footerTotalRented, #totalIncome, #totalCosts, #totalLate, #totalProfit, #detailDepositOriginal, #detailDepositUsed, #detailDepositRefunded, #detailDepositUnsettled, #detailDepositRemaining"
+        )
+        .forEach((el) => {
+          el.classList.add("is-pending");
+          el.textContent = "—";
+        });
+    }
+  }
+
   if (typeof WalajnaAuth !== "undefined" && WalajnaAuth.hydrateSession) {
     await WalajnaAuth.hydrateSession();
   }
-  if (typeof requireAuth === "function" && !requireAuth()) return;
-  if (typeof requireRole === "function" && !requireRole("owner")) return;
+  if (typeof requireAuth === "function" && !requireAuth()) {
+    setPortfolioFinanceLoading(false);
+    return;
+  }
+  if (typeof requireRole === "function" && !requireRole("owner")) {
+    setPortfolioFinanceLoading(false);
+    return;
+  }
 
   const normalizeId = (value) => String(value || "").trim();
 
@@ -27,10 +58,95 @@ document.addEventListener("DOMContentLoaded", async () => {
   let serverCostsAll = [];
   let incomeFromApi = false;
   let costsFromApi = false;
+  let depositSummary = {
+    held: 0,
+    original: 0,
+    used: 0,
+    replenished: 0,
+    refunded: 0,
+    unsettled: 0,
+    by_contract: {},
+    unsettled_items: [],
+  };
 
   let allBuildingApartments = [];
   let allBuildingApartmentsFull = [];
   let ownerBuildingsCatalog = [];
+  /** false when buildings/apartments request failed (vs genuinely empty portfolio). */
+  let portfolioDataLoadOk = true;
+
+  function delay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  async function fetchJsonList(url) {
+    if (typeof WalajnaAuth === "undefined") return { ok: false, data: [] };
+    if (WalajnaAuth.fetchJsonWithAuthRetry) {
+      const result = await WalajnaAuth.fetchJsonWithAuthRetry(
+        url,
+        { method: "GET" },
+        { retries: 4, delayMs: 400 }
+      );
+      if (!result.ok || !Array.isArray(result.data)) {
+        return { ok: false, data: [] };
+      }
+      return { ok: true, data: result.data };
+    }
+    try {
+      const res = await WalajnaAuth.fetchWithAuth(url, { method: "GET" });
+      if (!res.ok) return { ok: false, data: [] };
+      const data = await res.json();
+      return { ok: true, data: Array.isArray(data) ? data : [] };
+    } catch {
+      return { ok: false, data: [] };
+    }
+  }
+
+  function mergeOwnerApartmentsForPortfolio(ownerBuildings, apartmentRows) {
+    const rows = Array.isArray(apartmentRows) ? apartmentRows : [];
+    const buildings = Array.isArray(ownerBuildings) ? ownerBuildings : [];
+    const nameById = new Map(buildings.map((b) => [String(b.id), b.name || "—"]));
+    const buildingIdSet = new Set(buildings.map((b) => String(b.id)));
+    const merged = [];
+
+    const pushForBuilding = (bid, filteredRows, displayName) => {
+      const mapped = filteredRows
+        .map(mapApiApartmentToFinance)
+        .filter(Boolean)
+        .map((apt) => ({
+          ...apt,
+          buildingId: String(bid),
+          buildingName: displayName || nameById.get(String(bid)) || "—",
+        }));
+      merged.push(...dedupeFinanceApartments(mapped, bid));
+    };
+
+    if (buildingIdSet.size) {
+      for (const bid of buildingIdSet) {
+        const code = buildings.find((x) => String(x.id) === bid)?.code;
+        const codeStr = code != null ? String(code).trim() : "";
+        const filtered = rows.filter((a) => {
+          const ab = String(a.building_id ?? "");
+          return ab === bid || (!!codeStr && ab === codeStr);
+        });
+        pushForBuilding(bid, filtered, nameById.get(bid));
+      }
+    } else if (rows.length) {
+      // Buildings list lagged/failed — still use apartment rows (owner-scoped API).
+      const byBid = new Map();
+      for (const a of rows) {
+        const ab = String(a.building_id ?? "").trim();
+        if (!ab) continue;
+        if (!byBid.has(ab)) byBid.set(ab, []);
+        byBid.get(ab).push(a);
+      }
+      for (const [bid, list] of byBid) {
+        pushForBuilding(bid, list, nameById.get(bid) || "—");
+      }
+    }
+
+    return merged;
+  }
 
   function mapApiApartmentToFinance(api) {
     if (!api) return null;
@@ -116,11 +232,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (typeof WalajnaAuth === "undefined" || !WalajnaAuth.fetchWithAuth) {
       return;
     }
-    try {
-      const res = await WalajnaAuth.fetchWithAuth(
-        `${WalajnaAuth.API_BASE}/api/owner/installments`,
-        { method: "GET" }
+    const url = `${WalajnaAuth.API_BASE}/api/owner/installments`;
+    if (WalajnaAuth.fetchJsonWithAuthRetry) {
+      const result = await WalajnaAuth.fetchJsonWithAuthRetry(
+        url,
+        { method: "GET" },
+        { retries: 4, delayMs: 350 }
       );
+      if (!result.ok || !Array.isArray(result.data)) {
+        console.warn("portfolio-finance: owner installments fetch failed", result.status);
+        return;
+      }
+      serverInstallmentsAllFull = result.data;
+      applyInstallmentsScopeFilter();
+      return;
+    }
+    try {
+      const res = await WalajnaAuth.fetchWithAuth(url, { method: "GET" });
       if (!res.ok) {
         console.warn("portfolio-finance: owner installments fetch failed", res.status);
         return;
@@ -151,11 +279,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (typeof WalajnaAuth === "undefined" || !WalajnaAuth.fetchWithAuth) {
       return;
     }
-    try {
-      const res = await WalajnaAuth.fetchWithAuth(
-        `${WalajnaAuth.API_BASE}/api/owner/costs`,
-        { method: "GET" }
+    const url = `${WalajnaAuth.API_BASE}/api/owner/costs`;
+    if (WalajnaAuth.fetchJsonWithAuthRetry) {
+      const result = await WalajnaAuth.fetchJsonWithAuthRetry(
+        url,
+        { method: "GET" },
+        { retries: 4, delayMs: 350 }
       );
+      if (!result.ok || !Array.isArray(result.data)) {
+        console.warn("portfolio-finance: owner costs fetch failed", result.status);
+        return;
+      }
+      serverCostsAllFull = result.data;
+      costsFromApi = true;
+      applyCostsScopeFilter();
+      return;
+    }
+    try {
+      const res = await WalajnaAuth.fetchWithAuth(url, { method: "GET" });
       if (!res.ok) {
         console.warn("portfolio-finance: owner costs fetch failed", res.status);
         return;
@@ -167,6 +308,56 @@ document.addEventListener("DOMContentLoaded", async () => {
     } catch (e) {
       console.warn("portfolio-finance: owner costs fetch failed", e);
     }
+  }
+
+  async function loadDepositsSummaryPortfolio(asOf) {
+    depositSummary = {
+      held: 0,
+      original: 0,
+      used: 0,
+      replenished: 0,
+      refunded: 0,
+      unsettled: 0,
+      by_contract: {},
+      unsettled_items: [],
+    };
+    if (typeof WalajnaAuth === "undefined" || !WalajnaAuth.fetchWithAuth) {
+      return;
+    }
+    const qs = asOf ? `?as_of=${encodeURIComponent(asOf)}` : "";
+    try {
+      const res = await WalajnaAuth.fetchWithAuth(
+        `${WalajnaAuth.API_BASE}/api/owner/deposits-summary${qs}`,
+        { method: "GET" }
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      depositSummary = {
+        held: Number(data.held || 0),
+        original: Number(data.original || 0),
+        used: Number(data.used || 0),
+        replenished: Number(data.replenished || 0),
+        refunded: Number(data.refunded || 0),
+        unsettled: Number(data.unsettled || 0),
+        by_contract:
+          data.by_contract && typeof data.by_contract === "object"
+            ? data.by_contract
+            : {},
+        unsettled_items: Array.isArray(data.unsettled_items)
+          ? data.unsettled_items
+          : [],
+      };
+    } catch (e) {
+      console.warn("portfolio-finance: deposits summary failed", e);
+    }
+  }
+
+  function reportDateIsoFromEnd(end) {
+    if (!(end instanceof Date) || Number.isNaN(end.getTime())) return null;
+    const y = end.getFullYear();
+    const m = String(end.getMonth() + 1).padStart(2, "0");
+    const d = String(end.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
   }
 
   const sessionUser =
@@ -195,81 +386,96 @@ document.addEventListener("DOMContentLoaded", async () => {
     WalajnaAuth.getCurrentUser()
   ) {
     try {
-      const [bRes, aRes] = await Promise.all([
-        WalajnaAuth.fetchWithAuth(`${WalajnaAuth.API_BASE}/api/buildings`, {
-          method: "GET",
-        }),
-        WalajnaAuth.fetchWithAuth(`${WalajnaAuth.API_BASE}/api/apartments`, {
-          method: "GET",
-        }),
+      const buildingsUrl = `${WalajnaAuth.API_BASE}/api/buildings`;
+      const apartmentsUrl = `${WalajnaAuth.API_BASE}/api/apartments`;
+
+      let [buildingsResult, apartmentsResult] = await Promise.all([
+        fetchJsonList(buildingsUrl),
+        fetchJsonList(apartmentsUrl),
       ]);
 
-      let ownerBuildings = [];
-      if (bRes.ok) {
-        ownerBuildings = await bRes.json();
-        if (
-          Array.isArray(ownerBuildings) &&
-          ownerBuildings.length &&
-          typeof WalajnaBuildingsApi !== "undefined" &&
-          WalajnaBuildingsApi.persistSessionList
-        ) {
-          WalajnaBuildingsApi.persistSessionList(
-            ownerBuildings.map((b) =>
-              typeof WalajnaBuildingsApi.mapApiRowToClient === "function"
-                ? WalajnaBuildingsApi.mapApiRowToClient(b)
-                : b
-            )
-          );
-        }
+      // Soft retry — transient empty/fail after navigation is common (~1/3 locally).
+      const needsRetry =
+        !buildingsResult.ok ||
+        !apartmentsResult.ok ||
+        (buildingsResult.ok && !buildingsResult.data.length) ||
+        (apartmentsResult.ok &&
+          buildingsResult.data.length > 0 &&
+          !apartmentsResult.data.length);
+      if (needsRetry) {
+        await delay(buildingsResult.ok && apartmentsResult.ok ? 450 : 700);
+        [buildingsResult, apartmentsResult] = await Promise.all([
+          fetchJsonList(buildingsUrl),
+          fetchJsonList(apartmentsUrl),
+        ]);
       }
 
-      const nameById = new Map(
-        (ownerBuildings || []).map((b) => [String(b.id), b.name || "—"])
-      );
+      portfolioDataLoadOk = buildingsResult.ok || apartmentsResult.ok;
 
-      const buildingIdSet = new Set((ownerBuildings || []).map((b) => String(b.id)));
+      let ownerBuildings = buildingsResult.ok ? buildingsResult.data : [];
+      if (
+        Array.isArray(ownerBuildings) &&
+        ownerBuildings.length &&
+        typeof WalajnaBuildingsApi !== "undefined" &&
+        WalajnaBuildingsApi.persistSessionList
+      ) {
+        WalajnaBuildingsApi.persistSessionList(
+          ownerBuildings.map((b) =>
+            typeof WalajnaBuildingsApi.mapApiRowToClient === "function"
+              ? WalajnaBuildingsApi.mapApiRowToClient(b)
+              : b
+          )
+        );
+      }
 
-      if (aRes.ok) {
-        const all = await aRes.json();
-        const rows = Array.isArray(all) ? all : [];
-        const merged = [];
+      const apartmentRows = apartmentsResult.ok ? apartmentsResult.data : [];
+      const merged = mergeOwnerApartmentsForPortfolio(ownerBuildings, apartmentRows);
 
-        for (const bid of buildingIdSet) {
-          const code = (ownerBuildings || []).find((x) => String(x.id) === bid)?.code;
-          const codeStr = code != null ? String(code) : null;
-
-          const filtered = rows.filter((a) => {
-            const ab = String(a.building_id ?? "");
-            return ab === bid || (codeStr && ab === codeStr);
+      ownerBuildingsCatalog = (ownerBuildings || []).map((b) => ({
+        id: String(b.id),
+        name: b.name || "—",
+      }));
+      // If buildings failed but apartments arrived, build a minimal catalog from apt rows.
+      if (!ownerBuildingsCatalog.length && merged.length) {
+        const seen = new Map();
+        for (const apt of merged) {
+          const id = String(apt.buildingId || "").trim();
+          if (!id || seen.has(id)) continue;
+          seen.set(id, {
+            id,
+            name: apt.buildingName || "—",
           });
-
-          const mapped = filtered
-            .map(mapApiApartmentToFinance)
-            .filter(Boolean)
-            .map((apt) => ({
-              ...apt,
-              buildingName: nameById.get(bid) || "—",
-            }));
-
-          merged.push(...dedupeFinanceApartments(mapped, bid));
         }
+        ownerBuildingsCatalog = Array.from(seen.values());
+      }
 
-        ownerBuildingsCatalog = (ownerBuildings || []).map((b) => ({
-          id: String(b.id),
-          name: b.name || "—",
-        }));
+      allBuildingApartmentsFull = merged;
+      if (merged.length) {
+        incomeFromApi = apartmentsResult.ok;
+        await Promise.all([
+          loadInstallmentsBulk(),
+          loadCostsBulk(),
+        ]);
+      }
+      allBuildingApartments =
+        typeof WalajnaOwnerBuildingPick !== "undefined"
+          ? WalajnaOwnerBuildingPick.filterApartments(allBuildingApartmentsFull)
+          : allBuildingApartmentsFull;
 
-        if (merged.length) {
-          allBuildingApartmentsFull = merged;
-          incomeFromApi = true;
-          await Promise.all([loadInstallmentsBulk(), loadCostsBulk()]);
-          allBuildingApartments =
-            typeof WalajnaOwnerBuildingPick !== "undefined"
-              ? WalajnaOwnerBuildingPick.filterApartments(allBuildingApartmentsFull)
-              : allBuildingApartmentsFull;
-        }
+      // If pick-filter wiped everything but full list has data, show full list (stale pick).
+      if (
+        !allBuildingApartments.length &&
+        allBuildingApartmentsFull.length &&
+        typeof WalajnaOwnerBuildingPick !== "undefined"
+      ) {
+        allBuildingApartments = allBuildingApartmentsFull;
+      }
+
+      if (!buildingsResult.ok && !apartmentsResult.ok) {
+        portfolioDataLoadOk = false;
       }
     } catch (e) {
+      portfolioDataLoadOk = false;
       console.warn("portfolio-finance: API load failed, using local data", e);
     }
   }
@@ -282,6 +488,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   const costValueEl = document.getElementById("costValue");
   const profitValueEl = document.getElementById("profitValue");
   const lateValueEl = document.getElementById("lateValue");
+  const depositHeldValueEl = document.getElementById("depositHeldValue");
+  const detailDepositOriginalEl = document.getElementById("detailDepositOriginal");
+  const detailDepositUsedEl = document.getElementById("detailDepositUsed");
+  const detailDepositRefundedEl = document.getElementById("detailDepositRefunded");
+  const detailDepositUnsettledEl = document.getElementById("detailDepositUnsettled");
+  const detailDepositRemainingEl = document.getElementById("detailDepositRemaining");
+  const viewUnsettledInsuranceBtn = document.getElementById("viewUnsettledInsuranceBtn");
+  const unsettledInsuranceListEl = document.getElementById("unsettledInsuranceList");
+  const insuranceCardBtn = document.getElementById("insuranceCardBtn");
+  const insuranceDetailsPopover = document.getElementById("insuranceDetailsPopover");
 
   const tableBody = document.getElementById("tableBody");
   const tableMeta = document.getElementById("tableMeta");
@@ -297,6 +513,46 @@ document.addEventListener("DOMContentLoaded", async () => {
   const portfolioApartmentsModalTitle = document.getElementById("portfolioApartmentsModalTitle");
   const portfolioApartmentsModalSub = document.getElementById("portfolioApartmentsModalSub");
   const portfolioApartmentsModalBody = document.getElementById("portfolioApartmentsModalBody");
+
+  if (insuranceCardBtn && insuranceDetailsPopover) {
+    insuranceCardBtn.addEventListener("click", () => {
+      const open = insuranceDetailsPopover.hidden;
+      insuranceDetailsPopover.hidden = !open;
+      insuranceCardBtn.setAttribute("aria-expanded", open ? "true" : "false");
+      insuranceCardBtn.classList.toggle("is-open", open);
+      if (!open && unsettledInsuranceListEl) {
+        unsettledInsuranceListEl.hidden = true;
+      }
+    });
+  }
+
+  if (viewUnsettledInsuranceBtn && unsettledInsuranceListEl) {
+    viewUnsettledInsuranceBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const items = depositSummary.unsettled_items || [];
+      if (!items.length) return;
+      const showing = !unsettledInsuranceListEl.hidden;
+      if (showing) {
+        unsettledInsuranceListEl.hidden = true;
+        return;
+      }
+      unsettledInsuranceListEl.hidden = false;
+      unsettledInsuranceListEl.innerHTML = items
+        .map((item) => {
+          const aptId = item.apartment_id;
+          const num = item.apartment_number || aptId || "";
+          const rem = formatMoney(item.remaining);
+          const label = T("finance.unsettledApt", { n: num });
+          if (!aptId) {
+            return `<div class="finance-unsettled-list__item">${escapeHtml(label)} — ${escapeHtml(rem)}</div>`;
+          }
+          const href = `apartment_history.html?apartmentId=${encodeURIComponent(aptId)}`;
+          return `<a class="finance-unsettled-list__item" href="${href}">${escapeHtml(label)} — ${escapeHtml(rem)}</a>`;
+        })
+        .join("");
+    });
+  }
 
   let renderedGroups = [];
   let currentRenderedRange = null;
@@ -454,43 +710,65 @@ document.addEventListener("DOMContentLoaded", async () => {
     return apartment?.contract?.notes || T("common.dash");
   }
 
-  function getApartmentCostsForRange(apartment, start, end) {
-    if (!apartment) return 0;
+  function isCancelledCostStatus(status) {
+    return String(status || "").toLowerCase() === "cancelled";
+  }
+
+  function getApartmentCostBreakdownForRange(apartment, start, end) {
+    const empty = { total: 0, depositCovered: 0, ownerBorne: 0 };
+    if (!apartment) return empty;
 
     const apiAptId = getApartmentApiId(apartment);
+    let total = 0;
+    let depositCovered = 0;
 
     if (costsFromApi) {
-      return serverCostsAll
+      serverCostsAll
         .filter((row) => String(row.apartment_id ?? "") === apiAptId)
+        .filter((row) => !isCancelledCostStatus(row.status))
         .filter((row) => {
           const costDate = parseIsoDate(row.expense_date || row.created_at);
           if (!costDate) return false;
           return costDate >= start && costDate <= end;
         })
-        .reduce((sum, row) => sum + Number(row.amount || 0), 0);
-    }
-
-    const currentContractId = getApartmentCurrentContractId(apartment);
-
-    return costsLocal
-      .filter((cost) => {
-        const costApt = normalizeId(cost.apartmentId);
-        if (costApt !== normalizeId(apartment.id) && costApt !== apiAptId) {
-          return false;
-        }
-
-        if (cost.contractId && currentContractId) {
-          if (normalizeId(cost.contractId) !== normalizeId(currentContractId)) {
+        .forEach((row) => {
+          total += Number(row.amount || 0);
+          depositCovered += Number(row.deposit_covered_amount || 0);
+        });
+    } else {
+      const currentContractId = getApartmentCurrentContractId(apartment);
+      costsLocal
+        .filter((cost) => {
+          if (isCancelledCostStatus(cost.status)) return false;
+          const costApt = normalizeId(cost.apartmentId);
+          if (costApt !== normalizeId(apartment.id) && costApt !== apiAptId) {
             return false;
           }
-        }
+          if (cost.contractId && currentContractId) {
+            if (normalizeId(cost.contractId) !== normalizeId(currentContractId)) {
+              return false;
+            }
+          }
+          const costDate = parseIsoDate(cost.date || cost.createdAt || cost.expenseDate);
+          if (!costDate) return false;
+          return costDate >= start && costDate <= end;
+        })
+        .forEach((cost) => {
+          total += Number(cost.amount || 0);
+          depositCovered += Number(cost.depositCoveredAmount || 0);
+        });
+    }
 
-        const costDate = parseIsoDate(cost.date || cost.createdAt);
-        if (!costDate) return false;
+    depositCovered = Math.min(depositCovered, total);
+    return {
+      total,
+      depositCovered,
+      ownerBorne: Math.max(0, total - depositCovered),
+    };
+  }
 
-        return costDate >= start && costDate <= end;
-      })
-      .reduce((sum, cost) => sum + Number(cost.amount || 0), 0);
+  function getApartmentCostsForRange(apartment, start, end) {
+    return getApartmentCostBreakdownForRange(apartment, start, end).ownerBorne;
   }
 
   function getPaymentCoverageStart(payment) {
@@ -761,8 +1039,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     const aptLabel = T("building.aptLabel", { n: num });
     const tenant =
       apartment?.tenantInfo?.fullName || T("finance.noTenant");
-    const noteRaw = buildNoteText(apartment);
-    const note = escapeHtml(noteRaw);
     const profitCls =
       profit > 0 ? "finance-value-profit" : profit < 0 ? "finance-value-cost" : "";
     const costCls = apartmentCosts > 0 ? "finance-value-cost" : "";
@@ -796,11 +1072,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             <strong class="portfolio-apt-card__value ${profitCls}">${escapeHtml(formatMoney(profit))}</strong>
           </div>
         </div>
-
-        <p class="portfolio-apt-card__note" title="${note}">
-          <span>${escapeHtml(T("finance.th.notes"))}:</span>
-          ${note}
-        </p>
       </article>
     `;
   }
@@ -881,7 +1152,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     currentRenderedRange = { start, end, label };
 
     let totalIncome = 0;
-    let totalCosts = 0;
+    let totalOwnerBorne = 0;
     let totalLate = 0;
 
     tableBody.innerHTML = "";
@@ -892,13 +1163,30 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (!allBuildingApartments.length) {
       renderedGroups = [];
+      const emptyMsg = portfolioDataLoadOk
+        ? T("finance.noAptsPortfolio")
+        : T("finance.loadPortfolioFailed");
       tableBody.innerHTML = `
         <tr>
-          <td colspan="8">
-            <div class="finance-empty">${escapeHtml(T("finance.noAptsPortfolio"))}</div>
+          <td colspan="7">
+            <div class="finance-empty">${escapeHtml(emptyMsg)}</div>
+            ${
+              portfolioDataLoadOk
+                ? ""
+                : `<div style="margin-top:10px;text-align:center;">
+                    <button id="portfolioFinanceRetryBtn" class="finance-summary-btn finance-summary-btn--primary" type="button">${escapeHtml(
+                      T("common.retry")
+                    )}</button>
+                  </div>`
+            }
           </td>
         </tr>
       `;
+      if (!portfolioDataLoadOk) {
+        document.getElementById("portfolioFinanceRetryBtn")?.addEventListener("click", () => {
+          window.location.reload();
+        });
+      }
     } else {
       const groups = groupApartmentsByBuilding(allBuildingApartments);
       renderedGroups = groups;
@@ -906,27 +1194,27 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       groups.forEach((group, idx) => {
         let bIncome = 0;
-        let bCosts = 0;
+        let bOwnerBorne = 0;
         let bLate = 0;
         group.units.forEach((apartment) => {
           const income = getApartmentRealizedIncomeForRange(apartment, start, end);
-          const apartmentCosts = getApartmentCostsForRange(apartment, start, end);
+          const breakdown = getApartmentCostBreakdownForRange(apartment, start, end);
           const lateAmount = getApartmentOverdueThrough(apartment, end);
           bIncome += income;
-          bCosts += apartmentCosts;
+          bOwnerBorne += breakdown.ownerBorne;
           bLate += lateAmount;
         });
-        const bProfit = bIncome - bCosts;
+        const bProfit = bIncome - bOwnerBorne;
         const includeInTotals = isPortfolioGroupInTotals(group);
         if (includeInTotals) {
           totalIncome += bIncome;
-          totalCosts += bCosts;
+          totalOwnerBorne += bOwnerBorne;
           totalLate += bLate;
         }
 
         const profitCls =
           bProfit > 0 ? "finance-value-profit" : bProfit < 0 ? "finance-value-cost" : "";
-        const costCls = bCosts > 0 ? "finance-value-cost" : "";
+        const costCls = bOwnerBorne > 0 ? "finance-value-cost" : "";
         const rentedCount = group.units.filter((a) => isApartmentOccupied(a)).length;
         const rowMutedCls =
           isPortfolioTableFilterActive() && !includeInTotals
@@ -948,9 +1236,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             )}</td>
             <td class="portfolio-building-rented">${escapeHtml(String(rentedCount))}</td>
             <td>${escapeHtml(formatMoney(bIncome))}</td>
-            <td class="${costCls}">${escapeHtml(formatMoney(bCosts))}</td>
+            <td class="${costCls}">${escapeHtml(formatMoney(bOwnerBorne))}</td>
             <td>${escapeHtml(formatMoney(bLate))}</td>
-            <td>${escapeHtml(T("common.dash"))}</td>
             <td class="${profitCls}">${escapeHtml(formatMoney(bProfit))}</td>
           </tr>
         `);
@@ -959,7 +1246,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       tableBody.innerHTML = parts.join("");
     }
 
-    const totalProfit = totalIncome - totalCosts;
+    const totalProfit = totalIncome - totalOwnerBorne;
 
     let buildingCount = 0;
     let apartmentCount = 0;
@@ -982,6 +1269,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         isPortfolioTableFilterActive() && allGroupCount > 0 && buildingCount < allGroupCount
           ? `${buildingCount}/${allGroupCount}`
           : buildingCount;
+      tableMeta.classList.remove("is-pending");
       tableMeta.textContent = T("finance.portfolioTableMeta", {
         buildings: buildingsLabel,
         apartments: apartmentCount,
@@ -989,18 +1277,77 @@ document.addEventListener("DOMContentLoaded", async () => {
       });
     }
 
-    if (footerTotalUnitsEl) footerTotalUnitsEl.textContent = String(apartmentCount);
-    if (footerTotalRentedEl) footerTotalRentedEl.textContent = String(rentedCountTotal);
+    if (footerTotalUnitsEl) {
+      footerTotalUnitsEl.classList.remove("is-pending");
+      footerTotalUnitsEl.textContent = String(apartmentCount);
+    }
+    if (footerTotalRentedEl) {
+      footerTotalRentedEl.classList.remove("is-pending");
+      footerTotalRentedEl.textContent = String(rentedCountTotal);
+    }
 
-    if (incomeValueEl) incomeValueEl.textContent = formatMoney(totalIncome);
-    if (costValueEl) costValueEl.textContent = formatMoney(totalCosts);
-    if (profitValueEl) profitValueEl.textContent = formatMoney(totalProfit);
-    if (lateValueEl) lateValueEl.textContent = formatMoney(totalLate);
+    if (incomeValueEl) {
+      incomeValueEl.classList.remove("is-pending");
+      incomeValueEl.textContent = formatMoney(totalIncome);
+    }
+    if (costValueEl) {
+      costValueEl.classList.remove("is-pending");
+      costValueEl.textContent = formatMoney(totalOwnerBorne);
+    }
+    if (profitValueEl) {
+      profitValueEl.classList.remove("is-pending");
+      profitValueEl.textContent = formatMoney(totalProfit);
+    }
+    if (lateValueEl) {
+      lateValueEl.classList.remove("is-pending");
+      lateValueEl.textContent = formatMoney(totalLate);
+    }
+    if (depositHeldValueEl) {
+      depositHeldValueEl.classList.remove("is-pending");
+      depositHeldValueEl.textContent = formatMoney(depositSummary.held);
+    }
 
-    if (totalIncomeEl) totalIncomeEl.textContent = formatMoney(totalIncome);
-    if (totalCostsEl) totalCostsEl.textContent = formatMoney(totalCosts);
-    if (totalLateEl) totalLateEl.textContent = formatMoney(totalLate);
-    if (totalProfitEl) totalProfitEl.textContent = formatMoney(totalProfit);
+    const setDetail = (el, value) => {
+      if (!el) return;
+      el.classList.remove("is-pending");
+      el.textContent = formatMoney(value);
+    };
+    setDetail(detailDepositOriginalEl, depositSummary.original);
+    setDetail(detailDepositUsedEl, depositSummary.used);
+    setDetail(detailDepositRefundedEl, depositSummary.refunded);
+    setDetail(detailDepositUnsettledEl, depositSummary.unsettled);
+    setDetail(detailDepositRemainingEl, depositSummary.held);
+    if (viewUnsettledInsuranceBtn) {
+      const hasUnsettled = Number(depositSummary.unsettled || 0) > 0.009;
+      viewUnsettledInsuranceBtn.hidden = !hasUnsettled;
+    }
+    if (unsettledInsuranceListEl && Number(depositSummary.unsettled || 0) <= 0.009) {
+      unsettledInsuranceListEl.hidden = true;
+      unsettledInsuranceListEl.innerHTML = "";
+    }
+
+    if (totalIncomeEl) {
+      totalIncomeEl.classList.remove("is-pending");
+      totalIncomeEl.textContent = formatMoney(totalIncome);
+    }
+    if (totalCostsEl) {
+      totalCostsEl.classList.remove("is-pending");
+      totalCostsEl.textContent = formatMoney(totalOwnerBorne);
+    }
+    if (totalLateEl) {
+      totalLateEl.classList.remove("is-pending");
+      totalLateEl.textContent = formatMoney(totalLate);
+    }
+    if (totalProfitEl) {
+      totalProfitEl.classList.remove("is-pending");
+      totalProfitEl.textContent = formatMoney(totalProfit);
+    }
+  }
+
+  async function refreshDepositsThenRender() {
+    const { end } = getSelectedDateRange();
+    await loadDepositsSummaryPortfolio(reportDateIsoFromEnd(end));
+    render();
   }
 
   if (tableBody) {
@@ -1022,7 +1369,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         cb.checked,
         ownerBuildingsCatalog
       );
-      render();
+      refreshPortfolioPickUi().then(() => refreshDepositsThenRender());
     });
   }
 
@@ -1051,11 +1398,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   if (periodSelect) {
-    periodSelect.addEventListener("change", render);
+    periodSelect.addEventListener("change", () => {
+      refreshDepositsThenRender();
+    });
   }
 
   if (periodDateInput) {
-    periodDateInput.addEventListener("change", render);
+    periodDateInput.addEventListener("change", () => {
+      refreshDepositsThenRender();
+    });
   }
 
   async function refreshPortfolioPickUi() {
@@ -1074,12 +1425,15 @@ document.addEventListener("DOMContentLoaded", async () => {
       anchor,
       buildings: ownerBuildingsCatalog,
       onChange: () => {
-        refreshPortfolioPickUi().then(render);
+        refreshPortfolioPickUi().then(() => refreshDepositsThenRender());
       },
     });
   }
 
-  refreshPortfolioPickUi().then(render);
+  refreshPortfolioPickUi().then(async () => {
+    setPortfolioFinanceLoading(false);
+    await refreshDepositsThenRender();
+  });
 
   document.addEventListener("walajna:i18n-applied", () => {
     render();

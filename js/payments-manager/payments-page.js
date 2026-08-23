@@ -1,4 +1,6 @@
 document.addEventListener("DOMContentLoaded", async function () {
+  document.body.classList.add("payments-page--loading");
+
   const params = new URLSearchParams(window.location.search);
 
   const apartmentId =
@@ -11,12 +13,20 @@ document.addEventListener("DOMContentLoaded", async function () {
 
   const tableContainer = document.getElementById("paymentsTableContainer");
 
+  function clearPaymentsLoading() {
+    document.body.classList.remove("payments-page--loading");
+    const loadingEl = document.getElementById("paymentsPageLoading");
+    if (loadingEl) loadingEl.remove();
+    if (tableContainer) tableContainer.setAttribute("aria-busy", "false");
+  }
+
   if (!apartmentId) {
     const msg =
       window.walajna_language && window.walajna_language.t
         ? window.walajna_language.t("console.aptIdMissing")
         : "apartmentId missing";
     console.warn(msg);
+    clearPaymentsLoading();
     return;
   }
 
@@ -27,6 +37,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     "owner";
 
   function showLoadError(message) {
+    clearPaymentsLoading();
     if (tableContainer) {
       tableContainer.innerHTML =
         `<div class="payments-empty">${message}</div>`;
@@ -56,14 +67,75 @@ document.addEventListener("DOMContentLoaded", async function () {
       return;
     }
 
+    // History mode: load installments for the archived contract from the API.
+    const serverPaymentsRef = { current: [] };
+    let installmentsApiError = null;
+    const cid =
+      historyContractId ||
+      apartment.currentContractId ||
+      apartment.contract?.id ||
+      null;
+
+    if (
+      cid &&
+      typeof WalajnaAuth !== "undefined" &&
+      WalajnaAuth.fetchWithAuth
+    ) {
+      try {
+        if (WalajnaAuth.hydrateSession) await WalajnaAuth.hydrateSession();
+        const apiBase = WalajnaAuth.API_BASE;
+        const listRes = await WalajnaAuth.fetchWithAuth(
+          `${apiBase}/api/contracts/${encodeURIComponent(String(cid))}/installments`,
+          { method: "GET" }
+        );
+        if (listRes.ok) {
+          const rows = await listRes.json();
+          const list = Array.isArray(rows) ? rows : [];
+          serverPaymentsRef.current = list.map((r) => {
+            const due = (r.due_date || "").toString().slice(0, 10);
+            const amt = Number(r.amount ?? 0);
+            const orig =
+              r.original_amount != null ? Number(r.original_amount) : amt;
+            const paidRaw = r.paid_at;
+            const paidAt =
+              paidRaw != null && paidRaw !== ""
+                ? String(paidRaw).slice(0, 10)
+                : "";
+            return {
+              id: String(r.id),
+              contractId: String(r.contract_id ?? cid),
+              apartmentId: String(apartment.id),
+              dueDate: due,
+              amount: amt,
+              originalAmount: orig,
+              status: r.status || "pending",
+              paymentMethod: r.payment_method || "",
+              paidAt,
+              notes: r.notes || "",
+            };
+          });
+        } else {
+          installmentsApiError = `تعذر جلب دفعات العقد المؤرشف (${listRes.status}).`;
+        }
+      } catch (e) {
+        console.warn("history payments installments fetch failed", e);
+        installmentsApiError = "تعذر جلب دفعات العقد المؤرشف من الخادم.";
+      }
+    }
+
     if (typeof window.initApartmentPaymentsSystem === "function") {
+      clearPaymentsLoading();
       window.initApartmentPaymentsSystem({
         apartment,
         activeRole,
         mode,
         historyId,
-        historyContractId,
-        paymentsFromApi: false,
+        historyContractId: cid,
+        paymentsFromApi: true,
+        serverMode: Boolean(cid),
+        contractIdForServer: cid,
+        serverPaymentsRef,
+        installmentsApiError,
       });
     }
     return;
@@ -79,32 +151,64 @@ document.addEventListener("DOMContentLoaded", async function () {
   const apiBase = window.WalajnaAuth.API_BASE;
 
   async function fetchApartmentFromApi() {
-    const apartmentResponse = await WalajnaAuth.fetchWithAuth(
-      `${apiBase}/api/apartments/${encodeURIComponent(apartmentId)}`,
-      { method: "GET" }
-    );
-    if (apartmentResponse.status === 401) {
-      if (typeof WalajnaAuth.handleUnauthorized === "function") {
-        WalajnaAuth.handleUnauthorized(
-          "انتهت الجلسة أو التوكن غير صالح. سجل الدخول مرة أخرى ثم أعد المحاولة."
-        );
+    let apartmentResponse;
+    if (WalajnaAuth.fetchJsonWithAuthRetry) {
+      const result = await WalajnaAuth.fetchJsonWithAuthRetry(
+        `${apiBase}/api/apartments/${encodeURIComponent(apartmentId)}`,
+        { method: "GET" },
+        { retries: 4, delayMs: 400 }
+      );
+      if (result.status === 401) {
+        if (typeof WalajnaAuth.handleUnauthorized === "function") {
+          WalajnaAuth.handleUnauthorized(
+            "انتهت الجلسة أو التوكن غير صالح. سجل الدخول مرة أخرى ثم أعد المحاولة."
+          );
+        }
+        throw new Error("unauthorized");
       }
-      throw new Error("unauthorized");
-    }
-    if (!apartmentResponse.ok) {
-      throw new Error("apartment fetch failed");
+      if (!result.ok || !result.data) {
+        throw new Error("apartment fetch failed");
+      }
+      apartmentResponse = { ok: true, json: async () => result.data, status: result.status };
+    } else {
+      apartmentResponse = await WalajnaAuth.fetchWithAuth(
+        `${apiBase}/api/apartments/${encodeURIComponent(apartmentId)}`,
+        { method: "GET" }
+      );
+      if (apartmentResponse.status === 401) {
+        if (typeof WalajnaAuth.handleUnauthorized === "function") {
+          WalajnaAuth.handleUnauthorized(
+            "انتهت الجلسة أو التوكن غير صالح. سجل الدخول مرة أخرى ثم أعد المحاولة."
+          );
+        }
+        throw new Error("unauthorized");
+      }
+      if (!apartmentResponse.ok) {
+        throw new Error("apartment fetch failed");
+      }
     }
     const apiApartment = await apartmentResponse.json();
     const aptIdStr = String(apiApartment.id);
 
     let contractsList = [];
-    const contractsResponse = await WalajnaAuth.fetchWithAuth(
-      `${apiBase}/api/contracts`,
-      { method: "GET" }
-    );
-    if (contractsResponse.ok) {
-      const raw = await contractsResponse.json();
-      contractsList = Array.isArray(raw) ? raw : [];
+    if (WalajnaAuth.fetchJsonWithAuthRetry) {
+      const cResult = await WalajnaAuth.fetchJsonWithAuthRetry(
+        `${apiBase}/api/contracts`,
+        { method: "GET" },
+        { retries: 3, delayMs: 350 }
+      );
+      if (cResult.ok && Array.isArray(cResult.data)) {
+        contractsList = cResult.data;
+      }
+    } else {
+      const contractsResponse = await WalajnaAuth.fetchWithAuth(
+        `${apiBase}/api/contracts`,
+        { method: "GET" }
+      );
+      if (contractsResponse.ok) {
+        const raw = await contractsResponse.json();
+        contractsList = Array.isArray(raw) ? raw : [];
+      }
     }
 
     const contractsForApartment = contractsList.filter(
@@ -199,6 +303,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             startDate: contract.start_date || "",
             endDate: contract.end_date || "",
             rentAmount: Number(apiApartment.rent ?? 0),
+            yearlyRent: Number(contract.yearly_rent ?? contract.yearlyRent ?? 0),
             paymentCycle:
               contract.payment_cycle ||
               contract.paymentCycle ||
@@ -319,6 +424,7 @@ document.addEventListener("DOMContentLoaded", async function () {
   }
 
   if (typeof window.initApartmentPaymentsSystem === "function") {
+    clearPaymentsLoading();
     window.initApartmentPaymentsSystem({
       apartment,
       activeRole,
@@ -334,5 +440,7 @@ document.addEventListener("DOMContentLoaded", async function () {
       reloadServerPayments,
       installmentsApiError,
     });
+  } else {
+    clearPaymentsLoading();
   }
 });

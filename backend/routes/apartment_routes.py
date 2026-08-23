@@ -3,7 +3,7 @@ import json
 import logging
 from collections import defaultdict
 from datetime import date, datetime
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from models import Apartment, ApartmentResponse
 from config import supabase
 from routes.auth_routes import get_current_user, normalize_saudi_national_id, national_id_lookup_variants
@@ -180,8 +180,11 @@ def _contract_link_columns_from_normalized(n: dict) -> dict:
             pass
 
     ins = n.get("insurance_paid")
-    if ins is not None:
-        out["insurance_paid"] = str(ins).strip()
+    if ins is not None and str(ins).strip() != "":
+        try:
+            out["insurance_paid"] = float(str(ins).strip().replace(",", ""))
+        except (TypeError, ValueError):
+            pass
 
     mn = n.get("meter_number")
     if mn is not None:
@@ -413,10 +416,11 @@ def _batch_contract_installment_lease_sets(contract_ids: list[int]) -> tuple[set
         except (TypeError, ValueError):
             continue
         with_rows.add(ic)
-        if str(row.get("status") or "").lower() != "pending":
+        status = str(row.get("status") or "").lower()
+        if status in ("paid", "cancelled"):
             continue
         dd = _parse_iso_date(row.get("due_date"))
-        if dd and dd < today:
+        if dd and dd <= today:
             overdue.add(ic)
 
     return with_rows, overdue
@@ -751,7 +755,7 @@ def _batch_active_contract_by_apartment(apartment_ids: list[int]) -> dict[int, d
     try:
         res = (
             supabase.table("contracts")
-            .select("id, apartment_id, tenant_id, start_date, end_date")
+            .select("id, apartment_id, tenant_id, start_date, end_date, status")
             .in_("apartment_id", apartment_ids)
             .execute()
         )
@@ -964,10 +968,31 @@ def _repair_stale_apartment_tenant_columns(rows: list[dict]) -> list[dict]:
 
 
 def _is_contract_row_active(row: dict) -> bool:
-    return str(row.get("status") or "active").lower() == "active"
+    status = str(row.get("status") or "active").lower()
+    if status in ("renewed", "terminated", "amended", "superseded", "ended", "cancelled"):
+        return False
+    return status == "active"
 
 
 def _active_contract_rows_for_apartment(apartment_id: int) -> list[dict]:
+    """Contracts that still block a fresh assign when the unit has no current_contract_id."""
+    current_ccid = None
+    try:
+        apt_res = (
+            supabase.table("apartments")
+            .select("current_contract_id")
+            .eq("id", apartment_id)
+            .limit(1)
+            .execute()
+        )
+        apt_rows = getattr(apt_res, "data", None) or []
+        if apt_rows:
+            raw = apt_rows[0].get("current_contract_id")
+            current_ccid = int(raw) if raw is not None else None
+    except Exception:
+        logger.exception("active contracts: apartment lookup failed apartment_id=%s", apartment_id)
+        current_ccid = None
+
     try:
         res = (
             supabase.table("contracts")
@@ -978,7 +1003,13 @@ def _active_contract_rows_for_apartment(apartment_id: int) -> list[dict]:
     except Exception:
         logger.exception("contracts list failed apartment_id=%s", apartment_id)
         return []
-    return [r for r in (getattr(res, "data", None) or []) if _is_contract_row_active(r)]
+
+    rows = getattr(res, "data", None) or []
+    # Live lease pointer wins: only that row is "active" for conflict checks.
+    if current_ccid is not None:
+        return [r for r in rows if r.get("id") is not None and int(r["id"]) == current_ccid]
+
+    return [r for r in rows if _is_contract_row_active(r)]
 
 
 def reconcile_apartment_maintenance_pointer(apartment_id: int) -> None:
@@ -1369,7 +1400,10 @@ def _contract_snapshot_for_history(contract_id) -> dict | None:
     try:
         cres = (
             supabase.table("contracts")
-            .select("id, start_date, end_date")
+            .select(
+                "id, start_date, end_date, yearly_rent, payment_cycle, "
+                "insurance_paid, meter_number, lease_notes"
+            )
             .eq("id", cid)
             .limit(1)
             .execute()
@@ -1378,14 +1412,40 @@ def _contract_snapshot_for_history(contract_id) -> dict | None:
         if not rows:
             return None
         c = rows[0]
-        return {
+        snap = {
             "id": c.get("id"),
             "startDate": str(c["start_date"])[:10] if c.get("start_date") else None,
             "endDate": str(c["end_date"])[:10] if c.get("end_date") else None,
+            "yearlyRent": c.get("yearly_rent"),
+            "paymentCycle": c.get("payment_cycle"),
+            "insurancePaid": c.get("insurance_paid"),
+            "meterNumber": c.get("meter_number"),
+            "notes": c.get("lease_notes") or "",
         }
+        return snap
     except Exception:
-        logger.exception("contract snapshot for apartment_history")
-        return None
+        # Fallback if optional columns are missing on older DBs.
+        try:
+            cres = (
+                supabase.table("contracts")
+                .select("id, start_date, end_date, insurance_paid")
+                .eq("id", cid)
+                .limit(1)
+                .execute()
+            )
+            rows = getattr(cres, "data", None) or []
+            if not rows:
+                return None
+            c = rows[0]
+            return {
+                "id": c.get("id"),
+                "startDate": str(c["start_date"])[:10] if c.get("start_date") else None,
+                "endDate": str(c["end_date"])[:10] if c.get("end_date") else None,
+                "insurancePaid": c.get("insurance_paid"),
+            }
+        except Exception:
+            logger.exception("contract snapshot for apartment_history")
+            return None
 
 
 def _building_name_from_id(building_id) -> str | None:
@@ -1522,8 +1582,30 @@ async def get_apartment_tenant_history(
     for row in rows:
         r = dict(row)
         od = r.get("old_data")
-        if isinstance(od, dict) and default_building_name and not od.get("buildingName"):
-            r["old_data"] = {**od, "buildingName": default_building_name}
+        if not isinstance(od, dict):
+            od = {}
+        else:
+            od = dict(od)
+
+        if default_building_name and not od.get("buildingName"):
+            od["buildingName"] = default_building_name
+
+        # Enrich sparse/old contract snapshots from the live contracts row.
+        cid = od.get("currentContractId")
+        if cid is None and isinstance(od.get("contract"), dict):
+            cid = od["contract"].get("id")
+        csnap = _contract_snapshot_for_history(cid)
+        if csnap:
+            existing = od.get("contract") if isinstance(od.get("contract"), dict) else {}
+            od["contract"] = {**csnap, **{k: v for k, v in existing.items() if v not in (None, "")}}
+            if od.get("currentContractId") is None:
+                od["currentContractId"] = csnap.get("id")
+
+        # Vacating date: prefer DB changed_at, then snapshot vacatedAt.
+        if not r.get("changed_at") and od.get("vacatedAt"):
+            r["changed_at"] = od.get("vacatedAt")
+
+        r["old_data"] = od
         enriched.append(r)
     return enriched
 
@@ -1589,14 +1671,6 @@ async def assign_tenant_to_apartment(
 
         link_cols = _contract_link_columns_from_normalized(normalized_payload)
 
-        contract_update_body = {
-            "tenant_id": tenant_row.get("id"),
-            "start_date": lease_start,
-            "end_date": lease_end,
-            **link_cols,
-        }
-        contract_update_body = {k: v for k, v in contract_update_body.items() if v is not None}
-
         contract_id: int | None = None
 
         if existing_ccid_int is not None:
@@ -1621,20 +1695,49 @@ async def assign_tenant_to_apartment(
             except (TypeError, ValueError):
                 raise HTTPException(status_code=400, detail="Invalid contract apartment reference") from None
 
+            # Editing lease/apartment info creates a new contract row (keeps prior as history)
+            # so documents / payments can show the updated contract separately.
+            contract_data = {
+                "apartment_id": apartment_id,
+                "tenant_id": tenant_row.get("id"),
+                "start_date": lease_start,
+                "end_date": lease_end,
+                **link_cols,
+            }
+            contract_data = {k: v for k, v in contract_data.items() if v is not None}
+            logger.info("assign-tenant amended contract insert payload: %s", contract_data)
             try:
-                upd_c = (
-                    supabase.table("contracts")
-                    .update(contract_update_body)
-                    .eq("id", existing_ccid_int)
-                    .execute()
-                )
+                contract_result = supabase.table("contracts").insert(contract_data).execute()
             except Exception as exc:
-                logger.exception("assign-tenant contract update failed contract_id=%s", existing_ccid_int)
-                raise HTTPException(status_code=500, detail=f"Contract update failed: {str(exc)}") from exc
-            if not getattr(upd_c, "data", None):
-                raise HTTPException(status_code=500, detail="Contract update returned empty response")
-            contract_id = existing_ccid_int
-            logger.info("assign-tenant updated existing contract id=%s", contract_id)
+                logger.exception(
+                    "assign-tenant amended contract insert failed apartment_id=%s",
+                    apartment_id,
+                )
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to create amended contract: {str(exc)}",
+                ) from exc
+            if not getattr(contract_result, "data", None):
+                raise HTTPException(
+                    status_code=500,
+                    detail="Failed to create amended contract: empty response from Supabase",
+                )
+            created_contract = contract_result.data[0]
+            contract_id = created_contract.get("id")
+            try:
+                supabase.table("contracts").update({"status": "amended"}).eq(
+                    "id", existing_ccid_int
+                ).execute()
+            except Exception:
+                logger.info(
+                    "assign-tenant: contracts.status not available; old contract %s kept via history",
+                    existing_ccid_int,
+                )
+            logger.info(
+                "assign-tenant created amended contract id=%s (previous=%s)",
+                contract_id,
+                existing_ccid_int,
+            )
         else:
             apt_race = (
                 supabase.table("apartments")
@@ -1685,6 +1788,31 @@ async def assign_tenant_to_apartment(
             normalized_payload.get("start_date"),
             tenant_national_id,
         )
+
+        try:
+            from deposit_service import ensure_received_seed, transfer_remaining_deposit
+
+            seed_amt = link_cols.get("insurance_paid")
+            if seed_amt is None:
+                seed_amt = normalized_payload.get("insurance_paid")
+            if contract_id is not None:
+                if existing_ccid_int is not None and int(contract_id) != int(existing_ccid_int):
+                    # Amended lease: move unsettled deposit to the new contract row.
+                    transferred = transfer_remaining_deposit(
+                        from_contract_id=int(existing_ccid_int),
+                        to_contract_id=int(contract_id),
+                        apartment_id=int(apartment_id),
+                    )
+                    if transferred <= 0.009 and seed_amt is not None:
+                        ensure_received_seed(int(contract_id), int(apartment_id), seed_amt)
+                elif seed_amt is not None:
+                    ensure_received_seed(int(contract_id), int(apartment_id), seed_amt)
+        except Exception:
+            logger.exception(
+                "assign-tenant: deposit seed/transfer skipped apartment_id=%s contract_id=%s",
+                apartment_id,
+                contract_id,
+            )
 
         update_payload = {
             "tenant_user_id": tenant_user_id,
@@ -1785,14 +1913,316 @@ async def assign_tenant_to_apartment(
         raise HTTPException(status_code=500, detail=f"assign-tenant internal error: {str(exc)}")
 
 
+def _contract_has_unresolved_installments(contract_id: int) -> tuple[bool, int]:
+    """
+    True when the contract still has rent installments that are not fully settled.
+    Settled = status paid or cancelled. Eviction may proceed with unresolved payments;
+    renewal must not.
+    """
+    try:
+        cid = int(contract_id)
+    except (TypeError, ValueError):
+        return False, 0
+    try:
+        res = (
+            supabase.table("payment_installments")
+            .select("id, status")
+            .eq("contract_id", cid)
+            .execute()
+        )
+    except Exception:
+        logger.exception(
+            "unresolved installments check failed contract_id=%s", contract_id
+        )
+        # Fail closed for renew safety: treat as unresolved if we cannot verify.
+        return True, -1
+    unresolved = 0
+    for row in getattr(res, "data", None) or []:
+        status = str(row.get("status") or "").lower()
+        if status not in ("paid", "cancelled"):
+            unresolved += 1
+    return unresolved > 0, unresolved
+
+
+@router.post("/apartments/{apartment_id}/renew-lease")
+async def renew_apartment_lease(
+    apartment_id: int,
+    payload: dict,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Renew an active lease: keep the same tenant, archive the old contract row (and its
+    installments), create a new contract with new dates/yearly rent, generate a fresh schedule.
+
+    Requires every installment on the current contract to be paid or cancelled.
+    (Vacate/evict is intentionally allowed with unpaid installments.)
+    """
+    from decimal import Decimal
+    from installment_service import generate_installment_rows
+
+    if not has_role(current_user, "owner"):
+        raise HTTPException(status_code=403, detail="Only owners can renew leases")
+
+    try:
+        apt_id_int = int(apartment_id)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Invalid apartment_id")
+
+    body = payload or {}
+    start_date = _iso_date_fragment(body.get("start_date") or body.get("startDate"))
+    end_date = _iso_date_fragment(body.get("end_date") or body.get("endDate"))
+    if not start_date or not end_date:
+        raise HTTPException(status_code=400, detail="start_date and end_date are required")
+    try:
+        sd = date.fromisoformat(start_date)
+        ed = date.fromisoformat(end_date)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid start_date or end_date")
+    if ed <= sd:
+        raise HTTPException(status_code=400, detail="end_date must be after start_date")
+
+    yearly_raw = body.get("yearly_rent", body.get("yearlyRent"))
+    try:
+        yearly_rent = float(yearly_raw)
+    except (TypeError, ValueError):
+        yearly_rent = 0.0
+    if yearly_rent <= 0:
+        raise HTTPException(status_code=400, detail="yearly_rent must be greater than zero")
+
+    apt_result = supabase.table("apartments").select("*").eq("id", apt_id_int).execute()
+    if not apt_result.data:
+        raise HTTPException(status_code=404, detail="Apartment not found")
+    apartment = apt_result.data[0]
+    apt_owner = apartment.get("owner_id")
+    try:
+        if apt_owner is None or int(apt_owner) != int(current_user["id"]):
+            raise HTTPException(status_code=403, detail="Not authorized")
+    except HTTPException:
+        raise
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    old_ccid = apartment.get("current_contract_id")
+    if old_ccid is None:
+        raise HTTPException(status_code=400, detail="Apartment has no active contract to renew")
+    try:
+        old_ccid_int = int(old_ccid)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Invalid current_contract_id")
+
+    old_c_res = (
+        supabase.table("contracts").select("*").eq("id", old_ccid_int).limit(1).execute()
+    )
+    old_rows = getattr(old_c_res, "data", None) or []
+    if not old_rows:
+        raise HTTPException(status_code=404, detail="Current contract not found")
+    old_contract = old_rows[0]
+    if int(old_contract.get("apartment_id") or -1) != apt_id_int:
+        raise HTTPException(status_code=400, detail="Contract does not belong to this apartment")
+
+    has_unresolved, unresolved_count = _contract_has_unresolved_installments(old_ccid_int)
+    if has_unresolved:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "UNRESOLVED_INSTALLMENTS",
+                "message": "Cannot renew lease until all installments are paid or cancelled",
+                "unresolved_count": unresolved_count,
+            },
+        )
+
+    tenant_id = old_contract.get("tenant_id")
+    if tenant_id is None:
+        raise HTTPException(status_code=400, detail="Current contract has no tenant")
+
+    payment_cycle = (
+        body.get("payment_cycle")
+        or body.get("paymentCycle")
+        or old_contract.get("payment_cycle")
+        or "monthly"
+    )
+    payment_cycle = str(payment_cycle).strip() or "monthly"
+
+    # Copy lease extras from the previous contract; override yearly rent / dates.
+    new_contract_data = {
+        "apartment_id": apt_id_int,
+        "tenant_id": int(tenant_id),
+        "start_date": start_date,
+        "end_date": end_date,
+        "yearly_rent": yearly_rent,
+        "payment_cycle": payment_cycle,
+        "broker_name": old_contract.get("broker_name") or "",
+        "broker_commercial_register": old_contract.get("broker_commercial_register") or "",
+        "broker_phone": old_contract.get("broker_phone") or "",
+        "electricity_included": bool(old_contract.get("electricity_included")),
+        "water_included": bool(old_contract.get("water_included")),
+        "gas_type": old_contract.get("gas_type") or "none",
+        "ac_type": old_contract.get("ac_type") or "none",
+        "lease_notes": old_contract.get("lease_notes") or "",
+        "insurance_paid": old_contract.get("insurance_paid"),
+        "meter_number": old_contract.get("meter_number"),
+    }
+    if old_contract.get("installments_count") is not None:
+        new_contract_data["installments_count"] = old_contract.get("installments_count")
+
+    # Drop nulls that may violate optional columns.
+    new_contract_data = {k: v for k, v in new_contract_data.items() if v is not None}
+
+    try:
+        ins = supabase.table("contracts").insert(new_contract_data).execute()
+    except Exception as exc:
+        logger.exception("renew-lease: contract insert failed apartment_id=%s", apt_id_int)
+        raise HTTPException(status_code=500, detail=f"Failed to create renewed contract: {exc}") from exc
+
+    created = getattr(ins, "data", None) or []
+    if not created:
+        raise HTTPException(status_code=500, detail="Failed to create renewed contract: empty insert")
+    new_contract = created[0]
+    new_contract_id = int(new_contract["id"])
+
+    try:
+        from deposit_service import transfer_remaining_deposit, ensure_received_seed
+
+        transferred = transfer_remaining_deposit(
+            from_contract_id=old_ccid_int,
+            to_contract_id=new_contract_id,
+            apartment_id=apt_id_int,
+        )
+        if transferred <= 0.009:
+            seed_amt = new_contract_data.get("insurance_paid") or old_contract.get("insurance_paid")
+            if seed_amt is not None:
+                ensure_received_seed(new_contract_id, apt_id_int, seed_amt)
+    except Exception:
+        logger.exception(
+            "renew-lease: deposit transfer skipped old=%s new=%s",
+            old_ccid_int,
+            new_contract_id,
+        )
+
+    # Optional: mark previous lease if contracts.status exists (see sql/contracts_status_2026.sql).
+    try:
+        supabase.table("contracts").update({"status": "renewed"}).eq("id", old_ccid_int).execute()
+    except Exception:
+        logger.info(
+            "renew-lease: contracts.status not available; old contract %s kept as history via current_contract_id",
+            old_ccid_int,
+        )
+
+    try:
+        supabase.table("apartments").update(
+            {
+                "current_contract_id": new_contract_id,
+                "lease_status": "active",
+            }
+        ).eq("id", apt_id_int).execute()
+    except Exception as exc:
+        logger.exception("renew-lease: apartment update failed; rolling back new contract %s", new_contract_id)
+        try:
+            supabase.table("contracts").delete().eq("id", new_contract_id).execute()
+        except Exception:
+            logger.exception("renew-lease: rollback delete failed")
+        raise HTTPException(status_code=500, detail=f"Failed to attach renewed contract: {exc}") from exc
+
+    # Keep tenants.lease_* in sync when those columns exist.
+    try:
+        supabase.table("tenants").update(
+            {"lease_start": start_date, "lease_end": end_date, "apartment_id": apt_id_int}
+        ).eq("id", int(tenant_id)).execute()
+    except Exception:
+        logger.exception("renew-lease: tenant lease dates update skipped tenant_id=%s", tenant_id)
+
+    monthly = Decimal(str(yearly_rent)) / Decimal("12")
+    rows = generate_installment_rows(
+        contract_id=new_contract_id,
+        apartment_id=apt_id_int,
+        tenant_id=int(tenant_id),
+        start_date=sd,
+        end_date=ed,
+        monthly_rent=monthly,
+        yearly_rent=Decimal(str(yearly_rent)),
+        payment_cycle=payment_cycle,
+    )
+    inserted = 0
+    if rows:
+        try:
+            ins_pay = supabase.table("payment_installments").insert(rows).execute()
+            inserted = len(getattr(ins_pay, "data", None) or rows)
+        except Exception as exc:
+            logger.exception(
+                "renew-lease: installment insert failed contract_id=%s", new_contract_id
+            )
+            raise HTTPException(
+                status_code=500,
+                detail=f"Lease renewed but installments failed: {exc}",
+            ) from exc
+
+    try:
+        supabase.table("apartment_history").insert(
+            {
+                "apartment_id": apt_id_int,
+                "user_id": int(current_user["id"]),
+                "change_type": "lease_renewed",
+                "old_data": {
+                    "contractId": old_ccid_int,
+                    "startDate": _iso_date_fragment(old_contract.get("start_date")),
+                    "endDate": _iso_date_fragment(old_contract.get("end_date")),
+                    "yearlyRent": old_contract.get("yearly_rent"),
+                },
+                "new_data": {
+                    "contractId": new_contract_id,
+                    "startDate": start_date,
+                    "endDate": end_date,
+                    "yearlyRent": yearly_rent,
+                    "paymentCycle": payment_cycle,
+                    "installmentsInserted": inserted,
+                },
+            }
+        ).execute()
+    except Exception:
+        logger.exception("renew-lease: apartment_history insert failed apartment_id=%s", apt_id_int)
+
+    refreshed = supabase.table("apartments").select("*").eq("id", apt_id_int).execute()
+    updated_apt = (getattr(refreshed, "data", None) or [apartment])[0]
+    updated_apt["lease_terms"] = _lease_terms_view_from_contract_row(new_contract)
+    updated_apt["renewed_contract_id"] = new_contract_id
+    updated_apt["previous_contract_id"] = old_ccid_int
+    updated_apt["installments_inserted"] = inserted
+    return updated_apt
+
+
 @router.patch("/apartments/{apartment_id}/vacate-tenant", response_model=ApartmentResponse)
-async def vacate_tenant(apartment_id: int, current_user: dict = Depends(get_current_user)):
+async def vacate_tenant(
+    apartment_id: int,
+    request: Request,
+    current_user: dict = Depends(get_current_user),
+):
     """
     End the active tenancy on the apartment row. Does not delete the contract row (history);
     clears tenant links and current_contract_id on the apartment only.
+
+    Unpaid installments do NOT block eviction (unlike lease renewal).
+    Optional JSON body: { "refund_amount": number } — records a deposit refund
+    only when the owner explicitly returns insurance. Remaining balance stays
+    as unsettled held insurance; it is not owner income.
     """
     if not has_role(current_user, "owner"):
         raise HTTPException(status_code=403, detail="Only owners can vacate tenants")
+
+    refund_amount = 0.0
+    try:
+        raw = await request.body()
+        if raw:
+            body = json.loads(raw.decode("utf-8"))
+            if isinstance(body, dict) and body.get("refund_amount") is not None:
+                refund_amount = float(body.get("refund_amount") or 0)
+    except HTTPException:
+        raise
+    except Exception:
+        refund_amount = 0.0
+    if refund_amount < -0.0001:
+        raise HTTPException(status_code=400, detail="refund_amount cannot be negative")
+    if refund_amount < 0:
+        refund_amount = 0.0
 
     try:
         apt_id_int = int(apartment_id)
@@ -1814,6 +2244,49 @@ async def vacate_tenant(apartment_id: int, current_user: dict = Depends(get_curr
         raise HTTPException(status_code=403, detail="Not authorized: apartment belongs to a different owner")
 
     ccid_end = apartment.get("current_contract_id")
+
+    if refund_amount > 0.009:
+        if ccid_end is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot refund insurance: apartment has no current contract",
+            )
+        from deposit_service import (
+            insert_deposit_transaction,
+            remaining_deposit_for_contract,
+        )
+
+        try:
+            cid_int = int(ccid_end)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="Invalid current_contract_id")
+        try:
+            available = remaining_deposit_for_contract(cid_int)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=503, detail=f"Could not read insurance balance: {exc}"
+            ) from exc
+        if refund_amount > available + 0.009:
+            raise HTTPException(
+                status_code=400,
+                detail="Refund exceeds available insurance balance",
+            )
+        try:
+            insert_deposit_transaction(
+                contract_id=cid_int,
+                apartment_id=apt_id_int,
+                tx_type="refund",
+                amount=round(refund_amount, 2),
+                notes="Refunded to tenant on vacate",
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except Exception as exc:
+            logger.exception("vacate: insurance refund failed apartment_id=%s", apt_id_int)
+            raise HTTPException(
+                status_code=500, detail=f"Failed to record insurance refund: {exc}"
+            ) from exc
+
     cost_snapshot = _archive_and_delete_costs_for_contract(apt_id_int, ccid_end)
 
     tenant_info_pre = apartment.get("tenant_info") or {}
@@ -1826,11 +2299,15 @@ async def vacate_tenant(apartment_id: int, current_user: dict = Depends(get_curr
         or cost_snapshot
     )
     if had_tenancy:
+        from datetime import datetime, timezone
+
+        vacated_at = datetime.now(timezone.utc).isoformat()
         old_data_hist: dict = {
             "tenantInfo": tenant_info_pre,
             "tenantNationalId": apartment.get("tenant_national_id"),
             "tenantUserId": apartment.get("tenant_user_id"),
             "currentContractId": apartment.get("current_contract_id"),
+            "vacatedAt": vacated_at,
         }
         bn_hist = _building_name_from_id(apartment.get("building_id"))
         if bn_hist:
@@ -1851,10 +2328,26 @@ async def vacate_tenant(apartment_id: int, current_user: dict = Depends(get_curr
                     "change_type": "tenant_vacated",
                     "old_data": old_data_hist,
                     "new_data": {"lease_status": "vacant", "current_contract_id": None},
+                    "changed_at": vacated_at,
                 }
             ).execute()
         except Exception:
             logger.exception("apartment_history insert failed on vacate apartment_id=%s", apt_id_int)
+            # Retry without changed_at if the column rejects the payload shape.
+            try:
+                supabase.table("apartment_history").insert(
+                    {
+                        "apartment_id": apt_id_int,
+                        "user_id": int(current_user["id"]),
+                        "change_type": "tenant_vacated",
+                        "old_data": old_data_hist,
+                        "new_data": {"lease_status": "vacant", "current_contract_id": None},
+                    }
+                ).execute()
+            except Exception:
+                logger.exception(
+                    "apartment_history insert retry failed apartment_id=%s", apt_id_int
+                )
 
     if ccid_end is not None:
         try:

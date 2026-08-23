@@ -202,6 +202,22 @@
     });
   }
 
+  /** Finance/costs table checkboxes — clear selection and show all buildings in totals. */
+  function clearPortfolioTableFilter() {
+    const userId = resolveUserId();
+    const state = loadState();
+    if (!userId) return;
+    writeRaw({
+      v: 1,
+      userId,
+      editActive: state.editActive,
+      buildingIds: [...state.buildingIds],
+      portfolioFilterDismissed: state.portfolioFilterDismissed,
+      portfolioCheckedIds: [],
+      portfolioCatalogSnapshot: state.portfolioCatalogSnapshot,
+    });
+  }
+
   /** Finance/costs pages only — show all buildings; keep عمائري selection. */
   function dismissPortfolioFilter() {
     const userId = resolveUserId();
@@ -303,17 +319,32 @@
     const onChange = typeof options?.onChange === "function" ? options.onChange : null;
 
     const existing = document.getElementById("ownerPortfolioPickBanner");
-    if (!hasFilter()) {
+    const homeFilter = hasFilter();
+    const tableFilter = isPortfolioTableFilterActive(buildings);
+
+    if (!homeFilter && !tableFilter) {
       if (existing) existing.remove();
       return null;
     }
 
-    const state = loadState();
-    const selected = state.buildingIds;
-    const selectedBuildings = buildings.filter((b) => selected.has(String(b.id)));
     const total = buildings.length;
-    const selectedCount = selected.size;
-    const names = selectedBuildings.map((b) => b.name || "—").join("، ");
+    let selectedCount = 0;
+    let names = "";
+
+    if (homeFilter) {
+      const state = loadState();
+      const selected = state.buildingIds;
+      const selectedBuildings = buildings.filter((b) => selected.has(String(b.id)));
+      selectedCount = selected.size;
+      names = selectedBuildings.map((b) => b.name || "—").join("، ");
+    } else {
+      const checkedIds = getPortfolioCheckedIdsStored(buildings);
+      const selectedBuildings = buildings.filter((b) =>
+        checkedIds.includes(String(b.id))
+      );
+      selectedCount = checkedIds.length;
+      names = selectedBuildings.map((b) => b.name || "—").join("، ");
+    }
 
     let banner = existing;
     if (!banner) {
@@ -350,7 +381,11 @@
 
     const cancelBtn = banner.querySelector("#ownerPortfolioPickCancelBtn");
     cancelBtn?.addEventListener("click", () => {
-      dismissPortfolioFilter();
+      if (homeFilter) {
+        dismissPortfolioFilter();
+      } else {
+        clearPortfolioTableFilter();
+      }
       if (onChange) onChange();
       else window.location.reload();
     });
@@ -363,6 +398,7 @@
     save,
     clear,
     dismissPortfolioFilter,
+    clearPortfolioTableFilter,
     isPortfolioFilterDismissed,
     isEditActive,
     getSelectedIds,
