@@ -97,13 +97,21 @@
       </section>
 
       <section class="messages-section">
-        <div id="messagesList" class="messages-list"></div>
 
+        <!-- Loading state -->
+        <div id="messagesLoading" class="messages-loading">
+          <div class="messages-loading-spinner"></div>
+          <p>جاري تحميل الرسائل...</p>
+        </div>
+      
+        <div id="messagesList" class="messages-list hidden"></div>
+      
         <div id="emptyState" class="empty-state glass-card hidden">
           <div class="empty-icon">✉</div>
           <h3 data-i18n="messages.emptyTitle"></h3>
           <p id="emptyText"></p>
         </div>
+      
       </section>
     </main>
   </div>

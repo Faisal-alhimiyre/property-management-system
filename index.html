@@ -37,10 +37,6 @@
         const accessToken =
           localStorage.getItem("access_token");
 
-        /*
-          Only redirect when the browser still has an authenticated
-          Walajna session.
-        */
         if (!currentUserRaw || !accessToken) {
           return;
         }
@@ -61,10 +57,6 @@
           sessionStorage.getItem("activeRole") ||
           localStorage.getItem("activeRole");
 
-        /*
-          If no activeRole is stored but the account only has one role,
-          we can safely determine where to send the user.
-        */
         if (!activeRole && roles.length === 1) {
           activeRole = roles[0];
         }
@@ -79,12 +71,7 @@
           return;
         }
 
-      } catch (e) {
-        /*
-          If local/session storage cannot be read for any reason,
-          simply allow the public homepage to load.
-        */
-      }
+      } catch (e) {}
     })();
   </script>
 
@@ -92,7 +79,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <title data-i18n="meta.homepage"></title>
+  <!-- Homepage title -->
+  <title data-i18n="meta.homepage">ولجنا | إدارة العقارات</title>
+
+  <!-- Walajna favicon -->
+  <link rel="icon" type="image/png" href="pics/logo.png" />
+  <link rel="apple-touch-icon" href="pics/logo.png" />
 
   <link rel="stylesheet" href="css/theme.css" />
   <link rel="stylesheet" href="css/navstyle.css" />
@@ -101,6 +93,7 @@
   <script src="js/main/walajna-i18n-ur.js"></script>
   <script src="js/main/walajna-i18n.js"></script>
   <script src="js/main/walajna-dialog.js"></script>
+
 </head>
 
 <body data-nav-adaptive="true" data-global-back="false">
@@ -146,6 +139,7 @@
           </div>
 
           <h1 class="hero__title">
+
             <span
               class="hero__title-line"
               data-i18n="home.heroTitle1">
@@ -155,6 +149,7 @@
               class="hero__title-line hero__title-line--accent"
               data-i18n="home.heroAccent">
             </span>
+
           </h1>
 
           <p
@@ -177,7 +172,9 @@
             </a>
 
           </div>
+
         </div>
+
 
         <div class="hero__showcase">
 
@@ -216,6 +213,7 @@
 
                   </linearGradient>
 
+
                   <linearGradient
                     id="haWin"
                     x1="0"
@@ -232,6 +230,7 @@
                       stop-color="#1fb8d4"/>
 
                   </linearGradient>
+
 
                   <linearGradient
                     id="haGround"
@@ -252,11 +251,13 @@
 
                 </defs>
 
+
                 <!-- Distant skyline haze -->
                 <path
                   d="M0 142 L46 128 L88 136 L130 118 L176 124 L220 108 L268 120 L312 112 L358 122 L400 108 L420 115 L420 200 L0 200 Z"
                   fill="#1a2f4a"
                   opacity="0.08"/>
+
 
                 <!-- Left tower -->
                 <rect
@@ -279,6 +280,7 @@
                   <rect x="42" y="124" width="10" height="8" rx="1"/>
 
                 </g>
+
 
                 <!-- Hero tower -->
                 <polygon
@@ -416,6 +418,7 @@
 
                 </g>
 
+
                 <!-- Mid-right -->
                 <rect
                   x="208"
@@ -437,6 +440,7 @@
                   <rect x="242" y="122" width="9" height="7" rx="1"/>
 
                 </g>
+
 
                 <!-- Tall right -->
                 <rect
@@ -468,6 +472,7 @@
 
                 </g>
 
+
                 <!-- Far right -->
                 <rect
                   x="352"
@@ -490,6 +495,7 @@
 
                 </g>
 
+
                 <rect
                   x="0"
                   y="168"
@@ -498,6 +504,7 @@
                   fill="url(#haGround)"/>
 
               </svg>
+
 
               <div class="hero-art__chips">
 
@@ -526,6 +533,7 @@
                   </svg>
 
                 </div>
+
 
                 <div class="hero-art__chip hero-art__chip--2">
 
@@ -556,6 +564,7 @@
 
                 </div>
 
+
                 <div class="hero-art__chip hero-art__chip--3">
 
                   <svg
@@ -583,7 +592,9 @@
                 </div>
 
               </div>
+
             </div>
+
 
             <figcaption class="hero-art__caption">
 
@@ -607,7 +618,9 @@
           </figure>
 
         </div>
+
       </div>
+
 
       <div
         class="hero__slant"
@@ -616,6 +629,9 @@
 
     </main>
 
+
+
+    <!-- ABOUT -->
     <section
       id="about"
       class="section section--about">
@@ -634,6 +650,7 @@
 
       </div>
 
+
       <div class="about-panel">
 
         <p
@@ -642,6 +659,7 @@
         </p>
 
         <div class="about-grid">
+
 
           <article class="about-card">
 
@@ -657,6 +675,7 @@
 
           </article>
 
+
           <article class="about-card">
 
             <h3
@@ -670,6 +689,7 @@
             </p>
 
           </article>
+
 
           <article class="about-card">
 
@@ -685,10 +705,16 @@
 
           </article>
 
+
         </div>
+
       </div>
+
     </section>
 
+
+
+    <!-- FEATURES -->
     <section
       id="features"
       class="section section--features">
@@ -707,7 +733,9 @@
 
       </div>
 
+
       <div class="feature-grid">
+
 
         <article class="feature-card">
 
@@ -749,6 +777,8 @@
           </p>
 
         </article>
+
+
 
         <article class="feature-card">
 
@@ -794,6 +824,8 @@
 
         </article>
 
+
+
         <article class="feature-card">
 
           <div
@@ -835,9 +867,14 @@
 
         </article>
 
+
       </div>
+
     </section>
 
+
+
+    <!-- HOW IT WORKS -->
     <section
       id="how"
       class="section section--how">
@@ -856,10 +893,12 @@
 
       </div>
 
+
       <ol
         class="steps"
         data-i18n-aria-label="home.howTitle"
         aria-label="">
+
 
         <li class="step-card">
 
@@ -885,6 +924,8 @@
 
         </li>
 
+
+
         <li class="step-card">
 
           <span
@@ -908,6 +949,8 @@
           </div>
 
         </li>
+
+
 
         <li class="step-card">
 
@@ -933,9 +976,14 @@
 
         </li>
 
+
       </ol>
+
     </section>
 
+
+
+    <!-- CONTACT -->
     <section
       id="contact"
       class="contact-band">
@@ -956,6 +1004,7 @@
 
         </div>
 
+
         <a
           href="main/support.html"
           class="btn btn--primary btn--lg contact-band__cta"
@@ -966,6 +1015,9 @@
 
     </section>
 
+
+
+    <!-- FOOTER -->
     <footer class="footer">
 
       <p id="footerText"></p>
@@ -978,8 +1030,12 @@
 
     </footer>
 
+
   </div>
 
+
+
+  <!-- Footer translation -->
   <script>
     function setHomeFooter() {
       var el = document.getElementById("footerText");
@@ -1005,6 +1061,9 @@
     );
   </script>
 
+
+
+  <!-- Smooth scrolling for homepage sections -->
   <script>
     (function () {
 
@@ -1036,6 +1095,7 @@
 
     })();
   </script>
+
 
   <script src="js/main/theme.js"></script>
   <script src="js/main/auth.js"></script>

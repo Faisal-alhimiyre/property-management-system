@@ -17,7 +17,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const pageTitle = document.getElementById("pageTitle");
   const pageSubtitle = document.getElementById("pageSubtitle");
+  
+  const messagesLoading = document.getElementById("messagesLoading");
   const messagesList = document.getElementById("messagesList");
+  
   const emptyState = document.getElementById("emptyState");
   const emptyText = document.getElementById("emptyText");
   const replyAlertsBadge = document.getElementById("replyAlertsBadge");
@@ -32,7 +35,25 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const sidebarUserName = document.getElementById("sidebarUserName");
   const sidebarUserRole = document.getElementById("sidebarUserRole");
+  let messagesAreLoading = true;
 
+function setMessagesLoading(loading) {
+  messagesAreLoading = loading;
+
+  if (messagesLoading) {
+    messagesLoading.classList.toggle("hidden", !loading);
+  }
+
+  if (messagesList) {
+    messagesList.classList.toggle("hidden", loading);
+  }
+
+  if (loading && emptyState) {
+    emptyState.classList.add("hidden");
+  }
+}
+
+setMessagesLoading(true);
   if (typeof WalajnaAuth !== "undefined" && WalajnaAuth.hydrateSession) {
     await WalajnaAuth.hydrateSession();
   }
@@ -110,9 +131,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   setupRoleView();
-  setupSidebarUser();
-  renderMessages();
-  bindEvents();
+setupSidebarUser();
+
+setMessagesLoading(false);
+
+renderMessages();
+bindEvents();
 
   function bindEvents() {
     if (searchInput) searchInput.addEventListener("input", renderMessages);
@@ -146,6 +170,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function renderMessages() {
+    if (messagesAreLoading) {
+      return;
+    }
+  
     let filtered = getMessagesForCurrentRole();
 
     const searchValue = (searchInput?.value || "").trim().toLowerCase();
