@@ -6,23 +6,30 @@ function wlT(key, params) {
 }
 
 /** Marketing / public home (`main/homepage.html`). Does not sign the user out. */
+/** Public Walajna homepage at the site root. Does not sign the user out. */
 function walajnaPublicHomeHref() {
-  const p = String(window.location.pathname || "").replace(/\\/g, "/");
-  if (p.includes("/main/")) return "homepage.html";
-  return "../main/homepage.html";
+  return "/";
 }
 
-/** Guest nav "How it works" → in-page section on homepage (`#how`). */
+/** Guest nav "How it works" → homepage #how section. */
 function walajnaHowItWorksHref() {
   const p = String(window.location.pathname || "").replace(/\\/g, "/");
-  if (/\/homepage\.html$/i.test(p)) return "#how";
+
+  if (p === "/" || /\/index\.html$/i.test(p)) {
+    return "#how";
+  }
+
   return walajnaPublicHomeHref() + "#how";
 }
 
-/** Guest nav "About us" → in-page section on homepage (`#about`). */
+/** Guest nav "About us" → homepage #about section. */
 function walajnaAboutHref() {
   const p = String(window.location.pathname || "").replace(/\\/g, "/");
-  if (/\/homepage\.html$/i.test(p)) return "#about";
+
+  if (p === "/" || /\/index\.html$/i.test(p)) {
+    return "#about";
+  }
+
   return walajnaPublicHomeHref() + "#about";
 }
 
@@ -147,7 +154,7 @@ function updateNavbarLabels() {
 
   if (navType === "guest") {
     homeLink.textContent = wlT("nav.home");
-    homeLink.href = "../main/homepage.html";
+    homeLink.href = walajnaPublicHomeHref();
 
     link2.hidden = false;
     link2.style.display = "";
@@ -558,7 +565,11 @@ function setActiveLinkByPage(navType) {
   if (!homeLink || !link2 || !link3 || !link4) return;
 
   if (navType === "guest") {
-    if (currentPath.includes("homepage") || currentPath.includes("index")) {
+    if (
+      currentPath === "/" ||
+      currentPath.includes("homepage") ||
+      currentPath.includes("index")
+    ) {
       const hash = String(window.location.hash || "").toLowerCase();
       if (hash === "#how") {
         link2.classList.add("is-active");
@@ -588,7 +599,7 @@ function initNavbar() {
   const container = document.getElementById("navbar-container");
   if (!container) return;
 
-  fetch("../main/navigation.html")
+  fetch("/main/navigation.html")
     .then((res) => {
       if (!res.ok) throw new Error("Navbar file not found: " + res.status);
       return res.text();
@@ -627,7 +638,11 @@ window.addEventListener("hashchange", () => {
   const navType = document.body.dataset.nav || "user";
   if (navType !== "guest") return;
   const p = String(window.location.pathname || "").replace(/\\/g, "/");
-  if (!p.includes("homepage") && !p.includes("index")) return;
+  if (
+    p !== "/" &&
+    !p.includes("homepage") &&
+    !p.includes("index")
+  ) return;
   clearActiveLinks();
   setActiveLinkByPage("guest");
 });
