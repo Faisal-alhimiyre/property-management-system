@@ -397,3 +397,6 @@ body:has(#walajna-breadcrumb) .walajna-global-back{
   top:max(118px, calc(env(safe-area-inset-top, 0px) + var(--walajna-topbar-height) + 40px));
 }
 
+  html {
+    zoom: 0.75;
+  }

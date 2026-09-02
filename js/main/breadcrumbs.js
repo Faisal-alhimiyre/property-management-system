@@ -92,7 +92,9 @@
         return "#";
     }
   }
-
+  function publicHomeHref() {
+    return "/";
+  }
   function hrefMainPage(file, query) {
     const q = query || "";
     const { inMain } = pathFlags();
@@ -317,11 +319,24 @@
         { href: resolveHref(homeKind()), labelKey: homeBreadcrumbLabelKey() },
         { labelKey: "bc.settings", current: true },
       ];
-    } else if (bc === "support") {
-      segments = [
-        { href: resolveHref(homeKind()), labelKey: homeBreadcrumbLabelKey() },
-        { labelKey: "bc.support", current: true },
-      ];
+    }  else if (bc === "support") {
+      const isLoggedIn = !!(
+        global.localStorage.getItem("access_token") ||
+        global.localStorage.getItem("walajna_current_user") ||
+        global.sessionStorage.getItem("walajna_current_user")
+      );
+    
+      if (isLoggedIn) {
+        segments = [
+          { href: resolveHref(homeKind()), labelKey: homeBreadcrumbLabelKey() },
+          { labelKey: "bc.support", current: true },
+        ];
+      } else {
+        segments = [
+          { href: "/", labelKey: "nav.home" },
+          { labelKey: "bc.support", current: true },
+        ];
+      }
     } else if (bc === "costs") {
       const aptId = params.get("id");
       const apartments = readApartmentsForBreadcrumb();
