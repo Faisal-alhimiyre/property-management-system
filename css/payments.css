@@ -1052,3 +1052,380 @@ body.dark-mode[data-wl-bc="payments"] .pay-wrap--compact .payments-empty{
     grid-template-columns:1fr !important;
   }
 }
+/* =========================================================
+   PAYMENTS PAGE — TABLET / MOBILE RESPONSIVE FIX
+   KEEP AT THE VERY END OF payments.css
+   ========================================================= */
+
+   @media (max-width: 820px) {
+
+    /* ---------- Page ---------- */
+  
+    .pay-wrap,
+    body[data-wl-bc="payments"] .pay-wrap--compact {
+      width: 100%;
+      max-width: 100%;
+      margin: 12px auto 28px;
+      padding: 0 12px;
+      min-width: 0;
+    }
+  
+  
+    /* ---------- Header ---------- */
+  
+    .pay-header {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 14px;
+      padding: 16px;
+      margin-bottom: 18px;
+      border-radius: 18px;
+    }
+  
+    .pay-header > * {
+      min-width: 0;
+      max-width: 100%;
+    }
+  
+    .pay-header h2 {
+      font-size: 25px;
+      line-height: 1.3;
+    }
+  
+    .pay-header p {
+      font-size: 12px;
+      line-height: 1.6;
+    }
+  
+    .pay-search {
+      width: 100%;
+    }
+  
+    .pay-search input {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+    }
+  
+  
+    /* ---------- New payments dashboard ---------- */
+  
+    body[data-wl-bc="payments"] .pay-wrap--compact .payments-dash {
+      width: 100% !important;
+      max-width: 100% !important;
+      min-width: 0 !important;
+      overflow: hidden !important;
+    }
+  
+    body[data-wl-bc="payments"] .pay-wrap--compact .payments-dash__titlebar {
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: stretch !important;
+      gap: 10px !important;
+      padding: 14px !important;
+    }
+  
+    body[data-wl-bc="payments"] .pay-wrap--compact .payments-dash__page-title {
+      font-size: 1.2rem !important;
+    }
+  
+    body[data-wl-bc="payments"] .pay-wrap--compact .payments-dash__page-sub {
+      font-size: 0.78rem !important;
+      line-height: 1.6 !important;
+    }
+  
+    body[data-wl-bc="payments"] .pay-wrap--compact .payments-dash__search {
+      display: block !important;
+      width: 100% !important;
+      max-width: 100% !important;
+    }
+  
+  
+    /* ---------- Filters ---------- */
+  
+    body[data-wl-bc="payments"] .pay-wrap--compact .payments-dash__filters {
+      width: 100% !important;
+      display: flex !important;
+      flex-wrap: wrap !important;
+      gap: 8px !important;
+    }
+  
+    body[data-wl-bc="payments"] .pay-wrap--compact .payments-dash__filters > * {
+      min-width: 0 !important;
+      max-width: 100% !important;
+    }
+  
+  
+    /* ---------- Dashboard tenant/header information ---------- */
+  
+    body[data-wl-bc="payments"] .pay-wrap--compact .payments-dash__header {
+      width: 100% !important;
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: stretch !important;
+      gap: 10px !important;
+      padding: 12px 14px !important;
+    }
+  
+    .payments-dash__tenant-name {
+      overflow-wrap: anywhere;
+    }
+  
+    .payments-dash__chip,
+    .payments-dash__chip--accent,
+    .payments-dash__count {
+      max-width: 100%;
+    }
+  
+  
+    /* ---------- Summary ---------- */
+  
+    .pay-summary {
+      width: 100%;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 9px;
+    }
+  
+    .sum-card {
+      min-width: 0;
+      min-height: 72px;
+      padding: 12px;
+      border-radius: 14px;
+    }
+  
+    .sum-label {
+      font-size: 11px;
+    }
+  
+    .sum-value {
+      font-size: 16px;
+      overflow-wrap: anywhere;
+    }
+  
+  
+    /* ---------- Payment cards ---------- */
+  
+    .pay-list {
+      width: 100%;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+  
+    .pay-card {
+      width: 100%;
+      min-width: 0;
+      padding: 13px;
+      border-radius: 16px;
+    }
+  
+    .row {
+      min-width: 0;
+    }
+  
+    .v {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+  
+  
+    /* ---------- Tables ---------- */
+  
+    .pay-table-wrap,
+    .table-wrap,
+    .payments-table-wrap {
+      display: block;
+      width: 100% !important;
+      max-width: 100% !important;
+      min-width: 0 !important;
+      overflow-x: auto !important;
+      overflow-y: hidden;
+      border-radius: 14px;
+      -webkit-overflow-scrolling: touch;
+    }
+  
+    .pay-table-wrap table,
+    .table-wrap table,
+    .payments-table {
+      width: max-content !important;
+      min-width: 700px;
+    }
+  
+    .pay-table-wrap thead th,
+    .table-wrap thead th,
+    .payments-table th {
+      padding: 10px 9px;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+  
+    .pay-table-wrap tbody td,
+    .table-wrap tbody td,
+    .payments-table td {
+      padding: 10px 9px;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+  
+  
+    /* ---------- Alerts / reminders ---------- */
+  
+    #paymentsReminder,
+    .payments-alert {
+      width: 100% !important;
+      max-width: 100% !important;
+      min-width: 0 !important;
+    }
+  
+    .payments-alert {
+      padding: 10px 12px !important;
+      font-size: 12px !important;
+      line-height: 1.6 !important;
+    }
+  
+  
+    /* ---------- Prevent children from widening page ---------- */
+  
+    .payments-dash,
+    .payments-dash__titlebar,
+    .payments-dash__header,
+    .payments-dash__filters,
+    .pay-summary,
+    .pay-list {
+      min-width: 0;
+      max-width: 100%;
+    }
+  
+  }
+  
+  
+  /* =========================================================
+     SMALL PHONES
+     ========================================================= */
+  
+  @media (max-width: 560px) {
+  
+    .pay-wrap,
+    body[data-wl-bc="payments"] .pay-wrap--compact {
+      margin-top: 8px;
+      padding-inline: 10px;
+    }
+  
+  
+    /* ---------- Header ---------- */
+  
+    .pay-header {
+      padding: 13px;
+      margin-bottom: 14px;
+    }
+  
+    .pay-header h2 {
+      font-size: 21px;
+    }
+  
+  
+    /* ---------- Dashboard ---------- */
+  
+    body[data-wl-bc="payments"] .pay-wrap--compact .payments-dash__titlebar,
+    body[data-wl-bc="payments"] .pay-wrap--compact .payments-dash__header {
+      padding: 12px !important;
+    }
+  
+    body[data-wl-bc="payments"] .pay-wrap--compact .payments-dash__page-title {
+      font-size: 1.1rem !important;
+    }
+  
+  
+    /* ---------- Summary cards ---------- */
+  
+    .pay-summary {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+  
+    .sum-card {
+      padding: 11px 10px;
+      min-height: 68px;
+    }
+  
+    .sum-label {
+      font-size: 10px;
+    }
+  
+    .sum-value {
+      font-size: 15px;
+    }
+  
+  
+    /* ---------- Payment card rows ---------- */
+  
+    .row {
+      gap: 8px;
+    }
+  
+    .k {
+      font-size: 11px;
+    }
+  
+    .v {
+      font-size: 13px;
+    }
+  
+  
+    /* ---------- Table ---------- */
+  
+    .pay-table-wrap table,
+    .table-wrap table,
+    .payments-table {
+      min-width: 650px;
+    }
+  
+  
+    /* ---------- Record payment modal ---------- */
+  
+    #recordPaymentModal .wl-modal__panel {
+      width: calc(100vw - 20px) !important;
+      max-width: calc(100vw - 20px) !important;
+      min-width: 0 !important;
+      max-height: calc(100dvh - 20px) !important;
+      border-radius: 16px !important;
+    }
+  
+    #recordPaymentModal .wl-modal__header {
+      padding: 14px !important;
+    }
+  
+    #recordPaymentModal .wl-modal__body {
+      padding: 14px !important;
+    }
+  
+    #recordPaymentModal .wl-modal__footer {
+      padding: 12px 14px 14px !important;
+    }
+  
+    #recordPaymentModal .payments-form-grid {
+      grid-template-columns: 1fr !important;
+    }
+  
+    #recordPaymentModal .wl-btn {
+      max-width: 100%;
+    }
+  
+  }
+  
+  
+  /* =========================================================
+     VERY SMALL PHONES
+     ========================================================= */
+  
+  @media (max-width: 380px) {
+  
+    .pay-summary {
+      grid-template-columns: 1fr;
+    }
+  
+  }
+
+ /* Make unsettled insurance text same size as the other insurance labels */
+

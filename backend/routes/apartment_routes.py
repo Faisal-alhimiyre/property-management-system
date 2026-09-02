@@ -968,7 +968,7 @@ def _repair_stale_apartment_tenant_columns(rows: list[dict]) -> list[dict]:
 
 
 def _is_contract_row_active(row: dict) -> bool:
-    status = str(row.get("status") or "active").lower()
+    status = str(row.get("status") or "").lower()
     if status in ("renewed", "terminated", "amended", "superseded", "ended", "cancelled"):
         return False
     return status == "active"
@@ -995,11 +995,11 @@ def _active_contract_rows_for_apartment(apartment_id: int) -> list[dict]:
 
     try:
         res = (
-            supabase.table("contracts")
-            .select("id, apartment_id, start_date, end_date")
-            .eq("apartment_id", apartment_id)
-            .execute()
-        )
+    supabase.table("contracts")
+    .select("id, apartment_id, start_date, end_date, status")
+    .eq("apartment_id", apartment_id)
+    .execute()
+)
     except Exception:
         logger.exception("contracts list failed apartment_id=%s", apartment_id)
         return []

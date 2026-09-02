@@ -763,6 +763,253 @@ body{
   line-height: 1.65;
   color: rgba(26, 47, 74, 0.74);
 }
+/* =========================================================
+   FEATURES — LARGE DESKTOP LAYOUT
+   ========================================================= */
+
+  /* =========================================================
+   FEATURES — DESKTOP
+   card + screenshot + screenshot
+   ========================================================= */
+
+@media (min-width: 961px) {
+
+  .feature-grid {
+    width: min(1700px, calc(100vw - 80px));
+    max-width: none;
+    margin: 0 auto;
+
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+
+    /* Space between the 3 feature columns */
+    gap: 70px;
+
+    align-items: start;
+  }
+
+  .feature-showcase {
+    width: 100%;
+    min-width: 0;
+
+    display: flex;
+    flex-direction: column;
+
+    gap: 16px;
+  }
+
+  /* Feature card */
+  .feature-showcase .feature-card {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+
+    min-height: 360px;
+    padding: 32px 28px;
+  }
+
+  .feature-card__icon {
+    width: 105px;
+    height: 105px;
+  }
+
+  .feature-card__icon img {
+    width: 90px;
+    height: 90px;
+  }
+
+  .feature-card__title {
+    font-size: 1.3rem;
+  }
+
+  .feature-card__text {
+    font-size: 1.03rem;
+    line-height: 1.8;
+  }
+
+  /* Screenshots stacked vertically */
+  .feature-examples {
+    width: 100%;
+
+    display: flex;
+    flex-direction: column;
+
+    gap: 16px;
+
+    margin: 0;
+  }
+
+  /* EXACT same width as feature card */
+  .feature-example {
+    width: 100%;
+    height: 280px;
+
+    overflow: hidden;
+
+    border-radius: 4px;
+    background: #fff;
+
+    border: 1px solid rgba(31, 193, 224, 0.28);
+
+    box-shadow:
+      0 14px 32px rgba(15, 23, 42, 0.10),
+      0 3px 8px rgba(15, 23, 42, 0.05);
+  }
+
+  .feature-example img {
+    display: block;
+
+    width: 100%;
+    height: 100%;
+
+    object-fit: cover;
+    object-position: top center;
+  }
+}
+@media (max-width: 600px) {
+
+  .section--features {
+    padding-inline: 14px;
+  }
+
+  .section--features .section__head {
+    margin-bottom: 28px;
+  }
+
+
+  .feature-grid {
+    width: 100%;
+    max-width: none;
+
+    /* Clear separation between Feature 1 / 2 / 3 */
+    gap: 44px;
+  }
+
+
+  .feature-showcase {
+    gap: 10px;
+  }
+
+
+  .feature-showcase .feature-card {
+    width: 100%;
+
+    padding: 22px 18px;
+
+    border-radius: 18px;
+  }
+
+
+  .feature-card__icon {
+    width: 76px;
+    height: 76px;
+
+    margin-bottom: 14px;
+  }
+
+  .feature-card__icon img {
+    width: 64px;
+    height: 64px;
+  }
+
+
+  .feature-card__title {
+    font-size: 1.1rem;
+  }
+
+  .feature-card__text {
+    font-size: 0.94rem;
+    line-height: 1.75;
+  }
+
+
+  .feature-examples {
+    gap: 9px;
+  }
+
+
+  .feature-example {
+    width: 100%;
+    height: auto;
+
+    aspect-ratio: 16 / 9;
+
+    border-radius: 3px;
+  }
+}
+  /* Desktop hover */
+  @media (hover: hover) {
+  
+    .feature-example {
+      transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
+    }
+  
+    .feature-example:hover {
+      transform: translateY(-3px);
+  
+      box-shadow:
+        0 14px 32px rgba(16, 43, 76, 0.15);
+    }
+  
+  }
+  
+  
+  /* =========================================================
+     TABLET / MOBILE
+     ========================================================= */
+  
+  @media (max-width: 960px) {
+  
+    .feature-grid {
+      grid-template-columns: 1fr;
+  
+      gap: 44px;
+    }
+  
+    .feature-showcase {
+      width: 100%;
+  
+      gap: 18px;
+    }
+  
+    .feature-showcase .feature-card {
+      min-height: 0;
+    }
+  
+    .feature-examples {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+  
+      gap: 12px;
+    }
+  
+  }
+  
+  
+  /* =========================================================
+     SMALL PHONES
+     ========================================================= */
+  
+  @media (max-width: 600px) {
+  
+    .feature-grid {
+      gap: 38px;
+    }
+  
+    .feature-showcase {
+      gap: 14px;
+    }
+  
+    .feature-examples {
+      gap: 8px;
+    }
+  
+    .feature-example {
+      border-radius: 11px;
+    }
+  
+  }
 /* How it works — owner / tenant switch */
 .how-switch{
   width: fit-content;
@@ -1301,8 +1548,516 @@ body.dark-mode .nav__link{
 body.dark-mode .nav__link:hover{
   color: #f8fafc;
 }
+/* =========================================================
+   MOBILE / TABLET HOMEPAGE
+   ========================================================= */
+
+   @media (max-width: 960px) {
+
+    /* ---------- Global section spacing ---------- */
+  
+    .section {
+      padding-inline: 16px;
+    }
+  
+    .section__head {
+      margin-bottom: 1.5rem;
+    }
+  
+    .section__title {
+      font-size: clamp(1.8rem, 7vw, 2.5rem);
+      text-align: center;
+    }
+  
+    .section__rule {
+      margin-inline: auto;
+    }
+  
+  
+    /* ---------- Hero ---------- */
+  
+    .hero {
+      min-height: auto;
+      padding: 40px 16px 48px;
+    }
+  
+    .hero__inner {
+      width: 100%;
+      max-width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 28px;
+    }
+  
+    .hero__content {
+      width: 100%;
+      max-width: 100%;
+      text-align: center;
+    }
+  
+    .hero__title {
+      font-size: clamp(2rem, 9vw, 3rem);
+      line-height: 1.25;
+    }
+  
+    .hero__subtitle {
+      max-width: 100%;
+      margin-inline: auto;
+      font-size: 1rem;
+      line-height: 1.8;
+    }
+  
+    .hero__actions {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: stretch;
+    }
+  
+    .hero__actions .btn {
+      width: 100%;
+    }
+  
+    .hero-art {
+      width: 100%;
+      max-width: 420px;
+      margin-inline: auto;
+    }
+  
+    .hero-art__chips {
+      width: 100%;
+    }
+  
+  
+    /* ---------- Features ---------- */
+  
+    .feature-grid {
+      grid-template-columns: 1fr;
+      gap: 18px;
+    }
+  
+    .feature-card {
+      width: 100%;
+      min-height: auto;
+      padding: 20px;
+    }
+  
+    .feature-card__icon {
+      width: 76px;
+      height: 76px;
+      margin-bottom: 1rem;
+    }
+  
+    .feature-card__icon img {
+      width: 64px;
+      height: 64px;
+    }
+  
+    .feature-card__title {
+      font-size: 1.1rem;
+    }
+  
+    .feature-card__text {
+      font-size: 0.95rem;
+      line-height: 1.75;
+    }
+  
+  
+    /* ---------- About ---------- */
+  
+    .about-panel {
+      width: 100%;
+      max-width: 100%;
+    }
+  
+    .about-grid {
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+  
+    .about-card {
+      width: 100%;
+      padding: 20px 18px;
+    }
+  
+    .about-card__title {
+      font-size: 1.05rem;
+    }
+  
+    .about-card__text {
+      font-size: 0.93rem;
+      line-height: 1.75;
+    }
+  
+  
+    /* ---------- How it works ---------- */
+  
+    .how-switch {
+      width: 100%;
+      max-width: 360px;
+      margin: 0 auto 1.5rem;
+      padding: 4px;
+    }
+  
+    .how-switch__btn {
+      flex: 1;
+      min-width: 0;
+      padding: 10px 12px;
+      font-size: 0.9rem;
+    }
+  
+    .steps {
+      grid-template-columns: 1fr;
+      gap: 16px;
+      width: 100%;
+      max-width: 100%;
+    }
+  
+    .steps::before {
+      display: none;
+    }
+  
+    .step-card {
+      width: 100%;
+      min-height: auto;
+      padding: 20px 18px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+  
+    .step-card__num {
+      flex: 0 0 54px;
+      width: 54px;
+      height: 54px;
+      font-size: 1.15rem;
+    }
+  
+    .step-card__body {
+      flex: 1;
+      min-width: 0;
+    }
+  
+    .step-card__title {
+      font-size: 1.05rem;
+      margin-bottom: 6px;
+    }
+  
+    .step-card__text {
+      font-size: 0.92rem;
+      line-height: 1.7;
+    }
+  
+    .how-steps[hidden] {
+      display: none !important;
+    }
+  
+  
+    /* ---------- Contact ---------- */
+  
+    .contact-band {
+      padding-inline: 16px;
+    }
+  
+    .contact-band .contact-band__inner {
+      width: 100%;
+      max-width: 100%;
+      justify-content: center;
+    }
+  
+    .contact-band__cta {
+      width: 100%;
+      max-width: 320px;
+      text-align: center;
+    }
+  
+  
+    /* ---------- Footer ---------- */
+  
+    .footer,
+    .site-footer {
+      padding-inline: 16px;
+    }
+  
+  }
+  
+  
+  /* =========================================================
+     SMALL PHONES
+     ========================================================= */
+  
+  @media (max-width: 600px) {
+  
+    .section {
+      padding-inline: 12px;
+    }
+  
+    .section__title {
+      font-size: 2rem;
+    }
+  
+    .hero {
+      padding-inline: 12px;
+    }
+  
+    .hero__title {
+      font-size: 2.15rem;
+    }
+  
+    .feature-card,
+    .about-card,
+    .step-card {
+      border-radius: 18px;
+    }
+  
+    .feature-card {
+      padding: 18px 16px;
+    }
+  
+    .about-card {
+      padding: 18px 16px;
+    }
+  
+    .step-card {
+      padding: 18px 16px;
+      gap: 12px;
+    }
+  
+    .step-card__num {
+      flex-basis: 48px;
+      width: 48px;
+      height: 48px;
+    }
+  
+    .how-switch {
+      max-width: 100%;
+    }
+  
+    .how-switch__btn {
+      padding: 9px 8px;
+      font-size: 0.85rem;
+    }
+  
+  }
 #feature-buildings,
 #feature-tenants,
 #feature-services{
   scroll-margin-top: calc(var(--walajna-topbar-height, 88px) + 24px);
 }
+/* =========================================================
+   PHONE HARD RESET
+   MUST STAY AT THE VERY BOTTOM OF HOMEPAGE.CSS
+   ========================================================= */
+
+   @media (max-width: 600px) {
+
+    html {
+      zoom: 1 !important;
+      width: 100% !important;
+      overflow-x: hidden !important;
+    }
+  
+    body {
+      width: 100% !important;
+      max-width: 100% !important;
+      overflow-x: hidden !important;
+    }
+  
+    .home-surface {
+      width: 100% !important;
+      max-width: 100% !important;
+      overflow-x: hidden !important;
+    }
+  
+  
+    /* ================= HERO ================= */
+  
+    .hero--catchy {
+      width: 100% !important;
+      min-height: auto !important;
+  
+      padding: 32px 14px 55px !important;
+  
+      display: flex !important;
+      flex-direction: column !important;
+  
+      overflow: hidden !important;
+    }
+  
+    .hero__inner {
+      width: 100% !important;
+      max-width: 100% !important;
+  
+      margin: 0 auto !important;
+  
+      display: flex !important;
+      flex-direction: column !important;
+  
+      align-items: center !important;
+  
+      gap: 24px !important;
+  
+      transform: none !important;
+    }
+  
+    .hero__content {
+      width: 100% !important;
+      max-width: 100% !important;
+  
+      padding: 0 !important;
+  
+      text-align: center !important;
+    }
+  
+    .hero__showcase {
+      width: 100% !important;
+      max-width: 100% !important;
+      min-width: 0 !important;
+  
+      margin: 0 auto !important;
+  
+      transform: none !important;
+    }
+  
+    .hero-art {
+      width: 100% !important;
+      max-width: 100% !important;
+    }
+  
+  
+    /* ================= SECTIONS ================= */
+  
+    .section {
+      width: 100% !important;
+      max-width: 100% !important;
+  
+      padding-inline: 14px !important;
+  
+      overflow: hidden !important;
+    }
+  
+  
+    /* ================= FEATURES ================= */
+  
+    .feature-grid {
+      width: 100% !important;
+      max-width: 100% !important;
+  
+      margin: 0 auto !important;
+  
+      display: grid !important;
+      grid-template-columns: 1fr !important;
+  
+      gap: 44px !important;
+  
+      transform: none !important;
+    }
+  
+    .feature-showcase {
+      width: 100% !important;
+      min-width: 0 !important;
+      max-width: 100% !important;
+  
+      margin: 0 !important;
+  
+      display: flex !important;
+      flex-direction: column !important;
+  
+      gap: 10px !important;
+  
+      transform: none !important;
+    }
+  
+  
+    /* Feature itself */
+    .feature-showcase .feature-card {
+      width: 100% !important;
+      min-width: 0 !important;
+      max-width: 100% !important;
+  
+      min-height: 0 !important;
+  
+      margin: 0 !important;
+  
+      padding: 22px 18px !important;
+    }
+  
+  
+    /* Two screenshots UNDER each other */
+    .feature-examples {
+      width: 100% !important;
+      min-width: 0 !important;
+      max-width: 100% !important;
+  
+      margin: 0 !important;
+  
+      display: flex !important;
+      flex-direction: column !important;
+  
+      gap: 10px !important;
+  
+      transform: none !important;
+    }
+  
+    .feature-example {
+      width: 100% !important;
+      min-width: 0 !important;
+      max-width: 100% !important;
+  
+      height: auto !important;
+  
+      aspect-ratio: 16 / 9 !important;
+  
+      margin: 0 !important;
+  
+      overflow: hidden !important;
+  
+      border-radius: 4px !important;
+    }
+  
+    .feature-example img {
+      display: block !important;
+  
+      width: 100% !important;
+      height: 100% !important;
+  
+      object-fit: cover !important;
+      object-position: top center !important;
+    }
+  
+  
+    /* ================= ABOUT ================= */
+  
+    .about-grid {
+      width: 100% !important;
+      max-width: 100% !important;
+  
+      grid-template-columns: 1fr !important;
+    }
+  
+  
+    /* ================= HOW IT WORKS ================= */
+  
+    .steps {
+      width: 100% !important;
+      max-width: 100% !important;
+  
+      grid-template-columns: 1fr !important;
+    }
+  
+    .how-switch {
+      width: 100% !important;
+      max-width: 340px !important;
+    }
+  
+  
+    /* ================= FOOTER / CONTACT ================= */
+  
+    .contact-band,
+    .footer {
+      width: 100% !important;
+      max-width: 100% !important;
+    }
+  }

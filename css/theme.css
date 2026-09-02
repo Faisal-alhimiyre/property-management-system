@@ -400,3 +400,11 @@ body:has(#walajna-breadcrumb) .walajna-global-back{
   html {
     zoom: 0.75;
   }
+/* Fix breadcrumb position when desktop page uses zoom: 0.75 */
+@media (min-width: 961px) {
+
+  .walajna-breadcrumb {
+    top: calc(var(--walajna-topbar-height) / 0.75);
+  }
+
+}
